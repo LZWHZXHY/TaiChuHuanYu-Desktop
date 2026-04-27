@@ -1,0 +1,27 @@
+# --- 敏感文件 (必加!) ---
+*.token
+auth.token
+appsettings.json
+appsettings.Development.json
+*.env
+*.key
+*.pem
+
+# --- 前端垃圾 (Vue3) ---
+node_modules/
+dist/
+.DS_Store
+npm-debug.log*
+
+# --- 后端垃圾 (.NET) ---
+[Bb]in/
+[Oo]bj/
+.vs/
+.vscode/
+*.user
+*.suo
+Migrations/
+
+# --- 数据库 ---
+*.db
+*.sqlite
