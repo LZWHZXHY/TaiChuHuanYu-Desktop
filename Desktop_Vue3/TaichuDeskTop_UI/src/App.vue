@@ -1,85 +1,163 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import request from './utils/request' 
+import OperationTerminal from './components/OperationTerminal.vue' // 引入你的新组件
+import { useUserStore } from './stores/user'
 
+// 插件接口定义
 interface Plugin {
-  Name: string;
-  Url: string;
-  Icon: string;
+  name: string;
+  url: string;
+  icon: string;
+  requiresAuth: boolean;
 }
-
+const userStore = useUserStore()
 const router = useRouter()
-const plugins = ref<Plugin[]>([])
+const allPlugins = ref<Plugin[]>([]) 
 const activeMenu = ref('推送首页')
 
-
-
-onMounted(() => {
-  (window as any).receivePlugins = (data: Plugin[]) => {
-    console.log("收到插件列表:", data)
-    plugins.value = data
-
-    data.forEach(item => {
-      if (item.Url !== '/') {
-        router.addRoute({
-          path: item.Url,
-          name: item.Name,
-          component: () => import(`./views/${item.Name}/index.vue`)
-        })
-      }
-    })
-  }
+const visiblePlugins = computed(() => {
+  const hasToken = !!localStorage.getItem('token');
+  
+  return allPlugins.value.filter(item => {
+    const hiddenItems = ['身份认证', '个人中心'];
+    if (hiddenItems.includes(item.name)) return false;
+    return !item.requiresAuth || hasToken;
+  });
 })
 
-
-
-const navigateTo = (item: Plugin) => {
-  activeMenu.value = item.Name
-  
-  if (item.Url.startsWith('http')) {
-    // 强制转为 any 来逃避类型检查
-    (window as any).chrome?.webview?.postMessage({ 
-      cmd: 'load_external_url', 
-      url: item.Url 
+const fetchPlugins = async () => {
+  try {
+    const res = await request.get<any, any>('/Plugins');
+    const pluginList = Array.isArray(res) ? res : (res.data || []);
+    allPlugins.value = pluginList;
+    pluginList.forEach((item: Plugin) => {
+      if (item.url !== '/' && !item.url.startsWith('http')) {
+        if (!router.hasRoute(item.name)) {
+          router.addRoute({
+            path: item.url,
+            name: item.name,
+            component: () => import(`./views/${item.name}/index.vue`),
+            meta: { requiresAuth: item.requiresAuth } 
+          });
+        }
+      }
     });
-  } else {
-    router.push(item.Url)
+
+    console.log('灵脉插件加载成功:', pluginList.length);
+  } catch (error) {
+    console.error("云端灵脉读取失败:", (error as any).friendlyMessage || error);
   }
 }
 
+// 处理从“操作终端”组件传回的导航指令
+const handleNavigation = (item: Plugin) => {
+  activeMenu.value = item.name
+  
+  if (item.url.startsWith('http')) {
+    // 处理 WPF 外部链接跳转
+    (window as any).chrome?.webview?.postMessage({ 
+      cmd: 'load_external_url', 
+      url: item.url 
+    });
+  } else {
+    // 正常路由跳转
+    router.push(item.url)
+  }
+}
+
+onMounted(async ()=> {
+  fetchPlugins();
+  if (localStorage.getItem('token')) {
+    await userStore.fetchUserInfo();
+    console.log('灵脉数据已同步');
+  }
+  (window as any).receivePlugins = (data: Plugin[]) => {
+    console.log("收到 WPF 指令:", data);
+    if(data && data.length > 0) allPlugins.value = data;
+  }
+})
 </script>
 
 <template>
   <div class="app-shell">
-    <nav class="sidebar">
-      <div class="brand">太初寰宇</div>
-      <div 
-        v-for="item in plugins" 
-        :key="item.Name"
-        :class="['nav-item', { active: activeMenu === item.Name }]"
-        @click="navigateTo(item)"
-      >
-        <span class="icon">#</span> {{ item.Name }}
-      </div>
-    </nav>
+    <OperationTerminal 
+      :menuItems="visiblePlugins" 
+      :activeName="activeMenu"
+      @navigate="handleNavigation"
+    />
 
     <main class="container">
-      <header class="header">
-        <h2>{{ activeMenu }}</h2>
-      </header>
+      
+      
       <section class="viewport">
-        <RouterView /> 
+        <div class="viewport-content">
+          <RouterView /> 
+        </div>
       </section>
     </main>
   </div>
 </template>
 
 <style scoped>
-.app-shell { display: flex; height: 100vh; background: #0a0a0a; color: #eee; }
-.sidebar { width: 240px; background: #111; border-right: 1px solid #222; }
-.nav-item { padding: 12px 20px; cursor: pointer; color: #888; }
-.nav-item.active { background: #0078d422; color: #0078d4; }
-.container { flex: 1; display: flex; flex-direction: column; }
-.header { height: 80px; padding: 0 30px; display: flex; align-items: center; border-bottom: 1px solid #222; }
-.viewport { flex: 1; padding: 20px; overflow-y: auto; }
+.app-shell { 
+  display: flex; 
+  width: 100vw;
+  height: 100vh; 
+  background: #ffffff;
+  color: #24292f;
+  overflow: hidden;
+}
+
+.container { 
+  flex: 1; 
+  display: flex; 
+  flex-direction: column;
+  min-width: 0; /* 关键：允许容器在 flex 布局中缩小，防止挤出屏幕 */
+}
+
+
+
+/* App.vue 中的样式修改 */
+
+.header-content, .viewport-content {
+
+  width: 100%;
+  /* 极致阅读体验：限制最大宽度防止行太长，但不强制居中 */
+
+  /* 删掉 margin: 0 auto; */
+  margin: 0; 
+  transition: all 0.3s ease;
+}
+
+.header { 
+  height: 80px; 
+  padding: 0 5%; 
+  display: flex; 
+  align-items: flex-end; 
+  padding-bottom: 24px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.viewport { 
+  flex: 1; 
+  /* 同步左侧留白 */
+  padding: 40px 5%; 
+  overflow-y: auto;
+}
+
+/* 移动端适配：回归紧凑 */
+@media (max-width: 768px) {
+  .header {
+    height: 70px;
+    padding: 0 20px;
+  }
+  .viewport {
+    padding: 20px;
+  }
+  .header-content, .viewport-content {
+    max-width: 100%; /* 手机端必须占满 */
+  }
+}
 </style>

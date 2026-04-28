@@ -12,7 +12,6 @@ using Microsoft.Web.WebView2.Core;
 
 namespace TaiChuHuanYu_DeskTop_V1
 {
-    //这里处理互动逻辑
     public partial class MainWindow : Window
     {
         public MainWindow()
@@ -25,68 +24,83 @@ namespace TaiChuHuanYu_DeskTop_V1
         {
             await MainWebView.EnsureCoreWebView2Async(null);
 
+
+            string originalUserAgent = MainWebView.CoreWebView2.Settings.UserAgent;
+            MainWebView.CoreWebView2.Settings.UserAgent = originalUserAgent + " TaiChuDesktop/1.0";
+
+            // 1. 监听网页消息
             MainWebView.WebMessageReceived += (s, e) =>
             {
-                
                 var json = e.WebMessageAsJson;
                 using var doc = System.Text.Json.JsonDocument.Parse(json);
 
-               
-                if (doc.RootElement.TryGetProperty("cmd", out var cmdEl) && cmdEl.GetString() == "SAVE_AUTH_TOKEN")
+                if (doc.RootElement.TryGetProperty("cmd", out var cmdEl))
                 {
-                    string token = doc.RootElement.GetProperty("token").GetString();
-                    SaveTokenAndReload(token); 
+                    string cmd = cmdEl.GetString();
+                    if (cmd == "SAVE_AUTH_TOKEN")
+                    {
+                        string token = doc.RootElement.GetProperty("token").GetString();
+                        // 【新增】尝试获取用户名，让本地化更完整
+                        string username = doc.RootElement.TryGetProperty("username", out var uEl) ? uEl.GetString() : "";
+                        SaveTokenAndReload(token, username);
+                    }
                 }
             };
 
+            MainWebView.Source = new Uri("http://localhost:5173");
 
-            MainWebView.Source = new Uri("http://localhost:5173"); //加载网页内容 Vue3
-
+            // 2. 导航完成时的逻辑（核心修改）
             MainWebView.CoreWebView2.NavigationCompleted += async (s, e) =>
             {
-                bool isLogin = CheckLocalToken();
+                string token = GetLocalToken();
+                bool isLogin = !string.IsNullOrWhiteSpace(token);
 
+                // --- 【核心修改】自动同步 Token 到 Vue 的 localStorage ---
+                if (isLogin)
+                {
+                    // 将本地存储的 JWT 注入到网页中，这样 Vue 的 Axios 拦截器就能直接用了
+                    await MainWebView.CoreWebView2.ExecuteScriptAsync($"localStorage.setItem('token', '{token}');");
+                }
 
-
-
+                // 3. 构建插件菜单
                 var plugins = new List<PluginInfo>();
                 if (!isLogin)
                 {
-                    plugins.Add(new PluginInfo { Name = "身份认证", Url = "/LoginRegister" });
+                    plugins.Add(new PluginInfo { Name = "身份认证", Url = "/LoginRegister", Icon = "Lock" });
                 }
                 else
                 {
-                    // 已登录，加载全部灵脉插件
-                    plugins.Add(new PluginInfo { Name = "推送首页", Url = "/" });
-                    plugins.Add(new PluginInfo { Name = "太初灵脉", Url = "/lingmai" });
+                    plugins.Add(new PluginInfo { Name = "推送首页", Url = "/", Icon = "Home" });
+                    plugins.Add(new PluginInfo { Name = "太初灵脉", Url = "/lingmai", Icon = "Bolt" });
                 }
 
                 string json = System.Text.Json.JsonSerializer.Serialize(plugins);
                 await MainWebView.CoreWebView2.ExecuteScriptAsync($"window.receivePlugins({json})");
             };
-
-
-
-
-            
-
         }
 
         private string tokenFilePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "auth.token");
-        private bool CheckLocalToken()
+
+        // 修改：直接返回 Token 内容，方便后续注入
+        private string GetLocalToken()
         {
-            // 如果文件存在且里面有内容，就认为已登录
-            return System.IO.File.Exists(tokenFilePath) && !string.IsNullOrWhiteSpace(System.IO.File.ReadAllText(tokenFilePath));
+            if (System.IO.File.Exists(tokenFilePath))
+            {
+                return System.IO.File.ReadAllText(tokenFilePath);
+            }
+            return null;
         }
 
-        private async void SaveTokenAndReload(string token)
+        private bool CheckLocalToken() => !string.IsNullOrWhiteSpace(GetLocalToken());
+
+        private async void SaveTokenAndReload(string token, string username)
         {
-            // 将 Token 写入本地文件
+            
             await System.IO.File.WriteAllTextAsync(tokenFilePath, token);
-            // 关键：刷新 WebView2，这会重新触发 NavigationCompleted，从而加载完整菜单
+
+           
             MainWebView.CoreWebView2.Reload();
         }
-
 
         public class PluginInfo
         {
