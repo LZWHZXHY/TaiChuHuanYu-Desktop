@@ -8,7 +8,7 @@
           class="masonry-item group"
         >
           <div class="item-visual">
-            <img :src="art.cover" class="item-image" loading="lazy" />
+            <img :src="art.coverImageUrl || '/default-cover.jpg'" class="item-image" loading="lazy" />
             <div class="item-overlay">
               <span class="badge">{{ art.imageCount }}P</span>
             </div>
@@ -29,30 +29,27 @@
     </div>
 
     <div ref="loadMoreRef" class="status-bar">
-      <div v-if="loading" class="loading-text">灵脉搬运中...</div>
-      <div v-else-if="noMore" class="end-text">已触达维度尽头</div>
+      <div v-if="loading" class="loading-text">加载中...</div>
+      <div v-else-if="noMore" class="end-text">已抵达尽头</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { artworkApi, type ArtworkItemDto } from '../../api/artwork'; // 引入刚才写的API
 
-interface Artwork {
-  id: number;
-  title: string;
-  cover: string;
-  authorName: string;
-  authorAvatar: string;
-  imageCount: number;
-}
-
-const artworks = ref<Artwork[]>([]);
+// 使用后端返回的 DTO 类型
+const artworks = ref<ArtworkItemDto[]>([]);
 const loading = ref(false);
 const noMore = ref(false);
 const loadMoreRef = ref<HTMLElement | null>(null);
 
-// 响应式列数控制
+// 分页偏移量
+const offset = ref(0);
+const pageSize = 20;
+
+// 响应式列数控制 (保持不变)
 const columnCount = ref(5);
 const updateColumnCount = () => {
   const width = window.innerWidth;
@@ -62,33 +59,33 @@ const updateColumnCount = () => {
   else columnCount.value = 5;
 };
 
-// 将数据分发到对应的列
 const getColumnItems = (colIndex: number) => {
   return artworks.value.filter((_, index) => index % columnCount.value === colIndex);
 };
 
+// --- 实战化数据加载 ---
 const loadData = async () => {
   if (loading.value || noMore.value) return;
   loading.value = true;
-  await new Promise(resolve => setTimeout(resolve, 800));
   
-  const newData: Artwork[] = Array.from({ length: 15 }).map((_, i) => {
-    const currentId = artworks.value.length + i;
-    // 关键：随机高度区间锁定在高级比例
-    const randomHeight = Math.floor(Math.random() * 200 + 300); 
-    return {
-      id: currentId,
-      title: `维度碎片 #${currentId}`,
-      cover: `https://picsum.photos/400/${randomHeight}?random=${currentId}`,
-      authorName: '隐世道友',
-      authorAvatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${currentId}`,
-      imageCount: Math.floor(Math.random() * 5 + 1)
-    };
-  });
-
-  artworks.value.push(...newData);
-  if (artworks.value.length >= 60) noMore.value = true;
-  loading.value = false;
+  try {
+    const res = await artworkApi.getGallery(offset.value, pageSize);
+    
+    // 追加数据
+    artworks.value.push(...res.data);
+    
+    // 更新偏移量用于下一次请求
+    offset.value += res.data.length;
+    
+    // 判断是否加载完毕
+    if (!res.hasMore || res.data.length === 0) {
+      noMore.value = true;
+    }
+  } catch (error) {
+    console.error('灵脉阻塞，获取作品失败:', error);
+  } finally {
+    loading.value = false;
+  }
 };
 
 let observer: IntersectionObserver | null = null;
@@ -98,6 +95,7 @@ onMounted(() => {
   window.addEventListener('resize', updateColumnCount);
 
   observer = new IntersectionObserver((entries) => {
+    // rootMargin: '400px' 表示距离底部还有400px时就开始预加载
     if (entries[0].isIntersecting) loadData();
   }, { rootMargin: '400px' });
 
@@ -115,19 +113,25 @@ onUnmounted(() => {
   max-width: 1600px;
   margin: 0 auto;
   padding: 0 20px;
+  box-sizing: border-box; /* 确保 padding 不会额外增加宽度 */
+  width: 100%;           /* 必须显式声明宽度 */
+  overflow-x: hidden;    /* 防止意外的横向滚动条 */
 }
 
 .masonry-grid {
   display: flex;
-  gap: 24px; /* 列间距 */
+  gap: 24px;
   align-items: flex-start;
+  width: 100%;           /* 撑满父容器 */
+  box-sizing: border-box;
 }
 
 .masonry-column {
   flex: 1;
+  min-width: 0;          /* 关键！防止 Flex 子元素被内部长内容撑开 */
   display: flex;
   flex-direction: column;
-  gap: 24px; /* 行间距 */
+  gap: 24px;
 }
 
 /* 沉浸式卡片 */
@@ -236,7 +240,22 @@ onUnmounted(() => {
 }
 
 @media (max-width: 640px) {
-  .masonry-grid { gap: 12px; }
-  .masonry-column { gap: 12px; }
+  .artwork-masonry-wrapper {
+    padding: 0 10px; /* 手机端边距减小，留给内容更多空间 */
+  }
+  .masonry-grid { 
+    gap: 10px;    /* 列间距减小 */
+  }
+  .masonry-column { 
+    gap: 10px;    /* 行间距减小 */
+  }
+  
+  /* 调整标题字号，防止长标题撑开卡片 */
+  .item-title {
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 </style>

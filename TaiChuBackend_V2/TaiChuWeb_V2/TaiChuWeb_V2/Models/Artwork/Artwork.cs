@@ -30,5 +30,12 @@ namespace TaiChuWeb_V2.Models.Artwork
 
         // 既然你有 UserStats，以后甚至可以给上传作品的群成员加经验值/积分
         public bool IsApproved { get; set; } = true;
+
+
+        public int ViewCount { get; set; } = 0;      // 浏览/点击量
+        public int LikesCount { get; set; } = 0;     // 点赞数
+        public int FavoritesCount { get; set; } = 0; // 收藏数
+        public int CommentsCount { get; set; } = 0;  // 评论数
+        public int ReportsCount { get; set; } = 0;   // 举报数
     }
 }

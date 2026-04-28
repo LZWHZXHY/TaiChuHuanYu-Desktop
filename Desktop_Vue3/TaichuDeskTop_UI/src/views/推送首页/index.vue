@@ -6,7 +6,7 @@
           欢迎进入<strong>太初寰宇</strong> 。
         </p>
         <div class="info-block">
-          <p>这里是你的个人枢纽。你可以在此查看最新的系统推送、管理灵脉数据以及进行每日签到。</p>
+          <p>这里是太初寰宇的首页，你可以在这里进行每日签到，也可以获得最新的相关资讯和信息</p>
         </div>
         
         <div class="placeholder-section">

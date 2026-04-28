@@ -26,6 +26,10 @@ export interface UserInfo {
   mood?: string;
   socialLinks?: string; // 存储 JSON 字符串
   
+// --- 补上这两行，解决报错 ---
+  phoneNumber?: string;   // 联系电话
+  extraConfig?: string;   // 额外配置信息
+
   // --- 核心修复：补上这两行 ---
   zodiac?: string;         // 星座
   chineseZodiac?: string;  // 生肖
@@ -41,7 +45,6 @@ export interface UserInfo {
 interface LoginResponse {
   token: string;
   message?: string;
-  // 建议登录接口直接返回部分用户信息
   user?: UserInfo; 
 }
 
@@ -55,9 +58,11 @@ export const authApi = {
   sendCode: (email: string) => 
     request.post('/Auth/send-code', { email }),
 
+  resetPassword: (data: any) => 
+    request.post('/Auth/reset-password', data),
+
   getPlugins: () => 
     request.get<any, Plugin[]>('/Plugins'),
-
 
   getUserInfo: () =>
     request.get<any, UserInfo>('/User/me') 

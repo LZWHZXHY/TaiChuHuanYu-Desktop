@@ -4,11 +4,15 @@
     {
         public int Id { get; set; }
         public string Title { get; set; } = string.Empty;
-        public string? Description { get; set; }
-        public string? CoverImageUrl { get; set; } // 封面图
-        public string AuthorName { get; set; } = string.Empty; // 作者昵称
-        public string? AuthorAvatar { get; set; } // 作者头像
+        public string? CoverImageUrl { get; set; }
+        public string AuthorName { get; set; } = string.Empty;
+        public string? AuthorAvatar { get; set; }
         public DateTime UploadAt { get; set; }
-        public int ImageCount { get; set; } // 该作品包含的图片总数
+        public int ImageCount { get; set; }
+
+        // --- 新增统计数值，用于瀑布流卡片展示 ---
+        public int LikesCount { get; set; }
+        public int CommentsCount { get; set; }
+        public int ViewCount { get; set; }
     }
 }

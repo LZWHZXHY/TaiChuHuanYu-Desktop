@@ -3,15 +3,14 @@ import { ref, computed } from 'vue'
 import request from '../../utils/request'
 import type { UserInfo } from '../../api/auth'
 
-
-// 1. 定义接口
+// 1. 定义社交链接接口
 interface SocialLink {
   platform: string
   url: string
 }
 
 const props = defineProps<{
-  userInfo: UserInfo // 直接复用，不用再写一遍大括号里的内容了
+  userInfo: UserInfo 
 }>()
 
 const emit = defineEmits(['updateSuccess', 'logout'])
@@ -26,7 +25,9 @@ const editForm = ref({
   mood: props.userInfo.mood || '',
   bio: props.userInfo.bio || '',
   address: props.userInfo.address || '',
-  birthday: props.userInfo.birthday || '', // 补上这一行
+  birthday: props.userInfo.birthday || '',
+  phoneNumber: props.userInfo.phoneNumber || '', // 补全：电话
+  extraConfig: props.userInfo.extraConfig || '',   // 补全：额外配置
   links: [] as SocialLink[]
 })
 
@@ -47,8 +48,10 @@ const startEdit = () => {
     gender: props.userInfo.gender || '未知',
     mood: props.userInfo.mood || '',
     bio: props.userInfo.bio || '',
-    birthday: props.userInfo.birthday ? props.userInfo.birthday.split('T')[0] : '', // 处理后端传来的日期格式
+    birthday: props.userInfo.birthday ? props.userInfo.birthday.split('T')[0] : '',
     address: props.userInfo.address || '',
+    phoneNumber: props.userInfo.phoneNumber || '', // 补全初始值
+    extraConfig: props.userInfo.extraConfig || '',   // 补全初始值
     links: parsedLinks.value.length > 0 ? [...parsedLinks.value] : [{ platform: '', url: '' }]
   }
   isEditing.value = true
@@ -77,17 +80,19 @@ const handleSave = async () => {
       bio: editForm.value.bio,
       address: editForm.value.address,
       birthday: editForm.value.birthday,
-      socialLinks: JSON.stringify(validLinks) // 转回字符串存入数据库
+      phoneNumber: editForm.value.phoneNumber,      // 提交新字段
+      extraConfig: editForm.value.extraConfig,      // 提交新字段
+      socialLinks: JSON.stringify(validLinks) 
     }
 
     await request.patch('/User/update-profile', payload)
     
     isEditing.value = false
-    emit('updateSuccess') // 通知父组件刷新 Store 数据
-    alert('资料更新成功！')
-  } catch (error) {
+    emit('updateSuccess') 
+    alert('太初档案同步成功！')
+  } catch (error: any) {
     console.error(error)
-    alert('更新失败，请检查网络')
+    alert(error.response?.data?.message || '更新失败，请检查网络')
   } finally {
     loading.value = false
   }
@@ -115,12 +120,18 @@ const formatDate = (dateStr?: string) => {
         <li><span>星座</span> <strong>{{ userInfo.zodiac || '未知' }}</strong></li>
         <li><span>生肖</span> <strong>{{ userInfo.chineseZodiac || '未知' }}</strong></li>
         <li><span>常驻地</span> <strong>{{ userInfo.address || '未知' }}</strong></li>
+        <li v-if="userInfo.phoneNumber"><span>联系方式</span> <strong>{{ userInfo.phoneNumber }}</strong></li>
         <li><span>加入时间</span> <strong>{{ formatDate(userInfo.createdAt) }}</strong></li>
       </ul>
 
       <div class="bio-box" v-if="userInfo.bio">
         <span class="label">个人介绍</span>
         <p>{{ userInfo.bio }}</p>
+      </div>
+
+      <div class="bio-box" v-if="userInfo.extraConfig">
+        <span class="label">额外配置信息</span>
+        <pre class="config-text">{{ userInfo.extraConfig }}</pre>
       </div>
 
       <div class="social-box" v-if="parsedLinks.length > 0">
@@ -152,19 +163,30 @@ const formatDate = (dateStr?: string) => {
           <input v-model="editForm.mood" placeholder="现在的感悟..." />
         </div>
 
-        <div class="input-group">
-          <label>常驻地</label>
-          <input v-model="editForm.address" placeholder="位面坐标" />
+        <div class="input-row">
+          <div class="input-group flex-1">
+            <label>常驻地</label>
+            <input v-model="editForm.address" placeholder="位面坐标" />
+          </div>
+          <div class="input-group flex-1">
+              <label>生日</label>
+              <input type="date" v-model="editForm.birthday" />
+          </div>
         </div>
 
         <div class="input-group">
-            <label>生日</label>
-            <input type="date" v-model="editForm.birthday" />
+          <label>联系电话</label>
+          <input v-model="editForm.phoneNumber" placeholder="输入联系方式" />
         </div>
 
         <div class="input-group">
           <label>个人介绍</label>
-          <textarea v-model="editForm.bio" rows="3"></textarea>
+          <textarea v-model="editForm.bio" rows="3" placeholder="简单的自我介绍..."></textarea>
+        </div>
+
+        <div class="input-group">
+          <label>额外配置 (Extra Config)</label>
+          <textarea v-model="editForm.extraConfig" rows="2" placeholder="输入 JSON 或其他备注配置..."></textarea>
         </div>
 
         <div class="input-group">
@@ -199,7 +221,6 @@ const formatDate = (dateStr?: string) => {
 
 .label { font-size: 0.8rem; color: #888; display: block; margin-bottom: 5px; }
 
-/* 心情样式 */
 .mood-header { margin-bottom: 20px; padding: 12px; background: #f8fbff; border-radius: 8px; border-left: 4px solid #24292f; }
 .mood-val { font-style: italic; color: #333; margin: 0; }
 
@@ -208,31 +229,33 @@ const formatDate = (dateStr?: string) => {
 
 .bio-box { margin-bottom: 20px; }
 .bio-box p { background: #f9f9f9; padding: 10px; border-radius: 6px; font-size: 0.9rem; line-height: 1.5; color: #555; }
+.config-text { background: #272822; color: #f8f8f2; padding: 10px; border-radius: 6px; font-size: 0.8rem; overflow-x: auto; }
 
-/* 社交标签样式 */
 .social-box { margin-bottom: 25px; }
 .links-grid { display: flex; gap: 8px; flex-wrap: wrap; }
 .tag { padding: 4px 12px; background: #24292f; color: #fff; border-radius: 20px; font-size: 0.8rem; text-decoration: none; }
 
-/* 编辑模式表单 */
 .edit-container h3 { margin-bottom: 20px; }
+.input-row { display: flex; gap: 15px; }
+.flex-1 { flex: 1; }
 .input-group { margin-bottom: 15px; }
 .input-group label { display: block; font-size: 0.85rem; margin-bottom: 6px; font-weight: 600; }
 .input-group input, .input-group textarea {
-  width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9rem;
+  width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 0.9rem; transition: all 0.2s;
 }
+.input-group input:focus, .input-group textarea:focus { border-color: #24292f; outline: none; box-shadow: 0 0 0 3px rgba(36, 41, 47, 0.1); }
 
 .link-edit-row { display: flex; gap: 5px; margin-bottom: 5px; }
 .link-edit-row .short { width: 80px; }
 .link-edit-row .long { flex: 1; }
 .del-row { background: none; border: none; color: #cf222e; cursor: pointer; font-size: 1.2rem; }
-.add-row-btn { background: none; border: 1px dashed #ddd; width: 100%; padding: 5px; cursor: pointer; color: #666; border-radius: 4px; font-size: 0.8rem; }
+.add-row-btn { background: none; border: 1px dashed #ddd; width: 100%; padding: 8px; cursor: pointer; color: #666; border-radius: 4px; font-size: 0.8rem; }
 
 .btn-footer { display: flex; gap: 10px; margin-top: 20px; }
-.save-btn { flex: 1; background: #24292f; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; }
+.save-btn { flex: 1; background: #24292f; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.save-btn:disabled { background: #888; }
 .cancel-btn { flex: 1; background: #eee; border: none; padding: 10px; border-radius: 6px; cursor: pointer; }
 
-/* 原有按钮 */
 .edit-btn { width: 100%; background: #24292f; color: #fff; border: none; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
 .outline-btn.danger { width: 100%; background: transparent; border: 1px solid #cf222e; padding: 8px; border-radius: 6px; cursor: pointer; color: #cf222e; }
 </style>

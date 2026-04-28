@@ -35,7 +35,7 @@ const mode = ref('login')
 const modeTitle = computed(() => {
   if (mode.value === 'register') return '身份创建 / Register'
   if (mode.value === 'forgot') return '密钥寻回 / Forgot'
-  return '识海接入 / Login'
+  return '认证接入 / Login'
 })
 
 // 组件映射表

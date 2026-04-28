@@ -18,32 +18,49 @@ namespace TaiChuWeb_V2.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<ArtworkItemDto>>> GetGallery()
+        public async Task<IActionResult> GetGallery([FromQuery] int offset = 0, [FromQuery] int limit = 20)
         {
-            // 1. 从数据库中查询作品，并预加载上传者及其个人资料，以及作品图片
-            var artworks = await _context.Artworks
-                .AsNoTracking() // 提升只读查询的性能
-                .Include(a => a.Uploader)
-                    .ThenInclude(u => u.Profile)
-                .Include(a => a.Images)
-                .OrderByDescending(a => a.UploadAt) // 按上传时间倒序
+            // 基础校验：单次加载最多允许 50 张，防止被爬虫暴力抓取
+            if (limit > 50) limit = 50;
+
+            // 1. 构建查询基准（不立即执行）
+            var query = _context.Artworks
+                .AsNoTracking()
+                .Where(a => a.IsApproved); // 只展示审核通过的
+
+            // 2. 获取总数（用于前端判断是否到底）
+            var total = await query.CountAsync();
+
+            // 3. 分页查询并转换 DTO
+            var artworks = await query
+                .OrderByDescending(a => a.UploadAt)
+                .Skip(offset) // 跳过前面的
+                .Take(limit) // 取当前的
+                .AsSplitQuery()
                 .Select(a => new ArtworkItemDto
                 {
                     Id = a.Id,
                     Title = a.Title,
-                    Description = a.Description,
                     UploadAt = a.UploadAt,
-                    // 逻辑：找一张标记为封面的图，如果没有，就拿 ID 最小的那张图
                     CoverImageUrl = a.Images.Where(i => i.IsCover).Select(i => i.ImageUrl).FirstOrDefault()
                                     ?? a.Images.OrderBy(i => i.Id).Select(i => i.ImageUrl).FirstOrDefault(),
                     AuthorName = a.Uploader.Username,
-                    // 访问 UserProfile 里的 Avatar 路径
                     AuthorAvatar = a.Uploader.Profile != null ? a.Uploader.Profile.Avatar : null,
-                    ImageCount = a.Images.Count
+                    ImageCount = a.Images.Count,
+
+                    // 填入你迁移过来的统计数据
+                    LikesCount = a.LikesCount,
+                    CommentsCount = a.CommentsCount,
+                    ViewCount = a.ViewCount
                 })
                 .ToListAsync();
 
-            return Ok(artworks);
+            return Ok(new
+            {
+                Total = total,
+                Data = artworks,
+                HasMore = offset + limit < total // 核心：告诉前端后面还有没有数据
+            });
         }
 
 

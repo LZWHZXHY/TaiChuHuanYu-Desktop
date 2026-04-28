@@ -100,9 +100,7 @@ namespace TaiChuWeb_V2.Controllers
                 // 初始化数值
                 Stats = new UserStats
                 {
-                    Level = 0,
                     Experience = 0,
-                    Points = 10,
                     CurrentSignStreak = 0,
                     MaxSignStreak = 0
                 }
@@ -157,6 +155,52 @@ namespace TaiChuWeb_V2.Controllers
                 message = "欢迎回归太初寰宇"
             });
         }
+
+
+        // --- 新增：密钥找回（重置密码）接口 ---
+        [HttpPost("reset-password")]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto dto)
+        {
+            // 1. 基础校验
+            if (string.IsNullOrEmpty(dto.Email) || string.IsNullOrEmpty(dto.VerificationCode) || string.IsNullOrEmpty(dto.NewPassword))
+            {
+                return BadRequest(new { message = "请填写完整的重塑信息" });
+            }
+
+            // 2. 校验验证码（逻辑同注册）
+            var v = await _context.EmailVerifications.FindAsync(dto.Email);
+            if (v == null || v.Code != dto.VerificationCode || v.ExpiresAt < DateTime.UtcNow)
+            {
+                return BadRequest(new { message = "验证码错误或已失效" });
+            }
+
+            // 3. 查找用户
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+            if (user == null)
+            {
+                return NotFound(new { message = "寰宇中未发现此邮箱地址绑定的身份" });
+            }
+
+            try
+            {
+                // 4. 重塑密钥（使用 BCrypt 加密新密码）
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
+
+                // 5. 成功后作废验证码，防止二次使用
+                _context.EmailVerifications.Remove(v);
+
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "密钥已重塑，请重新认证接入" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "密钥重塑失败，请联系管理员", detail = ex.Message });
+            }
+        }
+
+
+
 
     }
 }

@@ -52,6 +52,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { signApi, type SignData } from '../api/sign'
+import { useExpNotify } from '../composables/useExpNotify'
+import { useUserStore } from '../stores/user' // 确保路径指向你实际的 store 文件
+
+
+const userStore = useUserStore()
+const { notify } = useExpNotify()
 
 // 1. 响应式数据
 const signData = ref<SignData>({})
@@ -91,17 +97,35 @@ const fetchSignData = async () => {
 }
 
 // 5. API 请求：执行签到
+// 5. API 请求：执行签到
 const handleSignIn = async () => {
   if (loading.value) return
   loading.value = true
+  
   try {
     const res = await signApi.doSign()
-    // 这里可以替换成你 UI 框架的 Message 组件，比如 ElMessage.success(res.message)
-    alert(res.message) 
+    
+    // 1. 修改点：字段名从 pointsAdded 改为 experienceAdded
+    // 触发那个漂亮的修为漂浮提示
+    notify(res.experienceAdded) 
+    
+    // 2. 优化点：同步更新本地 Store 的数据 (如果有 userStore)
+    // 这样用户不用刷新页面，经验条和等级就能立刻跳动
+    if (userStore.userInfo) {
+      userStore.userInfo.experience += res.experienceAdded
+      // 注意：等级(level)是后端计算的，如果怕前端算不准，
+      // 也可以让后端在 doSign 结果里把最新的 level 也返回回来。
+    }
+
+    // 3. 刷新日历签到状态
     await fetchSignData()
+    
   } catch (error: any) {
-    const errorMsg = error.response?.data?.message || "签到服务异常"
-    alert(errorMsg)
+    // 这里的提示也可以优化，不再用原生的 alert
+    const errorMsg = error.response?.data?.message || "由于灵力波动，打卡失败"
+    console.error("签到异常:", error)
+    // 如果你有通用的消息组件，可以用 ElMessage.error(errorMsg)
+    alert(errorMsg) 
   } finally {
     loading.value = false
   }

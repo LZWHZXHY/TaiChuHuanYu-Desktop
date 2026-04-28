@@ -3,7 +3,6 @@ import { ref, computed } from 'vue'
 import { useUserStore } from '../../stores/user' 
 import { useCos } from '../../composables/useCos'
 import request from '../../utils/request'
-// 1. 引入新组件
 import ProfileCard from './ProfileCard.vue'
 
 const userStore = useUserStore()
@@ -12,9 +11,28 @@ const { uploadFile, isUploading } = useCos()
 const fileInput = ref<HTMLInputElement | null>(null)
 const defaultAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
 
+/**
+ * 核心逻辑修改：基于后端平方根公式计算经验条进度
+ * 公式: Level = floor(sqrt(Exp / 100))
+ */
 const expPercentage = computed(() => {
-  if (!userStore.userInfo) return 0
-  return (userStore.userInfo.experience % 1000) / 10
+  const exp = userStore.userInfo?.experience || 0
+  if (exp <= 0) return 0
+
+  // 计算当前等级
+  const currentLevel = Math.floor(Math.sqrt(exp / 100))
+  
+  // 当前等级所需的起始经验: Level^2 * 100
+  const currentLevelStartExp = Math.pow(currentLevel, 2) * 100
+  // 下一等级所需的起始经验: (Level + 1)^2 * 100
+  const nextLevelStartExp = Math.pow(currentLevel + 1, 2) * 100
+  
+  // 在当前等级区间内的进度
+  const progressInLevel = exp - currentLevelStartExp
+  const levelExpRange = nextLevelStartExp - currentLevelStartExp
+  
+  const percentage = (progressInLevel / levelExpRange) * 100
+  return Math.min(Math.max(percentage, 0), 100)
 })
 
 const triggerUpload = () => {
@@ -51,13 +69,11 @@ const handleFileChange = async (e: Event) => {
   }
 }
 
-// 退出登录逻辑
 const handleLogout = () => {
   localStorage.removeItem('token')
   window.location.reload()
 }
 
-// 编辑资料逻辑（预留）
 const handleEditProfile = () => {
   console.log('打开编辑资料弹窗')
 }
@@ -101,11 +117,16 @@ const handleEditProfile = () => {
             <div class="exp-bar">
               <div class="exp-progress" :style="{ width: expPercentage + '%' }"></div>
             </div>
+            <div class="exp-text-wrapper">
+              <span class="exp-val">{{ userStore.userInfo.experience }} 经验</span>
+            </div>
           </div>
+
           <div class="stat-item">
-            <span class="stat-label">累积积分</span>
-            <span class="stat-value">{{ userStore.userInfo.points }}</span>
+            <span class="stat-label">佩戴头衔</span>
+            <span class="stat-value title-value">{{ userStore.userInfo.title || '太初散修' }}</span>
           </div>
+
           <div class="stat-item">
             <span class="stat-label">连续签到</span>
             <span class="stat-value">{{ userStore.userInfo.maxSignStreak }} <small>天</small></span>
@@ -129,7 +150,6 @@ const handleEditProfile = () => {
 </template>
 
 <style scoped>
-/* 保持原有的布局 CSS，删除 .profile-card 相关的样式，因为已经移入组件 */
 .user-center { width: 100%; color: #24292f; }
 .content-layout { display: flex; justify-content: space-between; gap: 40px; }
 .main-content { flex: 1; max-width: 800px; }
@@ -165,16 +185,22 @@ const handleEditProfile = () => {
 .user-bio { color: #57606a; margin-top: 8px; }
 
 .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
-.stat-item { background: #f6f8fa; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; }
+.stat-item { background: #f6f8fa; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; justify-content: center; }
 .stat-label { font-size: 0.85rem; color: #57606a; margin-bottom: 8px; }
 .stat-value { font-size: 1.5rem; font-weight: 700; font-family: monospace; }
+.title-value { font-size: 1.1rem; color: #cf8a05; } /* 金色视觉，体现头衔感 */
 
 .exp-bar { width: 100%; height: 6px; background: #eaeef2; border-radius: 3px; margin-top: 12px; overflow: hidden; }
 .exp-progress { height: 100%; background: #24292f; transition: width 0.3s; }
 
+.exp-text-wrapper { text-align: right; margin-top: 4px; }
+.exp-val { font-size: 12px; color: #8c959f; }
+
+.loading-state { padding: 100px; text-align: center; color: #57606a; font-style: italic; }
+
 @media (max-width: 1024px) {
   .content-layout { flex-direction: column; }
-  .side-widgets { width: 100%; }
+  .side-widgets { width: 100%; order: -1; } /* 移动端 ProfileCard 置顶 */
   .stats-grid { grid-template-columns: 1fr; }
 }
 </style>

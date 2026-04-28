@@ -21,6 +21,8 @@ namespace TaiChuWeb_V2.Models.User
 
         public string? LegacyUserId { get; set; }
 
+        
+
         public virtual UserProfile? Profile { get; set; }
 
  

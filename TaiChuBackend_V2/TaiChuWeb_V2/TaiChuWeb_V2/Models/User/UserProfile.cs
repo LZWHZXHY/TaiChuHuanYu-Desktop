@@ -16,7 +16,7 @@ namespace TaiChuWeb_V2.Models.User
         public string? Gender { get; set; }
 
         // 新增：自我介绍
-        [MaxLength(200)]
+        [MaxLength(1000)]
         public string? Bio { get; set; }
 
         // 新增：当前心情/签名
@@ -28,6 +28,9 @@ namespace TaiChuWeb_V2.Models.User
 
         [MaxLength(2000)]
         public string? SocialLinks { get; set; } // 存储 JSON 字符串，例如：[{"platform":"BiliBili", "url":"..."}, {"platform":"Xiaohongshu", "url":"..."}]
+
+        [Column(TypeName = "text")]
+        public string? ExtraConfig { get; set; } // 存储 JSON 配置信息
 
         // 自动计算属性（不需要存入数据库）
         [NotMapped]
