@@ -1,4 +1,7 @@
 import axios from 'axios';
+import { bus } from './bus';
+
+
 
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
@@ -17,8 +20,6 @@ request.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// 响应拦截器：保持你现在的代码，处理报错
-// request.ts 响应拦截器
 request.interceptors.response.use(
   (response) => response.data,
   (error) => {
@@ -26,15 +27,18 @@ request.interceptors.response.use(
       localStorage.removeItem('token');
     }
 
-    // --- 核心修改：提取后端最深处的错误信息 ---
-    const backendMessage = error.response?.data?.message;
-    const backendDetail = error.response?.data?.detail;
+    // 1. 提取后端 GlobalExceptionFilter 返回的标准结构
+    const backendMessage = error.response?.data?.message || '通信链接异常';
+    const backendDetail = error.response?.data?.detail || error.message;
     
-    // 把提取到的信息挂载到 error 对象上，方便组件直接读取
-    error.friendlyMessage = backendMessage || '通信链接异常';
-    if (backendDetail) error.friendlyMessage += `: ${backendDetail}`;
+    // 2. 发射信号给全局组件
+    bus.emit('api-error', { 
+      msg: backendMessage, 
+      detail: backendDetail 
+    });
 
-    console.error('API Error:', error.friendlyMessage);
+    // 保持原有的逻辑，方便局部组件继续 catch
+    error.friendlyMessage = `${backendMessage}: ${backendDetail}`;
     return Promise.reject(error);
   }
 );

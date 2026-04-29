@@ -1,3 +1,4 @@
+<!--ArtworkInfiniteGrid.vue-->
 <template>
   <div class="artwork-masonry-wrapper">
     <div class="masonry-grid">
@@ -6,6 +7,7 @@
           v-for="art in getColumnItems(colIndex - 1)" 
           :key="art.id" 
           class="masonry-item group"
+          @click="$emit('on-click', art.id)"
         >
           <div class="item-visual">
             <img :src="art.coverImageUrl || '/default-cover.jpg'" class="item-image" loading="lazy" />
@@ -16,13 +18,30 @@
           
           <div class="item-details">
             <h4 class="item-title">{{ art.title }}</h4>
+
+
+
+
+
             <div class="item-footer">
               <div class="author-info">
-                <img :src="art.authorAvatar" class="avatar" />
+                <img :src="art.authorAvatar || '/default-avatar.png'" class="avatar" />
                 <span>{{ art.authorName }}</span>
               </div>
-              <button class="love-btn">❤️</button>
+              
+              <InteractActions 
+                :target-id="art.id" 
+                target-type="Artwork" 
+                :initial-stats="{ 
+                  likesCount: art.likesCount,
+                  // 以后后端支持了 'isLiked' 字段可以传给它，现在先保持默认
+                }" 
+              />
             </div>
+
+
+
+
           </div>
         </div>
       </div>
@@ -38,6 +57,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { artworkApi, type ArtworkItemDto } from '../../api/artwork'; // 引入刚才写的API
+import InteractActions from '../../components/InteractActions.vue';
+
+
+
 
 // 使用后端返回的 DTO 类型
 const artworks = ref<ArtworkItemDto[]>([]);
@@ -48,6 +71,8 @@ const loadMoreRef = ref<HTMLElement | null>(null);
 // 分页偏移量
 const offset = ref(0);
 const pageSize = 20;
+
+defineEmits(['on-click']);
 
 // 响应式列数控制 (保持不变)
 const columnCount = ref(5);

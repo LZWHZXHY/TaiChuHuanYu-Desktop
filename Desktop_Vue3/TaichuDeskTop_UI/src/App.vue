@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router' // 🌟 引入 useRoute
 import request from './utils/request' 
-import OperationTerminal from './components/OperationTerminal.vue' // 引入你的新组件
+import OperationTerminal from './components/OperationTerminal.vue'
 import { useUserStore } from './stores/user'
+import GlobalNotify from './components/GlobalNotify.vue'
 
 // 插件接口定义
 interface Plugin {
@@ -14,6 +15,7 @@ interface Plugin {
 }
 const userStore = useUserStore()
 const router = useRouter()
+const route = useRoute() // 🌟 获取当前路由状态
 const allPlugins = ref<Plugin[]>([]) 
 const activeMenu = ref('推送首页')
 
@@ -32,6 +34,8 @@ const fetchPlugins = async () => {
     const res = await request.get<any, any>('/Plugins');
     const pluginList = Array.isArray(res) ? res : (res.data || []);
     allPlugins.value = pluginList;
+    
+    // 注册路由
     pluginList.forEach((item: Plugin) => {
       if (item.url !== '/' && !item.url.startsWith('http')) {
         if (!router.hasRoute(item.name)) {
@@ -46,6 +50,13 @@ const fetchPlugins = async () => {
     });
 
     console.log('灵脉插件加载成功:', pluginList.length);
+    
+
+    if (router.currentRoute.value.matched.length === 0) {
+      console.log("检测到冷启动路径，正在重新解析灵脉路由...");
+      await router.replace(router.currentRoute.value.fullPath);
+    }
+
   } catch (error) {
     console.error("云端灵脉读取失败:", (error as any).friendlyMessage || error);
   }
@@ -54,25 +65,25 @@ const fetchPlugins = async () => {
 // 处理从“操作终端”组件传回的导航指令
 const handleNavigation = (item: Plugin) => {
   activeMenu.value = item.name
-  
   if (item.url.startsWith('http')) {
-    // 处理 WPF 外部链接跳转
     (window as any).chrome?.webview?.postMessage({ 
       cmd: 'load_external_url', 
       url: item.url 
     });
   } else {
-    // 正常路由跳转
     router.push(item.url)
   }
 }
 
 onMounted(async ()=> {
-  fetchPlugins();
+  // 🌟 【关键修复点 2】使用 await 确保插件加载（addRoute）完成后再往后走
+  await fetchPlugins();
+
   if (localStorage.getItem('token')) {
     await userStore.fetchUserInfo();
     console.log('灵脉数据已同步');
   }
+  
   (window as any).receivePlugins = (data: Plugin[]) => {
     console.log("收到 WPF 指令:", data);
     if(data && data.length > 0) allPlugins.value = data;
@@ -94,6 +105,7 @@ onMounted(async ()=> {
       <section class="viewport">
         <div class="viewport-content">
           <RouterView /> 
+          <GlobalNotify/>
         </div>
       </section>
     </main>

@@ -22,12 +22,11 @@
 
     <main class="gallery-view">
       <transition name="fade" mode="out-in">
-        
         <div v-if="viewMode === 'explore'" key="explore" class="view-wrapper">
           <div class="view-header">
             <span class="view-label">维度碎片 / 全部</span>
           </div>
-          <ArtworkInfiniteGrid />
+         <ArtworkInfiniteGrid @on-click="openArtwork" />
         </div>
 
         <div v-else-if="viewMode === 'ranking'" key="ranking" class="view-wrapper">
@@ -44,23 +43,66 @@
           </div>
           <ArtworkRanking :period="currentTab" />
         </div>
-        
       </transition>
     </main>
+
+    <transition name="slide-up">
+      <ArtworkDetail 
+        v-if="activeArtworkId" 
+        :id="activeArtworkId" 
+        @close="closeArtworkDetail"
+      />
+    </transition>
   </article>
 </template>
 
 <script setup lang="ts">
-import { ref, nextTick } from 'vue';
+import { ref, nextTick, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '../../stores/user';
 import ArtworkRanking from './ArtworkRanking.vue';
 import ArtworkInfiniteGrid from './ArtworkInfiniteGrid.vue';
+import ArtworkDetail from './ArtworkDetail.vue'; // 确保你创建了这个文件
 
 const userStore = useUserStore();
+const route = useRoute();
+const router = useRouter();
+
+// 原有状态
 const viewMode = ref<'explore' | 'ranking'>('explore');
 const currentTab = ref('月');
 
-// 切换模式并强制回到顶部，确保沉浸感
+// --- 🌟 路由同步逻辑 ---
+const activeArtworkId = ref<string | null>(null);
+
+
+  
+const openArtwork = (id: number | string) => {
+  console.log('正在开启灵脉详情，作品ID:', id);
+  router.push({
+    query: {
+      ...route.query,
+      workId: id.toString()
+    }
+  });
+};
+
+
+watch(
+  () => route.query.workId,
+  (newId) => {
+    activeArtworkId.value = (newId as string) || null;
+  },
+  { immediate: true }
+);
+
+// 关闭详情：仅仅移除 URL 里的参数，不破坏当前的 viewMode 状态
+const closeArtworkDetail = () => {
+  router.push({
+    query: { ...route.query, workId: undefined }
+  });
+};
+
 const switchMode = (mode: 'explore' | 'ranking') => {
   viewMode.value = mode;
   nextTick(() => {
@@ -72,22 +114,13 @@ const handleUpload = () => alert('上传通道构建中...');
 </script>
 
 <style scoped>
-/* 极致极简风格变量 */
-:export {
-  --bg: #ffffff;
-  --text-main: #1a1a1a;
-  --text-sub: #86868b;
-  --accent: #000000;
-  --border: #f2f2f2;
-}
-
+/* --- 保持你原本的所有样式 --- */
 .gallery-container {
   width: 100%;
   min-height: 100vh;
   background: #fff;
 }
 
-/* 导航：Apple 风格的极简留白 */
 .gallery-nav {
   display: flex;
   justify-content: space-between;
@@ -103,79 +136,37 @@ const handleUpload = () => alert('上传通道构建中...');
 }
 
 .nav-left { display: flex; align-items: baseline; gap: 40px; }
-
-.brand-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
-  margin: 0;
-}
-
+.brand-title { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em; margin: 0; }
 .mode-selectors { display: flex; gap: 24px; }
-
-.mode-item {
-  background: none;
-  border: none;
-  font-size: 1rem;
-  font-weight: 500;
-  color: #86868b;
-  cursor: pointer;
-  transition: color 0.3s;
-}
-
+.mode-item { background: none; border: none; font-size: 1rem; font-weight: 500; color: #86868b; cursor: pointer; transition: color 0.3s; }
 .mode-item.active { color: #1a1a1a; font-weight: 600; }
+.upload-link { background: #000; color: #fff; border: none; padding: 8px 20px; border-radius: 40px; font-size: 0.9rem; font-weight: 500; cursor: pointer; }
 
-.upload-link {
-  background: #000;
-  color: #fff;
-  border: none;
-  padding: 8px 20px;
-  border-radius: 40px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-/* 视图区域：注重行间距与排版 */
-.gallery-view {
-  padding: 60px 4%;
-}
-
-.view-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 40px;
-}
-
-.view-label {
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #86868b;
-}
-
+.gallery-view { padding: 60px 4%; }
+.view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
+.view-label { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.1em; color: #86868b; }
 .time-filter { display: flex; gap: 20px; }
+.time-filter span { font-size: 0.9rem; color: #86868b; cursor: pointer; }
+.time-filter span.active { color: #1a1a1a; font-weight: 600; text-decoration: underline; text-underline-offset: 8px; }
 
-.time-filter span {
-  font-size: 0.9rem;
-  color: #86868b;
-  cursor: pointer;
-}
-
-.time-filter span.active {
-  color: #1a1a1a;
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 8px;
-}
-
-/* 动画：丝滑淡入 */
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.4s ease, transform 0.4s ease;
-}
+/* 基础淡入动画 */
+.fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease, transform 0.4s ease; }
 .fade-enter-from { opacity: 0; transform: translateY(10px); }
 .fade-leave-to { opacity: 0; transform: translateY(-10px); }
+
+/* 🌟 详情弹窗专用的滑入动画：极致沉浸感 */
+.slide-up-enter-active, 
+.slide-up-leave-active {
+  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.slide-up-enter-from {
+  opacity: 0;
+  transform: translateY(40px);
+}
+.slide-up-leave-to {
+  opacity: 0;
+  transform: scale(0.98);
+}
 
 @media (max-width: 768px) {
   .nav-left { gap: 20px; }

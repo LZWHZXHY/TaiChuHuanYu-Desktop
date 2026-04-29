@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
-
+defineEmits(['on-click']);
 const props = defineProps<{
   period: string;
 }>();
@@ -25,6 +25,7 @@ watch(() => props.period, (newVal) => {
       v-for="(work, index) in topWorks" 
       :key="work.id" 
       :class="['podium-item', `rank-${index + 1}`]"
+      @click="$emit('on-click', work.id)"
     >
       <div class="crown" v-if="index === 0">👑</div>
       <div class="artwork-card">

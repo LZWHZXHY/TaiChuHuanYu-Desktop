@@ -2,6 +2,7 @@
 using TaiChuWeb_V2.Models.Artwork;
 using TaiChuWeb_V2.Models.Plugin;
 using TaiChuWeb_V2.Models.User;
+using TaiChuWeb_V2.Models.Interact;
 
 namespace TaiChuWeb_V2.DbContext
 {
@@ -10,6 +11,8 @@ namespace TaiChuWeb_V2.DbContext
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
+
+        public DbSet<UserInteraction> UserInteractions { get; set; }
 
         public DbSet<EmailVerification> EmailVerifications { get; set; }
         public DbSet<Plugin> Plugins { get; set; }
