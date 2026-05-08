@@ -1,138 +1,258 @@
+// src/composables/useSpiritData.ts
 import { ref, computed } from 'vue';
+import { lingmaiApi } from '../api/lingmai';
+import { debounce } from 'lodash-es';
+import type { NoteType } from '../utils/NoteType';
 
+// --- 与后端 Note.cs 100% 对齐的前端模型 ---
 export interface SpiritNote {
   id: string;
   title: string;
-  content: any; 
+  spaceId: string;
+  folderId: string | null;
+  type: NoteType;
+  content: any;
   updateAt: number;
-  isPublished: boolean;
-  publishTime?: number;
-  visibility: 'private' | 'public' | 'link-only';
+  
+  // 🌟 核心升级：视界隔离与社交字段
+  showInSidebar: boolean;
+  isPublic: boolean;
+  resonance: number;
+  status: number;
+  targetId?: number | null;
 }
 
-// 定义反向链接的接口，方便面板渲染
 export interface Backlink {
   id: string;
   title: string;
   excerpt: string;
 }
 
-const notes = ref<SpiritNote[]>([
-  { 
-    id: '1', 
-    title: '太初宇宙起源', 
-    content: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '万物之始...' }] }] },
-    updateAt: Date.now(),
-    isPublished: true,
-    publishTime: Date.now(),
-    visibility: 'public'
-  },
-  { 
-    id: '2', 
-    title: '灵脉编辑器的设计哲学', 
-    content: null,
-    updateAt: Date.now() - 10000,
-    isPublished: false,
-    visibility: 'private'
-  }
-]);
-
-const currentNoteId = ref<string>(notes.value[0].id);
-
+// 单例状态，确保数据在不同组件间无缝同步
+const notes = ref<SpiritNote[]>([]);
+const currentNoteId = ref<string>("");
+const currentSpaceId = ref<string>(""); 
+const isLoading = ref(false);
 
 export function useSpiritData() {
-  
 
+  // 当前选中的笔记对象
   const activeNote = computed<SpiritNote | null>(() => {
     return notes.value.find(n => n.id === currentNoteId.value) || null;
   });
 
-  const selectNote = (id: string) => {
-    currentNoteId.value = id;
-  };
+  // 🌟 分类计算属性：严格执行视界隔离，侧边栏不加载不该显示的碎片
+  const folders = computed(() => notes.value.filter(n => n.type === 'folder'));
+  
+  const rootNotes = computed(() => 
+    notes.value.filter(n => n.type === 'note' && !n.folderId && n.showInSidebar !== false)
+  );
+  
+  const getNotesInFolder = (folderId: string) => 
+    notes.value.filter(n => n.folderId === folderId && n.type === 'note' && n.showInSidebar !== false);
 
-  const createNewNote = () => {
-    const newNote: SpiritNote = {
-      id: Date.now().toString(),
-      title: '',
-      content: null,
-      updateAt: Date.now(),
-      isPublished: false,
-      visibility: 'private'
-    };
-    notes.value.unshift(newNote);
-    currentNoteId.value = newNote.id;
-    return newNote;
-  };
+  const fetchAllNotes = async () => {
+    if (!currentSpaceId.value || currentSpaceId.value === "" || currentSpaceId.value.startsWith('0000')) {
+      notes.value = [];
+      currentNoteId.value = "";
+      return;
+    }
 
-  const updateNoteTitle = (id: string, newTitle: string) => {
-    const note = notes.value.find(n => n.id === id);
-    if (note) {
-      note.title = newTitle;
-      note.updateAt = Date.now();
+    try {
+      isLoading.value = true;
+      const res: any = await lingmaiApi.getNoteList(currentSpaceId.value); 
+      
+      if (!res || res.length === 0) {
+        notes.value = [];
+        currentNoteId.value = "";
+        return;
+      }
+
+      // 🌟 精准解析后端新加的所有字段
+      notes.value = res.map((n: any) => ({
+        id: n.id,
+        title: n.title || (n.type === 'folder' ? '新文件夹' : '无标题碎片'),
+        spaceId: n.spaceId,
+        folderId: n.folderId,
+        type: n.type || 'note',
+        content: null,
+        updateAt: n.updatedAt ? new Date(n.updatedAt).getTime() : Date.now(),
+        
+        // 🌟 解析重构后的属性
+        showInSidebar: n.showInSidebar !== false,
+        isPublic: n.isPublic || false,
+        resonance: n.resonance || 0,
+        status: n.status || 0,
+        targetId: n.targetId || null
+      }));
+
+      const hasValidNote = notes.value.some(n => n.id === currentNoteId.value);
+      if (!hasValidNote) {
+        // 默认选中第一个允许展示在目录树中的笔记
+        const firstNote = notes.value.find(n => n.type === 'note' && n.showInSidebar);
+        currentNoteId.value = firstNote ? firstNote.id : "";
+      }
+
+    } catch (error: any) {
+      if (error.response?.status === 403) {
+        console.error("安全拦截：您无权访问该空间的数据");
+        notes.value = [];
+      } else {
+        console.error("灵感列表同步失败:", error);
+      }
+    } finally {
+      isLoading.value = false;
     }
   };
 
-  const updateNoteContent = (id: string, content: any) => {
+  const selectNote = async (id: string, forceRefresh = false) => {
+    if (!id) return;
+    currentNoteId.value = id;
+    const index = notes.value.findIndex(n => n.id === id);
+    
+    if (index !== -1 && (forceRefresh || !notes.value[index].content)) {
+      isLoading.value = true;
+      try {
+        const freshData = await lingmaiApi.getNote(id);
+        notes.value[index].content = freshData.tiptapContent;
+        notes.value[index].title = freshData.title;
+        return freshData;
+      } finally {
+        isLoading.value = false;
+      }
+    }
+    return notes.value[index];
+  };
+
+  const moveNote = async (noteId: string, folderId: string | null) => {
+    try {
+      await lingmaiApi.moveNote(noteId, folderId);
+      const note = notes.value.find(n => n.id === noteId);
+      if (note) {
+        note.folderId = folderId;
+        note.updateAt = Date.now();
+      }
+    } catch (error) {
+      console.error("移动碎片失败:", error);
+    }
+  };
+
+  /**
+   * 🌟 创建：基于多态规则注入创建数据
+   */
+  const createNewNote = async (dto?: { 
+    title?: string, 
+    type?: NoteType,
+    folderId?: string | null 
+  }) => {
+    try {
+      const selectedType = dto?.type || 'note';
+      
+      const payload = {
+        title: dto?.title || (selectedType === 'folder' ? "新文件夹" : "新灵感碎片"),
+        spaceId: currentSpaceId.value,
+        folderId: dto?.folderId || null,
+        type: selectedType
+      };
+
+      const res: any = await lingmaiApi.createNote(payload);
+      
+      // 🌟 根据类型默认初始化本地属性（对齐后端逻辑）
+      const newNote: SpiritNote = {
+        id: res.id,
+        title: payload.title,
+        spaceId: payload.spaceId,
+        folderId: payload.folderId,
+        type: payload.type as NoteType,
+        content: payload.type === 'folder' ? null : { type: 'doc', content: [] },
+        updateAt: Date.now(),
+        
+        // 🌟 视界隔离：只有长文随笔默认显示在侧边栏中
+        showInSidebar: selectedType === 'note' || selectedType === 'folder',
+        isPublic: selectedType === 'thought', // 简语默认公开，随笔默认私密
+        resonance: 0,
+        status: 0,
+        targetId: null
+      };
+
+      notes.value.unshift(newNote);
+      if (newNote.type === 'note') {
+        currentNoteId.value = newNote.id;
+      }
+      return newNote;
+    } catch (error) {
+      console.error("创建失败:", error);
+    }
+  };
+
+  const syncContentToApi = async (id: string, content: any) => {
+    try {
+      await lingmaiApi.syncBlocks(id, content);
+    } catch (error) {
+      console.error("❌ 灵脉内容云端同步失败:", error);
+    }
+  };
+
+  const syncTitleToApi = async (id: string, title: string) => {
+    try {
+      await lingmaiApi.updateNoteInfo(id, title);
+    } catch (error) {
+      console.error("❌ 灵脉标题云端同步失败:", error);
+    }
+  };
+
+  const debouncedSyncContent = debounce(syncContentToApi, 1000);
+  const debouncedSyncTitle = debounce(syncTitleToApi, 1000);
+
+  const updateNoteContent = async (id: string, content: any) => {
     const note = notes.value.find(n => n.id === id);
     if (note) {
       note.content = content;
       note.updateAt = Date.now();
+      debouncedSyncContent(id, content);
     }
   };
 
-  const togglePublish = (id: string) => {
+  const updateNoteTitle = async (id: string, newTitle: string) => {
     const note = notes.value.find(n => n.id === id);
     if (note) {
-      note.isPublished = !note.isPublished;
-      note.visibility = note.isPublished ? 'public' : 'private';
-      if (note.isPublished) note.publishTime = Date.now();
+      note.title = newTitle;
       note.updateAt = Date.now();
+      debouncedSyncTitle(id, newTitle);
     }
   };
 
-  const getSearchableNotes = (context: 'note' | 'post') => {
-    if (context === 'post') {
-      return notes.value.filter(n => n.isPublished);
+  const deleteNote = async (id: string) => {
+    try {
+      await lingmaiApi.deleteNote(id);
+      notes.value = notes.value.filter(n => n.id !== id);
+      if (currentNoteId.value === id) {
+        currentNoteId.value = notes.value.find(n => n.type === 'note' && n.showInSidebar)?.id || "";
+      }
+    } catch (error) {
+      console.error("删除失败:", error);
     }
-    return notes.value;
   };
 
-  /**
-   * 🌟 核心新增：获取反向链接 (Backlinks)
-   * 扫描所有笔记，查找哪些笔记的内容中包含了指向 targetId 的引用
-   */
-  const getBacklinks = (targetId: string): Backlink[] => {
-    return notes.value
-      .filter(note => {
-        // 排除掉笔记自己引用自己
-        if (note.id === targetId) return false;
-        
-        // 将内容对象转为字符串进行深度扫描
-        // 在 Tiptap 的 JSON 中，链接通常存储在 marks 里的 href 属性
-        const contentStr = JSON.stringify(note.content || {});
-        
-        // 匹配格式：/spirit-link/123 或 targetId: "123"
-        return contentStr.includes(`/spirit-link/${targetId}`) || 
-               contentStr.includes(`"targetId":"${targetId}"`);
-      })
-      .map(note => ({
-        id: note.id,
-        title: note.title || '无标题碎片',
-        excerpt: `该碎片在「${note.title}」中被提及`
-      }));
+  const togglePublish = async (id: string) => {
+    const note = notes.value.find(n => n.id === id);
+    if (note) {
+      const targetState = !note.isPublic;
+      try {
+        // 调用你已有的后端 API 更新公开状态
+        await lingmaiApi.updateNotePublishStatus(id, targetState);
+        note.isPublic = targetState;
+        note.updateAt = Date.now();
+      } catch (e) {
+        console.error("同步公开状态失败:", e);
+      }
+    }
   };
 
   return {
-    notes,
-    currentNoteId,
-    activeNote,
-    selectNote,
-    createNewNote,
-    updateNoteTitle,
-    updateNoteContent,
-    togglePublish,
-    getSearchableNotes,
-    getBacklinks // 🌟 记得暴露出去
+    notes, currentNoteId, currentSpaceId, activeNote, isLoading,
+    folders, rootNotes, getNotesInFolder,
+    fetchAllNotes, selectNote, createNewNote, togglePublish,
+    updateNoteTitle, updateNoteContent, deleteNote, moveNote
   };
 }

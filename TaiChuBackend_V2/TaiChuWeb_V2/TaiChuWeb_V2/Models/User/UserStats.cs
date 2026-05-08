@@ -38,6 +38,10 @@ namespace TaiChuWeb_V2.Models.User
         public int FollowingCount { get; set; } = 0;   // 关注人数
         public int FollowersCount { get; set; } = 0;   // 粉丝人数
 
+        public int UsedNotes { get; set; } = 0;
+        public int UsedSpaces { get; set; } = 0;
+        public int MaxNotes { get; set; } = 100; // 最大笔记数，默认100，可通过升级或购买扩展
+        public int MaxSpaces { get; set; } = 1; // 最大空间数，默认1，可通过升级或购买扩展
 
         [ForeignKey("UserId")] // 明确外键关系
         public virtual User User { get; set; } = null!;

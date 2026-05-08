@@ -1,27 +1,10 @@
 <template>
   <div class="spirit-editor-wrapper">
-    <bubble-menu 
+    <EditorBubbleMenu 
       v-if="editor" 
       :editor="editor" 
-      :tippy-options="{ duration: 100, animation: 'shift-away' }"
-      class="spirit-bubble-menu"
-    >
-      <div class="toolbar-btns">
-        <button @click="editor.chain().focus().toggleBold().run()" :class="{ 'is-active': editor.isActive('bold') }">B</button>
-        <button @click="editor.chain().focus().toggleItalic().run()" :class="{ 'is-active': editor.isActive('italic') }">I</button>
-        <button @click="editor.chain().focus().toggleUnderline().run()" :class="{ 'is-active': editor.isActive('underline') }">U</button>
-      </div>
-      <div class="toolbar-divider"></div>
-      <div class="toolbar-colors">
-        <button 
-          v-for="c in spiritColors" 
-          :key="c.color" 
-          :style="{ backgroundColor: c.color }"
-          @click="editor.chain().focus().setColor(c.color).run()"
-          class="color-dot"
-        ></button>
-      </div>
-    </bubble-menu>
+      :colors="spiritColors" 
+    />
 
     <editor-content :editor="editor" class="spirit-typography-engine" />
 
@@ -39,18 +22,12 @@
       <div v-if="showLinkSelector" class="spirit-floating-menu" :style="menuStyle">
         <div class="menu-header">关联灵脉碎片...</div>
         <div class="menu-scroll-area">
-          <div 
-            v-for="note in availableNotes" 
-            :key="note.id" 
-            class="menu-item" 
-            @click="insertBiLink(note)"
-          >
-            <div class="item-icon">📄</div>
-            <div class="item-text">
-              <div class="main-title">{{ note.title || '无标题碎片' }}</div>
-              <div class="sub-info">{{ note.isPublished ? '公开' : '私有' }}</div>
-            </div>
-          </div>
+        <div v-for="note in availableNotes" :key="note.id" class="menu-item" @click="insertBiLink(note)">
+  <div class="item-icon">📄</div>
+  <div class="item-text">
+    <div class="main-title">{{ note.title || '无标题碎片' }}</div>
+    <div class="sub-info">{{ note.isPublic ? '公开' : '私有' }}</div> </div>
+</div>
         </div>
         <div v-if="availableNotes.length === 0" class="menu-empty">未找到相关碎片</div>
       </div>
@@ -61,36 +38,19 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
-import { BubbleMenu } from '@tiptap/vue-3/menus'
+import EditorBubbleMenu from './SpiritTextComponents/EditorBubbleMenu.vue' 
 import { spiritExtensions, spiritColors, slashCommands } from '../utils/editorConfig'
 import { useSpiritData } from '../composables/useSpiritData'
+import { useCos } from '../composables/useCos'
 
-// 1. 接入灵脉数据大脑
-const { notes, currentNoteId, activeNote, updateNoteContent } = useSpiritData()
-const { selectNote } = useSpiritData();
+// 1. 接入数据大脑
+const { notes, currentNoteId, updateNoteContent, selectNote } = useSpiritData()
+const { uploadFile } = useCos()
 
-// SpiritText.vue 脚本
-const handleLinkNavigation = (e: MouseEvent) => {
-  const target = e.target as HTMLElement;
-  // 查找带有我们自定义属性的节点
-  const node = target.closest('[data-spirit-id]');
+// --- 状态控制 ---
+const isInitialized = ref(false) 
+let lastSyncedJson = '' 
 
-  if (node) {
-    // 🛑 物理切断冒泡和默认行为
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-
-    const noteId = node.getAttribute('data-spirit-id');
-    if (noteId) {
-      //console.log("🔥 核心拦截：切换 ID 到", noteId);
-      selectNote(noteId);
-    }
-  }
-};
-
-
-// 状态控制
 const showSlashMenu = ref(false)
 const showLinkSelector = ref(false)
 const menuPos = ref({ top: 0, left: 0 })
@@ -100,85 +60,148 @@ const menuStyle = computed(() => ({
   left: `${menuPos.value.left}px`
 }))
 
-// 2. 筛选可引用的笔记（排除当前正在写的这一篇）
 const availableNotes = computed(() => {
   return notes.value.filter(n => n.id !== currentNoteId.value)
 })
 
+/**
+ * 🌟 核心图片处理：COS 上传 + 节点插入
+ */
+const handleImageProcess = async (view: any, file: File, pos?: number) => {
+  if (!file.type.startsWith('image/')) return;
+  try {
+    const result = await uploadFile(file, 'lingmai');
+    const { schema } = view.state;
+    // 插入时带上默认属性
+    const node = schema.nodes.image.create({ 
+      src: result.url,
+      align: 'center',
+      width: '100%'
+    });
+    
+    const transaction = pos 
+      ? view.state.tr.insert(pos, node)
+      : view.state.tr.replaceSelectionWith(node);
+      
+    view.dispatch(transaction);
+  } catch (err) {
+    console.error('灵脉图片处理失败:', err);
+  }
+};
+
+// --- 🌟 编辑器核心配置 ---
 const editor = useEditor({
   extensions: spiritExtensions,
-  content: activeNote.value?.content || '',
+  content: '', 
+  editorProps: {
+    // 拦截拖拽
+    handleDrop: (view, event, slice, moved) => {
+      if (!moved && event.dataTransfer?.files?.length) {
+        const file = event.dataTransfer.files[0];
+        const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        handleImageProcess(view, file, coordinates?.pos);
+        return true; 
+      }
+      return false;
+    },
+    // 拦截粘贴
+    handlePaste: (view, event) => {
+      const items = event.clipboardData?.items;
+      if (items) {
+        for (const item of items) {
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) {
+              handleImageProcess(view, file);
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+  },
   onUpdate: ({ editor }) => {
+    if (!isInitialized.value) return;
+
+    const currentJson = editor.getJSON();
+    const currentJsonStr = JSON.stringify(currentJson);
+    
+    // 🌟 如果内容完全没变（比如仅仅是点击或选择文本），直接拦截，不发请求
+    if (currentJsonStr === lastSyncedJson) return;
+
+    // 浮动菜单逻辑计算
     const { state, view } = editor
     const { $from } = state.selection
-    
-    // 实时同步内容到“虚拟数据库”
-    updateNoteContent(currentNoteId.value, editor.getJSON())
-
-    // 检测触发字符
     const textBefore = state.doc.textBetween($from.before(), $from.pos)
     const coords = view.coordsAtPos($from.pos)
-    menuPos.value = { top: coords.bottom + 10, left: coords.left }
-
-    // 逻辑：斜杠指令
-    showSlashMenu.value = textBefore.endsWith('/')
     
-    // 逻辑：双向链接 [[
+    menuPos.value = { top: coords.bottom + 10, left: coords.left }
+    showSlashMenu.value = textBefore.endsWith('/')
     showLinkSelector.value = textBefore.endsWith('[[')
+
+    // 🌟 核心修改：不再内部设置 setTimeout
+    // 直接调用 Composables 的 updateNoteContent，由它的 lodash 防抖来保障安全
+    updateNoteContent(currentNoteId.value, currentJson);
+    lastSyncedJson = currentJsonStr; 
   }
 })
 
-watch(
-  () => currentNoteId.value,
-  (newId) => {
-    //console.log("检测到 ID 切换:", newId); // 👈 看看控制台有没有打印
-    if (editor.value) {
-      const targetNote = notes.value.find(n => n.id === newId);
-      const newContent = targetNote?.content || '';
-      
-      //console.log("准备填充内容:", newContent); // 👈 看看内容是不是空的
-      // 强制更新编辑器
-      editor.value.commands.setContent(newContent, { 
-        emitUpdate: false 
-      });
+// --- 🌟 监听笔记切换 ---
+watch(() => currentNoteId.value, async (newId) => {
+    if (!editor.value || !newId) return;
+    isInitialized.value = false;
+
+    let targetNote = notes.value.find(n => n.id === newId);
+    if (targetNote && !targetNote.content) {
+       await selectNote(newId);
+       targetNote = notes.value.find(n => n.id === newId);
     }
+
+    const newContent = targetNote?.content || { type: 'doc', content: [] };
+    lastSyncedJson = JSON.stringify(newContent);
+
+    editor.value.commands.setContent(newContent, { emitUpdate: false });
+
+    setTimeout(() => {
+      isInitialized.value = true;
+    }, 200);
   },
-  { immediate: true, deep: true }
+  { immediate: true }
 );
 
+// --- 交互逻辑 ---
+const handleLinkNavigation = (e: MouseEvent) => {
+  const target = e.target as HTMLElement;
+  const node = target.closest('[data-spirit-id]');
+  if (node) {
+    e.preventDefault();
+    e.stopPropagation();
+    const noteId = node.getAttribute('data-spirit-id');
+    if (noteId) selectNote(noteId);
+  }
+};
 
-
-
-
-// 执行斜杠命令
 const runSlashCommand = (cmd: any) => {
   if (!editor.value) return
   cmd.command(editor.value)
   showSlashMenu.value = false
 }
 
-// SpiritText.vue 里的 insertBiLink
 const insertBiLink = (note: any) => {
   if (!editor.value) return
-  
   editor.value.chain()
     .focus()
     .deleteRange({ from: editor.value.state.selection.$from.pos - 2, to: editor.value.state.selection.$from.pos })
-    // 🌟 插入 Node 节点
     .insertContent({
       type: 'spiritLink',
-      attrs: {
-        id: note.id,
-        title: note.title || '未命名'
-      }
+      attrs: { id: note.id, title: note.title || '未命名' }
     })
-    .insertContent(' ') // 加空格
+    .insertContent(' ')
     .run()
-
   showLinkSelector.value = false
 }
 
-// 点击外部关闭
 const closeMenus = (e: MouseEvent) => {
   if (!(e.target as HTMLElement).closest('.spirit-floating-menu')) {
     showSlashMenu.value = false
@@ -188,7 +211,6 @@ const closeMenus = (e: MouseEvent) => {
 
 onMounted(() => {
   window.addEventListener('mousedown', closeMenus);
-  // 🌟 使用捕获阶段拦截，确保在事件到达 Tiptap 核心前被我们接管
   document.addEventListener('click', handleLinkNavigation, { capture: true });
 });
 
@@ -196,12 +218,13 @@ onUnmounted(() => {
   window.removeEventListener('mousedown', closeMenus);
   document.removeEventListener('click', handleLinkNavigation, { capture: true });
 });
-// 暴露给父组件的方法
-defineExpose({ getJSON: () => editor.value?.getJSON() })
 
-
-
-
+defineExpose({ 
+  editor: editor,           
+  isInitialized: isInitialized, 
+  lastSyncedJson: lastSyncedJson,
+  getJSON: () => editor.value?.getJSON() 
+});
 </script>
 
 <style scoped>
@@ -259,22 +282,12 @@ defineExpose({ getJSON: () => editor.value?.getJSON() })
 
 .menu-empty { padding: 20px; text-align: center; color: #d2d2d7; font-size: 13px; }
 
-/* 气泡菜单样式 */
-.spirit-bubble-menu {
-  display: flex; align-items: center; background: #1a1a1a;
-  border-radius: 8px; padding: 6px 10px; gap: 8px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-}
-.toolbar-btns button { background: none; border: none; color: #fff; padding: 4px 8px; cursor: pointer; border-radius: 4px; }
-.toolbar-btns button.is-active { color: #0066cc; background: #333; }
-.color-dot { width: 16px; height: 16px; border-radius: 50%; border: 1px solid #444; cursor: pointer; }
-
 /* 编辑器正文排版 */
 :deep(.spirit-typography-engine .tiptap) {
   outline: none; min-height: 500px; font-size: 1.1rem; line-height: 1.8; color: #1d1d1f;
 }
 
-/* 🌟 双链节点样式：让它在编辑器里看起来很专业 */
+/* 双链节点样式 */
 :deep(.spirit-link-node) {
   color: #0066cc;
   background: rgba(0, 102, 204, 0.05);
@@ -283,6 +296,31 @@ defineExpose({ getJSON: () => editor.value?.getJSON() })
   border-radius: 4px;
   font-weight: 500;
   border-bottom: 1px dashed rgba(0, 102, 204, 0.4);
+}
+
+/* 🌟 图片排版与对齐支持 */
+:deep(.spirit-image-node) {
+  display: block;
+  height: auto;
+  border-radius: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: grab;
+  border: 2px solid transparent;
+}
+
+:deep(.ProseMirror-selectednode.spirit-image-node) {
+  border-color: #0066cc;
+  box-shadow: 0 4px 20px rgba(0,102,204,0.1);
+}
+
+/* 核心对齐逻辑 */
+:deep(.spirit-image-node[data-align="left"]) { margin-left: 0; margin-right: auto; }
+:deep(.spirit-image-node[data-align="center"]) { margin-left: auto; margin-right: auto; }
+:deep(.spirit-image-node[data-align="right"]) { margin-left: auto; margin-right: 0; }
+
+:deep(.ProseMirror-dropcursor) {
+  color: #0066cc;
+  width: 2px;
 }
 
 .menu-pop-enter-active { transition: all 0.2s ease-out; }

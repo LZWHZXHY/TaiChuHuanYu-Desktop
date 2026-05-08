@@ -3,6 +3,10 @@ using TaiChuWeb_V2.Models.Artwork;
 using TaiChuWeb_V2.Models.Plugin;
 using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.Models.Interact;
+using TaiChuWeb_V2.Models.LingMai;
+using TaiChuWeb_V2.Models.Tag;
+using TaiChuWeb_V2.Models.Wiki;
+using TaiChuWeb_V2.Models.Trade;
 
 namespace TaiChuWeb_V2.DbContext
 {
@@ -11,7 +15,9 @@ namespace TaiChuWeb_V2.DbContext
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
-
+        public DbSet<UserPermission> UserPermissions { get; set; }
+        public DbSet<Tag> Tags { get; set; }
+        public DbSet<TagAssignment> TagAssignments { get; set; }
         public DbSet<UserInteraction> UserInteractions { get; set; }
 
         public DbSet<EmailVerification> EmailVerifications { get; set; }
@@ -19,74 +25,192 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<User> Users { get; set; }
         public DbSet<UserProfile> UserProfiles { get; set; }
         public DbSet<UserStats> UserStats { get; set; }
-
         public DbSet<UserSignLog> UserSignLogs { get; set; }
-
 
         public DbSet<Artwork> Artworks { get; set; }
         public DbSet<ArtworkImage> ArtworkImages { get; set; }
 
+        // --- 【灵脉 2.0 核心 DbSet】 ---
+        public DbSet<Note> Notes { get; set; }
+        public DbSet<Block> Blocks { get; set; }
+        public DbSet<Space> Spaces { get; set; }
+        public DbSet<NoteLink> NoteLinks { get; set; }
+        public DbSet<NoteHistory> NoteHistories { get; set; }
+        public DbSet<Comment> Comments { get; set; }
+
+        public DbSet<PublishedNote> PublishedNotes { get; set; }
+        public DbSet<PublishedBlock> PublishedBlocks { get; set; }
+
+        // --- 🌟 2. 添加 Wiki 的元数据 DbSet ---
+        public DbSet<WikiCategory> WikiCategories { get; set; }
+        public DbSet<WikiArticle> WikiArticles { get; set; }
+        public DbSet<WikiArticleRevision> WikiArticleRevisions { get; set; }
+
+        // --- 【交易系统核心 DbSet】 ---
+        public DbSet<StoreItem> StoreItems { get; set; }
+        public DbSet<UserPurchaseProgress> UserPurchaseProgress { get; set; }
+
+        public DbSet<StoreItemSecret> StoreItemSecrets { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+
+            // --- 🌟【交易系统模型配置】 ---
+
+            // 1. StoreItem 配置
+            modelBuilder.Entity<StoreItem>(entity =>
+            {
+                entity.ToTable("store_items");
+
+                // 索引优化：频繁按类别和激活状态筛选
+                entity.HasIndex(i => new { i.Category, i.IsActive });
+                entity.HasIndex(i => i.SortOrder);
+            });
+
+            // 2. UserPurchaseProgress 配置（核心：复合唯一索引）
+            // 🌟 核心配置：定义复合主键 (UserId + StoreItemId)
+            // 根据你的模型，一个用户针对一个特定的商品只能有一行进度数据
+            modelBuilder.Entity<UserPurchaseProgress>()
+                .HasKey(p => new { p.UserId, p.StoreItemId });
+
+            // 配置关联关系
+            modelBuilder.Entity<UserPurchaseProgress>()
+                .HasOne(p => p.Item)
+                .WithMany()
+                .HasForeignKey(p => p.StoreItemId);
+            modelBuilder.Entity<UserPermission>(entity =>
+            {
+                entity.ToTable("user_permissions");
+                // 复合索引：加速权限校验
+                entity.HasIndex(p => new { p.UserId, p.Permission }).IsUnique();
+            });
+
+            // 1. Tag 的 NormalizedName 保持唯一
+            modelBuilder.Entity<Tag>()
+                .HasIndex(t => t.NormalizedName)
+                .IsUnique();
+
+            // 2. 为 TagAssignment 建立复合唯一索引
+            modelBuilder.Entity<TagAssignment>(entity =>
+            {
+                entity.ToTable("tag_assignments");
+                entity.HasIndex(ta => new { ta.EntityType, ta.EntityId, ta.TagId }).IsUnique();
+                entity.HasIndex(ta => ta.TagId);
+            });
+
+            modelBuilder.Entity<NoteLink>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                // 源笔记配置
+                entity.HasOne(d => d.SourceNote)
+                    .WithMany()
+                    .HasForeignKey(d => d.SourceNoteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // 目标笔记配置
+                entity.HasOne(d => d.TargetNote)
+                    .WithMany()
+                    .HasForeignKey(d => d.TargetNoteId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
             modelBuilder.Entity<Plugin>()
                 .Property(p => p.PlatformScope)
-                .HasDefaultValue(0); // 数据库层面的默认值
+                .HasDefaultValue(0);
 
-
-
-            // 1. 用户表唯一性索引配置
+            // 用户表唯一性索引配置
             modelBuilder.Entity<User>(entity =>
             {
                 entity.HasIndex(u => u.Username).IsUnique();
                 entity.HasIndex(u => u.Email).IsUnique();
             });
 
-            // 2. 配置 User 与 UserProfile 的 1:1 关系
             modelBuilder.Entity<User>()
-                .HasOne(u => u.Profile)
-                .WithOne(p => p.User)
-                .HasForeignKey<UserProfile>(p => p.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .HasOne(u => u.Profile).WithOne(p => p.User).HasForeignKey<UserProfile>(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
 
-            // 3. 配置 User 与 UserStats 的 1:1 关系
             modelBuilder.Entity<User>()
-                .HasOne(u => u.Stats)
-                .WithOne(s => s.User)
-                .HasForeignKey<UserStats>(s => s.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .HasOne(u => u.Stats).WithOne(s => s.User).HasForeignKey<UserStats>(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
 
-            // --- 【核心新增：签到逻辑配置】 ---
-
-            // 4. 配置 User 与 UserSignLog 的 1:N 关系
             modelBuilder.Entity<UserSignLog>()
-                .HasOne(l => l.User)
-                .WithMany(u => u.SignLogs)
-                .HasForeignKey(l => l.UserId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .HasOne(l => l.User).WithMany(u => u.SignLogs).HasForeignKey(l => l.UserId).OnDelete(DeleteBehavior.Cascade);
 
-            // 5. 【极其重要】建立 [UserId + SignDate] 的唯一索引
-            // 物理层面保证一个用户在同一天（日期部分）只能有一条记录，防止并发 Bug
             modelBuilder.Entity<UserSignLog>()
-                .HasIndex(l => new { l.UserId, l.SignDate })
-                .IsUnique();
+                .HasIndex(l => new { l.UserId, l.SignDate }).IsUnique();
 
-            // 6. 配置 Artwork 与 User 的 1:N 关系 (上传者)
+            // 配置 Artwork 关系
             modelBuilder.Entity<Artwork>()
-                .HasOne(a => a.Uploader)
-                .WithMany() // 如果你在 User 类里没写 ICollection<Artwork>，这里留空
-                .HasForeignKey(a => a.UploaderId)
-                .OnDelete(DeleteBehavior.Cascade); // 用户注销时，其作品通常也级联删除
+                .HasOne(a => a.Uploader).WithMany().HasForeignKey(a => a.UploaderId).OnDelete(DeleteBehavior.Cascade);
 
-            // 7. 配置 Artwork 与 ArtworkImage 的 1:N 关系
             modelBuilder.Entity<ArtworkImage>()
-                .HasOne(ai => ai.Artwork)
-                .WithMany(a => a.Images)
-                .HasForeignKey(ai => ai.ArtworkId)
-                .OnDelete(DeleteBehavior.Cascade); // 作品删除时，自动清理关联图片记录
+                .HasOne(ai => ai.Artwork).WithMany(a => a.Images).HasForeignKey(ai => ai.ArtworkId).OnDelete(DeleteBehavior.Cascade);
 
+            // --- 🌟【灵脉 2.0 优化多态重构】---
+
+            // 1. 配置 Note 表的索引与多态投影
+            modelBuilder.Entity<Note>(entity =>
+            {
+                entity.ToTable("notes");
+                entity.HasIndex(n => n.SpaceId);
+                entity.HasIndex(n => n.IsPublic);
+
+                entity.HasOne<Artwork>()
+                    .WithMany()
+                    .HasForeignKey(n => n.TargetId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(n => new { n.IsPublic, n.Status, n.Type, n.CreatedAt });
+            });
+
+            // 2. 配置草稿区多态 Block 表（无级联外键，使用高速复合索引）
+            modelBuilder.Entity<Block>(entity =>
+            {
+                entity.ToTable("blocks");
+
+                entity.HasIndex(b => new { b.OwnerId, b.OwnerType })
+                    .HasDatabaseName("IX_blocks_Owner");
+
+                entity.HasIndex(b => new { b.OwnerId, b.OwnerType, b.SortOrder })
+                    .HasDatabaseName("IX_blocks_Owner_SortOrder");
+
+                entity.Property(b => b.Data)
+                    .HasColumnType("json");
+            });
+
+            // 3. 配置发布区多态 PublishedBlock 表
+            modelBuilder.Entity<PublishedBlock>(entity =>
+            {
+                entity.ToTable("PublishedBlocks");
+
+                entity.HasIndex(pb => new { pb.OwnerId, pb.OwnerType })
+                    .HasDatabaseName("IX_pub_blocks_Owner");
+
+                entity.HasIndex(pb => new { pb.OwnerId, pb.OwnerType, pb.SortOrder })
+                    .HasDatabaseName("IX_pub_blocks_Owner_SortOrder");
+            });
+
+            // 4. 配置 Comment 表
+            modelBuilder.Entity<Comment>(entity =>
+            {
+                entity.ToTable("comments");
+
+                entity.HasOne(c => c.Parent)
+                    .WithMany(c => c.Replies)
+                    .HasForeignKey(c => c.ParentId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne<Note>()
+                    .WithMany()
+                    .HasForeignKey(c => c.NoteId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne<Artwork>()
+                    .WithMany()
+                    .HasForeignKey(c => c.ArtworkId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
         }
     }
 }

@@ -6,6 +6,8 @@ using System.Text;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Filters;
 using TaiChuWeb_V2.Services.Email;
+using TaiChuWeb_V2.Services.LingMai;
+using TaiChuWeb_V2.Services.Trade;
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. 获取连接字符串
@@ -30,12 +32,18 @@ builder.Services.AddCors(options =>
 });
 
 
-
-
+builder.Services.AddScoped<TradeService>();
+builder.Services.AddScoped<LingMaiService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<JwtService>();
+// Program.cs
 builder.Services.AddControllers(options => {
+    // 保持你原有的全局异常过滤逻辑
     options.Filters.Add<GlobalExceptionFilter>();
+})
+.AddJsonOptions(options => {
+
+    options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
 });
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

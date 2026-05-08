@@ -31,11 +31,14 @@ const visiblePlugins = computed(() => {
 
 const fetchPlugins = async () => {
   try {
-    const res = await request.get<any, any>('/Plugins');
-    const pluginList = Array.isArray(res) ? res : (res.data || []);
+    // 🌟 修复点：只保留一个泛型参数，代表返回的是 Plugin 数组
+    const res = await request.get<Plugin[]>('/Plugins');
+    
+    // 因为你在 request.ts 拦截器里已经剥离了 .data，所以 res 直接就是数组
+    const pluginList = Array.isArray(res) ? res : [];
     allPlugins.value = pluginList;
     
-    // 注册路由
+    // 注册路由逻辑保持不变
     pluginList.forEach((item: Plugin) => {
       if (item.url !== '/' && !item.url.startsWith('http')) {
         if (!router.hasRoute(item.name)) {
@@ -50,7 +53,6 @@ const fetchPlugins = async () => {
     });
 
     console.log('灵脉插件加载成功:', pluginList.length);
-    
 
     if (router.currentRoute.value.matched.length === 0) {
       console.log("检测到冷启动路径，正在重新解析灵脉路由...");

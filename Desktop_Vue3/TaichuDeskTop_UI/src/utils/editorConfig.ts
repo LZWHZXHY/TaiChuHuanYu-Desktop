@@ -8,6 +8,9 @@ import { Placeholder } from '@tiptap/extension-placeholder'
 import BubbleMenuExtension from '@tiptap/extension-bubble-menu'
 import Link from '@tiptap/extension-link'
 import { Node, mergeAttributes } from '@tiptap/core'
+import Image from '@tiptap/extension-image'
+
+
 
 const SpiritNode = Node.create({
   name: 'spiritLink',
@@ -42,6 +45,31 @@ const SpiritNode = Node.create({
 
 
 export const spiritExtensions = [
+  Image.extend({
+    // 1. 添加自定义属性
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        align: {
+          default: 'center', // 默认居中
+          renderHTML: attributes => ({
+            'data-align': attributes.align,
+          })
+        },
+        width: {
+          default: '100%', // 默认撑满宽度
+          renderHTML: attributes => ({
+            style: `width: ${attributes.width}; height: auto;`
+          })
+        }
+      }
+    }
+  }).configure({
+    inline: false,
+    HTMLAttributes: {
+      class: 'spirit-image-node',
+    },
+  }),
   SpiritNode,
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
