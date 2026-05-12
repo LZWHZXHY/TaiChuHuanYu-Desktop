@@ -36,6 +36,32 @@ const isLoading = ref(false);
 
 export function useSpiritData() {
 
+  const archiveNote = async (noteId: string) => {
+    try {
+      await lingmaiApi.archiveNote(noteId); // 调用 Patch /archive
+      // 🌟 核心：从当前活跃列表中移除该笔记，实现“视觉消失”
+      notes.value = notes.value.filter(n => n.id !== noteId);
+      // 如果当前正在编辑这个笔记，清除选中状态
+      if (currentNoteId.value === noteId) {
+        currentNoteId.value = '';
+      }
+    } catch (err) {
+      console.error('归档失败:', err);
+    }
+  };
+
+  const restoreNote = async (noteId: string) => {
+    try {
+      await lingmaiApi.restoreNote(noteId); // 调用 Patch /restore
+      // 重新拉取一次列表以同步状态
+      await fetchAllNotes();
+    } catch (err) {
+      console.error('还原失败:', err);
+    }
+  };
+
+
+
   // 当前选中的笔记对象
   const activeNote = computed<SpiritNote | null>(() => {
     return notes.value.find(n => n.id === currentNoteId.value) || null;
@@ -107,20 +133,28 @@ export function useSpiritData() {
 
   const selectNote = async (id: string, forceRefresh = false) => {
     if (!id) return;
-    currentNoteId.value = id;
-    const index = notes.value.findIndex(n => n.id === id);
     
-    if (index !== -1 && (forceRefresh || !notes.value[index].content)) {
+    // ⚠️ 注意：不要在这里提早给 currentNoteId 赋值！
+    const index = notes.value.findIndex(n => n.id === id);
+    if (index === -1) return;
+
+    if (forceRefresh || !notes.value[index].content) {
       isLoading.value = true;
       try {
         const freshData = await lingmaiApi.getNote(id);
-        notes.value[index].content = freshData.tiptapContent;
+        // 1. 数据拿到了，存进内存
+        notes.value[index].content = freshData.tiptapContent || { type: 'doc', content: [] };
         notes.value[index].title = freshData.title;
-        return freshData;
+      } catch (err) {
+        console.error("加载详情失败:", err);
       } finally {
         isLoading.value = false;
       }
     }
+    
+    // 🌟 核心修复：等数据确确实实存好后，再切换 ID！
+    // 这样当组件响应 currentNoteId 变化时，数据已经是 Ready 的了
+    currentNoteId.value = id;
     return notes.value[index];
   };
 
@@ -253,6 +287,7 @@ export function useSpiritData() {
     notes, currentNoteId, currentSpaceId, activeNote, isLoading,
     folders, rootNotes, getNotesInFolder,
     fetchAllNotes, selectNote, createNewNote, togglePublish,
-    updateNoteTitle, updateNoteContent, deleteNote, moveNote
+    updateNoteTitle, updateNoteContent, deleteNote, moveNote,archiveNote,
+    restoreNote
   };
 }

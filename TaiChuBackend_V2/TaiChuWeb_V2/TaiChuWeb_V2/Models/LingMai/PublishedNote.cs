@@ -9,7 +9,7 @@ namespace TaiChuWeb_V2.Models.LingMai
     public class PublishedNote
     {
         [Key]
-        public Guid Id { get; set; } = Guid.NewGuid(); // 独立发布表主键
+        public Guid Id { get; set; } = Guid.NewGuid();
 
         [Required]
         public Guid SpaceId { get; set; }
@@ -18,37 +18,44 @@ namespace TaiChuWeb_V2.Models.LingMai
 
         public string? Title { get; set; }
 
+        // 🌟 新增：摘要平铺
+        // 用于在百科列表页直接显示，不需要去查 PublishedBlocks
+        public string? Excerpt { get; set; }
+
+        // 🌟 新增：标签快照 (冗余设计)
+        // 存储形式如 "火柴人,动画,设定"。
+        // 理由：在广场列表加载时，直接从这一行读取，避免百万级数据下的多表 Join 查询。
+        public string? Tags { get; set; }
+
+        // 🌟 新增：作者名称冗余
+        // 百科广场显示时直接读取，无需关联 User 表
+        public string? AuthorName { get; set; }
+
+        // 🌟 新增：角色/设定扩展数据 (JSON)
+        // 存储如 {"power":80, "speed":90} 的数值，用于支撑前端的角色雷达图
+        [Column(TypeName = "json")]
+        public string? ExtraData { get; set; }
+
         [Required]
         [MaxLength(50)]
-        public string Type { get; set; } = "note"; // note, thought, wiki, blog 等
+        public string Type { get; set; } = "note";
 
         public DateTime PublishedAt { get; set; } = DateTime.UtcNow;
 
-        public int Resonance { get; set; } = 0; // 点赞/共鸣数
-
-        // 🌟 导航属性：如果你仍需要让 PublishedNote 级联其 Blocks，
-        // 可以在 DbContext 中通过 HasMany().WithOne() 并指定 HasForeignKey(b => b.OwnerId) 来绑定。
-        // 但推荐在查询时直接根据 OwnerId 和 OwnerType 显式拉取。
+        public int Resonance { get; set; } = 0;
     }
 
     [Table("PublishedBlocks")]
-    // 🌟 在实体类上配置复合索引
     [Index(nameof(OwnerId), nameof(OwnerType), Name = "IX_pub_blocks_Owner")]
     public class PublishedBlock
     {
         [Key]
-        public Guid Id { get; set; } = Guid.NewGuid(); // 显式初始化主键
+        public Guid Id { get; set; } = Guid.NewGuid();
 
-        /// <summary>
-        /// 🌟 多态所有者 ID（例如发布的 NoteId、词条 WikiArticleId 等）
-        /// </summary>
         [Required]
         [MaxLength(36)]
         public string OwnerId { get; set; } = string.Empty;
 
-        /// <summary>
-        /// 🌟 多态所有者类型：如 "note", "wiki", "artwork", "blog"
-        /// </summary>
         [Required]
         [MaxLength(20)]
         public string OwnerType { get; set; } = string.Empty;

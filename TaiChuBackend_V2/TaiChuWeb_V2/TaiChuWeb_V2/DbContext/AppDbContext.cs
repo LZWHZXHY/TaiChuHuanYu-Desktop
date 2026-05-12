@@ -1,12 +1,13 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TaiChuWeb_V2.Models.Artwork;
-using TaiChuWeb_V2.Models.Plugin;
-using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.Models.Interact;
 using TaiChuWeb_V2.Models.LingMai;
+using TaiChuWeb_V2.Models.Plugin;
+using TaiChuWeb_V2.Models.Project;
 using TaiChuWeb_V2.Models.Tag;
-using TaiChuWeb_V2.Models.Wiki;
 using TaiChuWeb_V2.Models.Trade;
+using TaiChuWeb_V2.Models.User;
+using TaiChuWeb_V2.Models.Wiki;
 
 namespace TaiChuWeb_V2.DbContext
 {
@@ -52,11 +53,36 @@ namespace TaiChuWeb_V2.DbContext
 
         public DbSet<StoreItemSecret> StoreItemSecrets { get; set; }
 
+
+        public DbSet<Project> Projects { get; set; }
+        public DbSet<ProjectMember> ProjectMembers { get; set; }
+        public DbSet<ProjectTask> ProjectTasks { get; set; }
+        public DbSet<ProjectCategory> ProjectCategories { get; set; }
+        public DbSet<ProjectDocument> ProjectDocuments { get; set; }
+        public DbSet<ProjectApplication> ProjectApplications { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.Entity<ProjectMember>()
+            .HasKey(pm => new { pm.ProjectId, pm.UserId }); // 联合主键
 
+            modelBuilder.Entity<ProjectDocument>()
+                .HasKey(pd => new { pd.ProjectId, pd.NoteId }); // 联合主键
+
+            // 可选：设置级联删除，项目删除时，自动清理底下的任务和分类
+            modelBuilder.Entity<Project>()
+                .HasMany(p => p.Tasks)
+                .WithOne(t => t.Project)
+                .HasForeignKey(t => t.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Project>()
+                .HasMany(p => p.Categories)
+                .WithOne(c => c.Project)
+                .HasForeignKey(c => c.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
             // --- 🌟【交易系统模型配置】 ---
 
             // 1. StoreItem 配置

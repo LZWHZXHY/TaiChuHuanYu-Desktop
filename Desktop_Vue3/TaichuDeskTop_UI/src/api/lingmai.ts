@@ -15,10 +15,12 @@ export interface FlatBlock {
 /**
  * 🌟 拍平：将 Tiptap Tree 转换为后端扁平化 Blocks
  */
+// src/api/lingmai.ts
 const flattenTiptapJson = (doc: any): FlatBlock[] => {
   if (!doc || !doc.content) return [];
 
-  return doc.content.map((node: any) => {
+  // 🌟 修改：利用 map 的第二个参数 index 作为排序权重
+  return doc.content.map((node: any, index: number) => {
     const attrs = { ...node.attrs };
     const blockId = attrs.id || nanoid(21);
     attrs.id = blockId; 
@@ -26,6 +28,7 @@ const flattenTiptapJson = (doc: any): FlatBlock[] => {
     return {
       id: blockId,
       type: node.type,
+      sortOrder: index.toString(), // 🌟 关键：按顺序生成 "0", "1", "2"...
       data: JSON.stringify({
         attrs: attrs,
         content: node.content
@@ -268,9 +271,37 @@ export const lingmaiApi = {
 
   getQuota() {
     return request.get('/LingMai/quota');
-  }
+  },
 
 
+  // --- 在 lingmaiApi 对象内添加 ---
 
+/**
+ * 🌟 归档碎片：将碎片状态设为 Archived (3)，从活跃侧边栏消失
+ */
+archiveNote(noteId: string) {
+  return request.patch(`/LingMai/notes/${noteId}/archive`);
+},
+
+/**
+ * 🌟 还原碎片：将碎片状态设为 Active (0)，重新回到活跃侧边栏
+ */
+restoreNote(noteId: string) {
+  return request.patch(`/LingMai/notes/${noteId}/restore`);
+},
+
+/**
+ * 🌟 获取当前空间下的归档列表：用于归档库/回收站查看
+ */
+getArchivedNoteList(spaceId: string) {
+  return request.get(`/LingMai/archived?spaceId=${spaceId}`);
+},
+
+/**
+ * 🌟 (建议补充) 获取当前配额与审计数据
+ */
+getQuotaUsage() {
+  return request.get('/LingMai/quota');
+},
 
 };

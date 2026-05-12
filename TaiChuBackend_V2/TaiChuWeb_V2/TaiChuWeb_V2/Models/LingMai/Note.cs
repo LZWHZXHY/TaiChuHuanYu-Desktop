@@ -11,6 +11,13 @@ namespace TaiChuWeb_V2.Models.LingMai
         public Guid Id { get; set; } = Guid.NewGuid();
 
         [Required]
+        public string AuthorId { get; set; } = string.Empty;
+
+
+        // 协作属性：任务执行者（可选，用于看板指派）
+        public string? AssigneeId { get; set; }
+
+        [Required]
         public Guid SpaceId { get; set; }
 
         // 🌟 扁平化设计：只保留一级分类 FolderId（允许为 null，不设父子树）
@@ -49,5 +56,14 @@ namespace TaiChuWeb_V2.Models.LingMai
         // 导航属性
         [NotMapped]
         public virtual ICollection<Block> Blocks { get; set; } = new List<Block>();
+    }
+
+
+    // 在 Note.cs 逻辑中建议的枚举定义
+    public enum NoteStatus
+    {
+        Active = 0,    // 活跃：在侧边栏显示，正常编辑
+        Banned = 2,    // 下架：违规处理
+        Archived = 3   // 归档：从侧边栏消失，但保留发布快照，可随时找回
     }
 }

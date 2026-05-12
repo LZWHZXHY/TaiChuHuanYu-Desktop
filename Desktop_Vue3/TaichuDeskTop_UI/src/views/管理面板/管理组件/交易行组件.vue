@@ -29,6 +29,7 @@
               <td>
                 <div class="name-info">
                   <span class="name">{{ item.name }}</span>
+                  <span class="category-tag">{{ getCategoryLabel(item.category) }}</span>
                   <span class="benefit-tag">{{ item.benefit }}</span>
                 </div>
               </td>
@@ -81,18 +82,18 @@
               <div class="field">
                 <label>类别</label>
                 <select v-model="form.category">
-                  <option value="Quota">个人配额</option>
-                  <option value="Asset">数字资产</option>
-                  <option value="Utility">功能项</option>
-                  <option value="Social">社交</option>
+                  <option value="Quota">个人配额 (影响属性)</option>
+                  <option value="Asset">数字资产 (限量发放)</option>
+                  <option value="Utility">功能项 (一次性消耗)</option>
+                  <option value="Social">社交 (因果交互)</option>
                 </select>
               </div>
               <div class="field">
                 <label>交付模式</label>
                 <select v-model="form.delivery">
-                  <option value="None">直接交付</option>
-                  <option value="Link">静态链接</option>
-                  <option value="SecretKey">独立密钥池</option>
+                  <option value="None">直接交付 (配合配额修改)</option>
+                  <option value="Link">静态链接 (网盘或资产地址)</option>
+                  <option value="SecretKey">独立密钥池 (如 GitHub Key)</option>
                 </select>
               </div>
               <div class="field">
@@ -115,10 +116,23 @@
                 <label>核心收益简述</label>
                 <input v-model="form.benefit" placeholder="例如：空间 +1.0 TB" />
               </div>
-              <div class="field full" v-if="form.delivery === 'Link'">
-                <label>资源下载地址 (Static Payload)</label>
-                <textarea v-model="form.staticPayload" rows="2" placeholder="输入 itch.io 资源链接或网盘地址..."></textarea>
+
+              <div class="field full" v-if="form.delivery === 'Link' || form.category === 'Quota'">
+                <label>
+                  {{ form.category === 'Quota' ? '属性注入指令 (反射 Payload)' : '资源交付数据 (Static Payload)' }}
+                </label>
+                <textarea 
+                  v-model="form.staticPayload" 
+                  rows="2" 
+                  :placeholder="form.category === 'Quota' 
+                    ? '格式: 字段名:增量。例如 MaxSpaces:1 或 MaxNotes:100' 
+                    : '输入 itch.io 资源链接或 GitHub 资产地址...'"
+                ></textarea>
+                <p class="field-hint" v-if="form.category === 'Quota'">
+                  * 此指令将直接修改 UserStats 表中的对应维度上限。
+                </p>
               </div>
+
               <div class="field full">
                 <label>资源详细描述 (Markdown Support)</label>
                 <textarea v-model="form.description" rows="3" placeholder="详细说明资源功能..."></textarea>
@@ -145,7 +159,6 @@ const showEditModal = ref(false);
 const isEdit = ref(false);
 const searchQuery = ref('');
 
-// 🌟 修复 2: 抽离重置函数，不再在打开弹窗时强制调用
 const getEmptyForm = (): IStoreItem => ({
   id: 0, name: '', category: 'Quota', delivery: 'None',
   baseCost: 1000, priceMultiplier: 1.12, baseWeight: 0,
@@ -153,8 +166,6 @@ const getEmptyForm = (): IStoreItem => ({
 });
 
 const form = ref<IStoreItem>(getEmptyForm());
-
-// 记录鼠标是否在遮罩层按下
 const isMouseDownOnMask = ref(false);
 
 const handleMaskMouseDown = (e: MouseEvent) => {
@@ -189,15 +200,17 @@ const filteredItems = computed(() => {
 
 const getDeliveryLabel = (t: string) => ({ 'None':'直接', 'Link':'链接', 'SecretKey':'密钥' }[t] || t);
 
-// 🌟 修改：明确点击“新增”才清空，意外关闭后再打开会保留草稿
+// 🌟 增加分类语义化标签映射
+const getCategoryLabel = (c: string) => ({ 
+  'Quota': '维度额度', 
+  'Asset': '灵脉资产', 
+  'Utility': '功能碎片', 
+  'Social': '因果社交' 
+}[c] || c);
+
 const handleAddNew = () => {
   isEdit.value = false;
-  form.value = getEmptyForm(); // 仅在这里重置
-  showEditModal.value = true;
-};
-
-const openAddModal = () => {
-  // 如果是由于意外关闭想找回内容，直接打开即可
+  form.value = getEmptyForm();
   showEditModal.value = true;
 };
 
@@ -209,7 +222,6 @@ const handleEdit = (item: IStoreItem) => {
 
 const closeModal = () => {
   showEditModal.value = false;
-  // 关闭时不重置 form.value，保留当前输入状态作为草稿
 };
 
 const handleToggle = async (item: IStoreItem) => {
@@ -229,7 +241,7 @@ const submitForm = async () => {
       await TradeApi.createItem(form.value);
     }
     showEditModal.value = false;
-    form.value = getEmptyForm(); // 🌟 提交成功后才清空数据
+    form.value = getEmptyForm(); 
     await loadItems();
   } catch (err) {
     console.error("提交失败");
@@ -238,7 +250,6 @@ const submitForm = async () => {
 </script>
 
 <style scoped>
-/* 保持原样式不变 */
 .trade-manager { display: flex; flex-direction: column; gap: 24px; animation: fadeIn 0.4s ease; }
 .module-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; }
 .search-bar { flex: 1; max-width: 400px; }
@@ -250,7 +261,8 @@ const submitForm = async () => {
 .ink-table { width: 100%; border-collapse: collapse; min-width: 800px; }
 .ink-table th { padding: 16px; text-align: left; font-size: 0.7rem; color: #bbb; text-transform: uppercase; border-bottom: 2px solid #111; }
 .ink-table td { padding: 16px; border-bottom: 1px solid #f9f9f9; font-size: 0.85rem; vertical-align: middle; }
-.name-info .name { display: block; font-weight: 700; margin-bottom: 4px; }
+.name-info .name { display: block; font-weight: 700; margin-bottom: 2px; }
+.category-tag { font-size: 9px; color: #0066cc; background: #eef7ff; padding: 1px 4px; border-radius: 2px; margin-right: 6px; }
 .benefit-tag { font-size: 10px; background: #f5f5f5; color: #888; padding: 2px 6px; border-radius: 2px; }
 .mono { font-family: "JetBrains Mono", monospace; }
 .multiplier { color: #ccc; font-size: 0.75rem; margin-left: 4px; }
@@ -273,15 +285,13 @@ const submitForm = async () => {
 .field label { display: block; font-size: 0.65rem; color: #aaa; text-transform: uppercase; margin-bottom: 8px; font-weight: 700; }
 .field input, .field select, .field textarea { width: 100%; border: 1px solid #eee; padding: 10px; font-size: 0.9rem; outline: none; transition: 0.3s; }
 .field input:focus { border-color: #111; }
+.field-hint { font-size: 0.65rem; color: #0066cc; margin-top: 6px; font-style: italic; }
 .btn-confirm { width: 100%; background: #111; color: #fff; border: none; padding: 14px; font-weight: 700; margin-top: 30px; cursor: pointer; }
+
 @media (max-width: 768px) {
-  .module-header { flex-direction: column; align-items: stretch; }
-  .search-bar { max-width: none; }
   .modal-container.mobile-full { width: 100%; height: 100%; padding: 30px 20px; border: none; box-shadow: none; }
   .form-grid { grid-template-columns: 1fr; gap: 16px; }
   .field.full { grid-column: span 1; }
-  .scroll-y { max-height: 75vh; }
-  .ink-table { min-width: 600px; }
 }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 </style>

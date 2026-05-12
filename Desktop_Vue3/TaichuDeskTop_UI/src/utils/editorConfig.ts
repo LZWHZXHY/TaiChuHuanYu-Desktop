@@ -9,8 +9,9 @@ import BubbleMenuExtension from '@tiptap/extension-bubble-menu'
 import Link from '@tiptap/extension-link'
 import { Node, mergeAttributes } from '@tiptap/core'
 import Image from '@tiptap/extension-image'
-
-
+import TaskList from '@tiptap/extension-task-list' // 🌟 新增
+import TaskItem from '@tiptap/extension-task-item' // 🌟 新增
+import Mention from '@tiptap/extension-mention'
 
 const SpiritNode = Node.create({
   name: 'spiritLink',
@@ -42,9 +43,41 @@ const SpiritNode = Node.create({
   }
 })
 
-
+const DetailsNode = Node.create({
+  name: 'details',
+  group: 'block',
+  content: 'summary (paragraph|taskList|orderedList|bulletList|codeBlock|image)+', // 🌟 第一个必须是 summary，后面是内容
+  addAttributes() { return { open: { default: true } } },
+  parseHTML() { return [{ tag: 'details' }] },
+  renderHTML({ HTMLAttributes }) { return ['details', mergeAttributes(HTMLAttributes), 0] },
+})
+const SummaryNode = Node.create({
+  name: 'summary',
+  content: 'text*', // 🌟 标题只允许纯文本
+  group: 'block',
+  parseHTML() { return [{ tag: 'summary' }] },
+  renderHTML() { return ['summary', {}, 0] },
+})
 
 export const spiritExtensions = [
+  Mention.configure({
+    HTMLAttributes: {
+      class: 'spirit-mention-node',
+    },
+    // 🌟 核心：告诉 Tiptap 如何渲染数据中的 label
+    renderLabel({ node }) {
+      return `${node.attrs.label ?? node.attrs.id}`
+    },
+  }),
+  DetailsNode,
+  SummaryNode,
+  TaskList, 
+  TaskItem.configure({
+    nested: true, // 🌟 必须开启，因为你的“网站开发计划”数据中存在嵌套任务列表
+    HTMLAttributes: {
+      class: 'spirit-task-item', // 可以根据需要添加自定义类名
+    },
+  }),
   Image.extend({
     // 1. 添加自定义属性
     addAttributes() {

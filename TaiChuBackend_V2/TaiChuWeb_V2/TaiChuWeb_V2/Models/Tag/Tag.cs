@@ -10,6 +10,10 @@ namespace TaiChuWeb_V2.Models.Tag
         [Key]
         public Guid Id { get; set; } = Guid.NewGuid();
 
+
+        [Required]
+        public Guid SpaceId { get; set; }
+
         [Required]
         [MaxLength(50)]
         public string Name { get; set; } = string.Empty;

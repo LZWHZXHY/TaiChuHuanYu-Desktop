@@ -1,10 +1,13 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Xml.Linq;
 
 namespace TaiChuWeb_V2.Models.Tag
 {
     // 2. 通用标签关联表：支持无限扩展
     [Table("tag_assignments")]
+    [Index(nameof(EntityId), nameof(EntityType), Name = "IX_Tag_Entity")]
     public class TagAssignment
     {
         [Key]

@@ -45,16 +45,18 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         {
             if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
 
+            // 1. 获取配额状态和 stats 对象
             var (isOverSpace, _, stats) = await GetQuotaStatus(CurrentUserId);
-            // 检查：如果当前数量 >= 最大允许数量，则禁止创建
+
+            // 检查上限
             if (await _context.Spaces.CountAsync(s => s.UserId == CurrentUserId) >= stats.MaxSpaces)
             {
                 return StatusCode(403, new { message = "空间数量已达上限，请前往交易行购买扩展卡。" });
             }
 
-
             if (dto == null || string.IsNullOrWhiteSpace(dto.Name)) return BadRequest("空间名称不能为空");
 
+            // 2. 创建空间实体
             var space = new Space
             {
                 Id = Guid.NewGuid(),
@@ -64,7 +66,14 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             };
 
             _context.Spaces.Add(space);
+
+            // 🌟 核心修复：同步更新 UserStats 表中的计数器
+            stats.UsedSpaces++;
+            _context.Entry(stats).State = EntityState.Modified;
+
+            // 3. 统一保存更改
             await _context.SaveChangesAsync();
+
             return Ok(new { id = space.Id, name = space.Name });
         }
 
@@ -73,16 +82,40 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         {
             if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
 
+            // 1. 查找空间
             var space = await _context.Spaces.FindAsync(id);
             if (space == null) return NotFound(new { message = "未找到指定的空间" });
             if (space.UserId != CurrentUserId) return Forbid();
 
+            // 2. 获取该空间下的所有笔记（为了统计需要扣减的 UsedNotes 数量）
             var notesInSpace = await _context.Notes.Where(n => n.SpaceId == id).ToListAsync();
-            _context.Notes.RemoveRange(notesInSpace);
+            int notesCount = notesInSpace.Count;
 
+            // 3. 获取用户统计数据对象
+            // 假设你有一个 GetQuotaStatus 或直接查询 stats
+            var user = await _context.Users
+                .Include(u => u.Stats)
+                .FirstOrDefaultAsync(u => u.Id == Guid.Parse(CurrentUserId));
+
+            if (user?.Stats == null) return BadRequest("无法更新账户审计数据");
+
+            // --- 🌟 执行删除与计数器同步 ---
+
+            // 删除笔记和空间
+            _context.Notes.RemoveRange(notesInSpace);
             _context.Spaces.Remove(space);
+
+            // 同步更新计数器
+            // 使用 Math.Max 确保不会因为意外变成负数
+            user.Stats.UsedSpaces = Math.Max(0, user.Stats.UsedSpaces - 1);
+            user.Stats.UsedNotes = Math.Max(0, user.Stats.UsedNotes - notesCount);
+
+            // 显式标记状态已改变
+            _context.Entry(user.Stats).State = EntityState.Modified;
+
             await _context.SaveChangesAsync();
-            return Ok(new { success = true });
+
+            return Ok(new { success = true, deletedNotes = notesCount });
         }
 
         [HttpPatch("spaces/{id:guid}")]
@@ -164,7 +197,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             if (!isOwner) return Forbid();
 
             var notes = await _context.Notes
-                .Where(n => n.SpaceId == spaceId && n.Status == 0)
+                .Where(n => n.SpaceId == spaceId && n.Status == (int)NoteStatus.Active) // 🌟 核心修改：仅查询 Active (0) 状态
                 .OrderByDescending(n => n.UpdatedAt)
                 .Select(n => new {
                     n.Id,
@@ -181,6 +214,57 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 .ToListAsync();
 
             return Ok(notes);
+        }
+
+        [HttpPatch("notes/{id:guid}/archive")]
+        public async Task<IActionResult> ArchiveNote(Guid id)
+        {
+            if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
+
+            var note = await _context.Notes.FindAsync(id);
+            if (note == null) return NotFound();
+
+            var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
+            if (!isOwner) return Forbid();
+
+            note.Status = (int)NoteStatus.Archived; // 设为 3
+            note.ShowInSidebar = false;             // 🌟 物理同步：确保不占据侧边栏
+            note.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { success = true, message = "内容已移入灵脉深处（归档）" });
+        }
+
+        // 🌟 恢复动作：从归档库放回侧边栏
+        [HttpPatch("notes/{id:guid}/restore")]
+        public async Task<IActionResult> RestoreNote(Guid id)
+        {
+            if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
+
+            var note = await _context.Notes.FindAsync(id);
+            if (note == null) return NotFound();
+
+            var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
+            if (!isOwner) return Forbid();
+
+            note.Status = (int)NoteStatus.Active;   // 设为 0
+            note.ShowInSidebar = true;
+            note.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { success = true, message = "内容已回归活跃视界" });
+        }
+
+        // 🌟 归档库查询：专门看那些被藏起来的内容
+        [HttpGet("archived")]
+        public async Task<IActionResult> GetArchivedNotes([FromQuery] Guid spaceId)
+        {
+            if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
+
+            return Ok(await _context.Notes
+                .Where(n => n.SpaceId == spaceId && n.Status == (int)NoteStatus.Archived)
+                .OrderByDescending(n => n.UpdatedAt)
+                .ToListAsync());
         }
 
         [HttpGet("{id:guid}")]
@@ -223,19 +307,21 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         {
             if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
 
+            // 1. 获取当前用户的统计数据
             var stats = await _context.UserStats.FirstOrDefaultAsync(s => s.UserId == Guid.Parse(CurrentUserId));
-            var totalNoteCount = await _context.Notes.CountAsync(n =>
-                _context.Spaces.Where(s => s.UserId == CurrentUserId).Select(s => s.Id).Contains(n.SpaceId));
+            if (stats == null) return BadRequest("无法感应账户审计数据");
 
-            if (totalNoteCount >= (stats?.MaxNotes ?? 100))
+            // 🌟 优化：直接从 stats 字段判断，而不是去 Notes 表里重算，提高灵脉响应速度
+            if (stats.UsedNotes >= stats.MaxNotes)
             {
                 return StatusCode(403, new { message = "灵脉节点已满，请前往交易行扩展容量。" });
             }
 
-
+            // 2. 权限校验
             var isOwner = await _context.Spaces.AnyAsync(s => s.Id == dto.SpaceId && s.UserId == CurrentUserId);
             if (!isOwner) return Forbid();
 
+            // 3. 创建实体
             var note = new Note
             {
                 Id = Guid.NewGuid(),
@@ -251,7 +337,13 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             };
 
             _context.Notes.Add(note);
+
+            // 🌟 核心修复：同步增加 UsedNotes 计数器
+            stats.UsedNotes++;
+            _context.Entry(stats).State = EntityState.Modified; // 强制标记为已修改
+
             await _context.SaveChangesAsync();
+
             return Ok(new { success = true, id = note.Id, type = note.Type });
         }
 
@@ -276,18 +368,38 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         [HttpDelete("notes/{id:guid}")]
         public async Task<IActionResult> DeleteNote(Guid id)
         {
-            if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
-
             var note = await _context.Notes.FindAsync(id);
-            if (note == null) return NotFound(new { message = "未找到该碎片" });
+            if (note == null) return NotFound();
 
-            var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
-            if (!isOwner) return Forbid();
+            // 🌟 核心逻辑：不执行 _context.Notes.Remove(note)
+            // 而是将其转入“归档态”，确保你依然拥有对 PublishedNote 的管理权
+    
+            // 1. 斩断星图连线（可选）
+            // 如果你希望归档后的内容不再出现在网状图谱中，保留这段代码
+            var links = _context.NoteLinks.Where(l => l.TargetNoteId == id || l.SourceNoteId == id);
+            _context.NoteLinks.RemoveRange(links);
 
-            _context.Notes.Remove(note);
-            await _context.SaveChangesAsync();
-            return Ok(new { success = true });
+            // 2. 状态切换：移入灵脉深处
+            note.Status = 3;           // 3 = Archived (我们在枚举中定义的)
+            note.ShowInSidebar = false; // 确保彻底从侧边栏消失
+            note.UpdatedAt = DateTime.UtcNow;
+
+            // 3. 更新配额统计
+            // 我们认为归档的内容不再占用用户的“活跃创作”配额
+            var stats = await _context.UserStats.FirstOrDefaultAsync(s => s.UserId == Guid.Parse(CurrentUserId));
+            if (stats != null) 
+            {
+                stats.UsedNotes = Math.Max(0, stats.UsedNotes - 1);
+            }
+
+            // 4. 保存变更
+            // 此时原件（Note）和碎块（Blocks）依然完好，你随时可以去档案馆编辑它们
+            await _context.SaveChangesAsync(); 
+    
+            return Ok(new { success = true, message = "内容已沉淀至档案馆" });
         }
+
+
 
         [HttpPatch("notes/{id:guid}/move")]
         public async Task<IActionResult> MoveNote(Guid id, [FromBody] MoveNoteDto dto)

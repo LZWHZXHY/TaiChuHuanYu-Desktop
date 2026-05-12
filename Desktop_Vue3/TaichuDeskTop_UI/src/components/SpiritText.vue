@@ -47,9 +47,15 @@ import { useCos } from '../composables/useCos'
 const { notes, currentNoteId, updateNoteContent, selectNote } = useSpiritData()
 const { uploadFile } = useCos()
 
+const targetNote = notes.value.find(n => n.id === currentNoteId.value);
+const initialContent = targetNote?.content || { type: 'doc', content: [] };
+
 // --- 状态控制 ---
-const isInitialized = ref(false) 
-let lastSyncedJson = '' 
+const isInitialized = ref(true) // 数据肯定是有的，直接就是 true
+let lastSyncedJson = JSON.stringify(initialContent) // 初始防抖对比值
+
+
+
 
 const showSlashMenu = ref(false)
 const showLinkSelector = ref(false)
@@ -92,7 +98,7 @@ const handleImageProcess = async (view: any, file: File, pos?: number) => {
 // --- 🌟 编辑器核心配置 ---
 const editor = useEditor({
   extensions: spiritExtensions,
-  content: '', 
+  content: initialContent, 
   editorProps: {
     // 拦截拖拽
     handleDrop: (view, event, slice, moved) => {
@@ -147,28 +153,6 @@ const editor = useEditor({
   }
 })
 
-// --- 🌟 监听笔记切换 ---
-watch(() => currentNoteId.value, async (newId) => {
-    if (!editor.value || !newId) return;
-    isInitialized.value = false;
-
-    let targetNote = notes.value.find(n => n.id === newId);
-    if (targetNote && !targetNote.content) {
-       await selectNote(newId);
-       targetNote = notes.value.find(n => n.id === newId);
-    }
-
-    const newContent = targetNote?.content || { type: 'doc', content: [] };
-    lastSyncedJson = JSON.stringify(newContent);
-
-    editor.value.commands.setContent(newContent, { emitUpdate: false });
-
-    setTimeout(() => {
-      isInitialized.value = true;
-    }, 200);
-  },
-  { immediate: true }
-);
 
 // --- 交互逻辑 ---
 const handleLinkNavigation = (e: MouseEvent) => {
@@ -325,4 +309,91 @@ defineExpose({
 
 .menu-pop-enter-active { transition: all 0.2s ease-out; }
 .menu-pop-enter-from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+
+/* SpiritText.vue 的 style 部分 */
+:deep(.tiptap ul[data-type="taskList"]) {
+  list-style: none;
+  padding: 0;
+}
+
+:deep(.tiptap li[data-type="taskItem"]) {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+:deep(.tiptap li[data-type="taskItem"] > label) {
+  flex: 0 0 auto;
+  user-select: none;
+  margin-top: 0.25rem;
+}
+
+:deep(.tiptap li[data-type="taskItem"] > div) {
+  flex: 1 1 auto;
+}
+/* SpiritText.vue 的 style 区域 */
+
+:deep(.tiptap details) {
+  border: 1px solid #f2f2f7;
+  border-radius: 12px;
+  margin: 1.5rem 0;
+  padding: 0;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+:deep(.tiptap summary) {
+  padding: 12px 20px;
+  background: #fbfbfd;
+  border-bottom: 1px solid #f2f2f7;
+  cursor: pointer;
+  font-weight: 700;
+  color: #1d1d1f;
+  outline: none;
+  list-style: none; /* 隐藏默认箭头 */
+}
+
+/* 自定义漂亮的箭头 */
+:deep(.tiptap summary::before) {
+  content: '▼';
+  font-size: 10px;
+  margin-right: 12px;
+  color: #0066cc;
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+
+:deep(.tiptap details:not([open]) summary::before) {
+  transform: rotate(-90deg);
+}
+
+:deep(.tiptap details > p), 
+:deep(.tiptap details > ul), 
+:deep(.tiptap details > ol) {
+  margin: 16px 20px !important;
+}
+/* SpiritText.vue 的样式区域 */
+
+:deep(.tiptap .spirit-mention-node) {
+  background: rgba(0, 102, 204, 0.1);
+  color: #0066cc;
+  border-radius: 4px;
+  padding: 0 4px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+:deep(.tiptap .spirit-mention-node:hover) {
+  background: rgba(0, 102, 204, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+}
+
+/* 模拟 @ 符号的效果（如果需要的话） */
+:deep(.tiptap .spirit-mention-node::before) {
+  content: '◈ ';
+  font-size: 10px;
+  opacity: 0.6;
+}
 </style>

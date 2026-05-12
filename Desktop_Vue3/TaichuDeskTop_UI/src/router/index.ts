@@ -18,6 +18,12 @@ const router = createRouter({
       name: 'UserCenter',
       component: () => import('../views/个人中心/index.vue'),
       props: true // 这样可以通过 props 直接获取 url 里的 id
+    },
+    {
+      path: '/Project/project/:id',
+      name: 'ProjectDetail',
+      component: () => import('../views/太初协作/协作组件/ProjectDetail.vue'), // 确保路径指向你刚创建的文件
+      meta: { requiresAuth: true }
     }
   ]
 })
