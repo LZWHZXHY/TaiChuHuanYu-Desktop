@@ -70,12 +70,24 @@ export function useSpiritData() {
   // 🌟 分类计算属性：严格执行视界隔离，侧边栏不加载不该显示的碎片
   const folders = computed(() => notes.value.filter(n => n.type === 'folder'));
   
-  const rootNotes = computed(() => 
-    notes.value.filter(n => n.type === 'note' && !n.folderId && n.showInSidebar !== false)
+  // 1. 根目录笔记：除了文件夹以外的所有活跃内容
+const rootNotes = computed(() => 
+  notes.value.filter(n => 
+    n.type !== 'folder' &&           // 🌟 不管它是 note 还是 wiki，只要不是文件夹就行
+    !n.folderId &&                   // 必须在根目录
+    n.showInSidebar !== false &&     // 允许显示
+    n.status === 0                   // 必须是活跃状态（未归档）
+  )
+);
+
+// 2. 文件夹内的笔记：逻辑一致，只是多了 folderId 匹配
+const getNotesInFolder = (folderId: string) => 
+  notes.value.filter(n => 
+    n.folderId === folderId && 
+    n.type !== 'folder' &&           // 🌟 同样，只要不是文件夹就行
+    n.showInSidebar !== false && 
+    n.status === 0
   );
-  
-  const getNotesInFolder = (folderId: string) => 
-    notes.value.filter(n => n.folderId === folderId && n.type === 'note' && n.showInSidebar !== false);
 
   const fetchAllNotes = async () => {
     if (!currentSpaceId.value || currentSpaceId.value === "" || currentSpaceId.value.startsWith('0000')) {

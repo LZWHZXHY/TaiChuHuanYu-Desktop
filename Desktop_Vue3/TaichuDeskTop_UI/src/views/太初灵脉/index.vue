@@ -60,6 +60,28 @@
             <span class="icon">🕒</span>
           </button>
 
+          <button 
+            class="settings-trigger-btn" 
+            @click="isSettingsOpen = true" 
+            title="碎片设定"
+            :disabled="!activeNote"
+          >
+            <span class="icon">⚙️</span>
+          </button>
+
+          <NoteSettingsPanel 
+            v-model="isSettingsOpen"
+            :note="activeNote"
+            :spaces="spaces"
+            :current-space-id="currentSpaceId" 
+            :filters="displayFilters"
+            @update-note-meta="handleUpdateNoteMeta"
+            @update-space-meta="handleUpdateSpaceMeta"
+            @update-filters="val => displayFilters = val"
+            @delete="handleDeleteNote"
+          />
+
+
           <transition name="pop">
             <span v-if="activeNote?.isPublic" class="publish-status-tag">
               <span class="dot"></span> 已发布至{{ getPublishTypeLabel(activeNote?.type) }}
@@ -134,9 +156,18 @@ import GraphView from './components/GraphView.vue';
 import PublishModal from './components/PublishModal.vue';
 import { useSpiritData } from '../../composables/useSpiritData';
 import { lingmaiApi } from '../../api/lingmai';
+import NoteSettingsPanel from './components/NoteSettingsPanel.vue';
+
+
 
 // 🌟 严格笔记类型定义
 type NoteType = 'note' | 'thought' | 'wiki' | 'char' | 'folder';
+
+
+
+
+
+
 
 const { 
   notes, 
@@ -159,6 +190,103 @@ const editorRef = ref();
 const isContentLoading = ref(false);
 const showPublishModal = ref(false);
 const spaces = ref<any[]>([]); 
+
+// 🌟 扩展过滤器，加入 folder
+const displayFilters = ref({
+  wiki: true,
+  char: true,
+  art: true,
+  note: true,
+  thought: true,
+  folder: true // 👈 补上这一行，消除 'folder' does not exist 报错
+});
+
+
+
+const isSettingsOpen = ref(false); // 🌟 状态
+
+const filteredNotes = computed(() => {
+  return notes.value.filter(n => {
+    // 1. 显式断言类型，告诉 TS：n.type 肯定属于过滤器的 key 之一
+    const typeKey = n.type as keyof typeof displayFilters.value;
+    
+    // 2. 获取该维度的显示状态
+    // 如果该类型在过滤器中被关掉（false），则隐藏
+    const isTypeAllowed = displayFilters.value[typeKey] !== false;
+    
+    // 3. 检查碎片自己的显示勾选（上一节实现的设置）
+    const isSidebarAllowed = n.showInSidebar !== false;
+
+    // 🌟 特殊保护逻辑：
+    // 如果是文件夹，通常我们让它始终显示（或者跟随 folder 开关）
+    if (n.type === 'folder') return displayFilters.value.folder;
+
+    // 如果是当前正在编辑的碎片，强制显示，防止感应中断
+    if (n.id === currentNoteId.value) return true;
+
+    return isTypeAllowed && isSidebarAllowed;
+  });
+});
+
+// 🌟 元数据更新逻辑
+const handleUpdateNoteMeta = async (updates: any) => {
+  // 1. 增加非空校验，确保 currentNoteId 和 activeNote 存在
+  if (!currentNoteId.value || !activeNote.value) return;
+
+  try {
+    // 2. 调用刚刚在 api 里的新增方法
+    await lingmaiApi.updateNoteMeta(currentNoteId.value, updates);
+    
+    // 3. 安全更新本地状态
+    // 通过上面的 if 判断，TS 现在知道 activeNote.value 不为 null 了
+    Object.assign(activeNote.value, updates);
+    
+    console.log('灵脉感应同步成功');
+  } catch (e) {
+    console.error('元数据同步失败:', e);
+  }
+};
+
+// 🌟 处理位面层级的元数据更新（改名、公开状态等）
+const handleUpdateSpaceMeta = async (updates: any) => {
+  const { id, ...data } = updates;
+  if (!id) return;
+
+  try {
+    // 1. 调用 API 同步至服务器
+    // 注意：确保你的 lingmaiApi 中已经定义了 updateSpaceMeta
+    await lingmaiApi.updateSpaceMeta(id, data);
+    
+    // 2. 实时刷新本地位面列表，让面包屑和设置面板立即感应变化
+    const index = spaces.value.findIndex(s => s.id === id);
+    if (index !== -1) {
+      spaces.value[index] = { ...spaces.value[index], ...data };
+    }
+    
+    console.log('位面维度信息已同步');
+  } catch (e) {
+    console.error('位面感应失败:', e);
+  }
+};
+
+
+
+
+const handleDeleteNote = async (id: string) => {
+  if (confirm('此操作不可逆，是否确定？')) {
+    await lingmaiApi.deleteNote(id);
+    await fetchAllNotes();
+    currentNoteId.value = '';
+    isSettingsOpen.value = false;
+  }
+};
+
+
+
+
+
+
+
 
 const activeSpaceName = computed(() => {
   const space = spaces.value.find(s => s.id === currentSpaceId.value);
@@ -459,4 +587,16 @@ onUnmounted(() => {
   0% { transform: scale(0.9); opacity: 0; }
   100% { transform: scale(1); opacity: 1; }
 }
+
+
+.settings-trigger-btn {
+  background: none; border: 1px solid #d2d2d7;
+  width: 32px; height: 32px; border-radius: 50%;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; color: #86868b;
+}
+.settings-trigger-btn:hover:not(:disabled) {
+  background: #f5f5f7; color: #1d1d1f; border-color: #1d1d1f;
+}
+.settings-trigger-btn:disabled { opacity: 0.4; }
 </style>

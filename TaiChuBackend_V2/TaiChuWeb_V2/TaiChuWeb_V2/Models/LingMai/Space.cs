@@ -17,6 +17,8 @@ namespace TaiChuWeb_V2.Models.LingMai
         [Required]
         public string UserId { get; set; } = string.Empty;
 
+        public bool IsPublic { get; set; } = true;
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

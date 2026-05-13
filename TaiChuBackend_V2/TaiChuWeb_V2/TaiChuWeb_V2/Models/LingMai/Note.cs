@@ -34,6 +34,11 @@ namespace TaiChuWeb_V2.Models.LingMai
         [Required]
         public string SortOrder { get; set; } = "0";
 
+
+        public bool IsPrivate { get; set; } = false;
+
+        
+
         [Required]
         public bool ShowInSidebar { get; set; } = false;
 

@@ -24,7 +24,13 @@ const router = createRouter({
       name: 'ProjectDetail',
       component: () => import('../views/太初协作/协作组件/ProjectDetail.vue'), // 确保路径指向你刚创建的文件
       meta: { requiresAuth: true }
-    }
+    },
+    {
+    path: '/codex/:id', // 访问路径，例如 /codex/3170cadf...
+    name: 'WikiDetail', // 🌟 必须和 index.vue 里的名字完全一致
+    component: () => import('../views/灵脉百科/components/WikiDetail.vue'), // 详情页组件路径
+    props: true // 允许将 id 直接作为 props 传给组件
+    },
   ]
 })
 

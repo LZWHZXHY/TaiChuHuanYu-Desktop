@@ -9,10 +9,14 @@
           <p>这里是太初寰宇的首页，你可以在这里进行每日签到，也可以获得最新的相关资讯和信息</p>
         </div>
         
-        <div class="placeholder-section">
-          <h3>最新动态</h3>
-          <p style="color: #8c959f;">暂无新动态...</p>
-        </div>
+        <LatestNews />
+
+        <feedback />
+
+
+
+
+
       </section>
 
       <aside class="side-widgets">
@@ -24,6 +28,8 @@
 
 <script setup lang="ts">
 import SignCard from '../../components/SignCard.vue'
+import feedback from './components/feedback.vue';
+import LatestNews from './components/LatestNews.vue';
 </script>
 
 <style scoped>

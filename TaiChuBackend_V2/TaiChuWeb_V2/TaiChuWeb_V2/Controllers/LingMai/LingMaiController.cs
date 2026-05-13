@@ -1,6 +1,7 @@
 ﻿// TaiChuWeb_V2/Controllers/LingMai/LingMaiController.cs
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.LingMai;
@@ -39,6 +40,61 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
             return Ok(spaces);
         }
+
+
+
+
+        // 在 LingMaiController.cs 中添加
+        [HttpPatch("notes/{id}/meta")]
+        public async Task<IActionResult> UpdateNoteMeta(Guid id, [FromBody] System.Text.Json.JsonElement updates)
+        {
+            // 1. 寻找对应的灵脉碎片
+            var note = await _context.Notes.FindAsync(id);
+            if (note == null) return NotFound(new { message = "未找到该碎片" });
+
+            // 2. 动态感应并更新元数据
+            // 更新位面归属
+            if (updates.TryGetProperty("spaceId", out var spaceIdProp))
+            {
+                if (Guid.TryParse(spaceIdProp.GetString(), out var newSpaceId))
+                {
+                    note.SpaceId = newSpaceId;
+                }
+            }
+
+            // 更新侧边栏显示状态
+            if (updates.TryGetProperty("showInSidebar", out var sidebarProp))
+            {
+                note.ShowInSidebar = sidebarProp.GetBoolean();
+            }
+
+            // 更新私密/公开状态
+            if (updates.TryGetProperty("isPrivate", out var privateProp))
+            {
+                note.IsPrivate = privateProp.GetBoolean();
+            }
+
+            // 更新类型（如从 art 转为 wiki）
+            if (updates.TryGetProperty("type", out var typeProp))
+            {
+                note.Type = typeProp.GetString() ?? note.Type;
+            }
+
+            note.UpdatedAt = DateTime.UtcNow;
+
+            try
+            {
+                await _context.SaveChangesAsync();
+                return Ok(new { success = true, message = "元数据感应同步成功" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "同步失败", error = ex.Message });
+            }
+        }
+
+
+
 
         [HttpPost("spaces")]
         public async Task<IActionResult> CreateSpace([FromBody] CreateSpaceDto dto)
@@ -530,7 +586,23 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         }
 
         #endregion
+        [HttpPatch("spaces/{id}")]
+        public async Task<IActionResult> UpdateSpace(Guid id, [FromBody] JsonElement updates)
+        {
+            var space = await _context.Spaces.FindAsync(id);
+            if (space == null) return NotFound();
 
+            // 感应并更新位面名
+            if (updates.TryGetProperty("name", out var nameProp))
+                space.Name = nameProp.GetString() ?? space.Name;
+
+            // 感应并更新公开性
+            if (updates.TryGetProperty("isPublic", out var publicProp))
+                space.IsPublic = publicProp.GetBoolean();
+
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
         #region --- 5. 历史快照与穿梭 ---
 
         [HttpGet("notes/{id:guid}/history")]

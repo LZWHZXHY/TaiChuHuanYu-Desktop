@@ -115,7 +115,10 @@ export const lingmaiApi = {
       blocks
     });
   },
-
+  updateSpaceMeta(spaceId: string, updates: any) {
+    // 对应后端的 PATCH /api/LingMai/spaces/{id}
+    return request.patch(`/LingMai/spaces/${spaceId}`, updates);
+  },
   /**
    * 🌟 物理切断空间及所有碎片
    */
@@ -143,7 +146,13 @@ export const lingmaiApi = {
       headers: { 'Content-Type': 'application/json' }
     });
   },
-
+  /**
+   * 🌟 关键新增：更新碎片元数据 (位面、侧边栏显示、私密状态等)
+   */
+  updateNoteMeta(noteId: string, updates: any) {
+    // 对应后端 [HttpPatch("{id}/meta")]
+    return request.patch(`/LingMai/notes/${noteId}/meta`, updates);
+  },
   /**
    * 🌟 移动笔记
    */
@@ -164,7 +173,7 @@ export const lingmaiApi = {
   getHistoryList(noteId: string) {
     return request.get(`/LingMai/notes/${noteId}/history`);
   },
-
+  
   /**
    * 🌟 重命名空间
    */

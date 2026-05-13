@@ -1,0 +1,93 @@
+/* src/assets/styles/spirit-typography.css */
+
+/* 🌟 核心排版引擎容器 */
+.spirit-render-engine {
+  outline: none;
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: #1d1d1f;
+  word-break: break-word;
+}
+
+/* 双链节点样式 */
+.spirit-render-engine .spirit-link-node {
+  color: #0066cc;
+  background: rgba(0, 102, 204, 0.05);
+  text-decoration: none;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-weight: 500;
+  border-bottom: 1px dashed rgba(0, 102, 204, 0.4);
+}
+
+/* 提到（Mention）节点样式 */
+.spirit-render-engine .spirit-mention-node {
+  background: rgba(0, 102, 204, 0.1);
+  color: #0066cc;
+  border-radius: 4px;
+  padding: 0 4px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.spirit-render-engine .spirit-mention-node::before {
+  content: '◈ ';
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+/* 图片排版 */
+.spirit-render-engine img,
+.spirit-render-engine .spirit-image-node {
+  display: block;
+  height: auto;
+  border-radius: 12px;
+  max-width: 100%;
+}
+.spirit-render-engine .spirit-image-node[data-align="left"] { margin-right: auto; }
+.spirit-render-engine .spirit-image-node[data-align="center"] { margin-left: auto; margin-right: auto; }
+.spirit-render-engine .spirit-image-node[data-align="right"] { margin-left: auto; }
+
+/* 任务列表 */
+.spirit-render-engine ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+}
+.spirit-render-engine li[data-type="taskItem"] {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+/* 折叠区块 (Details/Summary) */
+.spirit-render-engine details {
+  border: 1px solid #f2f2f7;
+  border-radius: 12px;
+  margin: 1.5rem 0;
+  background: #ffffff;
+  overflow: hidden;
+}
+.spirit-render-engine summary {
+  padding: 12px 20px;
+  background: #fbfbfd;
+  border-bottom: 1px solid #f2f2f7;
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+.spirit-render-engine summary::before {
+  content: '▼';
+  font-size: 10px;
+  margin-right: 12px;
+  color: #0066cc;
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+.spirit-render-engine details:not([open]) summary::before {
+  transform: rotate(-90deg);
+}
+.spirit-render-engine details > div,
+.spirit-render-engine details > p {
+  padding: 16px 20px;
+}

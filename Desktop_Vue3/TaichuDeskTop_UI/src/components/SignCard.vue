@@ -2,9 +2,9 @@
   <div class="sign-container">
     <div class="calendar-header">
       <div class="current-month">
-        <button @click="changeMonth(-1)" class="nav-btn" :disabled="loading"> &lt; </button>
+        <button @click="changeMonth(-1)" class="nav-btn" :disabled="loading">←</button>
         <span class="month-display">{{ viewYear }}年 {{ viewMonth + 1 }}月</span>
-        <button @click="changeMonth(1)" class="nav-btn" :disabled="loading"> &gt; </button>
+        <button @click="changeMonth(1)" class="nav-btn" :disabled="loading">→</button>
       </div>
 
       <div class="sign-stats">
@@ -14,19 +14,18 @@
           class="sign-action-btn"
           :disabled="loading || isTodaySigned"
         >
-          {{ isTodaySigned ? '今日已筑基' : (loading ? '请求中...' : '立即打卡') }}
+          {{ isTodaySigned ? '已签到' : (loading ? '...' : '签到') }}
         </button>
-
-        <span class="stats-label">
-          本月累计签到: <span class="count-num">{{ monthlyCount }}</span> 天
-        </span>
+        <span class="stats-label">累计 {{ monthlyCount }} 天</span>
       </div>
     </div>
 
+    <!-- 星期 -->
     <div class="weekday-grid">
       <span v-for="day in ['日', '一', '二', '三', '四', '五', '六']" :key="day">{{ day }}</span>
     </div>
 
+    <!-- 日历网格 -->
     <div class="calendar-grid" :class="{ 'is-loading': loading }">
       <div v-for="empty in firstDayOffset" :key="'empty-' + empty" class="day-cell empty"></div>
       
@@ -34,17 +33,48 @@
         v-for="date in daysInMonth" 
         :key="date" 
         class="day-cell"
-        :class="[getSignStatus(date), { 'is-today': checkIsToday(date) }]"
+        :class="[
+          getSignStatus(date),
+          { 
+            'is-today': checkIsToday(date),
+            'has-activity': hasActivityOnDate(date),
+            'is-selected': selectedDate === date
+          }
+        ]"
+        @click="handleDateClick(date)"
       >
         <span class="day-num">{{ date }}</span>
-        <div class="status-dot"></div>
+        <span v-if="hasActivityOnDate(date)" class="activity-marker">●</span>
       </div>
     </div>
 
+    <!-- 活动详情面板 —— 极简卡片 -->
+    <div class="event-panel">
+      <div class="event-panel-header">活动安排</div>
+      <div class="event-panel-content">
+        <template v-if="selectedDateStr">
+          <div class="event-date">{{ selectedDateStr }}</div>
+          <div v-if="selectedActivities.length" class="event-list">
+            <div v-for="act in selectedActivities" :key="act.id" class="event-item">
+              <div class="event-name">
+                <span v-if="act.startTime" class="event-time">{{ act.startTime }}</span>
+                {{ act.name }}
+              </div>
+              <div v-if="act.detail" class="event-detail">{{ act.detail }}</div>
+            </div>
+          </div>
+          <div v-else class="event-empty">— 无活动 —</div>
+        </template>
+        <div v-else class="event-empty">点击日期查看活动</div>
+      </div>
+    </div>
+
+    <!-- 图例（极简） -->
     <div class="calendar-footer">
-      <div class="legend"><span class="dot green"></span> 正常签到</div>
-      <div class="legend"><span class="dot blue"></span> 补签记录</div>
-      <div class="legend"><span class="dot gray"></span> 未签到</div>
+      <span><span class="dot green"></span> 签到</span>
+      <span><span class="dot blue"></span> 补签</span>
+      <span><span class="dot gray"></span> 未签</span>
+      <span><span class="dot orange"></span> 有活动</span>
     </div>
   </div>
 </template>
@@ -53,212 +83,207 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { signApi, type SignData } from '../api/sign'
 import { useExpNotify } from '../composables/useExpNotify'
-import { useUserStore } from '../stores/user' // 确保路径指向你实际的 store 文件
+import { useUserStore } from '../stores/user'
 
+interface Activity {
+  id: string
+  name: string
+  detail?: string
+  startTime?: string
+}
+
+type ActivitiesMap = Record<string, Activity[]>
 
 const userStore = useUserStore()
 const { notify } = useExpNotify()
 
-// 1. 响应式数据
 const signData = ref<SignData>({})
+const activitiesData = ref<ActivitiesMap>({})
 const loading = ref(false)
 
-// 2. 当前查看的年月逻辑
 const now = new Date()
 const viewYear = ref(now.getFullYear())
 const viewMonth = ref(now.getMonth())
+const selectedDate = ref<number | null>(null)
 
-// 3. 计算属性：日历逻辑
+const selectedDateStr = computed(() => {
+  if (selectedDate.value === null) return ''
+  return `${viewYear.value}-${String(viewMonth.value + 1).padStart(2, '0')}-${String(selectedDate.value).padStart(2, '0')}`
+})
+
+const selectedActivities = computed(() => {
+  if (!selectedDateStr.value) return []
+  return activitiesData.value[selectedDateStr.value] || []
+})
+
 const daysInMonth = computed(() => new Date(viewYear.value, viewMonth.value + 1, 0).getDate())
 const firstDayOffset = computed(() => new Date(viewYear.value, viewMonth.value, 1).getDay())
 
-// 判断是否为当前月（用于控制签到按钮显示）
-const isCurrentMonth = computed(() => {
-  return viewYear.value === now.getFullYear() && viewMonth.value === now.getMonth()
-})
-
-// 判断今天是否已经签到
+const isCurrentMonth = computed(() => viewYear.value === now.getFullYear() && viewMonth.value === now.getMonth())
 const isTodaySigned = computed(() => {
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   return signData.value[todayStr] !== undefined
 })
+const monthlyCount = computed(() => {
+  const prefix = `${viewYear.value}-${String(viewMonth.value + 1).padStart(2, '0')}`
+  return Object.keys(signData.value).filter(k => k.startsWith(prefix)).length
+})
 
-// 4. API 请求：获取数据
+const getDateKey = (date: number) => `${viewYear.value}-${String(viewMonth.value + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`
+const hasActivityOnDate = (date: number) => !!(activitiesData.value[getDateKey(date)]?.length)
+
+const handleDateClick = (date: number) => { selectedDate.value = date }
+
 const fetchSignData = async () => {
-  loading.value = true
   try {
-    const data = await signApi.getMonthData(viewYear.value, viewMonth.value + 1)
-    signData.value = data
-  } catch (error) {
-    console.error("获取签到数据失败:", error)
-  } finally {
-    loading.value = false
-  }
+    signData.value = await signApi.getMonthData(viewYear.value, viewMonth.value + 1)
+  } catch (e) { console.error(e) }
 }
 
-// 5. API 请求：执行签到
-// 5. API 请求：执行签到
+// 示例活动数据 (实际替换为真实API)
+const fetchActivitiesData = async () => {
+  await new Promise(r => setTimeout(r, 100))
+  const mock: ActivitiesMap = {}
+  const year = viewYear.value, month = viewMonth.value + 1, days = daysInMonth.value
+  for (let d = 1; d <= days; d++) {
+    const key = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`
+    const wd = new Date(year, month-1, d).getDay()
+    const acts: Activity[] = []
+    if (wd === 2 || wd === 4) acts.push({ id: `d-${d}`, name: '共修讨论', startTime: '20:00' })
+    if (wd === 0) acts.push({ id: `s-${d}`, name: '修为分享', startTime: '15:00' })
+    if (d === 15) acts.push({ id: `e-${d}`, name: '灵药兑换', startTime: '12:00' })
+    if (acts.length) mock[key] = acts
+  }
+  activitiesData.value = mock
+}
+
+const loadAll = async () => {
+  loading.value = true
+  await Promise.all([fetchSignData(), fetchActivitiesData()])
+  if (isCurrentMonth.value && now.getDate() <= daysInMonth.value) selectedDate.value = now.getDate()
+  else selectedDate.value = 1
+  loading.value = false
+}
+
 const handleSignIn = async () => {
   if (loading.value) return
   loading.value = true
-  
   try {
     const res = await signApi.doSign()
-    
-    // 1. 修改点：字段名从 pointsAdded 改为 experienceAdded
-    // 触发那个漂亮的修为漂浮提示
-    notify(res.experienceAdded) 
-    
-    // 2. 优化点：同步更新本地 Store 的数据 (如果有 userStore)
-    // 这样用户不用刷新页面，经验条和等级就能立刻跳动
-    if (userStore.userInfo) {
-      userStore.userInfo.experience += res.experienceAdded
-      // 注意：等级(level)是后端计算的，如果怕前端算不准，
-      // 也可以让后端在 doSign 结果里把最新的 level 也返回回来。
-    }
-
-    // 3. 刷新日历签到状态
+    notify(res.experienceAdded)
+    if (userStore.userInfo) userStore.userInfo.experience += res.experienceAdded
     await fetchSignData()
-    
-  } catch (error: any) {
-    // 这里的提示也可以优化，不再用原生的 alert
-    const errorMsg = error.response?.data?.message || "由于灵力波动，打卡失败"
-    console.error("签到异常:", error)
-    // 如果你有通用的消息组件，可以用 ElMessage.error(errorMsg)
-    alert(errorMsg) 
-  } finally {
-    loading.value = false
-  }
+  } catch (err: any) {
+    alert(err.response?.data?.message || '签到失败')
+  } finally { loading.value = false }
 }
 
-// 6. 生命周期与监听
-onMounted(fetchSignData)
-watch([viewYear, viewMonth], fetchSignData)
+onMounted(loadAll)
+watch([viewYear, viewMonth], loadAll)
 
-// 7. 辅助方法
 const changeMonth = (delta: number) => {
-  const newDate = new Date(viewYear.value, viewMonth.value + delta, 1)
-  viewYear.value = newDate.getFullYear()
-  viewMonth.value = newDate.getMonth()
+  const d = new Date(viewYear.value, viewMonth.value + delta, 1)
+  viewYear.value = d.getFullYear()
+  viewMonth.value = d.getMonth()
 }
 
 const getSignStatus = (date: number) => {
-  const dateStr = `${viewYear.value}-${String(viewMonth.value + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`
-  const status = signData.value[dateStr]
-  if (status === 1) return 'status-normal'
-  if (status === 2) return 'status-re-sign'
+  const status = signData.value[getDateKey(date)]
+  if (status === 1) return 'status-signed'
+  if (status === 2) return 'status-repay'
   return 'status-none'
 }
 
-const checkIsToday = (date: number) => {
-  return isCurrentMonth.value && date === now.getDate()
-}
-
-const monthlyCount = computed(() => {
-  const monthPrefix = `${viewYear.value}-${String(viewMonth.value + 1).padStart(2, '0')}`
-  return Object.keys(signData.value).filter(key => key.startsWith(monthPrefix)).length
-})
+const checkIsToday = (date: number) => isCurrentMonth.value && date === now.getDate()
 </script>
 
 <style scoped>
+/* ---------- 极简 · 留白 · 克制 ---------- */
 .sign-container {
-  background: #ffffff;
-  border: 1px solid #f0f0f0;
-  border-radius: 12px;
-  padding: 24px;
-  width: 100%;
-  user-select: none;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  color: #1a1f2c;
+  background: #fff;
 }
 
-/* 头部样式 */
+/* 头部 */
 .calendar-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
+  align-items: baseline;
   flex-wrap: wrap;
-  gap: 16px;
+  margin-bottom: 2rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
 }
-
-.month-display {
-  font-size: 1.1rem;
-  font-weight: 700;
-  margin: 0 15px;
-  color: #1f2328;
+.current-month {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
 }
-
 .nav-btn {
-  border: 1px solid #d0d7de;
-  background: #fff;
-  border-radius: 6px;
-  padding: 4px 10px;
+  background: none;
+  border: none;
+  font-size: 1.2rem;
   cursor: pointer;
-  transition: all 0.2s;
+  color: #8b98a9;
+  padding: 0 0.25rem;
+  transition: color 0.1s;
 }
-
-.nav-btn:hover:not(:disabled) { background: #f6f8fa; border-color: #0969da; }
-.nav-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
+.nav-btn:hover:not(:disabled) { color: #1a1f2c; }
+.nav-btn:disabled { opacity: 0.3; cursor: default; }
+.month-display {
+  font-size: 1.2rem;
+  font-weight: 450;
+  letter-spacing: -0.2px;
+}
 .sign-stats {
   display: flex;
-  align-items: center;
+  align-items: baseline;
+  gap: 1rem;
 }
-
-/* 立即打卡按钮 */
 .sign-action-btn {
-  background: #24292f;
-  color: #ffffff;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-weight: 600;
-  margin-right: 16px;
+  background: none;
+  border: 1px solid #d4dae2;
+  padding: 0.2rem 1rem;
+  font-size: 0.85rem;
+  border-radius: 20px;
   cursor: pointer;
-  transition: all 0.2s;
+  color: #2c3e4e;
+  transition: all 0.1s;
 }
-
 .sign-action-btn:hover:not(:disabled) {
-  background: #0969da;
-  transform: translateY(-1px);
+  background: #f4f6f9;
+  border-color: #b9c3ce;
 }
-
 .sign-action-btn:disabled {
-  background: #f6f8fa;
-  color: #8c959f;
-  border: 1px solid #d0d7de;
-  cursor: not-allowed;
+  color: #b9c3ce;
+  cursor: default;
 }
-
 .stats-label {
-  font-size: 0.9rem;
-  color: #57606a;
+  font-size: 0.85rem;
+  color: #6c7e97;
 }
 
-.count-num { color: #0969da; font-weight: 800; font-family: monospace; font-size: 1.1rem; }
-
-/* 网格布局 */
-.weekday-grid, .calendar-grid {
+/* 星期 */
+.weekday-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   text-align: center;
+  font-size: 0.75rem;
+  color: #8b98a9;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.3px;
 }
 
-.weekday-grid {
-  font-size: 0.85rem;
-  color: #57606a;
-  margin-bottom: 12px;
-  font-weight: 600;
-}
-
+/* 日历网格 */
 .calendar-grid {
-  transition: opacity 0.3s;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.25rem;
 }
-
-.calendar-grid.is-loading {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
 .day-cell {
   aspect-ratio: 1 / 1;
   display: flex;
@@ -266,61 +291,143 @@ const monthlyCount = computed(() => {
   align-items: center;
   justify-content: center;
   position: relative;
-  border-radius: 8px;
-  margin: 2px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border-radius: 0;
+  background: transparent;
+  transition: background 0.1s;
 }
-
-.day-num { font-size: 0.95rem; font-weight: 500; z-index: 1; }
-
-/* 今日高亮标记 */
-.is-today {
-  outline: 2px solid #0969da;
-  outline-offset: -2px;
+.day-cell.empty {
+  cursor: default;
 }
-
-/* 状态小圆点 */
-.status-dot {
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  margin-top: 4px;
+.day-num {
+  font-weight: 400;
+  color: #1e293b;
+}
+/* 签到状态：只用底部细线或极淡背景 */
+.status-signed {
+  background: #f0f9f0;
+}
+.status-repay {
+  background: #f0f4fe;
+}
+.status-none {
   background: transparent;
 }
+/* 今日：细下划线 */
+.is-today .day-num {
+  font-weight: 500;
+  border-bottom: 1px solid #1a1f2c;
+}
+/* 选中：极淡背景 + 文字微调 */
+.is-selected {
+  background: #f4f7fb;
+  outline: none;
+}
+.is-selected .day-num {
+  font-weight: 500;
+}
+/* 活动标记：小圆点 */
+.activity-marker {
+  font-size: 6px;
+  color: #e68a2e;
+  margin-top: 2px;
+  line-height: 1;
+}
+/* 有活动单元格，不加额外背景 */
 
-/* 状态颜色适配 */
-.status-normal { background: #dafbe1; color: #1a7f37; }
-.status-normal .status-dot { background: #2da44e; }
-
-.status-re-sign { background: #ddf4ff; color: #0969da; }
-.status-re-sign .status-dot { background: #0969da; }
-
-.status-none { color: #57606a; }
-.status-none .status-dot { background: #d0d7de; }
-
-/* 底部图例 */
-.calendar-footer {
+/* 活动面板 – 极简 */
+.event-panel {
+  margin-top: 2rem;
+  border-top: 1px solid #e9ecef;
+  padding-top: 1.5rem;
+}
+.event-panel-header {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #8b98a9;
+  margin-bottom: 1rem;
+}
+.event-panel-content {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.event-date {
+  font-size: 0.8rem;
+  color: #6c7e97;
+  margin-bottom: 1rem;
+  font-family: monospace;
+}
+.event-list {
   display: flex;
-  gap: 20px;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
+  flex-direction: column;
+  gap: 1rem;
+}
+.event-item {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f0f2f5;
+}
+.event-name {
+  font-weight: 500;
+}
+.event-time {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-family: monospace;
+  color: #e68a2e;
+  margin-right: 0.75rem;
+}
+.event-detail {
+  font-size: 0.8rem;
+  color: #6c7e97;
+  margin-top: 0.25rem;
+}
+.event-empty {
+  color: #b9c3ce;
   font-size: 0.85rem;
-  color: #57606a;
+  padding: 1rem 0;
+  text-align: center;
 }
 
-.legend { display: flex; align-items: center; gap: 6px; }
-.dot { width: 8px; height: 8px; border-radius: 50%; }
-.dot.green { background: #2da44e; }
-.dot.blue { background: #0969da; }
-.dot.gray { background: #d0d7de; }
+/* 图例 */
+.calendar-footer {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.7rem;
+  color: #8b98a9;
+}
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+}
+.dot.green { background: #4c9f70; }
+.dot.blue { background: #6c8ebf; }
+.dot.gray { background: #cbd5e1; }
+.dot.orange { background: #e68a2e; }
 
-/* 手机适配 */
-@media (max-width: 768px) {
-  .sign-container { padding: 16px; }
-  .calendar-header { flex-direction: column; align-items: stretch; }
-  .current-month { display: flex; justify-content: center; }
-  .sign-stats { flex-direction: column; gap: 12px; }
-  .sign-action-btn { width: 100%; margin-right: 0; }
-  .day-num { font-size: 0.8rem; }
+/* 加载状态透明 */
+.calendar-grid.is-loading {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* 移动端: 加大留白 */
+@media (max-width: 560px) {
+  .sign-container {
+    padding: 1rem;
+  }
+  .day-cell {
+    font-size: 0.8rem;
+  }
+  .calendar-footer {
+    gap: 1rem;
+  }
 }
 </style>

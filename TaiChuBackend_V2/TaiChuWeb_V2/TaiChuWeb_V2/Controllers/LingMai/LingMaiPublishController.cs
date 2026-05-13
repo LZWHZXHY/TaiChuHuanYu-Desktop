@@ -1,6 +1,7 @@
 ﻿// TaiChuWeb_V2/Controllers/LingMai/LingMaiPublishController.cs
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Models.LingMai;
 
@@ -19,7 +20,40 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         {
             _context = context;
         }
+        [HttpGet("stream")]
+        public async Task<IActionResult> GetPublicStream([FromQuery] string? type = "wiki", [FromQuery] string? spaceId = null)
+        {
+            var query = _context.PublishedNotes.AsNoTracking();
 
+            if (!string.IsNullOrEmpty(type))
+                query = query.Where(pn => pn.Type == type);
+
+            // 1. 先转换
+            Guid.TryParse(CurrentUserId, out Guid userIdGuid);
+
+            // 2. 比较
+            var dbUser = await _context.Users.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == userIdGuid); // Guid == Guid
+
+            var stream = await query
+                .OrderByDescending(pn => pn.PublishedAt)
+                .Select(pn => new {
+                    pn.Id,
+                    pn.Title,
+                    pn.Type,
+                    pn.SpaceId,
+                    pn.PublishedAt,
+                    pn.Tags,
+                    Excerpt = _context.PublishedBlocks
+                        .Where(pb => pb.OwnerId == pn.Id.ToString() && pb.Type == "paragraph")
+                        .OrderBy(pb => pb.SortOrder)
+                        .Select(pb => pb.Data)
+                        .FirstOrDefault() ?? "灵脉深处暂无回响..."
+                })
+                .ToListAsync();
+
+            return Ok(stream);
+        }
         #region --- 1. 发布与取消发布 ---
 
         // TaiChuWeb_V2/Controllers/LingMai/LingMaiPublishController.cs
@@ -29,19 +63,17 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         {
             if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
 
-            // 1. 获取原始草稿
-            var note = await _context.Notes.AsNoTracking().FirstOrDefaultAsync(n => n.Id == id);
+            // 🌟 1. 获取原始草稿 (移除 AsNoTracking)
+            // 必须启用追踪，否则后续对 note.Type 的修改无法直接保存到数据库
+            var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == id);
             if (note == null) return NotFound(new { message = "未找到该草稿" });
 
-            // 🌟 2. 准备快照数据：获取作者名称
-            // 1. 建议将变量名改为 dbUser，避免和系统的 User 属性混淆
+            // 2. 准备快照数据：获取作者名称
             var dbUser = await _context.Users.AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == Guid.Parse(CurrentUserId));
-
-            // 2. 🌟 修正点：将 .UserName 改为 .Username (注意大小写)
             var authorName = dbUser?.Username ?? "未知编织者";
 
-            // 🌟 3. 准备快照数据：从通用标签表中拉取当前笔记的所有标签
+            // 3. 准备快照数据：从标签表中拉取标签
             var tagNames = await _context.TagAssignments
                 .Where(ta => ta.EntityId == id.ToString() && ta.EntityType == "note")
                 .Include(ta => ta.Tag)
@@ -57,6 +89,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
+                // 5. 获取或创建发布表记录
                 var publishedNote = await _context.PublishedNotes
                     .FirstOrDefaultAsync(pn => pn.OriginalNoteId == id);
 
@@ -72,20 +105,19 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                     _context.PublishedNotes.Add(publishedNote);
                 }
 
-                // 🌟 5. 同步快照字段到发布表
+                // 6. 同步快照字段到发布表
                 publishedNote.Title = note.Title;
-                publishedNote.Type = type; // 决定它是世界观、角色还是社区知识
+                publishedNote.Type = type; // 设定形态：wiki, thought, char 等
                 publishedNote.PublishedAt = DateTime.UtcNow;
                 publishedNote.AuthorName = authorName;
-                publishedNote.Tags = string.Join(",", tagNames); // 拍扁成字符串存储，方便前端 index.vue 读取
+                publishedNote.Tags = string.Join(",", tagNames);
 
-                // 🌟 6. 提取摘要：取第一个段落的前 100 个字
+                // 7. 提取摘要：取第一个段落的前 100 个字
                 var firstParagraph = draftBlocks
                     .FirstOrDefault(b => b.Type == "paragraph")?.Data;
 
                 if (!string.IsNullOrEmpty(firstParagraph))
                 {
-                    // 简单处理：截取前100字作为摘要
                     publishedNote.Excerpt = firstParagraph.Length > 100
                         ? firstParagraph.Substring(0, 100) + "..."
                         : firstParagraph;
@@ -93,7 +125,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
                 await _context.SaveChangesAsync();
 
-                // 7. 同步内容块快照 (PublishedBlocks)
+                // 8. 同步内容块快照 (PublishedBlocks)
                 var oldPubBlocks = await _context.PublishedBlocks
                     .Where(pb => pb.OwnerId == publishedNote.Id.ToString() && pb.OwnerType == "note")
                     .ToListAsync();
@@ -111,10 +143,13 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
                 _context.PublishedBlocks.AddRange(pubBlocks);
 
-                // 8. 标记原笔记为已公开
+                // 🌟 9. 物理对齐：同步修改原笔记在 Notes 表中的状态
+                // 这是解决“刷新即消失”的关键：必须物理修改原笔记的 Type
                 note.IsPublic = true;
-                _context.Entry(note).Property(n => n.IsPublic).IsModified = true;
+                note.Type = type; // 将 'note' 改为 'wiki' 等
+                note.UpdatedAt = DateTime.UtcNow;
 
+                // 由于第一步去掉了 AsNoTracking，这里直接 SaveChanges 即可持久化到数据库
                 await _context.SaveChangesAsync();
                 await transaction.CommitAsync();
 
@@ -126,6 +161,63 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 return StatusCode(500, new { message = $"发布失败: {ex.Message}" });
             }
         }
+
+        // LingMaiPublishController.cs
+
+        [HttpGet("published/{id:guid}")]
+        public async Task<IActionResult> GetPublishedDetail(Guid id)
+        {
+            var publishedNote = await _context.PublishedNotes
+                .FirstOrDefaultAsync(pn => pn.Id == id);
+
+            if (publishedNote == null)
+            {
+                return NotFound(new { message = "该词条已进入虚空（未找到）" });
+            }
+
+            var blocks = await _context.PublishedBlocks
+                .Where(pb => pb.OwnerId == id.ToString())
+                .OrderBy(pb => pb.SortOrder)
+                .ToListAsync();
+
+            // 🌟 核心修复：重新编织 Tiptap 文档树，平铺 attrs 和 content
+            var content = new
+            {
+                type = "doc",
+                content = blocks.Select(b => {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(b.Data);
+                        var root = doc.RootElement;
+
+                        return (object)new
+                        {
+                            type = b.Type,
+                            // 提取 attrs，如果没有则给空对象
+                            attrs = root.TryGetProperty("attrs", out var a) ? a.Clone() : (object)new { },
+                            // 提取 content，如果没有则不返回该字段
+                            content = root.TryGetProperty("content", out var c) ? c.Clone() : (object?)null
+                        };
+                    }
+                    catch
+                    {
+                        return new { type = "paragraph", content = new[] { new { type = "text", text = "碎片解析异常" } } };
+                    }
+                }).ToList()
+            };
+
+            return Ok(new
+            {
+                id = publishedNote.Id,
+                title = publishedNote.Title,
+                authorName = publishedNote.AuthorName,
+                publishedAt = publishedNote.PublishedAt,
+                tags = publishedNote.Tags,
+                content = content
+            });
+        }
+
+
 
         [HttpDelete("notes/{id:guid}/unpublish")]
         public async Task<IActionResult> UnpublishNote(Guid id)

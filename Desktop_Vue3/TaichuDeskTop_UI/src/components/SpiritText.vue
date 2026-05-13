@@ -211,189 +211,143 @@ defineExpose({
 });
 </script>
 
+
+
 <style scoped>
+/* 1. 引入公共排版引擎样式 */
+@import "./SpiritTextComponents/spirit-typography.css";
+
+/* 2. 编辑器外层容器 */
 .spirit-editor-wrapper {
   position: relative;
   width: 100%;
+  /* 确保内容区域能够撑开 */
+  min-height: 500px; 
 }
 
-/* 浮动菜单通用样式 (Notion 风格) */
-.spirit-floating-menu {
-  position: fixed;
-  width: 260px;
-  max-height: 320px;
-  background: white;
-  border: 1px solid #f0f0f0;
-  border-radius: 12px;
-  box-shadow: 0 12px 30px rgba(0,0,0,0.12);
-  padding: 6px;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
+/* 3. 交互式编辑器内容区（针对 Tiptap 运行时的特殊处理） */
+:deep(.tiptap) {
+  /* 继承我们在 spirit-typography.css 中定义的排版类 */
+  outline: none;
 }
 
-.menu-header {
-  font-size: 10px;
-  color: #a1a1a6;
-  padding: 6px 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 700;
-}
-
-.menu-scroll-area { overflow-y: auto; flex: 1; }
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.menu-item:hover { background: #f5f5f7; }
-
-.item-icon {
-  width: 28px; height: 28px; background: #f0f0f2;
-  border-radius: 6px; display: flex; align-items: center;
-  justify-content: center; font-size: 12px; font-weight: bold;
-}
-
-.item-text { flex: 1; }
-.main-title { font-size: 14px; font-weight: 500; color: #1d1d1f; }
-.sub-info { font-size: 10px; color: #86868b; }
-
-.menu-empty { padding: 20px; text-align: center; color: #d2d2d7; font-size: 13px; }
-
-/* 编辑器正文排版 */
-:deep(.spirit-typography-engine .tiptap) {
-  outline: none; min-height: 500px; font-size: 1.1rem; line-height: 1.8; color: #1d1d1f;
-}
-
-/* 双链节点样式 */
-:deep(.spirit-link-node) {
-  color: #0066cc;
-  background: rgba(0, 102, 204, 0.05);
-  text-decoration: none;
-  padding: 0 4px;
-  border-radius: 4px;
-  font-weight: 500;
-  border-bottom: 1px dashed rgba(0, 102, 204, 0.4);
-}
-
-/* 🌟 图片排版与对齐支持 */
-:deep(.spirit-image-node) {
-  display: block;
-  height: auto;
-  border-radius: 12px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: grab;
-  border: 2px solid transparent;
-}
-
-:deep(.ProseMirror-selectednode.spirit-image-node) {
-  border-color: #0066cc;
-  box-shadow: 0 4px 20px rgba(0,102,204,0.1);
-}
-
-/* 核心对齐逻辑 */
-:deep(.spirit-image-node[data-align="left"]) { margin-left: 0; margin-right: auto; }
-:deep(.spirit-image-node[data-align="center"]) { margin-left: auto; margin-right: auto; }
-:deep(.spirit-image-node[data-align="right"]) { margin-left: auto; margin-right: 0; }
-
+/* 🌟 编辑器特有：光标样式 */
 :deep(.ProseMirror-dropcursor) {
   color: #0066cc;
   width: 2px;
 }
 
-.menu-pop-enter-active { transition: all 0.2s ease-out; }
-.menu-pop-enter-from { opacity: 0; transform: scale(0.95) translateY(-10px); }
-
-/* SpiritText.vue 的 style 部分 */
-:deep(.tiptap ul[data-type="taskList"]) {
-  list-style: none;
-  padding: 0;
+/* 🌟 编辑器特有：被选中的节点（如图片被选中时的外框） */
+:deep(.ProseMirror-selectednode) {
+  outline: 2px solid #0066cc;
+  box-shadow: 0 4px 20px rgba(0, 102, 204, 0.15);
 }
 
-:deep(.tiptap li[data-type="taskItem"]) {
+/* 4. 浮动菜单通用样式 (Notion 风格斜杠菜单 & 关联选择器) */
+.spirit-floating-menu {
+  position: fixed; /* 由 computePosition 计算位置 */
+  width: 280px;
+  max-height: 320px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+  z-index: 9999;
   display: flex;
-  gap: 0.5rem;
-  align-items: flex-start;
-}
-
-:deep(.tiptap li[data-type="taskItem"] > label) {
-  flex: 0 0 auto;
-  user-select: none;
-  margin-top: 0.25rem;
-}
-
-:deep(.tiptap li[data-type="taskItem"] > div) {
-  flex: 1 1 auto;
-}
-/* SpiritText.vue 的 style 区域 */
-
-:deep(.tiptap details) {
-  border: 1px solid #f2f2f7;
-  border-radius: 12px;
-  margin: 1.5rem 0;
-  padding: 0;
-  background: #ffffff;
+  flex-direction: column;
   overflow: hidden;
 }
 
-:deep(.tiptap summary) {
-  padding: 12px 20px;
-  background: #fbfbfd;
-  border-bottom: 1px solid #f2f2f7;
-  cursor: pointer;
+.menu-header {
+  font-size: 11px;
+  color: #a1a1a6;
+  padding: 8px 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
   font-weight: 700;
-  color: #1d1d1f;
-  outline: none;
-  list-style: none; /* 隐藏默认箭头 */
 }
 
-/* 自定义漂亮的箭头 */
-:deep(.tiptap summary::before) {
-  content: '▼';
-  font-size: 10px;
-  margin-right: 12px;
-  color: #0066cc;
-  display: inline-block;
-  transition: transform 0.2s ease;
+.menu-scroll-area {
+  overflow-y: auto;
+  flex: 1;
+  /* 隐藏滚动条但保留功能 */
+  scrollbar-width: none;
 }
+.menu-scroll-area::-webkit-scrollbar { display: none; }
 
-:deep(.tiptap details:not([open]) summary::before) {
-  transform: rotate(-90deg);
-}
-
-:deep(.tiptap details > p), 
-:deep(.tiptap details > ul), 
-:deep(.tiptap details > ol) {
-  margin: 16px 20px !important;
-}
-/* SpiritText.vue 的样式区域 */
-
-:deep(.tiptap .spirit-mention-node) {
-  background: rgba(0, 102, 204, 0.1);
-  color: #0066cc;
-  border-radius: 4px;
-  padding: 0 4px;
-  font-weight: 600;
-  text-decoration: none;
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-:deep(.tiptap .spirit-mention-node:hover) {
-  background: rgba(0, 102, 204, 0.2);
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+.menu-item:hover {
+  background: rgba(0, 102, 204, 0.05);
 }
 
-/* 模拟 @ 符号的效果（如果需要的话） */
-:deep(.tiptap .spirit-mention-node::before) {
-  content: '◈ ';
-  font-size: 10px;
-  opacity: 0.6;
+.item-icon {
+  width: 32px;
+  height: 32px;
+  background: #f2f2f7;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #1d1d1f;
+}
+
+.item-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.sub-info {
+  font-size: 11px;
+  color: #86868b;
+  margin-top: 2px;
+}
+
+/* 5. 菜单空状态 */
+.menu-empty {
+  padding: 30px 20px;
+  text-align: center;
+  color: #c7c7cc;
+  font-size: 13px;
+}
+
+/* 6. 动画：菜单弹出效果 */
+.menu-pop-enter-active,
+.menu-pop-leave-active {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.menu-pop-enter-from,
+.menu-pop-leave-to {
+  opacity: 0;
+  transform: scale(0.95) translateY(-10px);
+}
+
+/* 7. 响应式适配 */
+@media (max-width: 768px) {
+  .spirit-floating-menu {
+    width: calc(100vw - 32px);
+    left: 16px !important;
+    right: 16px !important;
+  }
 }
 </style>
+
