@@ -14,11 +14,11 @@ export interface DoSignResponse {
 export const signApi = {
   // 获取月度数据
   getMonthData: (year: number, month: number) => 
-    request.get<any, SignData>('/Sign/month-data', { 
+    request.get<SignData>('/Sign/month-data', { 
       params: { year, month } 
     }),
 
   // 执行签到
   doSign: () => 
-    request.post<any, DoSignResponse>('/Sign/do-sign')
+    request.post<DoSignResponse>('/Sign/do-sign')
 };

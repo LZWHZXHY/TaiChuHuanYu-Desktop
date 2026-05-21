@@ -1,5 +1,5 @@
 // composables/useExpNotify.ts
-import { ref, h, render } from 'vue'
+import { h, render } from 'vue'
 import ExpNotification from '../components/ExpNotification.vue'
 
 let container: HTMLElement | null = null

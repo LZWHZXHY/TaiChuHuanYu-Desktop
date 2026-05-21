@@ -51,14 +51,15 @@ export const artworkApi = {
    * @param limit 每次加载的数量 (默认20)
    */
   getGallery: (offset: number, limit: number = 20) =>
-    request.get<any, ArtworkListResponse>('/Artwork', {
+    // 只保留一个类型参数：ArtworkListResponse
+    request.get<ArtworkListResponse>('/Artwork', {
       params: { offset, limit }
     }),
 
   /**
    * 获取作品详情
-   * @param id 作品ID
    */
   getDetail: (id: number) =>
-    request.get<any, ArtworkDetail>(`/Artwork/${id}`)
+    // 只保留一个类型参数：ArtworkDetail
+    request.get<ArtworkDetail>(`/Artwork/${id}`)
 };

@@ -17,6 +17,8 @@ namespace TaiChuHuanYu_DeskTop_V1
         public MainWindow()
         {
             InitializeComponent();
+            var dir = System.IO.Path.GetDirectoryName(tokenFilePath);
+            if (!System.IO.Directory.Exists(dir)) System.IO.Directory.CreateDirectory(dir);
             InitBrowser();
         }
 
@@ -47,7 +49,8 @@ namespace TaiChuHuanYu_DeskTop_V1
                 }
             };
 
-            MainWebView.Source = new Uri("http://localhost:5173");
+            //MainWebView.Source = new Uri("http://localhost:5173");
+            MainWebView.Source = new Uri("https://bianyuzhou.com");
 
             // 2. 导航完成时的逻辑（核心修改）
             MainWebView.CoreWebView2.NavigationCompleted += async (s, e) =>
@@ -79,7 +82,11 @@ namespace TaiChuHuanYu_DeskTop_V1
             };
         }
 
-        private string tokenFilePath = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "auth.token");
+        private string tokenFilePath = System.IO.Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "TaiChuHuanYu",
+            "auth.token"
+        );
 
         // 修改：直接返回 Token 内容，方便后续注入
         private string GetLocalToken()

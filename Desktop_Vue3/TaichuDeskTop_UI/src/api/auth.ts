@@ -49,8 +49,9 @@ interface LoginResponse {
 }
 
 export const authApi = {
+  // 修复：移除 any，只保留 LoginResponse
   login: (data: any) => 
-    request.post<any, LoginResponse>('/Auth/login', data),
+    request.post<LoginResponse>('/Auth/login', data),
 
   register: (data: any) => 
     request.post('/Auth/register', data),
@@ -61,9 +62,11 @@ export const authApi = {
   resetPassword: (data: any) => 
     request.post('/Auth/reset-password', data),
 
+  // 修复：移除 any，只保留 Plugin[]
   getPlugins: () => 
-    request.get<any, Plugin[]>('/Plugins'),
+    request.get<Plugin[]>('/Plugins'),
 
+  // 修复：移除 any，只保留 UserInfo
   getUserInfo: () =>
-    request.get<any, UserInfo>('/User/me') 
+    request.get<UserInfo>('/User/me') 
 };

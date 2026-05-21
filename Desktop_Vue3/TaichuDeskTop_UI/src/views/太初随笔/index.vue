@@ -35,23 +35,22 @@
     </header>
 
     <main class="curated-view">
-      <div v-if="loading" class="curated-loading">
+      <div v-if="loading && posts.length === 0" class="curated-loading">
         <div class="loading-pulse"></div>
         <span class="loading-text">正在共鸣太初视界...</span>
       </div>
 
-      <div v-else-if="filteredContent.length === 0" class="curated-empty">
+      <div v-else-if="posts.length === 0" class="curated-empty">
         <p class="empty-text">视界中空无一物，待你落笔生花。</p>
       </div>
 
       <div v-else class="curated-stream-grid">
         <div 
-          v-for="item in filteredContent" :key="item.id" 
+          v-for="item in posts" :key="item.id" 
           class="stream-card" 
           :class="[item.type === 'essay' ? 'is-blog' : 'is-post']"
           @click="openArtwork(item.id)"
         >
-          
           <template v-if="item.type === 'essay'">
             <div class="card-meta">
               <span class="meta-tag">ESSAY</span>
@@ -81,8 +80,8 @@
             </div>
             <div class="card-body">
               <p class="post-text">
-                “ {{ getSnippet(item.excerpt || item.content, 160) }} ”
-              </p>
+    “ {{ getSnippet(item.excerpt, 160) || item.title || '灵脉波动中...' }} ”
+  </p>
             </div>
             <div class="card-footer">
               <time class="post-time">{{ formatTime(item.publishedAt || item.createdAt) }}</time>
@@ -92,8 +91,12 @@
               </div>
             </div>
           </template>
-
         </div>
+      </div>
+
+      <div v-if="posts.length > 0" ref="loadMoreTrigger" class="load-more-trigger">
+        <div v-if="loadingMore" class="loading-pulse-small"></div>
+        <span v-else-if="!hasMore" class="end-text">—— 视界已达边界 ——</span>
       </div>
     </main>
 
@@ -108,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 
 import PublicNoteDetail from './PublicNoteDetail.vue';
@@ -125,54 +128,121 @@ const router = useRouter();
 const currentFilter = ref<'all' | 'essay' | 'thought'>('all');
 const posts = ref<FrontMixedPost[]>([]);
 const loading = ref(false);
-
 const activePostId = ref<string | null>(null);
 
-const fetchStream = async () => {
-  loading.value = true;
+// 🌟 1. 补上缺失的分页与加载状态变量
+const page = ref(1);
+const pageSize = ref(20);
+const hasMore = ref(true);
+const loadingMore = ref(false);
+const loadMoreTrigger = ref<HTMLElement | null>(null);
+let observer: IntersectionObserver | null = null;
+
+// 🌟 2. 改造 fetchStream 支持分页和追加数据
+const fetchStream = async (isLoadMore = false) => {
+  if (isLoadMore) {
+    loadingMore.value = true;
+  } else {
+    loading.value = true;
+    page.value = 1; // 首次加载或切换分类时，重置为第一页
+    hasMore.value = true;
+  }
+
   try {
     const typeQuery = currentFilter.value === 'all' 
       ? undefined 
       : (currentFilter.value === 'essay' ? 'note' : 'thought');
 
-    const res = await notePublishApi.getPublicStream(typeQuery);
+    // 发起真正的分页请求
+    const res = await notePublishApi.getPublicStream({
+      type: typeQuery,
+      page: page.value,
+      pageSize: pageSize.value
+    });
     
     if (res && Array.isArray(res)) {
-      posts.value = res.map((item: any) => ({
+      const formattedData = res.map((item: any) => ({
         ...item,
         type: item.type === 'note' ? 'essay' : 'thought',
-        author: '太初隐者',
+        author: item.authorName || '太初隐者', // 优先用后端传来的名字
         content: item.excerpt
       }));
+
+      if (isLoadMore) {
+        posts.value.push(...formattedData); // 触底加载，追加到尾部
+      } else {
+        posts.value = formattedData; // 首次加载，直接覆盖
+      }
+
+      // 判断后端是否还有更多数据
+      if (res.length < pageSize.value) {
+        hasMore.value = false;
+      } else {
+        page.value++; // 准备好下一页的页码
+      }
+    } else {
+      hasMore.value = false;
     }
   } catch (err) {
     console.error('广场数据感应失败:', err);
+    hasMore.value = false;
   } finally {
     loading.value = false;
+    loadingMore.value = false;
+  }
+};
+
+// 🌟 3. 新增触底观察者逻辑
+const setupObserver = () => {
+  if (observer) observer.disconnect();
+
+  observer = new IntersectionObserver((entries) => {
+    // 如果底部探测器出现在视野内，且还有数据、没在加载中
+    if (entries[0].isIntersecting && !loading.value && !loadingMore.value && hasMore.value) {
+      fetchStream(true);
+    }
+  }, {
+    rootMargin: '200px', // 提前 200px 触发，体验更丝滑
+  });
+
+  if (loadMoreTrigger.value) {
+    observer.observe(loadMoreTrigger.value);
   }
 };
 
 const extractTiptapText = (rawStr: string | undefined): string => {
   if (!rawStr) return '';
   const trimmed = rawStr.trim();
+  
+  // 如果不是 JSON 格式，说明是老系统的纯文本数据，直接返回
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
     return rawStr;
   }
+
   try {
     const obj = JSON.parse(rawStr);
     const parseNode = (node: any): string => {
       if (!node) return '';
+      if (typeof node === 'string') return node;
       if (node.type === 'text') return node.text || '';
-      if (Array.isArray(node.content)) return node.content.map(parseNode).join('');
-      if (node.content && typeof node.content === 'object') return parseNode(node.content);
+      
+      // 🌟 重点：有些 Tiptap 结构内容在 content 数组里
+      if (Array.isArray(node.content)) {
+        return node.content.map(parseNode).join('');
+      }
+      
+      // 🌟 重点：如果是一个顶层 doc 对象
+      if (node.type === 'doc' && Array.isArray(node.content)) {
+        return node.content.map(parseNode).join('');
+      }
+      
       return '';
     };
     return parseNode(obj);
   } catch (e) {
-    return rawStr;
+    return rawStr; // 解析失败也返回原样，防止报错
   }
 };
-
 const getSnippet = (rawStr: string | undefined, maxLength: number): string => {
   const plainText = extractTiptapText(rawStr);
   if (!plainText) return '';
@@ -195,14 +265,11 @@ const goToLingMai = () => {
 };
 
 const changeFilter = (type: 'all' | 'essay' | 'thought') => {
+  if (currentFilter.value === type) return; // 避免重复点击
   currentFilter.value = type;
-  fetchStream();
+  window.scrollTo({ top: 0, behavior: 'smooth' }); // 切换分类回到顶部
+  fetchStream(false); // 重新请求第一页
 };
-
-const filteredContent = computed(() => {
-  if (currentFilter.value === 'all') return posts.value;
-  return posts.value.filter(item => item.type === currentFilter.value);
-});
 
 const formatTime = (timeStr: string | undefined) => {
   if (!timeStr) return '刚刚';
@@ -211,7 +278,8 @@ const formatTime = (timeStr: string | undefined) => {
 };
 
 onMounted(async () => {
-  await fetchStream();
+  await fetchStream(false);
+  setupObserver(); // 🌟 数据加载完后开启滚动监听
 
   const path = window.location.pathname;
   if (path.startsWith('/posts/')) {
@@ -221,7 +289,13 @@ onMounted(async () => {
     }
   }
 });
+
+// 🌟 4. 组件销毁时断开监听，防止内存泄漏
+onUnmounted(() => {
+  if (observer) observer.disconnect();
+});
 </script>
+
 
 <style scoped>
 .curated-gallery-container {

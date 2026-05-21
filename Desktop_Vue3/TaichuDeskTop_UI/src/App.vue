@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router' // 🌟 引入 useRoute
+import { useRouter} from 'vue-router' // 🌟 引入 useRoute
 import request from './utils/request' 
 import OperationTerminal from './components/OperationTerminal.vue'
 import { useUserStore } from './stores/user'
@@ -15,7 +15,7 @@ interface Plugin {
 }
 const userStore = useUserStore()
 const router = useRouter()
-const route = useRoute() // 🌟 获取当前路由状态
+// const route = useRoute() // 🌟 获取当前路由状态
 const allPlugins = ref<Plugin[]>([]) 
 const activeMenu = ref('推送首页')
 

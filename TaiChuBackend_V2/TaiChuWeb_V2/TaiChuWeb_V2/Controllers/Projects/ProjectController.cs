@@ -10,7 +10,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
 {
     [Authorize]
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/[controller]")] // 🌟 提示：请确保前端 baseUrl 包含了 api 前缀，或与前端请求路径对齐
     public class ProjectController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -27,9 +27,6 @@ namespace TaiChuWeb_V2.Controllers.Projects
         [HttpGet("public")]
         public async Task<IActionResult> GetPublicProjects()
         {
-            // 逻辑：
-            // 1. 必须是公开项目 (IsPublic == true)
-            // 2. (可选) 排除掉用户已经是成员的项目，或者在前端标记“已加入”
             var projects = await _context.Projects
                 .Where(p => p.IsPublic)
                 .OrderByDescending(p => p.CreatedAt)
@@ -41,9 +38,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
                     p.StartTime,
                     p.EndTime,
                     p.CreatedAt,
-                    // 统计人数
                     MemberCount = _context.ProjectMembers.Count(m => m.ProjectId == p.Id),
-                    // 标记当前用户是否已经是成员
                     IsJoined = _context.ProjectMembers.Any(m => m.ProjectId == p.Id && m.UserId == CurrentUserId)
                 })
                 .ToListAsync();
@@ -53,12 +48,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
 
         #endregion
 
-
-
         #region --- 核心：项目列表与创建 ---
-
-
-
 
         [HttpGet("my")]
         public async Task<IActionResult> GetMyProjects()
@@ -72,13 +62,11 @@ namespace TaiChuWeb_V2.Controllers.Projects
                     m.Project.Description,
                     m.Project.IsPublic,
                     m.Project.JoinPolicy,
-                    m.Project.Status,    // 🌟 补全状态
-                    m.Project.StartTime, // 🌟 补全开始时间
-                    m.Project.EndTime,   // 🌟 补全结束时间
+                    m.Project.Status,
+                    m.Project.StartTime,
+                    m.Project.EndTime,
                     m.RoleId,
                     m.Project.CreatedAt,
-
-                    // 🌟 实时统计参与人数
                     MemberCount = _context.ProjectMembers.Count(pm => pm.ProjectId == m.Project.Id)
                 })
                 .ToListAsync();
@@ -88,6 +76,8 @@ namespace TaiChuWeb_V2.Controllers.Projects
         [HttpPost("create")]
         public async Task<IActionResult> CreateProject([FromBody] CreateProjectDto dto)
         {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
             var project = new Project
             {
                 Id = Guid.NewGuid().ToString(),
@@ -113,12 +103,20 @@ namespace TaiChuWeb_V2.Controllers.Projects
             });
 
             await _context.SaveChangesAsync();
+
+            // 🌟 修复：补全返回字段，供前端页面跳转后的顶层组件及看板平稳渲染
             return Ok(new
             {
                 id = project.Id,
                 name = project.Name,
                 description = project.Description,
-                createdAt = project.CreatedAt
+                isPublic = project.IsPublic,
+                joinPolicy = project.JoinPolicy,
+                status = project.Status,
+                startTime = project.StartTime,
+                endTime = project.EndTime,
+                createdAt = project.CreatedAt,
+                memberCount = 1
             });
         }
 
@@ -130,26 +128,33 @@ namespace TaiChuWeb_V2.Controllers.Projects
         [HttpGet("{projectId}/settings")]
         public async Task<IActionResult> GetProjectSettings(string projectId)
         {
+            // 🔒 权限检查
+            if (!await IsMember(projectId)) return Forbid();
+
+            // 🌟 修复：补全 status, startTime, endTime 字段查询，供前端表单赋初始值
             var project = await _context.Projects
+                .Where(p => p.Id == projectId)
                 .Select(p => new {
                     p.Id,
                     p.Name,
                     p.Description,
                     p.IsPublic,
                     p.JoinPolicy,
+                    p.Status,
+                    p.StartTime,
+                    p.EndTime,
                     p.CreatedAt,
                     MemberCount = _context.ProjectMembers.Count(m => m.ProjectId == p.Id),
                     TaskCount = _context.ProjectTasks.Count(t => t.ProjectId == p.Id)
                 })
-                .FirstOrDefaultAsync(p => p.Id == projectId);
+                .FirstOrDefaultAsync();
 
             if (project == null) return NotFound();
-            if (!await IsMember(projectId)) return Forbid();
 
             return Ok(project);
         }
 
-        // 🌟 核心：一站式修改项目属性 (名字, 描述, 公开性, 准入策略)
+        // 🌟 一站式修改项目属性
         [HttpPatch("{projectId}")]
         public async Task<IActionResult> UpdateProject(string projectId, [FromBody] UpdateProjectDto dto)
         {
@@ -165,13 +170,15 @@ namespace TaiChuWeb_V2.Controllers.Projects
             if (dto.Description != null) project.Description = dto.Description;
             if (dto.IsPublic.HasValue) project.IsPublic = dto.IsPublic.Value;
             if (dto.JoinPolicy.HasValue) project.JoinPolicy = dto.JoinPolicy.Value;
+
+            // 🌟 允许前台显式更新时间维度的空值 (比如清除结束时间)
             if (dto.StartTime.HasValue) project.StartTime = dto.StartTime;
             if (dto.EndTime.HasValue) project.EndTime = dto.EndTime;
             if (dto.Status.HasValue) project.Status = dto.Status.Value;
 
             await _context.SaveChangesAsync();
 
-            // 🌟 关键修改：只返回前端需要的扁平化数据，避开 Members 导航属性
+            // 返回扁平化数据
             return Ok(new
             {
                 project.Id,
@@ -195,7 +202,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
             var project = await _context.Projects.FindAsync(projectId);
             if (project == null) return NotFound();
 
-            _context.Projects.Remove(project); // 依赖于 DbContext 中的级联删除配置
+            _context.Projects.Remove(project);
             await _context.SaveChangesAsync();
             return Ok("项目已从灵脉中抹除");
         }

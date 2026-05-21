@@ -60,11 +60,14 @@ const props = defineProps<{
 const emit = defineEmits(['update:modelValue', 'success']);
 
 // 🌟 选项描述也改为了更书面、克制的文字
+
 const PUBLISH_OPTIONS = [
   { type: 'note',    title: '随笔 (Blog)', desc: '深度记录，保留于知识骨架中。' },
   { type: 'thought', title: '简语 (Post)', desc: '瞬时灵感，不占据目录空间。' },
   { type: 'wiki',    title: '词条 (Wiki)', desc: '底层设定，作为世界观之基石。' },
-  { type: 'char',    title: '人物 (Char)', desc: '角色档案，包含生命数值映射。' }
+  { type: 'char',    title: '人物 (Char)', desc: '角色档案，包含生命数值映射。' },
+  // 🎨 新增：艺术画廊展厅选项
+  { type: 'art', title: '画廊 (Gallery)', desc: '视觉呈现，将意象物理同步至艺术展厅。' }
 ];
 
 const selectedType = ref(props.initialType || 'note');

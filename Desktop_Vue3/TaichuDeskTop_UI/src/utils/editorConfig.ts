@@ -9,8 +9,8 @@ import BubbleMenuExtension from '@tiptap/extension-bubble-menu'
 import Link from '@tiptap/extension-link'
 import { Node, mergeAttributes } from '@tiptap/core'
 import Image from '@tiptap/extension-image'
-import TaskList from '@tiptap/extension-task-list' // 🌟 新增
-import TaskItem from '@tiptap/extension-task-item' // 🌟 新增
+import TaskList from '@tiptap/extension-task-list'
+import TaskItem from '@tiptap/extension-task-item'
 import Mention from '@tiptap/extension-mention'
 
 const SpiritNode = Node.create({
@@ -18,26 +18,20 @@ const SpiritNode = Node.create({
   group: 'inline',
   inline: true,
   selectable: true,
-  atom: true, // 设置为原子节点，内部不可编辑
-
+  atom: true,
   addAttributes() {
-    return {
-      id: { default: null },
-      title: { default: '' }
-    }
+    return { id: { default: null }, title: { default: '' } }
   },
-
   parseHTML() {
     return [{ tag: 'span[data-spirit-id]' }]
   },
-
   renderHTML({ HTMLAttributes, node }) {
     return [
-      'span', 
-      mergeAttributes(HTMLAttributes, { 
+      'span',
+      mergeAttributes(HTMLAttributes, {
         'data-spirit-id': node.attrs.id,
-        class: 'spirit-link-node' 
-      }), 
+        class: 'spirit-link-node'
+      }),
       `[[${node.attrs.title}]]`
     ]
   }
@@ -46,14 +40,16 @@ const SpiritNode = Node.create({
 const DetailsNode = Node.create({
   name: 'details',
   group: 'block',
-  content: 'summary (paragraph|taskList|orderedList|bulletList|codeBlock|image)+', // 🌟 第一个必须是 summary，后面是内容
+  // 🌟 保持使用 'image' 节点名（因为我们没有改名）
+  content: 'summary (paragraph|taskList|orderedList|bulletList|codeBlock|image)+',
   addAttributes() { return { open: { default: true } } },
   parseHTML() { return [{ tag: 'details' }] },
   renderHTML({ HTMLAttributes }) { return ['details', mergeAttributes(HTMLAttributes), 0] },
 })
+
 const SummaryNode = Node.create({
   name: 'summary',
-  content: 'text*', // 🌟 标题只允许纯文本
+  content: 'text*',
   group: 'block',
   parseHTML() { return [{ tag: 'summary' }] },
   renderHTML() { return ['summary', {}, 0] },
@@ -61,54 +57,89 @@ const SummaryNode = Node.create({
 
 export const spiritExtensions = [
   Mention.configure({
-    HTMLAttributes: {
-      class: 'spirit-mention-node',
-    },
-    // 🌟 核心：告诉 Tiptap 如何渲染数据中的 label
+    HTMLAttributes: { class: 'spirit-mention-node' },
     renderLabel({ node }) {
       return `${node.attrs.label ?? node.attrs.id}`
     },
   }),
   DetailsNode,
   SummaryNode,
-  TaskList, 
+  TaskList,
   TaskItem.configure({
-    nested: true, // 🌟 必须开启，因为你的“网站开发计划”数据中存在嵌套任务列表
-    HTMLAttributes: {
-      class: 'spirit-task-item', // 可以根据需要添加自定义类名
-    },
+    nested: true,
+    HTMLAttributes: { class: 'spirit-task-item' },
   }),
+  // 🌟🌟🌟 核心修改：直接扩展 Image，保留节点名 'image'，添加 caption 和 NodeView
   Image.extend({
-    // 1. 添加自定义属性
-    addAttributes() {
-      return {
-        ...this.parent?.(),
-        align: {
-          default: 'center', // 默认居中
-          renderHTML: attributes => ({
-            'data-align': attributes.align,
-          })
-        },
-        width: {
-          default: '100%', // 默认撑满宽度
-          renderHTML: attributes => ({
-            style: `width: ${attributes.width}; height: auto;`
-          })
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      align: {
+        default: 'center',
+        renderHTML: attributes => ({ 'data-align': attributes.align }),
+      },
+      width: {
+        default: '100%',
+        renderHTML: attributes => ({ style: `width: ${attributes.width}; height: auto;` }),
+      },
+      // 不再添加 caption
+    }
+  },
+    // 在 editorConfig.ts 的 Image.extend(...) 中，替换原来的 addNodeView 为：
+
+addNodeView() {
+  return ({ node, editor }) => {
+    const container = document.createElement('figure')
+    container.style.margin = '0'
+
+    const img = document.createElement('img')
+    img.src = node.attrs.src
+    if (node.attrs.alt) img.alt = node.attrs.alt
+    if (node.attrs.title) img.title = node.attrs.title
+    img.setAttribute('data-align', node.attrs.align)
+    img.style.width = node.attrs.width || '100%'
+    img.style.height = 'auto'
+    img.style.display = 'block'
+    container.appendChild(img)
+
+    const caption = document.createElement('figcaption')
+    caption.setAttribute('contenteditable', 'true')
+    caption.setAttribute('data-placeholder', '添加题注…')
+    caption.style.cssText = `
+      text-align: center; font-size: 0.9em; color: #86868b;
+      padding: 12px 0 0; outline: none; min-height: 1.2em;
+    `
+    caption.innerHTML = node.attrs.caption || ''
+    caption.addEventListener('input', () => {
+      editor.commands.updateAttributes('image', { caption: caption.innerText })
+    })
+    // 阻止事件冒泡，防止编辑器误删节点
+    caption.addEventListener('click', (e) => e.stopPropagation())
+    caption.addEventListener('mousedown', (e) => e.stopPropagation())
+    container.appendChild(caption)
+
+    return {
+      dom: container,
+      // 关键：允许题注内部事件正常运作
+      stopEvent: (event) => {
+        const target = event.target
+        // 使用 globalThis.Node 避免与 ProseMirror Node 冲突
+        if (target && caption.contains(target as globalThis.Node)) {
+          return ['input', 'click', 'mousedown', 'keydown', 'keyup', 'paste', 'cut', 'copy'].includes(event.type)
         }
+        return false
       }
     }
+  }
+},
   }).configure({
     inline: false,
-    HTMLAttributes: {
-      class: 'spirit-image-node',
-    },
+    HTMLAttributes: { class: 'spirit-image-node' },
   }),
   SpiritNode,
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
-    codeBlock: {
-      HTMLAttributes: { class: 'spirit-code-block' },
-    },
+    codeBlock: { HTMLAttributes: { class: 'spirit-code-block' } },
   }),
   Link.extend({
     addAttributes() {
@@ -122,23 +153,16 @@ export const spiritExtensions = [
             return { 'data-target-id': attributes['data-target-id'] }
           }
         },
-        // 🌟 强力覆盖：强制去掉 target 属性，防止新开页面
-        target: {
-          default: null,
-          renderHTML: () => ({}) 
-        }
+        target: { default: null, renderHTML: () => ({}) }
       }
     }
   }).configure({
-    openOnClick: false, // 必须为 false
-    autolink: false,    // 禁用自动识别链接
-    HTMLAttributes: {
-      class: 'spirit-link-node',
-      rel: null,        // 去掉 rel 属性
-    },
+    openOnClick: false,
+    autolink: false,
+    HTMLAttributes: { class: 'spirit-link-node', rel: null },
   }),
-  TextStyle.configure(), 
-  Underline.configure(),
+  TextStyle.configure(),
+  Underline.configure(),       // 如果警告重复，可尝试删除此行（StarterKit 可能已包含）
   BubbleMenuExtension,
   Color.configure({ types: [TextStyle.name, 'listing'] }),
   Highlight.configure({ multicolor: true }),
@@ -148,9 +172,6 @@ export const spiritExtensions = [
   }),
 ]
 
-/**
- * 统一定义颜色盘
- */
 export const spiritColors = [
   { name: '太初红', color: '#e63946' },
   { name: '灵脉蓝', color: '#0066cc' },
@@ -158,49 +179,40 @@ export const spiritColors = [
   { name: '深邃黑', color: '#1a1a1a' },
 ]
 
-/**
- * 斜杠菜单命令定义
- * 每个命令在执行前都会先删掉触发它的那个 "/" 字符
- */
 export const slashCommands = [
-  { 
-    label: '一级标题', 
-    icon: 'H1', 
+  {
+    label: '一级标题', icon: 'H1',
     command: (editor: any) => {
-      const { from, to } = editor.state.selection;
-      editor.chain().focus().deleteRange({ from: from - 1, to }).setNode('heading', { level: 1 }).run();
+      const { from, to } = editor.state.selection
+      editor.chain().focus().deleteRange({ from: from - 1, to }).setNode('heading', { level: 1 }).run()
     }
   },
-  { 
-    label: '二级标题', 
-    icon: 'H2', 
+  {
+    label: '二级标题', icon: 'H2',
     command: (editor: any) => {
-      const { from, to } = editor.state.selection;
-      editor.chain().focus().deleteRange({ from: from - 1, to }).setNode('heading', { level: 2 }).run();
+      const { from, to } = editor.state.selection
+      editor.chain().focus().deleteRange({ from: from - 1, to }).setNode('heading', { level: 2 }).run()
     }
   },
-  { 
-    label: '引用块', 
-    icon: '“”', 
+  {
+    label: '引用块', icon: '“”',
     command: (editor: any) => {
-      const { from, to } = editor.state.selection;
-      editor.chain().focus().deleteRange({ from: from - 1, to }).toggleBlockquote().run();
+      const { from, to } = editor.state.selection
+      editor.chain().focus().deleteRange({ from: from - 1, to }).toggleBlockquote().run()
     }
   },
-  { 
-    label: '有序列表', 
-    icon: '1.', 
+  {
+    label: '有序列表', icon: '1.',
     command: (editor: any) => {
-      const { from, to } = editor.state.selection;
-      editor.chain().focus().deleteRange({ from: from - 1, to }).toggleOrderedList().run();
+      const { from, to } = editor.state.selection
+      editor.chain().focus().deleteRange({ from: from - 1, to }).toggleOrderedList().run()
     }
   },
-  { 
-    label: '代码块', 
-    icon: '</>', 
+  {
+    label: '代码块', icon: '</>',
     command: (editor: any) => {
-      const { from, to } = editor.state.selection;
-      editor.chain().focus().deleteRange({ from: from - 1, to }).toggleCodeBlock().run();
+      const { from, to } = editor.state.selection
+      editor.chain().focus().deleteRange({ from: from - 1, to }).toggleCodeBlock().run()
     }
   },
 ]

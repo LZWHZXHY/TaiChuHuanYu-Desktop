@@ -9,6 +9,9 @@ namespace TaiChuWeb_V2.Models.Artwork
         [Key]
         public int Id { get; set; }
 
+ 
+        public Guid? OriginalNoteId { get; set; }
+
         [Required]
         [MaxLength(100)]
         public string Title { get; set; } = string.Empty;

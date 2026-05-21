@@ -50,20 +50,12 @@
       <Transition name="view-fade" mode="out-in">
         <div :key="currentTab" class="module-container">
           
-          <ProjectSettings 
-            v-if="currentTab === 'settings'" 
+          <component 
+            :is="activeComponent"
             :projectId="project.id" 
             :initialData="project"
             @updated="refreshProject"
           />
-
-          <div v-else class="layout-placeholder">
-            <div class="placeholder-content">
-              <div class="placeholder-icon">⠿</div>
-              <h3>{{ tabs.find(t => t.id === currentTab)?.name }}模块已就绪</h3>
-              <p>等待接入具体的业务逻辑组件</p>
-            </div>
-          </div>
           
         </div>
       </Transition>
@@ -76,10 +68,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch, computed, h } from 'vue'; // 🌟 去掉了未使用的 shallowRef 导入
 import { useRoute, useRouter } from 'vue-router';
-import projectService from '../../../api/projectService'; // 请确保路径与你的目录结构一致
+import projectService from '../../../api/projectService'; 
+
+// 引入你的真实业务组件
+import ProjectKanban from './ProjectKanban.vue';
 import ProjectSettings from './ProjectSettings.vue';
+import ProjectMember from './ProjectMember.vue';
+
 
 const route = useRoute();
 const router = useRouter();
@@ -93,6 +90,38 @@ const tabs = [
   { id: 'settings', name: '项目配置' }
 ];
 
+/**
+ * 局部内联占位渲染函数
+ */
+const renderPlaceholder = () => {
+  const currentTabName = tabs.find(t => t.id === currentTab.value)?.name || '';
+  return h('div', { class: 'layout-placeholder' }, [
+    h('div', { class: 'placeholder-content' }, [
+      h('div', { class: 'placeholder-icon' }, '⠿'),
+      h('h3', `${currentTabName}模块已就绪`),
+      h('p', '等待接入具体的业务逻辑组件')
+    ])
+  ]);
+};
+
+/**
+ * 🌟 路由静态映射表
+ * 移除了内部零散的 shallowRef，交由下方的计算属性统一安全解析
+ */
+const componentMap: Record<string, any> = {
+  kanban: ProjectKanban,
+  settings: ProjectSettings,
+  timeline: renderPlaceholder,
+  members: ProjectMember
+};
+
+// 🌟 动态计算视口挂载项，自动防御 Ref 包装问题
+const activeComponent = computed(() => {
+  const target = componentMap[currentTab.value] || renderPlaceholder;
+  // 如果当前对象仍然是个 Ref 节点，则自动解包，确保丢给 <component :is> 的永远是原生组件
+  return target && target.__v_isRef ? target.value : target;
+});
+
 const getStatusLabel = (status: number) => {
   const labels: Record<number, string> = { 0: '筹备', 1: '活跃', 2: '圆满', 3: '归档' };
   return labels[status] || '未知';
@@ -103,22 +132,59 @@ const formatTime = (date: string) => {
   return new Date(date).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit' });
 };
 
-// 🌟 刷新数据逻辑：当配置修改成功后，更新顶层的项目信息
 const refreshProject = async () => {
   const projectId = route.params.id as string;
+  if (!projectId) return;
   try {
     const data = await projectService.getProjectSettings(projectId);
     project.value = data;
   } catch (err) {
-    console.error("刷新灵脉细节失败");
+    console.error("刷新灵脉细节失败", err);
   }
 };
+
+watch(() => route.params.id, () => {
+  refreshProject();
+});
 
 onMounted(refreshProject);
 </script>
 
 <style scoped>
-/* 样式部分保持你之前的极致简约设计，无需大幅修改 */
+/* 占位符样式完美保留在原处，通过内联组件的类名激活 */
+.layout-placeholder {
+  background: #fff;
+  border: 1px solid #f5f5f5;
+  height: 500px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.02);
+}
+
+.placeholder-content {
+  text-align: center;
+}
+
+.placeholder-icon {
+  font-size: 3rem;
+  color: #eee;
+  margin-bottom: 20px;
+}
+
+.placeholder-content h3 {
+  font-size: 1.1rem;
+  font-weight: 400;
+  color: #ccc;
+  margin-bottom: 8px;
+}
+
+.placeholder-content p {
+  font-size: 0.8rem;
+  color: #ddd;
+}
+
+/* 详情大厅的基础样式保持一致 */
 .project-detail-wrapper {
   min-height: 100vh;
   background-color: #ffffff;
@@ -234,51 +300,13 @@ onMounted(refreshProject);
   padding-bottom: 120px;
 }
 
-.layout-placeholder {
-  background: #fff;
-  border: 1px solid #f5f5f5;
-  height: 500px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 40px 80px rgba(0,0,0,0.02);
-}
-
-.placeholder-content {
-  text-align: center;
-}
-
-.placeholder-icon {
-  font-size: 3rem;
-  color: #eee;
-  margin-bottom: 20px;
-}
-
-.placeholder-content h3 {
-  font-size: 1.1rem;
-  font-weight: 400;
-  color: #ccc;
-  margin-bottom: 8px;
-}
-
-.placeholder-content p {
-  font-size: 0.8rem;
-  color: #ddd;
-}
-
 .view-fade-enter-active,
 .view-fade-leave-active {
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.view-fade-enter-from {
-  opacity: 0;
-  transform: translateY(15px);
-}
-.view-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-15px);
-}
+.view-fade-enter-from { opacity: 0; transform: translateY(15px); }
+.view-fade-leave-to { opacity: 0; transform: translateY(-15px); }
 
 .loading-state {
   height: 100vh;

@@ -166,7 +166,7 @@ const props = defineProps<{ activeId: string }>();
 const emit = defineEmits(['select', 'create']);
 
 const { 
-  notes, folders, rootNotes, getNotesInFolder, 
+folders, rootNotes, getNotesInFolder, 
   updateNoteTitle, deleteNote, moveNote, currentSpaceId, fetchAllNotes 
 } = useSpiritData();
 

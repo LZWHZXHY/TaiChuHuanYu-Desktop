@@ -205,6 +205,8 @@ const displayFilters = ref({
 
 const isSettingsOpen = ref(false); // 🌟 状态
 
+
+/*
 const filteredNotes = computed(() => {
   return notes.value.filter(n => {
     // 1. 显式断言类型，告诉 TS：n.type 肯定属于过滤器的 key 之一
@@ -227,6 +229,8 @@ const filteredNotes = computed(() => {
     return isTypeAllowed && isSidebarAllowed;
   });
 });
+*/
+
 
 // 🌟 元数据更新逻辑
 const handleUpdateNoteMeta = async (updates: any) => {

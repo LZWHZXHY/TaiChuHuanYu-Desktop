@@ -496,91 +496,106 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 });
             }
 
-
-
             var note = await _context.Notes.FindAsync(dto.NoteId);
             if (note == null) return NotFound(new { message = "未找到对应的笔记" });
 
             var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
             if (!isOwner) return Forbid();
 
-            using var transaction = await _context.Database.BeginTransactionAsync();
+            // 1. 获取当前数据库配置的重试策略
+            var strategy = _context.Database.CreateExecutionStrategy();
+
             try
             {
-                if (!string.IsNullOrEmpty(dto.Title))
+                // 2. 将所有涉及数据库读取、修改和事务的代码，放入 strategy.ExecuteAsync 中
+                return await strategy.ExecuteAsync(async () =>
                 {
-                    note.Title = dto.Title;
-                }
-                note.UpdatedAt = DateTime.UtcNow;
-
-                // 1. 🌟 修改点：使用多态指针 OwnerId + OwnerType 重建/清理草稿区 Blocks
-                var existingBlocks = await _context.Blocks
-                    .Where(b => b.OwnerId == dto.NoteId.ToString() && b.OwnerType == "note")
-                    .ToListAsync();
-                _context.Blocks.RemoveRange(existingBlocks);
-
-                // 2. 准备捕获当前笔记里所有的双链引用
-                var currentOutlinkIds = new HashSet<Guid>();
-
-                if (dto.Blocks != null && dto.Blocks.Count > 0)
-                {
-                    foreach (var b in dto.Blocks)
+                    // 3. 在策略内部开启显式事务
+                    using var transaction = await _context.Database.BeginTransactionAsync();
+                    try
                     {
-                        var block = new Block
+                        if (!string.IsNullOrEmpty(dto.Title))
                         {
-                            Id = b.Id,
-                            OwnerId = dto.NoteId.ToString(), // 🌟 修改点：改用 OwnerId
-                            OwnerType = "note",              // 🌟 修改点：增加 OwnerType
-                            Type = b.Type,
-                            Data = b.Data,
-                            SortOrder = b.SortOrder ?? "0",
-                            UpdatedAt = DateTime.UtcNow
-                        };
-                        _context.Blocks.Add(block);
+                            note.Title = dto.Title;
+                        }
+                        note.UpdatedAt = DateTime.UtcNow;
 
-                        // 🔍 自动解析双链规则：提取 data 里的 spiritLink id
-                        if (!string.IsNullOrWhiteSpace(b.Data))
+                        // 🌟 修改点：使用多态指针 OwnerId + OwnerType 重建/清理草稿区 Blocks
+                        var existingBlocks = await _context.Blocks
+                            .Where(b => b.OwnerId == dto.NoteId.ToString() && b.OwnerType == "note")
+                            .ToListAsync();
+                        _context.Blocks.RemoveRange(existingBlocks);
+
+                        // 2. 准备捕获当前笔记里所有的双链引用
+                        var currentOutlinkIds = new HashSet<Guid>();
+
+                        if (dto.Blocks != null && dto.Blocks.Count > 0)
                         {
-                            // 匹配形如 "id":"xxxx-xxxx-..." 的 GUID
-                            var matches = Regex.Matches(b.Data, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
-                            foreach (Match match in matches)
+                            foreach (var b in dto.Blocks)
                             {
-                                if (Guid.TryParse(match.Value, out Guid linkedId) && linkedId != dto.NoteId)
+                                var block = new Block
                                 {
-                                    currentOutlinkIds.Add(linkedId);
+                                    Id = b.Id,
+                                    OwnerId = dto.NoteId.ToString(),
+                                    OwnerType = "note",
+                                    Type = b.Type,
+                                    Data = b.Data,
+                                    SortOrder = b.SortOrder ?? "0",
+                                    UpdatedAt = DateTime.UtcNow
+                                };
+                                _context.Blocks.Add(block);
+
+                                // 🔍 自动解析双链规则
+                                if (!string.IsNullOrWhiteSpace(b.Data))
+                                {
+                                    var matches = Regex.Matches(b.Data, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+                                    foreach (Match match in matches)
+                                    {
+                                        if (Guid.TryParse(match.Value, out Guid linkedId) && linkedId != dto.NoteId)
+                                        {
+                                            currentOutlinkIds.Add(linkedId);
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
-                }
 
-                // 3. 增量更新 NoteLinks 表中的双链关联关系，杜绝断线！
-                var existingLinks = await _context.NoteLinks.Where(nl => nl.SourceNoteId == dto.NoteId).ToListAsync();
-                _context.NoteLinks.RemoveRange(existingLinks);
+                        // 3. 增量更新 NoteLinks 表中的双链关联关系
+                        var existingLinks = await _context.NoteLinks.Where(nl => nl.SourceNoteId == dto.NoteId).ToListAsync();
+                        _context.NoteLinks.RemoveRange(existingLinks);
 
-                foreach (var targetId in currentOutlinkIds)
-                {
-                    // 检查被引用的笔记是否存在
-                    var targetExists = await _context.Notes.AnyAsync(n => n.Id == targetId);
-                    if (targetExists)
-                    {
-                        _context.NoteLinks.Add(new NoteLink
+                        foreach (var targetId in currentOutlinkIds)
                         {
-                            Id = Guid.NewGuid(),
-                            SourceNoteId = dto.NoteId,
-                            TargetNoteId = targetId,
-                            Excerpt = dto.Title ?? note.Title
-                        });
-                    }
-                }
+                            var targetExists = await _context.Notes.AnyAsync(n => n.Id == targetId);
+                            if (targetExists)
+                            {
+                                _context.NoteLinks.Add(new NoteLink
+                                {
+                                    Id = Guid.NewGuid(),
+                                    SourceNoteId = dto.NoteId,
+                                    TargetNoteId = targetId,
+                                    Excerpt = dto.Title ?? note.Title
+                                });
+                            }
+                        }
 
-                await _context.SaveChangesAsync();
-                await transaction.CommitAsync();
-                return Ok(new { success = true });
+                        // 提交变更并提交事务
+                        await _context.SaveChangesAsync();
+                        await transaction.CommitAsync();
+
+                        return Ok(new { success = true });
+                    }
+                    catch (Exception)
+                    {
+                        // 如果出错，回滚内部事务
+                        await transaction.RollbackAsync();
+                        throw; // 必须 throw 抛出，重试策略策略才会捕获并决定是否重试
+                    }
+                });
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
+                // 捕获策略最终失败或无法恢复的异常
                 return StatusCode(500, $"灵脉同步异常: {ex.Message}");
             }
         }

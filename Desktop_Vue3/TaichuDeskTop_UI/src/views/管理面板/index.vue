@@ -53,12 +53,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, shallowRef } from 'vue';
+import { ref, computed} from 'vue';
 import 交易行组件 from './管理组件/交易行组件.vue';
+import 活动组件 from './管理组件/活动组件.vue';
+import 反馈组件 from './管理组件/反馈组件.vue';
+import 公告组件 from './管理组件/公告组件.vue';
+
 
 const activeTab = ref('trade');
 const menus = [
-  { id: 'trade', label: '交易行', icon: '◈', component: 交易行组件 }
+  { id: 'trade', label: '交易行', icon: '◈', component: 交易行组件 },
+  { id: 'event', label: '活动', component:活动组件},
+  { id: 'feedback', label: '反馈', component:反馈组件},
+  { id: 'news', label: '公告', component: 公告组件}
+
 ];
 
 const currentView = computed(() => {

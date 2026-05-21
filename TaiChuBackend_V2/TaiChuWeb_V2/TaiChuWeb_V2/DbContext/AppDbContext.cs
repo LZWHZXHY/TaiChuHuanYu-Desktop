@@ -8,6 +8,9 @@ using TaiChuWeb_V2.Models.Tag;
 using TaiChuWeb_V2.Models.Trade;
 using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.Models.Wiki;
+using TaiChuWeb_V2.Models.Event;
+using TaiChuWeb_V2.Models.Feedback;
+using TaiChuWeb_V2.Models.News;
 
 namespace TaiChuWeb_V2.DbContext
 {
@@ -16,6 +19,10 @@ namespace TaiChuWeb_V2.DbContext
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
+        public DbSet<Event> Events { get; set; }
+
+        public DbSet<News> News { get; set; }
+        public DbSet<Feedback> Feedbacks { get; set; }
         public DbSet<UserPermission> UserPermissions { get; set; }
         public DbSet<Tag> Tags { get; set; }
         public DbSet<TagAssignment> TagAssignments { get; set; }

@@ -16,7 +16,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 // 2. 数据库配置（手动指定版本以避开反射异常）
 var serverVersion = new MySqlServerVersion(new Version(8, 0, 31));
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseMySql(connectionString, serverVersion));
+    options.UseMySql(connectionString, serverVersion, mySqlOptions =>
+        mySqlOptions.EnableRetryOnFailure(3)
+    ));
 
 // 3. 核心服务
 builder.Services.AddControllers();
@@ -71,6 +73,7 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
+app.UseAuthentication(); // 👈 必须加上这行！不然你的 CurrentUserId 永远是 null 导致接口报 401 错误
 app.UseAuthorization();
 app.MapControllers();
 

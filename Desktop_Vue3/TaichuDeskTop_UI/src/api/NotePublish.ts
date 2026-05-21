@@ -30,13 +30,23 @@ export const notePublishApi = {
    * 🌟 1. 广场公共信息流：获取已发布的公开帖子/简语
    * 使用 unknown as Promise<T> 抹平 Axios 拦截器剥离 response.data 后的类型差异
    */
-  getPublicStream(type?: 'note' | 'thought', limit: number = 20) {
-    const params = new URLSearchParams();
-    if (type) params.append('type', type);
-    if (limit) params.append('limit', limit.toString());
-    
-    return request.get(`/LingMaiPublish/public-stream?${params.toString()}`) as unknown as Promise<PublishedNoteItem[]>;
-  },
+  // 在参数最后加上 = {} 作为默认空对象
+getPublicStream(params: { type?: string, page?: number, pageSize?: number } = {}) {
+  const searchParams = new URLSearchParams();
+  
+  // 加上 params 存在性校验，绝对安全
+  if (params && params.type) {
+    searchParams.append('type', params.type);
+  }
+  
+  const page = params?.page || 1;
+  const pageSize = params?.pageSize || 20;
+  
+  searchParams.append('page', page.toString());
+  searchParams.append('pageSize', pageSize.toString());
+  
+  return request.get(`/LingMaiPublish/public-stream?${searchParams.toString()}`) as unknown as Promise<PublishedNoteItem[]>;
+},
 
   /**
    * 🌟 2. 在空间中创建草稿笔记

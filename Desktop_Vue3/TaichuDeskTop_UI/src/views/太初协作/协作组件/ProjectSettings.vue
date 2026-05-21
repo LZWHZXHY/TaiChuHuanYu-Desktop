@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue';
+import { ref, reactive, onMounted} from 'vue';
 import projectService from '../../../api/projectService';
 
 const props = defineProps<{

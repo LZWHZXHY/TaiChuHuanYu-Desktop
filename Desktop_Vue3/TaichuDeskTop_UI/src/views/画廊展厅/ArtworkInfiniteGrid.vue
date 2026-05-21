@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted} from 'vue';
 import { artworkApi, type ArtworkItemDto } from '../../api/artwork'; // 引入刚才写的API
 import InteractActions from '../../components/InteractActions.vue';
 

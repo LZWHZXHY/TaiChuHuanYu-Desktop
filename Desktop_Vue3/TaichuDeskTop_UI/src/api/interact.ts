@@ -13,7 +13,7 @@ export const interactApi = {
    */
   toggleAction: (targetId: string | number, targetType: string, actionType: string) =>
     // 这里使用泛型，确保返回值的 data 部分符合 InteractionResponse 结构
-    request.post<any, InteractionResponse>('/Interaction/toggle-action', null, {
+    request.post<InteractionResponse>('/Interaction/toggle-action', null, {
       params: { targetId, targetType, actionType }
     })
 };
