@@ -10,6 +10,16 @@ namespace TaiChuWeb_V2.Models.Wiki
         [MaxLength(36)]
         public string Id { get; set; } = Guid.NewGuid().ToString();
 
+        // WikiArticle.cs (新增字段)
+        [MaxLength(36)]
+        public string? SourceNoteId { get; set; }   // 来源笔记ID，用于追溯与防重
+
+
+        // WikiArticleRevision.cs 新增
+        [Required]
+        [Column(TypeName = "longtext")]   // MySQL 用 longtext，SQL Server 用 nvarchar(max)
+        public string Content { get; set; } = string.Empty;
+
         [Required]
         public int CategoryId { get; set; }
 
@@ -20,6 +30,7 @@ namespace TaiChuWeb_V2.Models.Wiki
         // 当前生效的修订版本Id (指向 wiki_article_revisions 表)
         public int? CurrentRevisionId { get; set; }
 
+        public bool IsFromNote { get; set; } = false;
         public int ViewCount { get; set; } = 0;
 
         public bool IsDeleted { get; set; } = false;

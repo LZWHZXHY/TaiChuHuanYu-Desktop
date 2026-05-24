@@ -36,7 +36,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed} from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import EditorBubbleMenu from './SpiritTextComponents/EditorBubbleMenu.vue' 
 import { spiritExtensions, spiritColors, slashCommands } from '../utils/editorConfig'
