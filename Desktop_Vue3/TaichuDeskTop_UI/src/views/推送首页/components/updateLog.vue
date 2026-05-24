@@ -4,9 +4,7 @@
       <h3 class="section-title">开发动态 (Commits)</h3>
     </header>
 
-    <div v-if="loading" class="log-loading">正在追踪代码轨迹...</div>
-    
-    <div v-else class="log-list">
+    <div class="log-list">
       <article v-for="log in logs" :key="log.sha" class="log-item">
         <div class="log-meta">
           <img :src="log.author?.avatar_url" class="avatar" />
@@ -19,6 +17,17 @@
         </div>
       </article>
     </div>
+
+    <div class="load-more-container">
+      <button 
+        v-if="!loading" 
+        class="load-more-btn" 
+        @click="loadMore"
+      >
+        查看更早记录
+      </button>
+      <div v-else class="log-loading">正在追踪更多轨迹...</div>
+    </div>
   </div>
 </template>
 
@@ -27,16 +36,24 @@ import { ref, onMounted } from 'vue';
 
 const logs = ref<any[]>([]);
 const loading = ref(false);
-
-// 替换为你的仓库路径
+const currentPage = ref(1); // 🌟 记录页码
 const GITHUB_REPO = 'LZWHZXHY/TaiChuHuanYu-Desktop'; 
 
-const fetchLogs = async () => {
+const fetchLogs = async (page: number) => {
   loading.value = true;
   try {
-    // 🌟 修改：调用 commits 接口
-    const response = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/commits?per_page=5`);
-    logs.value = await response.json();
+    // 🌟 使用 per_page=5 和 page=n 分页参数
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/commits?per_page=5&page=${page}`
+    );
+    const data = await response.json();
+    
+    // 如果是第一页，直接覆盖；否则追加
+    if (page === 1) {
+      logs.value = data;
+    } else {
+      logs.value.push(...data);
+    }
   } catch (e) {
     console.error('Failed to fetch GitHub commits', e);
   } finally {
@@ -44,11 +61,16 @@ const fetchLogs = async () => {
   }
 };
 
+const loadMore = () => {
+  currentPage.value++;
+  fetchLogs(currentPage.value);
+};
+
 const formatDate = (date: string) => new Date(date).toLocaleDateString('en-US', { 
   month: 'short', day: 'numeric', year: 'numeric' 
 });
 
-onMounted(fetchLogs);
+onMounted(() => fetchLogs(1));
 </script>
 
 <style scoped>
@@ -64,4 +86,12 @@ onMounted(fetchLogs);
 .commit-msg { font-size: 0.95rem; color: #333; margin: 0 0 4px 0; }
 .commit-link { font-size: 0.75rem; color: #0066cc; text-decoration: none; }
 .commit-link:hover { text-decoration: underline; }
+
+/* 🌟 加载更多按钮样式 */
+.load-more-container { margin-top: 20px; text-align: center; }
+.load-more-btn { 
+  background: transparent; border: 1px solid #f0f2f5; padding: 8px 16px; 
+  cursor: pointer; font-size: 0.8rem; color: #8c959f; transition: 0.3s;
+}
+.load-more-btn:hover { border-color: #1f2328; color: #1f2328; }
 </style>
