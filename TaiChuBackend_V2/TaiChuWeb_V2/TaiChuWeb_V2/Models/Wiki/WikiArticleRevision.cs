@@ -13,12 +13,20 @@ namespace TaiChuWeb_V2.Models.Wiki
         [MaxLength(36)]
         public string ArticleId { get; set; } = string.Empty;
 
+
+        [Column(TypeName = "longtext")]
+        public string Content { get; set; } = string.Empty;
+
+
         [Required]
         [MaxLength(36)]
         public string AuthorId { get; set; } = string.Empty;
 
         [Required]
         public int CategoryId { get; set; }
+
+        [ForeignKey("CategoryId")]
+        public virtual WikiCategory Category { get; set; } = null!;
 
         [Required]
         [MaxLength(200)]

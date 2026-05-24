@@ -53,6 +53,7 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<WikiCategory> WikiCategories { get; set; }
         public DbSet<WikiArticle> WikiArticles { get; set; }
         public DbSet<WikiArticleRevision> WikiArticleRevisions { get; set; }
+        public DbSet<WikiCategoryRequest> WikiCategoryRequests { get; set; }
 
         // --- 【交易系统核心 DbSet】 ---
         public DbSet<StoreItem> StoreItems { get; set; }

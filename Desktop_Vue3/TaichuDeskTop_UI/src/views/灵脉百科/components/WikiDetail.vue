@@ -56,7 +56,7 @@ const loadDetail = async () => {
   try {
     // 🌟 使用 wikiApi 的详情接口
     // 因为你的 request.ts 已经处理了 response.data，这里直接拿到的是对象
-    const res: any = await wikiApi.getPublishedDetail(id);
+    const res: any = await wikiApi.getArticleDetail(id);
     entry.value = res;
   } catch (err) {
     console.error('词条读取失败:', err);

@@ -1,325 +1,185 @@
 <template>
-  <div class="codex-index" :class="{ 'is-space-mode': currentSpaceId !== 'all' }">
-    <header class="codex-header">
+  <div class="md-layout">
+    <header class="md-header">
       <div class="header-inner">
         <div class="brand-path" @click="resetToGlobal">
+          <span class="md-hash">##</span>
           <span class="brand-name">灵脉百科</span>
-          <span class="path-sep">/</span>
-          <span class="current-space">{{ activeSpaceName }}</span>
         </div>
         <div class="search-box">
-          <input ref="searchInput" v-model="searchQuery" placeholder="搜索..." spellcheck="false" />
-          <span class="k-hint">⌘ K</span>
+          <input v-model="searchQuery" placeholder="搜索知识骨架..." />
         </div>
       </div>
     </header>
 
-    <div class="codex-container">
-      <aside v-if="currentSpaceId !== 'all'" class="codex-sidebar">
-        <div class="sidebar-header">设定目录</div>
-        <div class="directory-tree">
-          <div v-for="cat in MAJOR_CATEGORIES.slice(1)" :key="cat.id" class="dir-group">
-            <label class="dir-label">{{ cat.label }}</label>
-            <div class="dir-items-wrapper"> <div 
-                v-for="item in getEntriesByCat(cat.id)" 
-                :key="item.id"
-                class="dir-item"
-                @click="goDetail(item.id)"
-              >
-                <span class="dir-dot"></span> {{ item.title }}
+    <div class="md-container">
+      <aside class="md-sidebar">
+        <div class="toc-header">目录索引</div>
+        <div class="toc-tree">
+          <template v-if="currentCategoryId === 'all'">
+            <div v-for="rootCat in rootCategories" :key="rootCat.id" class="toc-group">
+              <div class="md-h3" @click="handleCategoryChange(rootCat.id)">### {{ rootCat.name }}</div>
+              <div class="toc-list">
+                <div v-for="sub in getSubCategories(rootCat.id)" :key="sub.id" class="toc-item" @click="handleCategoryChange(sub.id)">
+                  <span class="md-dash">-</span> {{ sub.name }}
+                </div>
               </div>
             </div>
-          </div>
+          </template>
+          <template v-else>
+            <div class="toc-group">
+              <div class="md-h3">### {{ currentCategoryName }}</div>
+              <div class="toc-list">
+                <div v-for="entry in filteredEntries" :key="entry.id" class="toc-item entry-link" @click="goDetail(entry.id)">
+                  <span class="md-dash">*</span> {{ entry.title }}
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+        <div class="apply-section">
+          <span class="apply-link" @click="showApplyModal = true">[+] 申请开辟新分类</span>
         </div>
       </aside>
 
-      <main class="codex-content">
-        <nav class="scroll-nav-wrapper" v-if="currentSpaceId === 'all'">
-          <div class="axis-items">
-            <span 
-              class="axis-btn" 
-              :class="{ active: currentSpaceId === 'all' }" 
-              @click="handleSpaceChange('all')"
-            >全域</span>
-            <span 
-              v-for="s in allSpaces" 
-              :key="s.id" 
-              class="axis-btn" 
-              :class="{ active: currentSpaceId === s.id }"
-              @click="handleSpaceChange(s.id)"
-            >{{ s.name }}</span>
-          </div>
-        </nav>
-
-        <div class="filter-layer">
-          <nav class="major-nav">
-            <div class="nav-links">
-              <span 
-                v-for="c in MAJOR_CATEGORIES" 
-                :key="c.id" 
-                :class="['nav-link', { active: currentCategory === c.id }]" 
-                @click="handleCategoryChange(c.id)"
-              >{{ c.label }}</span>
-            </div>
+      <main class="md-content">
+        <div class="md-nav-area">
+          <nav class="md-nav secondary">
+            <span class="nav-item" :class="{ active: currentCategoryId === 'all' }" @click="handleCategoryChange('all')">全部分类</span>
+            <span v-for="c in rootCategories" :key="c.id" class="nav-item" :class="{ active: currentCategoryId === c.id }" @click="handleCategoryChange(c.id)">
+              {{ c.name }}
+            </span>
           </nav>
-          
-          <div class="tag-bar" v-if="availableTags.length > 0">
-            <div class="tag-scroll">
-              <span 
-                v-for="tag in availableTags" 
-                :key="tag" 
-                :class="['tag-pill', { active: selectedTags.includes(tag) }]" 
-                @click="toggleTag(tag)"
-              >#{{ tag }}</span>
-            </div>
-          </div>
         </div>
 
-        <div :class="['entry-display', currentSpaceId !== 'all' ? 'list-view' : 'grid-view']">
-          <div v-for="entry in filteredEntries" :key="entry.id" class="entry-item" @click="goDetail(entry.id)">
-            <div class="entry-meta">
-              <span class="space-tag" v-if="currentSpaceId === 'all'">{{ entry.spaceName }}</span>
-              <span class="type-tag" :class="entry.category">{{ getCategoryLabel(entry.category) }}</span>
+        <div class="article-list">
+          <article v-for="entry in filteredEntries" :key="entry.id" class="article-item" @click="goDetail(entry.id)">
+            <h2 class="article-title"><span class="md-hash">##</span> {{ entry.title }}</h2>
+            <div class="article-excerpt">
+              <SpiritPreview :modelValue="parseJson(entry.excerpt)" />
             </div>
-            <h2 class="entry-title">{{ entry.title }}</h2>
-            
-            <div class="entry-excerpt-container">
-              <SpiritPreview :modelValue="entry.excerpt" class="mini-renderer" />
-            </div>
-
-            <div class="entry-footer">
-              <span class="date">{{ formatDate(entry.publishedAt) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="filteredEntries.length === 0 && !isLoading" class="codex-empty">
-          暂无编织迹象
+          </article>
+          <div v-if="filteredEntries.length === 0" class="empty-state">> 在此分类下未寻得对应知识...</div>
         </div>
       </main>
     </div>
+
+    <Teleport to="body">
+      <div v-if="showApplyModal" class="md-modal-mask" @mousedown="showApplyModal = false">
+        <div class="md-modal" @mousedown.stop>
+          <h3>## 申请开辟新分类</h3>
+          <div class="form-group">
+            <input v-model="applyForm.name" placeholder="分类名称" />
+            <input v-model="applyForm.reason" placeholder="申请缘由..." />
+          </div>
+          <button class="md-btn" :disabled="isSubmitting" @click="submitApply">
+            {{ isSubmitting ? '提交中...' : '[ 提交申请 ]' }}
+          </button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-/* 原有 JS 逻辑完全保持不变 */
-import { ref, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { wikiApi } from '@/api/Wiki'; 
+import { wikiApi } from '@/api/Wiki';
 import SpiritPreview from '@/components/SpiritTextComponents/SpiritPreview.vue';
 
 const router = useRouter();
-const searchInput = ref<HTMLInputElement | null>(null);
-const MAJOR_CATEGORIES = [
-  { id: 'all', label: '全部' },
-  { id: 'wiki', label: '世界观' },
-  { id: 'char', label: '角色' },
-  { id: 'community', label: '社区知识' }
-];
-
-const currentSpaceId = ref('all');
-const currentCategory = ref('all');
-const selectedTags = ref<string[]>([]);
 const searchQuery = ref('');
-const allSpaces = ref<any[]>([]);
+const showApplyModal = ref(false);
+const isSubmitting = ref(false);
+const applyForm = reactive({ name: '', reason: '' });
+
+const allCategories = ref<any[]>([]);
 const allEntries = ref<any[]>([]);
-const isLoading = ref(false);
+const currentCategoryId = ref<number | 'all'>('all');
 
-const loadWikiData = async () => {
-  isLoading.value = true;
+// JSON 解析工具
+const parseJson = (content: any) => {
+  if (!content) return '';
+  if (typeof content === 'string') {
+    try { return JSON.parse(content); } catch { return content; }
+  }
+  return content;
+};
+
+// 数据加载
+const loadData = async () => {
   try {
-    const [entriesRes, spacesRes]: any = await Promise.all([
-      wikiApi.getPublicStream('wiki'),
-      wikiApi.getWikiSpaces()
+    const [cats, arts] = await Promise.all([
+      wikiApi.getCategories(),
+      wikiApi.getAllArticles()
     ]);
-    const publishedSpaceIds = new Set(entriesRes.map((e: any) => e.spaceId));
-    allSpaces.value = spacesRes.filter((s: any) => publishedSpaceIds.has(s.id));
-    allEntries.value = (entriesRes || []).map((n: any) => ({
-      id: n.id,
-      title: n.title,
-      excerpt: n.excerpt,
-      category: n.type,
-      spaceId: n.spaceId,
-      spaceName: spacesRes.find((s: any) => s.id === n.spaceId)?.name || '未知位面',
-      publishedAt: n.publishedAt,
-      tags: n.tags ? n.tags.split(',') : []
-    }));
-  } catch (err) { console.error(err); } finally { isLoading.value = false; }
+    allCategories.value = cats || [];
+    allEntries.value = arts || [];
+  } catch (e) { console.error('Data Load Error', e); }
 };
 
-const activeSpaceName = computed(() => {
-  if (currentSpaceId.value === 'all') return '广场';
-  return allSpaces.value.find(s => s.id === currentSpaceId.value)?.name || '未知位面';
-});
-
-const getEntriesByCat = (catId: string) => allEntries.value.filter(e => e.spaceId === currentSpaceId.value && e.category === catId);
-const availableTags = computed(() => {
-  let list = allEntries.value.filter(e => currentSpaceId.value === 'all' || e.spaceId === currentSpaceId.value);
-  const tags = new Set<string>();
-  list.forEach(e => e.tags?.forEach((t: string) => tags.add(t)));
-  return Array.from(tags).sort();
-});
-const toggleTag = (t: string) => {
-  const index = selectedTags.value.indexOf(t);
-  if (index > -1) selectedTags.value.splice(index, 1);
-  else selectedTags.value.push(t);
+// 提交申请
+const submitApply = async () => {
+  if (!applyForm.name.trim() || !applyForm.reason.trim()) return alert('请完整填写！');
+  isSubmitting.value = true;
+  try {
+    await wikiApi.applyCategory({ name: applyForm.name, reason: applyForm.reason, parentId: null, sortOrder: 0 });
+    alert('申请已提交');
+    showApplyModal.value = false;
+    applyForm.name = ''; applyForm.reason = '';
+  } finally { isSubmitting.value = false; }
 };
-const filteredEntries = computed(() => allEntries.value.filter(e => {
-  const mSpace = currentSpaceId.value === 'all' || e.spaceId === currentSpaceId.value;
-  const mCat = currentCategory.value === 'all' || e.category === currentCategory.value;
-  const mSearch = !searchQuery.value || e.title.includes(searchQuery.value);
-  const mTags = selectedTags.value.length === 0 || selectedTags.value.every(tag => e.tags?.includes(tag));
-  return mSpace && mCat && mSearch && mTags;
-}));
-const getCategoryLabel = (id: string) => MAJOR_CATEGORIES.find(c => c.id === id)?.label || '词条';
-const formatDate = (s: string) => s ? s.substring(0, 10).replace(/-/g, '.') : '';
+
+const handleCategoryChange = (id: number | 'all') => currentCategoryId.value = id;
 const goDetail = (id: string) => router.push({ name: 'WikiDetail', params: { id } });
-const handleSpaceChange = (id: string) => { currentSpaceId.value = id; selectedTags.value = []; };
-const handleCategoryChange = (id: string) => { currentCategory.value = id; };
-const resetToGlobal = () => { currentSpaceId.value = 'all'; };
+const resetToGlobal = () => { currentCategoryId.value = 'all'; searchQuery.value = ''; };
 
-onMounted(() => {
-  loadWikiData();
-  window.addEventListener('keydown', e => { 
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); searchInput.value?.focus(); } 
-  });
+const rootCategories = computed(() => allCategories.value.filter(c => !c.parentId));
+const getSubCategories = (parentId: number) => allCategories.value.filter(c => c.parentId === parentId);
+const currentCategoryName = computed(() => allCategories.value.find(c => c.id === currentCategoryId.value)?.name || '');
+
+const filteredEntries = computed(() => {
+  let list = allEntries.value;
+  if (currentCategoryId.value !== 'all') {
+    list = list.filter(e => e.categoryId === currentCategoryId.value);
+  }
+  if (searchQuery.value) {
+    const q = searchQuery.value.toLowerCase();
+    list = list.filter(e => e.title.toLowerCase().includes(q));
+  }
+  return list;
 });
+
+onMounted(loadData);
 </script>
 
 <style scoped>
-@import "@/components/SpiritTextComponents/spirit-typography.css";
-
-/* --- 1. 核心设计语言：白纸黑字 --- */
-.codex-index { 
-  min-height: 100vh; 
-  background: #ffffff; 
-  color: #1a1a1a;
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased; /* 极致清晰度 */
-}
-
-/* --- 2. 头部：极细线条与留白 --- */
-.codex-header { 
-  padding: 60px 0 20px;
-  max-width: 1100px;
-  margin: 0 auto;
-}
-.header-inner { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: baseline; 
-  border-bottom: 1px solid #000000; /* 唯一的一条重色线条，确定视觉基准 */
-  padding: 0 20px 10px; 
-}
-.brand-name { font-size: 18px; font-weight: 800; cursor: pointer; letter-spacing: -0.01em; }
-.current-space { font-size: 13px; color: #888; margin-left: 8px; font-weight: 400; }
-
-.search-box input { 
-  border: none; 
-  background: transparent;
-  font-size: 13px;
-  text-align: right;
-  width: 150px;
-  transition: all 0.2s;
-}
-.search-box input:focus { outline: none; width: 220px; }
-.k-hint { font-size: 10px; color: #ccc; margin-left: 8px; border: 1px solid #eee; padding: 1px 3px; border-radius: 3px; }
-
-/* --- 3. 布局：大留白容器 --- */
-.codex-container { 
-  max-width: 1100px; 
-  margin: 0 auto; 
-  display: flex; 
-  padding: 40px 20px; 
-}
-
-/* --- 4. 侧边栏：极简目录 --- */
-.codex-sidebar {
-  width: 200px; 
-  padding-right: 40px;
-  position: sticky; 
-  top: 40px; 
-  height: fit-content;
-}
-.sidebar-header { font-size: 11px; color: #bbb; letter-spacing: 0.1em; margin-bottom: 30px; }
-.dir-group { margin-bottom: 32px; }
-.dir-label { font-size: 12px; font-weight: 600; color: #000; margin-bottom: 12px; display: block; }
-.dir-item { 
-  font-size: 13px; color: #666; padding: 5px 0; 
-  cursor: pointer; transition: color 0.2s;
-}
-.dir-item:hover { color: #000; }
-
-/* --- 5. 主内容区：专注阅读 --- */
-.codex-content { 
-  flex: 1; 
-  max-width: 720px; /* 🌟 黄金阅读宽度：防止视线水平移动过长导致疲劳 */
-  padding-bottom: 100px;
-}
-
-/* 导航：文字链接化 */
-.axis-items, .nav-links {
-  display: flex; gap: 24px; margin-bottom: 40px; border-bottom: 1px solid #f2f2f2;
-}
-.axis-btn, .nav-link { 
-  font-size: 14px; color: #888; cursor: pointer; padding-bottom: 12px;
-  position: relative;
-}
-.axis-btn.active, .nav-link.active { 
-  color: #000; font-weight: 600;
-}
-.axis-btn.active::after, .nav-link.active::after {
-  content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 1px; background: #000;
-}
-
-/* 标签：克制的颗粒感 */
-.tag-bar { margin-bottom: 40px; }
-.tag-scroll { display: flex; gap: 10px; overflow-x: auto; }
-.tag-pill { 
-  font-size: 12px; color: #666; cursor: pointer;
-  border: 1px solid #eee; padding: 3px 10px; transition: all 0.2s;
-}
-.tag-pill.active { border-color: #000; color: #000; }
-
-/* --- 6. 词条流：文档列表感 --- */
-.entry-display { display: flex; flex-direction: column; }
-.entry-item { 
-  padding: 32px 0; 
-  border-bottom: 1px solid #f2f2f2; 
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-.entry-item:hover { opacity: 0.7; } /* 极简交互：仅改变透明度 */
-
-.entry-meta { display: flex; gap: 12px; margin-bottom: 12px; font-size: 11px; color: #888; }
-.space-tag { font-weight: 600; color: #000; }
-.type-tag { font-style: italic; }
-
-.entry-title { font-size: 22px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.02em; }
-
-/* 摘要：纯粹的文字流 */
-.entry-excerpt-container {
-  font-size: 14px; color: #444; line-height: 1.8;
-  max-height: 75px; overflow: hidden;
-  mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
-  margin-bottom: 16px;
-}
-.mini-renderer { zoom: 1; } /* 保持原比例，确保文字感 */
-
-.entry-footer { font-size: 12px; color: #bbb; font-family: monospace; }
-
-/* --- 7. 📱 手机端：极致克制 --- */
+.md-layout { min-height: 100vh; background: #fff; color: #111; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+.md-header { max-width: 1000px; margin: 0 auto; padding: 40px 24px; }
+.header-inner { display: flex; justify-content: space-between; align-items: center; }
+.md-container { max-width: 1000px; margin: 0 auto; display: flex; padding: 40px 24px; gap: 80px; }
+.md-sidebar { width: 200px; flex-shrink: 0; }
+.toc-header { font-size: 0.7rem; color: #888; text-transform: uppercase; margin-bottom: 24px; letter-spacing: 0.1em; }
+.md-h3 { font-weight: 600; cursor: pointer; margin-bottom: 12px; transition: 0.2s; }
+.md-h3:hover { opacity: 0.5; }
+.toc-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+.toc-item { font-size: 0.85rem; color: #888; cursor: pointer; }
+.md-content { flex: 1; min-width: 0; }
+.md-nav { display: flex; gap: 24px; margin-bottom: 60px; overflow-x: auto; padding-bottom: 10px; }
+.nav-item { cursor: pointer; color: #888; white-space: nowrap; }
+.nav-item.active { color: #000; font-weight: 600; border-bottom: 2px solid #000; }
+.article-item { cursor: pointer; margin-bottom: 56px; transition: transform 0.2s; }
+.article-item:hover { transform: translateX(10px); }
+.article-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 16px; }
+.md-hash { color: #ccc; margin-right: 4px; }
+.article-excerpt { max-height: 120px; overflow: hidden; mask-image: linear-gradient(to bottom, black 50%, transparent 100%); }
+.md-modal-mask { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: flex; justify-content: center; align-items: center; z-index: 999; }
+.md-modal { background: #fff; width: 400px; padding: 40px; border: 1px solid #eee; }
+.form-group { display: flex; flex-direction: column; gap: 20px; margin-bottom: 30px; }
+.form-group input { border: none; border-bottom: 1px solid #eee; padding: 8px 0; outline: none; }
+.md-btn { background: #000; color: #fff; border: none; padding: 10px; cursor: pointer; width: 100%; }
 @media (max-width: 768px) {
-  .codex-header { padding: 40px 20px 10px; }
-  .codex-container { padding: 0 20px; flex-direction: column; }
-  .codex-sidebar { 
-    width: 100%; border-bottom: 1px solid #f2f2f2; 
-    padding: 0 0 20px 0; margin-bottom: 20px;
-    display: none; /* 🌟 手机端隐藏侧边栏目录以保证首屏留白 */
-  }
-  .codex-content { padding-left: 0; }
-  .entry-title { font-size: 20px; }
-  .k-hint { display: none; }
+  .md-container { flex-direction: column; gap: 40px; }
+  .md-sidebar { width: 100%; }
 }
 </style>

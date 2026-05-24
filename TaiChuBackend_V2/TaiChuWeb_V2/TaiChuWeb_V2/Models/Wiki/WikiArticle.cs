@@ -15,10 +15,11 @@ namespace TaiChuWeb_V2.Models.Wiki
         public string? SourceNoteId { get; set; }   // 来源笔记ID，用于追溯与防重
 
 
-        // WikiArticleRevision.cs 新增
-        [Required]
-        [Column(TypeName = "longtext")]   // MySQL 用 longtext，SQL Server 用 nvarchar(max)
-        public string Content { get; set; } = string.Empty;
+        // 在 WikiArticle.cs 中追加：
+        [MaxLength(150)]
+        public string? Excerpt { get; set; }
+        [MaxLength(200)]
+        public string? Tags { get; set; }
 
         [Required]
         public int CategoryId { get; set; }
