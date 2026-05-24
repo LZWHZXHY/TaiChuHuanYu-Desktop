@@ -25,3 +25,5 @@ Migrations/
 # --- 数据库 ---
 *.db
 *.sqlite
+
+6.0BE/

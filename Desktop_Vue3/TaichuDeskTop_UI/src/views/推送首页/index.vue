@@ -14,7 +14,7 @@
         <feedback />
 
 
-
+        <updateLog />
 
 
       </section>
@@ -30,6 +30,11 @@
 import SignCard from '../../components/SignCard.vue'
 import feedback from './components/feedback.vue';
 import LatestNews from './components/LatestNews.vue';
+import updateLog from './components/updateLog.vue';
+
+
+
+
 </script>
 
 <style scoped>
