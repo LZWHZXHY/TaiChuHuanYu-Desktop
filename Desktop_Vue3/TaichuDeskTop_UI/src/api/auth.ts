@@ -12,6 +12,8 @@ export interface Plugin {
 
 
 export interface UserInfo {
+
+  id: string;
   // --- 基础字段 ---
   username: string;
   email: string;

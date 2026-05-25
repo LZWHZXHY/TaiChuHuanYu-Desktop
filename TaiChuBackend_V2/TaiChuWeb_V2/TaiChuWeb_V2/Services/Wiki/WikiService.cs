@@ -41,7 +41,7 @@ namespace TaiChuWeb_V2.Services.Wiki
                 var revision = new WikiArticleRevision
                 {
                     ArticleId = article.Id,
-                    AuthorId = authorId,
+                    ContributorId = authorId,
                     CategoryId = categoryId,
                     Title = title,
                     EditSummary = "创建初始词条",
@@ -75,7 +75,7 @@ namespace TaiChuWeb_V2.Services.Wiki
             var revision = new WikiArticleRevision
             {
                 ArticleId = articleId,
-                AuthorId = authorId,
+                ContributorId = authorId,
                 CategoryId = categoryId,
                 Title = title,
                 EditSummary = summary,

@@ -29,6 +29,10 @@ namespace TaiChuWeb_V2.Controllers.Admin
             return Ok(categories);
         }
 
+
+      
+
+
         [HttpPost]
         public async Task<IActionResult> CreateCategory([FromBody] CategoryRequestDto request)
         {

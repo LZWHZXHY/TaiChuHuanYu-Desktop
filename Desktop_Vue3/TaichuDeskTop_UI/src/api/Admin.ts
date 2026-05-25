@@ -98,31 +98,43 @@ export const adminWikiApi = {
   /** 驳回/拒绝申请 */
   rejectCategoryRequest: (id: number) => 
     request.post<any>(`/admin/wiki/requests/${id}/reject`),
+
+  /** 获取所有文章（包含已下架的，用于管理面板） */
+  getAllArticlesForManagement: () => 
+    request.get<any[]>('/wiki/governance/articles/manage'),
 };
 
 // ================= 🌟 3. 新增：内容审核接口 (Revision Review) =================
 
+// ================= 🌟 统一治理接口 (配合 WikiReviewController) =================
+
 export interface IReviewRequest {
-  currentUserId: string;
-  isAdmin: boolean;
   approved: boolean;
   remarks: string;
 }
 
 export const wikiReviewApi = {
   /**
-   * 获取所有待审核的词条修订版 (Status == 0)
-   * @param userId 当前用户ID (用于分类所有者权限过滤)
-   * @param isAdmin 是否为管理员 (用于绕过权限检查获取全量数据)
+   * 🌟 修正路径：必须与后端 [Route("api/wiki/governance")] 一致
    */
-  getPending: (userId: string, isAdmin: boolean) => 
-    request.get<any[]>(`/wiki/reviews/pending?userId=${userId}&isAdmin=${isAdmin}`),
+  getPending: () => 
+    request.get<any[]>(`/wiki/governance/pending`),
 
   /**
-   * 提交审核处理结果 (通过或驳回)
-   * @param revisionId 修订版ID
-   * @param data 包含审核决策和备注的对象
+   * 🌟 修正路径：注意后端是 revisions/{id}/handle
    */
   handle: (revisionId: number, data: IReviewRequest) => 
-    request.post<any>(`/wiki/reviews/${revisionId}/handle`, data),
+    request.post<any>(`/wiki/governance/revisions/${revisionId}/handle`, data),
+
+  /**
+   * 🌟 存量治理 - 下架/恢复
+   */
+  toggleArticleArchive: (articleId: string) => 
+    request.post(`/wiki/governance/articles/${articleId}/toggle-archive`, {}),
+
+  /**
+   * 🌟 版本治理 - 回退
+   */
+  rollbackArticle: (articleId: string, targetRevisionId: number) => 
+    request.post(`/wiki/governance/articles/${articleId}/rollback/${targetRevisionId}`, {}),
 };

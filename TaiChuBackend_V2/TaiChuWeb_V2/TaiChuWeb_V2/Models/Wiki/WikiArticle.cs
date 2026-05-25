@@ -15,6 +15,10 @@ namespace TaiChuWeb_V2.Models.Wiki
         public string? SourceNoteId { get; set; }   // 来源笔记ID，用于追溯与防重
 
 
+        [Required]
+        [MaxLength(36)]
+        public string CreatorId { get; set; } = string.Empty;
+
         // 在 WikiArticle.cs 中追加：
         [MaxLength(150)]
         public string? Excerpt { get; set; }
