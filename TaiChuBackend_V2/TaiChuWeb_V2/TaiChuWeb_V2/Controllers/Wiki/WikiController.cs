@@ -149,74 +149,67 @@ namespace TaiChuWeb_V2.Controllers.Wiki
             });
         }
 
-        [HttpPost("update")]
+        [HttpPost("update")] 
         [Authorize]
         public async Task<IActionResult> UpdateFromNote([FromBody] WikiUpdateDto request)
         {
-            // 1. 获取当前用户 ID
-            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            // 1. 解析当前登录用户
+            var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(currentUserId)) return Unauthorized("未登录");
 
-            // 2. 找到文章主体
-            var article = await _context.WikiArticles.FindAsync(Guid.Parse(request.ArticleId));
-            if (article == null) return NotFound("词条不存在");
+            if (!Guid.TryParse(currentUserId, out Guid userGuid))
+            {
+                return BadRequest(new { message = "用户ID格式不合法" });
+            }
 
-            // 3. 🌟 权限判断：查询第一版修订记录，确定谁是“原作者”
-            var firstRevision = await _context.WikiArticleRevisions
-                .Where(r => r.ArticleId == request.ArticleId)
-                .OrderBy(r => r.CreatedAt)
-                .FirstOrDefaultAsync();
+            // 2. 校验用户在数据库里是否真实存在（防止幽灵 Token）
+            var userExists = await _context.Users.AnyAsync(u => u.Id == userGuid);
+            if (!userExists)
+            {
+                return StatusCode(401, new { message = "您的用户状态在当前的太初世界中不存在，请重新登录" });
+            }
 
-            // 如果当前用户 ID 和第一版贡献者 ID 一致，即视为原作者
-            bool isOwner = (firstRevision != null && firstRevision.ContributorId == currentUserId);
+            // 3. 🌟 核心优化：使用 AsNoTracking() 读取母表！
+            // 这样 EF Core 就不会追踪 article 的任何状态，后面无论如何都不会自动触发主表的 UPDATE 语句
+            var article = await _context.WikiArticles
+                .AsNoTracking()
+                .FirstOrDefaultAsync(a => a.Id == request.ArticleId);
 
-            // 4. 获取当前最新的修订版本 (用于设置 PreviousRevisionId)
-            var currentRevision = await _context.WikiArticleRevisions
-                .FirstOrDefaultAsync(r => r.Id == article.CurrentRevisionId);
+            if (article == null) return NotFound("该词条在百科宇宙中不存在");
 
-            // 5. 拼装新内容 (同发布逻辑)
-            var blocks = await _context.Blocks
-                .Where(b => b.OwnerId == request.NoteId && b.OwnerType == "note")
-                .OrderBy(b => b.SortOrder)
-                .ToListAsync();
+            // 4. 校验分类是否存在
+            var categoryExists = await _context.WikiCategories.AnyAsync(c => c.Id == article.CategoryId);
+            if (!categoryExists)
+            {
+                return BadRequest(new { message = "该词条绑定的分类已不存在，请先修正分类" });
+            }
 
-            var fullContent = string.Join("\n", blocks.Select(b => {
-                try { using var doc = JsonDocument.Parse(b.Data); return doc.RootElement.TryGetProperty("text", out var text) ? text.GetString() : b.Data; }
-                catch { return b.Data; }
-            }));
+            // 5. 显式乐观锁判断（由我们自己的业务逻辑打回，而不是让 EF Core 抛异常崩溃）
+            if (request.BaseRevisionId != article.CurrentRevisionId)
+            {
+                return StatusCode(409, new { message = "⚠️ 提交失败：词条已被其他修士更新，请重新获取最新内容后再提交修订" });
+            }
 
-            // 6. 创建新的修订版本
-            // 如果是原作者，Status = 1 (自动通过)；如果是他人，Status = 0 (待审核)
-            int nextStatus = isOwner ? 1 : 0;
-
+            // 6. 组装待审核的修订版本记录
             var newRevision = new WikiArticleRevision
             {
-                ArticleId = article.Id.ToString(),
-                Content = fullContent,
-                ContributorId = currentUserId,
-                CategoryId = article.CategoryId, // 保持分类
+                ArticleId = request.ArticleId,
+                CategoryId = article.CategoryId,
                 Title = article.Title,
-                Status = nextStatus,
-                EditSummary = request.Summary ?? (isOwner ? "作者自主更新" : "他人提交协作修改"),
+                Content = request.Content,        // 前端传过来的标准 JSON 字符串
+                EditSummary = request.Summary ?? "协作修改",
+                ContributorId = currentUserId,    // 关联当前真实的 string 类型用户 ID
                 CreatedAt = DateTime.UtcNow,
-                PreviousRevisionId = currentRevision?.Id // 🌟 形成版本链
+                Status = 0                        // 🌟 设为整数 0（代表待审核 Pending 状态）
             };
 
+            // 7. 🌟 纯粹的 INSERT 操作
+            // 仅向修订记录表添加数据。由于前面 article 加了 AsNoTracking()，
+            // 这里 SaveChanges 时，EF Core 只会发一条 INSERT 语句，绝对不可能触发母表的并发冲突异常！
             _context.WikiArticleRevisions.Add(newRevision);
             await _context.SaveChangesAsync();
 
-            // 7. 🌟 仅在自动通过时更新指针
-            if (nextStatus == 1)
-            {
-                article.CurrentRevisionId = newRevision.Id;
-                await _context.SaveChangesAsync();
-            }
-
-            return Ok(new
-            {
-                status = nextStatus,
-                message = isOwner ? "更新已生效" : "修改建议已提交，等待原作者审核"
-            });
+            return Ok(new { message = "修订提交成功，已放入太初天平等待管理员审核！" });
         }
 
 
@@ -252,7 +245,8 @@ namespace TaiChuWeb_V2.Controllers.Wiki
             tags = article.Tags,
             publishedAt = revision.CreatedAt,
             authorId = article.CreatorId, // 确保 WikiArticle 模型中已包含 CreatorId 属性
-            contributors = contributors   // 现在这里就是干净的 List<string> 数据了
+            contributors = contributors,  // 现在这里就是干净的 List<string> 数据了
+            currentRevisionId = article.CurrentRevisionId
         });
     }
 

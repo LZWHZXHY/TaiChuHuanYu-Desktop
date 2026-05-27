@@ -127,27 +127,41 @@ const editor = useEditor({
       return false;
     }
   },
+  // 替换 SpiritText.vue 里的 onUpdate
   onUpdate: ({ editor }) => {
     if (!isInitialized.value) return;
 
     const currentJson = editor.getJSON();
     const currentJsonStr = JSON.stringify(currentJson);
     
-    // 🌟 如果内容完全没变（比如仅仅是点击或选择文本），直接拦截，不发请求
+    // 如果内容完全没变，直接拦截
     if (currentJsonStr === lastSyncedJson) return;
 
-    // 浮动菜单逻辑计算
-    const { state, view } = editor
-    const { $from } = state.selection
-    const textBefore = state.doc.textBetween($from.before(), $from.pos)
-    const coords = view.coordsAtPos($from.pos)
+    // 🌟 修复部分：安全的浮动菜单逻辑计算
+    const { state, view } = editor;
+    const { $from, empty } = state.selection;
     
-    menuPos.value = { top: coords.bottom + 10, left: coords.left }
-    showSlashMenu.value = textBefore.endsWith('/')
-    showLinkSelector.value = textBefore.endsWith('[[')
+    // 必须确保 selection 存在，且光标是在某个节点内部 (depth > 0)
+    if (empty && $from.depth > 0) {
+      try {
+        const textBefore = state.doc.textBetween($from.before(), $from.pos);
+        const coords = view.coordsAtPos($from.pos);
+        
+        menuPos.value = { top: coords.bottom + 10, left: coords.left };
+        showSlashMenu.value = textBefore.endsWith('/');
+        showLinkSelector.value = textBefore.endsWith('[[');
+      } catch (e) {
+        // 极端情况下的兜底，防止菜单计算崩溃导致编辑器卡死
+        showSlashMenu.value = false;
+        showLinkSelector.value = false;
+      }
+    } else {
+      // 刚导入数据或全选时，关闭悬浮菜单
+      showSlashMenu.value = false;
+      showLinkSelector.value = false;
+    }
 
-    // 🌟 核心修改：不再内部设置 setTimeout
-    // 直接调用 Composables 的 updateNoteContent，由它的 lodash 防抖来保障安全
+    // 更新内容到上层
     updateNoteContent(currentNoteId.value, currentJson);
     lastSyncedJson = currentJsonStr; 
   }

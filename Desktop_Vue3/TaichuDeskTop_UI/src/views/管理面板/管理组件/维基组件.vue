@@ -54,7 +54,7 @@
         <tbody>
           <tr v-for="rev in pendingRevisions" :key="rev.id">
             <td>{{ rev.title }}</td>
-            <td class="mono">{{ rev.authorId.substring(0, 6) }}</td>
+            <td class="mono">{{ rev.authorId?.substring(0, 6) }}</td>
             <td class="link" @click="showFullContent(rev.content)">查看预览</td>
             <td class="text-right actions">
               <button class="btn-s success" @click="processRevision(rev.id, true)">[通过]</button>

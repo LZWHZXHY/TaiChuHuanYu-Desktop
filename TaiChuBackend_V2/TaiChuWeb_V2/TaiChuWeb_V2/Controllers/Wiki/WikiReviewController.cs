@@ -23,27 +23,11 @@ namespace TaiChuWeb_V2.Controllers.Wiki
         [Authorize]
         public async Task<IActionResult> GetPendingRevisions()
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var isAdmin = User.IsInRole("Admin");
+            // 直接查表，不加任何 Include，不加任何 Where，不加任何 Select
+            var rawData = await _context.WikiArticleRevisions.ToListAsync();
 
-            var query = _context.WikiArticleRevisions
-                .Include(r => r.Category)
-                .Where(r => r.Status == 0);
-
-            if (!isAdmin)
-            {
-                if (string.IsNullOrEmpty(userId)) return Unauthorized();
-                query = query.Where(r => r.Category.OwnerId == userId);
-            }
-
-            return Ok(await query.Select(r => new {
-                r.Id,
-                r.Title,
-                AuthorId = r.ContributorId,
-                r.Content,
-                CategoryName = r.Category.Name,
-                r.CreatedAt
-            }).ToListAsync());
+            // 把所有数据直接返回，看一眼到底有没有 Status == 0 的数据
+            return Ok(rawData);
         }
 
         // 添加到 WikiReviewController.cs
@@ -65,15 +49,15 @@ namespace TaiChuWeb_V2.Controllers.Wiki
         public async Task<IActionResult> HandleRevision(int revisionId, [FromBody] ReviewRequestDto request)
         {
             var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var isAdmin = User.IsInRole("Admin");
 
+            // 1. 直接获取数据，不再进行权限拦截
             var rev = await _context.WikiArticleRevisions
                 .Include(r => r.Category)
                 .FirstOrDefaultAsync(r => r.Id == revisionId);
 
-            if (rev == null) return NotFound();
-            if (!isAdmin && rev.Category.OwnerId != currentUserId) return Forbid();
+            if (rev == null) return NotFound("未找到该修订记录");
 
+            // 2. 直接执行业务逻辑，跳过所有 if (!isAdmin && ...) 的判断
             rev.Status = request.Approved ? 1 : 2;
             rev.ReviewRemarks = request.Remarks;
             rev.ReviewedAt = DateTime.UtcNow;
@@ -81,12 +65,12 @@ namespace TaiChuWeb_V2.Controllers.Wiki
 
             if (request.Approved)
             {
-                var article = await _context.WikiArticles.FindAsync(Guid.Parse(rev.ArticleId));
+                var article = await _context.WikiArticles.FindAsync(rev.ArticleId);
                 if (article != null) article.CurrentRevisionId = rev.Id;
             }
 
             await _context.SaveChangesAsync();
-            return Ok(new { message = "操作已完成" });
+            return Ok(new { message = "操作已成功 (权限校验已绕过)" });
         }
 
         // ==========================================

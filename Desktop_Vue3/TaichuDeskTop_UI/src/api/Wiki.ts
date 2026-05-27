@@ -25,18 +25,26 @@ export interface IWikiArticle {
   spaceName?: string;
   tags: string[];
   publishedAt: string;
+  authorId?: string;
 }
 
 export const wikiApi = {
   getCategories: () => request.get<IWikiCategory[]>('/wiki/categories'),
   
-  // 确保接口定义包含所有必需字段
   applyCategory: (data: { name: string; reason: string; parentId: number | null; sortOrder: number }) => 
     request.post('/wiki/apply-category', data),
 
   publishFromNote: (data: any) => request.post('/wiki/publish', data),
 
-  // 🌟 补全这个缺失的接口定义
+  // 🌟 核心修改：这就是 index.vue 里调用的真正更新接口！
+// 🌟 修改为直接接收 content 字符串
+  updateFromNote: (data: { 
+    articleId: string; 
+    content: string; 
+    summary?: string; 
+    baseRevisionId: number; 
+  }) => request.post('/wiki/update', data),
+
   getAllArticles: () => request.get<any[]>('/wiki/articles'),
 
   getArticlesByCategory: (categoryId: number) => 

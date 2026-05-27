@@ -3,6 +3,17 @@ import { ref, computed } from 'vue';
 import { lingmaiApi } from '../api/lingmai';
 import { debounce } from 'lodash-es';
 import type { NoteType } from '../utils/NoteType';
+import { wikiApi } from '../api/Wiki'; // 引入 Wiki API
+
+const isWikiMode = ref(false);
+const wikiEditData = ref<{ 
+  id: string; 
+  title: string; 
+  content: any;
+  authorId?: string;           // 🌟 补充这个
+  currentRevisionId?: number;  // 🌟 补充这个 (用于乐观锁)
+} | null>(null);
+
 
 // --- 与后端 Note.cs 100% 对齐的前端模型 ---
 export interface SpiritNote {
@@ -35,6 +46,40 @@ const currentSpaceId = ref<string>("");
 const isLoading = ref(false);
 
 export function useSpiritData() {
+
+
+  const enterWikiMode = async (wikiId: string) => {
+  isLoading.value = true;
+  try {
+    const data = await wikiApi.getArticleDetail(wikiId);
+    
+    wikiEditData.value = {
+      id: wikiId,
+      title: data.title,
+      content: typeof data.content === 'string' ? JSON.parse(data.content) : data.content,
+      
+      // 🌟 核心修复：把后端传来的作者 ID 和版本号接住！
+      authorId: data.authorId,
+      currentRevisionId: data.currentRevisionId 
+    };
+    
+    isWikiMode.value = true;
+    currentNoteId.value = ''; // 清空选中笔记，避免冲突
+  } catch (e) {
+    console.error("Wiki 加载失败", e);
+    throw e;
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+  const exitWikiMode = () => {
+    isWikiMode.value = false;
+    wikiEditData.value = null;
+  };
+
+
+
 
   const archiveNote = async (noteId: string) => {
     try {
@@ -300,6 +345,6 @@ const getNotesInFolder = (folderId: string) =>
     folders, rootNotes, getNotesInFolder,
     fetchAllNotes, selectNote, createNewNote, togglePublish,
     updateNoteTitle, updateNoteContent, deleteNote, moveNote,archiveNote,
-    restoreNote
+    restoreNote,isWikiMode, wikiEditData, enterWikiMode, exitWikiMode
   };
 }
