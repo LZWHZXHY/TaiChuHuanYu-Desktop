@@ -57,13 +57,30 @@ const handleEditRequest = () => {
 const loadDetail = async () => {
   try {
     const res = await wikiApi.getArticleDetail(route.params.id as string);
+    
     if (res.content && typeof res.content === 'string') {
       try {
-        res.content = JSON.parse(res.content);
+        // 1. 显式指定 (line: string)
+        const lines = res.content.split('\n').filter((line: string) => line.trim() !== '');
+        
+        // 2. 同样显式指定 (line: string)
+        const nodes = lines.map((line: string) => {
+          const node = JSON.parse(line);
+          if (!node.type) {
+            node.type = 'paragraph';
+          }
+          return node;
+        });
+
+        res.content = {
+          type: 'doc',
+          content: nodes
+        };
       } catch (e) {
-        console.error("Content 解析异常:", e);
+        console.error("Content 灵脉链解析异常:", e);
       }
     }
+    
     entry.value = res;
   } catch (err) {
     console.error('词条读取失败:', err);
