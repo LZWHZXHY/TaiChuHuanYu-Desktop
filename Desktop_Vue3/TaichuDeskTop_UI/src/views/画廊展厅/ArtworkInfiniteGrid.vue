@@ -1,10 +1,9 @@
-<!--ArtworkInfiniteGrid.vue-->
 <template>
   <div class="artwork-masonry-wrapper">
     <div class="masonry-grid">
-      <div v-for="colIndex in columnCount" :key="colIndex" class="masonry-column">
+      <div v-for="(column, colIndex) in computedColumns" :key="colIndex" class="masonry-column">
         <div 
-          v-for="art in getColumnItems(colIndex - 1)" 
+          v-for="art in column" 
           :key="art.id" 
           class="masonry-item group"
           @click="$emit('on-click', art.id)"
@@ -19,10 +18,6 @@
           <div class="item-details">
             <h4 class="item-title">{{ art.title }}</h4>
 
-
-
-
-
             <div class="item-footer">
               <div class="author-info">
                 <img :src="art.authorAvatar || '/default-avatar.png'" class="avatar" />
@@ -34,14 +29,9 @@
                 target-type="Artwork" 
                 :initial-stats="{ 
                   likesCount: art.likesCount,
-                  // 以后后端支持了 'isLiked' 字段可以传给它，现在先保持默认
                 }" 
               />
             </div>
-
-
-
-
           </div>
         </div>
       </div>
@@ -55,12 +45,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted} from 'vue';
-import { artworkApi, type ArtworkItemDto } from '../../api/artwork'; // 引入刚才写的API
+import { ref, onMounted, onUnmounted, computed } from 'vue'; // 🌟 修改：引入 computed
+import { artworkApi, type ArtworkItemDto } from '../../api/artwork'; 
 import InteractActions from '../../components/InteractActions.vue';
-
-
-
 
 // 使用后端返回的 DTO 类型
 const artworks = ref<ArtworkItemDto[]>([]);
@@ -74,7 +61,7 @@ const pageSize = 20;
 
 defineEmits(['on-click']);
 
-// 响应式列数控制 (保持不变)
+// 响应式列数控制
 const columnCount = ref(5);
 const updateColumnCount = () => {
   const width = window.innerWidth;
@@ -84,9 +71,20 @@ const updateColumnCount = () => {
   else columnCount.value = 5;
 };
 
-const getColumnItems = (colIndex: number) => {
-  return artworks.value.filter((_, index) => index % columnCount.value === colIndex);
-};
+// 🌟 修改：将原有的 getColumnItems 方法重构为高效的计算属性
+// 这样每次页面中有微小响应式状态改变（例如：点赞、悬停动画）时，都不会触发全量数据的重复过滤操作
+const computedColumns = computed(() => {
+  const count = columnCount.value;
+  // 预先初始化好对应列数的容器数组
+  const cols = Array.from({ length: count }, () => [] as ArtworkItemDto[]);
+  
+  // 单次线性遍历分发数据，算法复杂度由 O(N * K) 降为 O(N)
+  artworks.value.forEach((art, index) => {
+    cols[index % count].push(art);
+  });
+  
+  return cols;
+});
 
 // --- 实战化数据加载 ---
 const loadData = async () => {
@@ -120,7 +118,6 @@ onMounted(() => {
   window.addEventListener('resize', updateColumnCount);
 
   observer = new IntersectionObserver((entries) => {
-    // rootMargin: '400px' 表示距离底部还有400px时就开始预加载
     if (entries[0].isIntersecting) loadData();
   }, { rootMargin: '400px' });
 
@@ -164,6 +161,7 @@ onUnmounted(() => {
   background: #fff;
   border-radius: 8px;
   transition: transform 0.4s ease;
+  will-change: transform; /* 🌟 修改：提前告知浏览器此元素有动画，做好层合成准备 */
 }
 
 .item-visual {
@@ -178,10 +176,11 @@ onUnmounted(() => {
   height: auto;
   display: block;
   transition: transform 0.8s cubic-bezier(0.2, 0, 0.2, 1);
+  transform: translateZ(0); /* 🌟 修改：强制触发 GPU 硬件加速，大幅减少滚动和悬停动画掉帧 */
 }
 
 .masonry-item:hover .item-image {
-  transform: scale(1.04);
+  transform: scale(1.04) translateZ(0);
 }
 
 .item-overlay {
