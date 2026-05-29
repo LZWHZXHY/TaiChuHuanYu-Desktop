@@ -215,4 +215,35 @@ export const slashCommands = [
       editor.chain().focus().deleteRange({ from: from - 1, to }).toggleCodeBlock().run()
     }
   },
+  {
+    label: '插入原图',
+    icon: '🖼️',
+    command: (editor: any) => {
+      // 1. 获取当前输入斜杠 '/' 的位置并将其删掉，保持行文干净
+      const { from, to } = editor.state.selection
+      editor.chain().focus().deleteRange({ from: from - 1, to }).run()
+
+      // 2. 创建隐藏的 file input 触发原生文件选择器
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'image/*'
+      
+      input.onchange = async () => {
+        if (input.files && input.files[0]) {
+          const file = input.files[0]
+          
+          // 3. 获取删除 '/' 后光标所在的新位置
+          const currentPos = editor.state.selection.$from.pos
+          
+          // 4. 向编辑器的 DOM 节点派发一个自定义事件，将文件和位置传给宿主 Vue 组件
+          const event = new CustomEvent('spirit-insert-image', {
+            detail: { file, pos: currentPos }
+          })
+          editor.view.dom.dispatchEvent(event)
+        }
+      }
+      
+      input.click()
+    }
+  }
 ]
