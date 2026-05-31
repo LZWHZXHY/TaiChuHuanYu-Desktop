@@ -239,7 +239,7 @@ onMounted(loadData);
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 
   display: flex;
-  height: 100vh;
+  height: 100%;
   background: var(--c-bg);
   color: var(--c-text-main);
   font-family: var(--font-sans);
