@@ -21,10 +21,19 @@ request.interceptors.request.use(
 
 // 3. 响应拦截器
 request.interceptors.response.use(
-  (response) => response.data, // 🌟 这里已经在运行时剥离了 data
+  (response) => response.data, 
   (error) => {
     if (error.response?.status === 401) {
+      // 1. 清除本地残存的身份印记
       localStorage.removeItem('token');
+      localStorage.removeItem('username'); // 如果有存用户名，顺便一起清了
+
+      // 2. 🌟 【核心新增】如果当前不在登录页，立刻强行驱逐回接入界面
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+        // 返回一个永远 pending 的 Promise，斩断后续组件的链式报错，让页面安静地跳转
+        return new Promise(() => {}); 
+      }
     }
 
     const backendMessage = error.response?.data?.message || '通信链接异常';
