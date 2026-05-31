@@ -77,6 +77,7 @@ import ProjectKanban from './ProjectKanban.vue';
 import ProjectSettings from './ProjectSettings.vue';
 import ProjectMember from './ProjectMember.vue';
 import ProjectTimeline from './ProjectTimeline.vue';
+import ProjectDocument from './ProjectDocument.vue';
 
 
 const route = useRoute();
@@ -88,6 +89,7 @@ const tabs = [
   { id: 'kanban', name: '任务看板' },
   { id: 'timeline', name: '演进线' },
   { id: 'members', name: '共建者' },
+  { id: 'document', name: '文档'},
   { id: 'settings', name: '项目配置' }
 ];
 
@@ -113,7 +115,8 @@ const componentMap: Record<string, any> = {
   kanban: ProjectKanban,
   settings: ProjectSettings,
   timeline: ProjectTimeline,
-  members: ProjectMember
+  members: ProjectMember,
+  document:ProjectDocument,
 };
 
 // 🌟 动态计算视口挂载项，自动防御 Ref 包装问题
