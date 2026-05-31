@@ -49,6 +49,18 @@ export interface MoveTaskDto {
   nextSortOrder?: number | null;
 }
 
+// 🌟 新增：成员管理相关的 Dto 声明
+// 在 projectService.ts 的类型声明区更新 Dto
+export interface InviteMemberDto {
+  usernameOrId: string; // 🌟 接收用户名或唯一 ID 字符串
+}
+
+
+
+export interface UpdateMemberRoleDto {
+  roleValue: number; // 0=owner, 1=admin, 2=editor, 3=executor, 4=viewer
+}
+
 
 const projectService = {
 
@@ -78,9 +90,8 @@ const projectService = {
     request.get<ProjectTaskMetadata[]>(`/project/${projectId}/tasks`),
 
   // 7. 注入新意图（创建新任务）
-  // 🌟 注入新意图（创建新任务）
   createTask: (projectId: string, data: CreateTaskDto) =>
-    request.post(`Project/${projectId}/kanban/tasks`, data), // 👈 补上 /kanban 路径段（注意保持和你其他接口一样的 Project/ 前缀风格）
+    request.post(`Project/${projectId}/kanban/tasks`, data), 
 
 
   updateTaskStatus: (projectId: string, taskId: string, data: MoveTaskDto) =>
@@ -89,29 +100,45 @@ const projectService = {
   getKanbanBoard: (projectId: string) =>
     request.get<{ board: any[], unclassified: any[] }>(`/project/${projectId}/kanban/board`),
 
-  // 🌟 添加新的画布分栏
+  // 添加新的画布分栏
   createKanbanCategory: (projectId: string, data: { name: string, colorCode?: string }) =>
     request.post(`/project/${projectId}/kanban/categories`, data),
 
-  // 🌟 修改分栏
+  // 修改分栏
   updateKanbanCategory: (projectId: string, categoryId: string, data: { name?: string, colorCode?: string }) =>
     request.put(`Project/${projectId}/kanban/categories/${categoryId}`, data),
 
-  // 🌟 删除分栏
+  // 删除分栏
   deleteKanbanCategory: (projectId: string, categoryId: string) =>
     request.delete(`/project/${projectId}/kanban/categories/${categoryId}`),
 
-  // 🌟 核心：拖拽任务（跨栏 + 精准插队排序）
+  // 核心：拖拽任务（跨栏 + 精准插队排序）
   moveKanbanTask: (projectId: string, taskId: string, data: { targetCategoryId: string | null, prevSortOrder: number | null, nextSortOrder: number | null }) =>
     request.put(`/project/${projectId}/kanban/tasks/${taskId}/move`, data),
-  // 🌟 全量/局部更新任务详情
+  
+  // 全量/局部更新任务详情
   updateTaskDetails: (projectId: string, taskId: string, data: any) =>
     request.put(`Project/${projectId}/kanban/tasks/${taskId}`, data),
 
-  // 🌟 获取项目成员 (用于指派下拉菜单)
-  getProjectMembers: (projectId: string) =>
-    request.get(`Project/${projectId}/members`),
+  /* ========================================================
+     🌟 新增/完善：共建者团队管理模块 (无缝对接后端 Controller 路由)
+     ======================================================== */
 
+  // 获取项目共建者列表
+  getProjectMembers: (projectId: string) =>
+    request.get<any[]>(`Project/${projectId}/members`),
+
+  // 邀请新成员加入灵脉
+  inviteMember: (projectId: string, data: InviteMemberDto) =>
+  request.post(`Project/${projectId}/members/invite`, data),
+
+  // 变更共建者角色等级
+  updateMemberRole: (projectId: string, memberId: string, data: UpdateMemberRoleDto) =>
+    request.put(`Project/${projectId}/members/${memberId}/role`, data),
+
+  // 将共建者移出项目
+  removeMember: (projectId: string, memberId: string) =>
+    request.delete(`Project/${projectId}/members/${memberId}`),
   
 };
 
