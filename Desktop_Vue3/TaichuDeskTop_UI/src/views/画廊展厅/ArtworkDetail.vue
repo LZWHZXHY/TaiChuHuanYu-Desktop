@@ -11,11 +11,9 @@
       </nav>
 
       <div class="md-wrapper" v-if="artwork">
-        <!-- 动态画廊区域 -->
         <section class="md-visual">
           <div v-if="!artwork.images?.length && !steps.length" class="img-placeholder">灵气汇聚中...</div>
 
-          <!-- 时间线模式（优先 steps） -->
           <div v-else-if="activeMode === 'timeline'" class="process-timeline">
             <template v-if="steps.length">
               <div v-for="(step, idx) in steps" :key="idx" class="process-step">
@@ -42,7 +40,6 @@
             </template>
           </div>
 
-          <!-- 瀑布流模式 -->
           <div v-else-if="activeMode === 'masonry'" class="masonry-gallery">
             <template v-if="steps.length">
               <div v-for="(step, idx) in steps" :key="idx" class="masonry-item">
@@ -57,7 +54,6 @@
             </template>
           </div>
 
-          <!-- 轮播模式 -->
           <div v-else-if="activeMode === 'carousel'" class="carousel-gallery">
             <div class="carousel-stage">
               <img :src="currentStepOrImage?.url || currentStepOrImage" @load="loading = false" />
@@ -72,14 +68,12 @@
             </div>
           </div>
 
-          <!-- 单图展示 -->
           <div v-else class="single-final">
             <img :src="firstImage" class="final-img" @load="loading = false" @error="onImgError" />
             <p v-if="steps.length && steps[0]?.description" class="single-description">{{ steps[0].description }}</p>
           </div>
         </section>
 
-        <!-- 文本区域 -->
         <article class="md-article">
           <header class="article-header">
             <h1 class="title">{{ artwork.title }}</h1>
@@ -93,19 +87,23 @@
             </div>
           </header>
 
-          <!-- 🌟 修改区域：优先显示全文 content，其次 steps，再次旧版 -->
           <section class="article-body">
             <div class="text-content">
               <template v-if="parsedContent?.length">
                 <p v-for="(block, i) in parsedContent" :key="i" class="text-paragraph">{{ block.text }}</p>
               </template>
-              <template v-else-if="steps.length">
+
+              <template v-else-if="steps.some((s: any, idx: number) => s.description || (s.title && s.title !== '步骤 ' + (idx + 1)))">
                 <p v-for="(step, i) in steps" :key="i" class="text-paragraph">
-                  <strong>{{ step.title }}</strong><template v-if="step.description">：{{ step.description }}</template>
+                  <template v-if="step.description || step.title">
+                    <strong>{{ step.title }}</strong><template v-if="step.description">:{{ step.description }}</template>
+                  </template>
                 </p>
               </template>
+
               <SpiritPreview v-else-if="artwork.description && useSpiritPreview" :modelValue="artwork.description" />
-              <span v-else>这一卷画作，画师未曾留下文字描述。</span>
+              
+              <span v-else class="empty-tip">这一卷画作，画师未曾留下文字描述。</span>
             </div>
           </section>
 
