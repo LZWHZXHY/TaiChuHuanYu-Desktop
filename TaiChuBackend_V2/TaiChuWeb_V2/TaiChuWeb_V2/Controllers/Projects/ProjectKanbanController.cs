@@ -229,6 +229,25 @@ namespace TaiChuWeb_V2.Controllers.Projects
             return NoContent();
         }
 
+        [HttpDelete("tasks/{taskId}")]
+        public async Task<IActionResult> DeleteTask(string projectId, string taskId)
+        {
+            // 准入校验：寻找该项目下的指定任务
+            var task = await _context.ProjectTasks
+                .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == projectId);
+
+            if (task == null)
+                return NotFound("未寻得该意图节点");
+
+            // 从上下文中移除并持久化
+            _context.ProjectTasks.Remove(task);
+            await _context.SaveChangesAsync();
+
+            return Ok("意图已从画布中抹除");
+        }
+
+
+
         #endregion
     }
 

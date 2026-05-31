@@ -139,6 +139,10 @@ const projectService = {
   // 将共建者移出项目
   removeMember: (projectId: string, memberId: string) =>
     request.delete(`Project/${projectId}/members/${memberId}`),
+
+  // 🌟 核心：彻底抹除意图（删除任务）
+deleteTask: (projectId: string, taskId: string) =>
+  request.delete(`/project/${projectId}/kanban/tasks/${taskId}`),
   
 };
 

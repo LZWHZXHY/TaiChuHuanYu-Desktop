@@ -243,6 +243,8 @@
         </div>
 
         <footer class="drawer-footer">
+          <button class="delete-task-btn" @click="handleDeleteTask">抹除此意图</button>
+          
           <span class="save-status" v-if="isSaving">正在同步灵脉...</span>
           <button class="save-btn" @click="saveTaskDetails">确立修改</button>
         </footer>
@@ -266,7 +268,30 @@ const projectMembers = ref<any[]>([]); // 如果你有成员接口，在这里�
 
 let draggedTaskId = '';
 let sourceLaneId: string | null = null;
+// 🌟 新增：删除任务交互逻辑
+const handleDeleteTask = async () => {
+  const taskId = taskModal.value.data.id;
+  
+  // 复用组件内现有的极简自定义确认弹窗
+  const isConfirmed = await customConfirm(
+    "抹除意图", 
+    "确定要将这一意图卡片彻底从画布中抹除吗？此操作将无法撤销。"
+  );
+  
+  if (!isConfirmed) return;
 
+  isSaving.value = true;
+  try {
+    // 呼叫服务层
+    await projectService.deleteTask(props.projectId, taskId);
+    taskModal.value.isOpen = false; // 成功后关闭抽屉
+    await loadBoard(); // 刷新看板画布
+  } catch (err) {
+    console.error("抹除意图失败:", err);
+  } finally {
+    isSaving.value = false;
+  }
+};
 /* --- 🌟 极简自定义弹窗系统 (基于 Promise 封装) --- */
 const modalConfig = ref({
   isOpen: false,
@@ -649,4 +674,20 @@ const formatShortDate = (dateStr: string) => {
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes pulse { 0% { transform: scaleX(0.5); opacity: 0.2; } 50% { transform: scaleX(1.5); opacity: 1; } 100% { transform: scaleX(0.5); opacity: 0.2; } }
+
+/* 🌟 新增：抽屉内删除按钮样式 */
+.delete-task-btn {
+  background: none;
+  border: none;
+  color: #ccc;
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 12px 0;
+  margin-right: auto; /* 核心技巧：自动平推右侧的所有常驻元素 */
+  transition: color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.delete-task-btn:hover {
+  color: #ff4757; /* 优雅的警告红 */
+}
 </style>
