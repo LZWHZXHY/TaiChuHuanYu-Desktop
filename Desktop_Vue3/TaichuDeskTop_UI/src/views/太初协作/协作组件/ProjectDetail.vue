@@ -76,6 +76,7 @@ import projectService from '../../../api/projectService';
 import ProjectKanban from './ProjectKanban.vue';
 import ProjectSettings from './ProjectSettings.vue';
 import ProjectMember from './ProjectMember.vue';
+import ProjectTimeline from './ProjectTimeline.vue';
 
 
 const route = useRoute();
@@ -111,7 +112,7 @@ const renderPlaceholder = () => {
 const componentMap: Record<string, any> = {
   kanban: ProjectKanban,
   settings: ProjectSettings,
-  timeline: renderPlaceholder,
+  timeline: ProjectTimeline,
   members: ProjectMember
 };
 

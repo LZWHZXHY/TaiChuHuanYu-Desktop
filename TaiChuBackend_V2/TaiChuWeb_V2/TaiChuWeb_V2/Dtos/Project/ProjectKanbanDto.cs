@@ -24,12 +24,13 @@
     // 🌟 配合详情超级弹窗的更新 DTO
     public class UpdateTaskDto
     {
-        public string Title { get; set; }
+        public string? Title { get; set; }
         public string? Description { get; set; }
+        public int? Priority { get; set; }
+        public DateTime? StartDate { get; set; } // 🌟 补全
+        public DateTime? DueDate { get; set; }   // 🌟 补全
+        public string? Tags { get; set; }
         public string? CategoryId { get; set; }
         public string? AssigneeId { get; set; }
-        public int? Priority { get; set; }
-        public DateTime? DueDate { get; set; }
-        public string? Tags { get; set; }
     }
 }

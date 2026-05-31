@@ -23,6 +23,8 @@ namespace TaiChuWeb_V2.Models.Project
         public ProjectCategory Category { get; set; }
         public int Priority { get; set; } = 1;
 
+        public DateTime? StartDate { get; set; }
+
         // 🌟 新增：截止期限
         public DateTime? DueDate { get; set; }
         // 🌟 核心改动 2：自由指派外键

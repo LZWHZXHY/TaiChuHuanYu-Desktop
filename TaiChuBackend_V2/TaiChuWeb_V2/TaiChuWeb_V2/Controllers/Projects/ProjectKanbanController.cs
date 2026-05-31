@@ -177,21 +177,19 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == projectId);
             if (task == null) return NotFound("未寻得该意图节点");
 
-            // 映射前端传来的细节数据
             if (!string.IsNullOrWhiteSpace(dto.Title)) task.Title = dto.Title;
-
             task.Description = dto.Description;
-            task.Priority = dto.Priority ?? 1; // 默认常规优先级
-            task.DueDate = dto.DueDate;
-            task.Tags = dto.Tags;
+            task.Priority = dto.Priority ?? 1;
 
-            // 处理可能被清空的外键
+            task.StartDate = dto.StartDate; // 🌟 写入新字段
+            task.DueDate = dto.DueDate;
+
+            task.Tags = dto.Tags;
             task.CategoryId = string.IsNullOrWhiteSpace(dto.CategoryId) ? null : dto.CategoryId;
             task.AssigneeId = string.IsNullOrWhiteSpace(dto.AssigneeId) ? null : dto.AssigneeId;
 
             task.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
-
             return Ok(task);
         }
 
@@ -246,7 +244,44 @@ namespace TaiChuWeb_V2.Controllers.Projects
             return Ok("意图已从画布中抹除");
         }
 
+        [HttpGet("/api/project/{projectId}/tasks")]
+        public async Task<IActionResult> GetProjectTasks(string projectId)
+        {
+            var projectExists = await _context.Projects.AnyAsync(p => p.Id == projectId);
+            if (!projectExists) return NotFound("未寻得指定的项目灵脉");
 
+            var tasksWithCategory = await _context.ProjectTasks
+                .Where(t => t.ProjectId == projectId)
+                .GroupJoin(
+                    _context.ProjectCategories,
+                    task => task.CategoryId,
+                    category => category.Id,
+                    (task, categories) => new { task, categories }
+                )
+                .SelectMany(
+                    x => x.categories.DefaultIfEmpty(),
+                    (x, category) => new
+                    {
+                        x.task.Id,
+                        x.task.Title,
+                        x.task.Description,
+                        x.task.Status,
+                        x.task.Priority,
+                        x.task.StartDate, // 🌟 输送新字段
+                        x.task.DueDate,
+                        x.task.AssigneeId,
+                        x.task.Tags,
+                        x.task.SortOrder,
+                        x.task.CategoryId,
+                        CategoryName = category != null ? category.Name : "游离意图",
+                        CategoryColor = category != null ? category.ColorCode : "#eee"
+                    }
+                )
+                .OrderBy(t => t.SortOrder)
+                .ToListAsync();
+
+            return Ok(tasksWithCategory);
+        }
 
         #endregion
     }

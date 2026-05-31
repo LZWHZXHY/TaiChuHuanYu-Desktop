@@ -26,13 +26,17 @@ export interface UpdateProjectDto {
 export interface ProjectTaskMetadata {
   id: string;
   title: string;
-  status: number; // 0=Todo, 1=Doing, 2=Done
+  status: number;
   categoryId?: string | null;
   categoryName?: string | null;
   categoryColor?: string | null;
   assigneeId?: string | null;
-  cost: number;
-  updatedAt: string;
+  tags?: string | null;
+  priority: number;
+  description?: string | null;
+  startDate?: string | null; // 🌟 新增映射：横向排期起点
+  dueDate?: string | null;   // 🌟 横向排期终点
+  sortOrder: number;
 }
 
 export interface CreateTaskDto {
@@ -141,8 +145,8 @@ const projectService = {
     request.delete(`Project/${projectId}/members/${memberId}`),
 
   // 🌟 核心：彻底抹除意图（删除任务）
-deleteTask: (projectId: string, taskId: string) =>
-  request.delete(`/project/${projectId}/kanban/tasks/${taskId}`),
+  deleteTask: (projectId: string, taskId: string) =>
+    request.delete(`/project/${projectId}/kanban/tasks/${taskId}`),
   
 };
 
