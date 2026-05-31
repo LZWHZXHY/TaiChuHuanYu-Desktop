@@ -68,6 +68,7 @@ const removeLinkRow = (index: number) => {
 }
 
 // 提交保存
+// 提交保存
 const handleSave = async () => {
   loading.value = true
   try {
@@ -79,7 +80,10 @@ const handleSave = async () => {
       mood: editForm.value.mood,
       bio: editForm.value.bio,
       address: editForm.value.address,
-      birthday: editForm.value.birthday,
+      
+      // ✨ 核心修复：如果为空字符串，转换为 null 发送给后端
+      birthday: editForm.value.birthday === '' ? null : editForm.value.birthday, 
+      
       phoneNumber: editForm.value.phoneNumber,      // 提交新字段
       extraConfig: editForm.value.extraConfig,      // 提交新字段
       socialLinks: JSON.stringify(validLinks) 
@@ -92,7 +96,11 @@ const handleSave = async () => {
     alert('太初档案同步成功！')
   } catch (error: any) {
     console.error(error)
-    alert(error.response?.data?.message || '更新失败，请检查网络')
+    // 这样写可以优先展示 .NET 抛出的具体验证错误原因
+    const errorMsg = error.response?.data?.errors 
+      ? Object.values(error.response.data.errors).flat().join('\n')
+      : (error.response?.data?.message || '更新失败，请检查网络')
+    alert(errorMsg)
   } finally {
     loading.value = false
   }
