@@ -14,6 +14,6 @@
         public string Type { get; set; } = null!;
         public string Data { get; set; } = null!;
 
-        public string? SortOrder { get; set; }
+        public int? SortOrder { get; set; }
     }
 }

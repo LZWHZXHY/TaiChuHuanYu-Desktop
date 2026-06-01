@@ -34,7 +34,7 @@ namespace TaiChuWeb_V2.Models.LingMai
         public string Type { get; set; } = string.Empty; // paragraph, heading-1, image, spirit-link
 
         [Required]
-        public string SortOrder { get; set; } = "0";
+        public int SortOrder { get; set; } = 0;
 
         [Column(TypeName = "json")]
         public string Data { get; set; } = string.Empty;

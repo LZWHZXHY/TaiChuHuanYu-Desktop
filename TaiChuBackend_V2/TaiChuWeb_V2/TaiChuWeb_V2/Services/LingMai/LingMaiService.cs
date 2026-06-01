@@ -19,42 +19,55 @@ namespace TaiChuWeb_V2.Services.LingMai
 
         public async Task CreateSnapshotAsync(Guid noteId, string contentJson, string remark = "自动备份")
         {
-            // 1. 开启事务，保证“存新”和“删旧”要么都成功，要么都失败
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            // 1. 获取当前配置的弹性重试策略
+            var strategy = _context.Database.CreateExecutionStrategy();
+
+            // 2. 将整个事务放入重试策略中执行
+            await strategy.ExecuteAsync(async () =>
             {
-                // 2. 插入当前最新的快照
-                var newHistory = new NoteHistory
+                // 3. 必须在策略内部显式开启事务
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
                 {
-                    NoteId = noteId,
-                    ContentJson = contentJson,
-                    Remark = remark,
-                    CreatedAt = DateTime.UtcNow
-                };
-                _context.NoteHistories.Add(newHistory);
-                await _context.SaveChangesAsync();
-
-                // 3. 🌟 限制数量：获取该笔记所有的历史记录，按时间倒序排
-                var historyList = await _context.NoteHistories
-                    .Where(h => h.NoteId == noteId)
-                    .OrderByDescending(h => h.CreatedAt)
-                    .ToListAsync();
-
-                // 4. 如果超过 20 份，删除多余的旧版本
-                if (historyList.Count > 20)
-                {
-                    var oldVersions = historyList.Skip(20).ToList();
-                    _context.NoteHistories.RemoveRange(oldVersions);
+                    // 4. 插入当前最新的快照
+                    var newHistory = new NoteHistory
+                    {
+                        Id = Guid.NewGuid(), // 建议显式生成赋值
+                        NoteId = noteId,
+                        ContentJson = contentJson,
+                        Remark = remark,
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    _context.NoteHistories.Add(newHistory);
                     await _context.SaveChangesAsync();
-                }
 
-                await transaction.CommitAsync();
-            }
-            catch (Exception)
-            {
-                await transaction.RollbackAsync();
-                throw;
-            }
+                    // 5. 限制数量：获取该笔记所有的历史记录，按时间倒序排
+                    var historyList = await _context.NoteHistories
+                        .Where(h => h.NoteId == noteId)
+                        .OrderByDescending(h => h.CreatedAt)
+                        .ToListAsync();
+
+                    // 6. 如果超过 20 份，删除多余的旧版本
+                    if (historyList.Count > 20)
+                    {
+                        var oldVersions = historyList.Skip(20).ToList();
+                        _context.NoteHistories.RemoveRange(oldVersions);
+                        await _context.SaveChangesAsync();
+                    }
+
+                    // 7. 成功后提交事务
+                    await transaction.CommitAsync();
+                }
+                catch (Exception)
+                {
+                    // 8. 发生异常时回滚
+                    await transaction.RollbackAsync();
+
+                    // 🛑 核心注意点：必须原样 throw 抛出异常！
+                    // 只有抛出来，重试策略捕获后才知道发生了网络波动，进而触发下一次安全重试
+                    throw;
+                }
+            });
         }
 
         public async Task RollbackToSnapshotAsync(Guid noteId, Guid historyId)
@@ -118,7 +131,7 @@ namespace TaiChuWeb_V2.Services.LingMai
                             content = node.TryGetProperty("content", out var c) ? c : (object?)null
                         }),
                         UpdatedAt = DateTime.UtcNow,
-                        SortOrder = ""
+                        SortOrder = 0
                     };
 
                     _context.Blocks.Add(newBlock);
@@ -165,7 +178,7 @@ namespace TaiChuWeb_V2.Services.LingMai
 
                     block.Data = blockDto.Data;
                     block.Type = blockDto.Type;
-                    block.SortOrder = blockDto.SortOrder ?? "";
+                    block.SortOrder = blockDto.SortOrder ?? 0;
                     block.UpdatedAt = DateTime.UtcNow;
 
                     _context.Entry(block).Property(x => x.Data).IsModified = true;
@@ -183,7 +196,7 @@ namespace TaiChuWeb_V2.Services.LingMai
                         OwnerType = "note",              // 🌟 修改点 3：增加 OwnerType 
                         Type = blockDto.Type,
                         Data = blockDto.Data,
-                        SortOrder = blockDto.SortOrder ?? "",
+                        SortOrder = blockDto.SortOrder ?? 0,
                         UpdatedAt = DateTime.UtcNow
                     };
                     _context.Blocks.Add(newBlock);

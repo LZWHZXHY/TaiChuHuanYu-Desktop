@@ -133,7 +133,8 @@ namespace TaiChuWeb_V2.Services.Wiki
                     // 3. 将提案内容克隆并写入发布区(PublishedBlocks)
                     var pubBlocks = revBlocks.Select(b => {
                         // 🌟 修复点 1：安全转换 SortOrder 为数字，失败则默认为 0
-                        int.TryParse(b.SortOrder, out int parsedSortOrder);
+                        // 既然本来就是数字，直接拿来用
+                        int parsedSortOrder = b.SortOrder;
 
                         return new PublishedBlock
                         {
@@ -184,7 +185,7 @@ namespace TaiChuWeb_V2.Services.Wiki
                 OwnerType = LingMaiOwnerTypes.WikiRevision,
                 Type = b.Type,
                 Data = b.Data,
-                SortOrder = b.SortOrder ?? "",
+                SortOrder = int.TryParse(b.SortOrder, out var order) ? order : 0,
                 UpdatedAt = DateTime.UtcNow
             }).ToList();
 

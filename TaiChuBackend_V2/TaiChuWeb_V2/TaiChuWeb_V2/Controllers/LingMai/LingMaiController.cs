@@ -540,7 +540,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                     OwnerType = "note",
                                     Type = b.Type,
                                     Data = b.Data,
-                                    SortOrder = b.SortOrder ?? "0",
+                                    SortOrder = b.SortOrder ?? 0,
                                     UpdatedAt = DateTime.UtcNow
                                 };
                                 _context.Blocks.Add(block);

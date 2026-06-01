@@ -125,8 +125,8 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         // 🌟🌟🌟 新方案：同时生成 steps 和 content
                         // ================================================================
                         var sortedBlocks = draftBlocks
-                            .OrderBy(b => int.TryParse(b.SortOrder, out var o) ? o : 0)
-                            .ToList();
+                        .OrderBy(b => b.SortOrder) // 🌟 已经是 int 了，直接OrderBy，干干净净！
+                        .ToList();
 
                         var steps = new List<dynamic>();
                         string currentImageUrl = null;
@@ -258,7 +258,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                             OwnerType = "note",
                             Type = db.Type,
                             Data = db.Data,
-                            SortOrder = int.TryParse(db.SortOrder, out var order) ? order : 0
+                            SortOrder = db.SortOrder,
                         }).ToList();
                         _context.PublishedBlocks.AddRange(pubBlocks);
 
