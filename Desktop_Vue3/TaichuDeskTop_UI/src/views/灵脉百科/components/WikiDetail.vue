@@ -60,21 +60,37 @@ const loadDetail = async () => {
     
     if (res.content && typeof res.content === 'string') {
       try {
-        // 🌟 1. 直接解析完整的 JSON 字符串
+        // 🌟 引擎 1：尝试作为完整的单体 JSON 解析 (兼容上次的格式)
         let parsed = JSON.parse(res.content);
         
-        // 🌟 2. 判断解析后的数据是否已经是标准的 doc 结构
         if (parsed.type === 'doc') {
           res.content = parsed;
         } else {
-          // 如果是一堆零散的段落（兼容老数据），再给它套上 doc 壳子
           res.content = {
             type: 'doc',
             content: Array.isArray(parsed) ? parsed : [parsed]
           };
         }
       } catch (e) {
-        console.error("Content 灵脉链解析异常:", e);
+        // 🌟 引擎 2：如果走到 catch，说明遇到换行符拦截了。切换为多行切片解析 (兼容您当前这份 6.0 教程的数据)
+        try {
+          const lines = res.content.split('\n').filter((line: string) => line.trim() !== '');
+          const nodes = lines.map((line: string) => {
+            const node = JSON.parse(line);
+            // 为缺失 type 的节点补全基础类型，防止 Tiptap 渲染崩溃
+            if (!node.type) {
+              node.type = 'paragraph'; 
+            }
+            return node;
+          });
+
+          res.content = {
+            type: 'doc',
+            content: nodes
+          };
+        } catch (fallbackError) {
+          console.error("Content 灵脉链多行碎片解析也失败了，可能数据已损坏:", fallbackError);
+        }
       }
     }
     
@@ -83,7 +99,6 @@ const loadDetail = async () => {
     console.error('词条读取失败:', err);
   }
 };
-
 const formatDate = (d: string) => d ? d.substring(0, 10).replace(/-/g, '/') : '';
 
 onMounted(loadDetail);
