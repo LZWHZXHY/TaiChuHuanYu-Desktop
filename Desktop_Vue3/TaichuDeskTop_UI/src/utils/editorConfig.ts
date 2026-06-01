@@ -14,7 +14,7 @@ import TaskItem from '@tiptap/extension-task-item'
 import Mention from '@tiptap/extension-mention'
 
 const SpiritNode = Node.create({
-  name: 'spiritLink',
+  name: 'spirit-link',
   group: 'inline',
   inline: true,
   selectable: true,
@@ -70,72 +70,100 @@ export const spiritExtensions = [
     HTMLAttributes: { class: 'spirit-task-item' },
   }),
   // 🌟🌟🌟 核心修改：直接扩展 Image，保留节点名 'image'，添加 caption 和 NodeView
+
+
+  // 🌟🌟🌟 核心修改：直接扩展 Image，保留节点名 'image'，添加 caption 和 NodeView
   Image.extend({
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      align: {
-        default: 'center',
-        renderHTML: attributes => ({ 'data-align': attributes.align }),
-      },
-      width: {
-        default: '100%',
-        renderHTML: attributes => ({ style: `width: ${attributes.width}; height: auto;` }),
-      },
-      // 不再添加 caption
-    }
-  },
-    // 在 editorConfig.ts 的 Image.extend(...) 中，替换原来的 addNodeView 为：
-
-addNodeView() {
-  return ({ node, editor }) => {
-    const container = document.createElement('figure')
-    container.style.margin = '0'
-
-    const img = document.createElement('img')
-    img.src = node.attrs.src
-    if (node.attrs.alt) img.alt = node.attrs.alt
-    if (node.attrs.title) img.title = node.attrs.title
-    img.setAttribute('data-align', node.attrs.align)
-    img.style.width = node.attrs.width || '100%'
-    img.style.height = 'auto'
-    img.style.display = 'block'
-    container.appendChild(img)
-
-    const caption = document.createElement('figcaption')
-    caption.setAttribute('contenteditable', 'true')
-    caption.setAttribute('data-placeholder', '添加题注…')
-    caption.style.cssText = `
-      text-align: center; font-size: 0.9em; color: #86868b;
-      padding: 12px 0 0; outline: none; min-height: 1.2em;
-    `
-    caption.innerHTML = node.attrs.caption || ''
-    caption.addEventListener('input', () => {
-      editor.commands.updateAttributes('image', { caption: caption.innerText })
-    })
-    // 阻止事件冒泡，防止编辑器误删节点
-    caption.addEventListener('click', (e) => e.stopPropagation())
-    caption.addEventListener('mousedown', (e) => e.stopPropagation())
-    container.appendChild(caption)
-
-    return {
-      dom: container,
-      // 关键：允许题注内部事件正常运作
-      stopEvent: (event) => {
-        const target = event.target
-        // 使用 globalThis.Node 避免与 ProseMirror Node 冲突
-        if (target && caption.contains(target as globalThis.Node)) {
-          return ['input', 'click', 'mousedown', 'keydown', 'keyup', 'paste', 'cut', 'copy'].includes(event.type)
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        align: {
+          default: 'center',
+          renderHTML: attributes => ({ 'data-align': attributes.align }),
+        },
+        width: {
+          default: '100%',
+          renderHTML: attributes => ({ style: `width: ${attributes.width}; height: auto;` }),
+        },
+        // 🌟 必须加上 caption 属性声明，不然静态渲染或更新时，数据无法落进 attributes 
+        caption: {
+          default: '',
+          renderHTML: attributes => ({ 'data-caption': attributes.caption }),
         }
-        return false
       }
-    }
-  }
-},
+    },
+
+    // 🌟 核心修复点：为静态 preview（generateHTML）提供专属的静态 HTML 标签蓝图
+    // 当在预览环境下运行时，Tiptap 会直接读取这个结构，而不会去走下面崩溃的 addNodeView
+    renderHTML({ HTMLAttributes }) {
+      return [
+        'figure', 
+        { style: 'margin: 0; text-align: center;' },
+        ['img', mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
+          style: `width: ${HTMLAttributes.width || '100%'}; height: auto; display: block;`
+        })],
+        ['figcaption', { 
+          style: 'text-align: center; font-size: 0.9em; color: #86868b; padding: 12px 0 0;' 
+        }, HTMLAttributes.caption || ''] // 把题注静态渲染出来
+      ]
+    },
+
+    // 下面你原有的 addNodeView 保持原样不动
+    addNodeView() {
+      return ({ node, editor }) => {
+        const container = document.createElement('figure')
+        container.style.margin = '0'
+
+        const img = document.createElement('img')
+        img.src = node.attrs.src
+        if (node.attrs.alt) img.alt = node.attrs.alt
+        if (node.attrs.title) img.title = node.attrs.title
+        img.setAttribute('data-align', node.attrs.align)
+        img.style.width = node.attrs.width || '100%'
+        img.style.height = 'auto'
+        img.style.display = 'block'
+        container.appendChild(img)
+
+        const caption = document.createElement('figcaption')
+        caption.setAttribute('contenteditable', 'true')
+        caption.setAttribute('data-placeholder', '添加题注…')
+        caption.style.cssText = `
+          text-align: center; font-size: 0.9em; color: #86868b;
+          padding: 12px 0 0; outline: none; min-height: 1.2em;
+        `
+        caption.innerHTML = node.attrs.caption || ''
+        caption.addEventListener('input', () => {
+          editor.commands.updateAttributes('image', { caption: caption.innerText })
+        })
+        caption.addEventListener('click', (e) => e.stopPropagation())
+        caption.addEventListener('mousedown', (e) => e.stopPropagation())
+        container.appendChild(caption)
+
+        return {
+          dom: container,
+          stopEvent: (event) => {
+            const target = event.target
+            if (target && caption.contains(target as globalThis.Node)) {
+              return ['input', 'click', 'mousedown', 'keydown', 'keyup', 'paste', 'cut', 'copy'].includes(event.type)
+            }
+            return false
+          }
+        }
+      }
+    },
   }).configure({
     inline: false,
     HTMLAttributes: { class: 'spirit-image-node' },
   }),
+
+
+
+
+
+
+
+
+
   SpiritNode,
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },

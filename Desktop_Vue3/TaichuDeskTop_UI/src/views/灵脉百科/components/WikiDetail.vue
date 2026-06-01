@@ -60,22 +60,19 @@ const loadDetail = async () => {
     
     if (res.content && typeof res.content === 'string') {
       try {
-        // 1. 显式指定 (line: string)
-        const lines = res.content.split('\n').filter((line: string) => line.trim() !== '');
+        // 🌟 1. 直接解析完整的 JSON 字符串
+        let parsed = JSON.parse(res.content);
         
-        // 2. 同样显式指定 (line: string)
-        const nodes = lines.map((line: string) => {
-          const node = JSON.parse(line);
-          if (!node.type) {
-            node.type = 'paragraph';
-          }
-          return node;
-        });
-
-        res.content = {
-          type: 'doc',
-          content: nodes
-        };
+        // 🌟 2. 判断解析后的数据是否已经是标准的 doc 结构
+        if (parsed.type === 'doc') {
+          res.content = parsed;
+        } else {
+          // 如果是一堆零散的段落（兼容老数据），再给它套上 doc 壳子
+          res.content = {
+            type: 'doc',
+            content: Array.isArray(parsed) ? parsed : [parsed]
+          };
+        }
       } catch (e) {
         console.error("Content 灵脉链解析异常:", e);
       }

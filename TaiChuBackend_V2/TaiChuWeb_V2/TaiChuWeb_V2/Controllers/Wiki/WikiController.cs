@@ -70,84 +70,142 @@ namespace TaiChuWeb_V2.Controllers.Wiki
             return Ok(new { message = "申请已提交，等待管理员审阅。" });
         }
 
+
+
+
+
+
+
+
         [HttpPost("publish")]
-        [Authorize] // 🌟 必须加，确保只有登录用户能操作
+        [Authorize]
         public async Task<IActionResult> PublishFromNote([FromBody] WikiPublishDto request)
         {
-            // 1. 获取当前发布者 (贡献者) 的 ID
-            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(currentUserId))
-                return Unauthorized("身份验证失败，请重新登录");
+            // 1. 获取当前数据库配置的弹性连接重试策略
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            // 2. 查找源笔记
-            var note = await _context.Notes
-                .FirstOrDefaultAsync(n => n.Id == Guid.Parse(request.NoteId));
-            if (note == null) return NotFound("未找到源笔记");
-
-            // 3. 获取分类信息
-            var category = await _context.WikiCategories.FindAsync(request.CategoryId);
-            if (category == null) return BadRequest("分类不存在");
-
-            // 4. 拼装内容
-            var blocks = await _context.Blocks
-                .Where(b => b.OwnerId == request.NoteId && b.OwnerType == "note")
-                .OrderBy(b => b.SortOrder) // 确保按顺序拼装
-                .ToListAsync();
-
-            var fullContent = string.Join("\n", blocks.Select(b => {
-                try
+            // 2. 🌟 核心修复：显式指定泛型参数 <IActionResult>，彻底消灭 CS8031 报错
+            return await strategy.ExecuteAsync<IActionResult>(async () =>
+            {
+                // 3. 在策略内部显式开启异步事务
+                using (var transaction = await _context.Database.BeginTransactionAsync())
                 {
-                    using var doc = JsonDocument.Parse(b.Data);
-                    return doc.RootElement.TryGetProperty("text", out var text) ? text.GetString() : b.Data;
+                    try
+                    {
+                        // 4. 获取当前发布者 (贡献者) 的 ID
+                        var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                        if (string.IsNullOrEmpty(currentUserId))
+                            return Unauthorized("身份验证失败，请重新登录");
+
+                        // 5. 查找源草稿笔记
+                        var note = await _context.Notes
+                            .FirstOrDefaultAsync(n => n.Id == Guid.Parse(request.NoteId));
+                        if (note == null) return NotFound("未找到源笔记");
+
+                        // 6. 获取分类信息
+                        var category = await _context.WikiCategories.FindAsync(request.CategoryId);
+                        if (category == null) return BadRequest("分类不存在");
+
+                        // 7. 查询该草稿的所有文本块，并严格按我们重构后的高性能 int 数字顺序排序
+                        var blocks = await _context.Blocks
+                            .Where(b => b.OwnerId == request.NoteId && b.OwnerType == "note")
+                            .OrderBy(b => b.SortOrder)
+                            .ToListAsync();
+
+                        // 8. 🌟 核心重构：拼装标准的、前端 TipTap 能直接解析的单行单层 JSON 树
+                        var wikiDoc = new
+                        {
+                            type = "doc",
+                            content = blocks.Select(b => {
+                                // 将每个 Block 内部的 Data 字符串反序列化，防止直接拼装产生二次转义斜杠 \
+                                var blockData = !string.IsNullOrEmpty(b.Data)
+                                    ? JsonSerializer.Deserialize<Dictionary<string, object>>(b.Data)
+                                    : new Dictionary<string, object>();
+
+                                return new
+                                {
+                                    type = b.Type, // paragraph, heading-1 等
+                                    attrs = blockData.ContainsKey("attrs") ? blockData["attrs"] : null,
+                                    content = blockData.ContainsKey("content") ? blockData["content"] : null
+                                };
+                            }).ToList()
+                        };
+
+                        // 将匿名对象序列化成单行、合法的标准标准 JSON 字符串
+                        string standardContentJson = JsonSerializer.Serialize(wikiDoc);
+
+                        // 9. 创建 WikiArticle 百科宇宙母表记录（外壳）
+                        var wikiArticle = new WikiArticle
+                        {
+                            Title = note.Title,
+                            CreatedAt = DateTime.UtcNow,
+                            CategoryId = request.CategoryId
+                        };
+                        _context.WikiArticles.Add(wikiArticle);
+                        await _context.SaveChangesAsync();
+
+                        // 10. 判定审核状态 (1: 自动通过, 0: 待审)
+                        int initialStatus = (category.OwnershipType == 1) ? 1 : 0;
+
+                        // 11. 创建修订记录表记录 (Revision)
+                        var revision = new WikiArticleRevision
+                        {
+                            ArticleId = wikiArticle.Id.ToString(),
+                            Content = standardContentJson,   // 🌟 注入干净的标准结构快照，彻底根治前端解析崩溃
+                            ContributorId = currentUserId,
+                            CategoryId = request.CategoryId,
+                            Title = note.Title,
+                            Status = initialStatus,
+                            EditSummary = initialStatus == 1 ? "折射发布成功" : "已提交，等待管理员审核",
+                            CreatedAt = DateTime.UtcNow,
+                            PreviousRevisionId = null
+                        };
+
+                        _context.WikiArticleRevisions.Add(revision);
+                        await _context.SaveChangesAsync();
+
+                        // 12. 如果自动通过，更新文章的当前正式版修订指针
+                        if (initialStatus == 1)
+                        {
+                            wikiArticle.CurrentRevisionId = revision.Id;
+                            await _context.SaveChangesAsync();
+                        }
+
+                        // 13. 显式提交事务
+                        await transaction.CommitAsync();
+
+                        return Ok(new
+                        {
+                            articleId = wikiArticle.Id,
+                            status = initialStatus,
+                            message = initialStatus == 1 ? "发布成功" : "发布请求已提交，待管理员审核"
+                        });
+                    }
+                    catch (Exception)
+                    {
+                        // 14. 发生任何异常立即回滚事务
+                        await transaction.RollbackAsync();
+
+                        // 🛑 必须原样 throw，否则重试策略无法捕获并触发自动重试
+                        throw;
+                    }
                 }
-                catch { return b.Data; }
-            }));
-
-            // 5. 创建 WikiArticle (外壳)
-            var wikiArticle = new WikiArticle
-            {
-                Title = note.Title,
-                CreatedAt = DateTime.UtcNow,
-                // 如果你的数据库有 OriginalAuthorId 字段，记得加上这一行
-                // OriginalAuthorId = note.AuthorId 
-            };
-            _context.WikiArticles.Add(wikiArticle);
-            await _context.SaveChangesAsync();
-
-            // 6. 判定审核状态
-            int initialStatus = (category.OwnershipType == 1) ? 1 : 0;
-
-            // 7. 创建修订记录 (Revision)
-            var revision = new WikiArticleRevision
-            {
-                ArticleId = wikiArticle.Id.ToString(), // 确保类型匹配
-                Content = fullContent,
-                ContributorId = currentUserId,       // 🌟 记录当前发布者
-                CategoryId = request.CategoryId,
-                Title = note.Title,
-                Status = initialStatus,
-                EditSummary = initialStatus == 1 ? "折射发布成功" : "已提交，等待管理员审核",
-                CreatedAt = DateTime.UtcNow,
-                PreviousRevisionId = null            // 初始发布，无前置版本
-            };
-
-            _context.WikiArticleRevisions.Add(revision);
-            await _context.SaveChangesAsync();
-
-            // 8. 如果自动通过，更新文章的当前修订指针
-            if (initialStatus == 1)
-            {
-                wikiArticle.CurrentRevisionId = revision.Id;
-                await _context.SaveChangesAsync();
-            }
-
-            return Ok(new
-            {
-                articleId = wikiArticle.Id,
-                status = initialStatus,
-                message = initialStatus == 1 ? "发布成功" : "发布请求已提交，待管理员审核"
             });
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         [HttpPost("update")] 
         [Authorize]
