@@ -31,7 +31,7 @@ namespace TaiChuWeb_V2.Models.LingMai
         {
             return type switch
             {
-                Note or Wiki or Character or Community or Art or Blog => true,
+                Note or Wiki or Character or Community or Art or Blog or Post => true,
                 _ => false
             };
         }

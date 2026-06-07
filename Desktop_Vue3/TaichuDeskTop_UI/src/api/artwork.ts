@@ -17,6 +17,7 @@ export interface ArtworkItemDto {
   likesCount: number;
   commentsCount: number;
   viewCount: number;
+  
 }
 
 /**
@@ -42,6 +43,7 @@ export interface ArtworkDetail {
     bio?: string;
   };
   images: string[]; // 所有图片的 URL 数组
+  blocks?: any[];
 }
 
 export const artworkApi = {

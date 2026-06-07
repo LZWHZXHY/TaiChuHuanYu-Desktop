@@ -72,6 +72,7 @@
               :extra-data="displayNote?.extraData" 
               :note-id="currentNoteId" 
               @update:title="handleUpdateTitle"
+               @change="handleWorkspaceChange" 
             >
               <template #editor>
                 <SpiritEditor 
@@ -168,6 +169,23 @@ const currentEditorJson = ref<any>(null);
 const currentWikiProperties = ref<any[]>([]);
 
 let syncDebounceTimer: any = null;
+
+
+// 存储从非编辑器 Workspace 组件（如 WorkspaceArt）传来的 blocks
+const workspaceBlocks = ref<any[]>([]);
+
+// 统一处理 Workspace 组件的变更
+const handleWorkspaceChange = (payload: any) => {
+  // 如果 payload 中包含 blocks 数组，说明是画廊组件（或其他自定义组件）发出的内容
+  if (payload && Array.isArray(payload.blocks)) {
+    workspaceBlocks.value = payload.blocks;
+    // 立即触发防抖保存
+    triggerDebouncedSync();
+  }
+  // 可以扩展其他组件类型
+};
+
+
 
 const handleEditorChange = (json: any) => { currentEditorJson.value = json; };
 
@@ -298,44 +316,46 @@ const triggerDebouncedSync = () => {
   }, 2000); 
 };
 
-// 🌟 找到 index.vue 中的 executeNetworkSync 方法，替换为以下安全固化逻辑
 const executeNetworkSync = async (editorJson: any) => {
   const safeNoteId = currentNoteId.value; 
-  if (!safeNoteId || !editorJson) return;
+  if (!safeNoteId) return;
 
-  const flatBlocksPayload = editorJson.content?.map((b: any, i: number) => ({
-    id: b.attrs?.id || Math.random().toString(36).substring(2, 11),
-    type: b.type,
-    sortOrder: i,
-    data: JSON.stringify(b)
-  })) || [];
+  let finalBlocks: any[] = [];
+  let finalExtraData = activeNote.value?.extraData || '[]';
 
-  // 🌟【核心修复：三重防御机制】
-  // 坚决不使用极易被抢跑洗掉的 currentWikiProperties.value 兜底
-  let finalExtraData = "[]";
-  
-  if (activeNote.value?.extraData && activeNote.value.extraData !== "[]") {
-    // 第一层防御：如果当前内存中的 activeNote 已经有了有效的属性字符串，直接用它
+  // 判断是否为 art 类型（优先使用 workspaceBlocks）
+  if (activeNote.value?.type === 'art' && workspaceBlocks.value.length) {
+    finalBlocks = workspaceBlocks.value;
+  } 
+  else if (editorJson && editorJson.content) {
+    // 普通笔记 / Wiki：从编辑器内容构建 blocks，并补充 ownerId 和 ownerType
+    finalBlocks = editorJson.content.map((b: any, i: number) => ({
+      id: b.attrs?.id || Math.random().toString(36).substring(2, 11),
+      ownerId: safeNoteId,                           // 补充
+      ownerType: activeNote.value?.type || 'note',   // 补充
+      type: b.type,
+      sortOrder: i,
+      data: JSON.stringify(b)
+    }));
+  } else {
+    finalBlocks = [];
+  }
+
+  if (activeNote.value?.extraData) {
     finalExtraData = activeNote.value.extraData;
-  } else if (currentWikiProperties.value && currentWikiProperties.value.length > 0) {
-    // 第二层防御：如果缓存数组里确实有新增加的有效属性，将其序列化
-    finalExtraData = JSON.stringify(currentWikiProperties.value);
-  } else if (displayNote.value?.extraData && displayNote.value.extraData !== "[]") {
-    // 第三层防御：百科或视图多态模型下的快照兜底
-    finalExtraData = displayNote.value.extraData;
   }
 
   const syncPayload = {
     noteId: safeNoteId,
     title: activeNote.value?.title || displayNote.value?.title || '', 
-    extraData: finalExtraData, // 🌟 此时发送的绝对不会再被抢跑重置为 "[]"
-    blocks: flatBlocksPayload
+    extraData: finalExtraData,
+    blocks: finalBlocks
   };
 
   try {
     await lingmaiApi.updateNoteContent(safeNoteId, syncPayload);
   } catch (e) {
-    console.error("太初内核群异步固化失败:", e);
+    console.error("同步失败:", e);
   }
 };
 
@@ -377,7 +397,15 @@ const handleUpdateSpaceMeta = async (updates: any) => { const { id, ...data } = 
 const handleDeleteNote = async (id: string) => { if (confirm('此操作不可逆，是否确定？')) { await lingmaiApi.deleteNote(id); await fetchAllNotes(); currentNoteId.value = ''; isSettingsOpen.value = false; } };
 const activeSpaceName = computed(() => spaces.value.find(s => s.id === currentSpaceId.value)?.name || '未知位面');
 const checkScreen = () => { isMobile.value = window.innerWidth <= 1024; };
-const handleSelectNote = async (id: string) => { if (isMobile.value) isSidebarOpen.value = false; isContentLoading.value = true; try { await selectNote(id); } finally { setTimeout(() => { isContentLoading.value = false; }, 200); } };
+const handleSelectNote = async (id: string) => {
+  if (isMobile.value) isSidebarOpen.value = false;
+  isContentLoading.value = true;
+  try {
+    await selectNote(id, true); // 🌟 强制刷新，每次都请求最新数据
+  } finally {
+    setTimeout(() => { isContentLoading.value = false; }, 200);
+  }
+};
 const handleCreateNote = async (type: NoteType = 'note', folderId: string | null = null) => { const newNote = await createNewNote({ type: type, folderId: folderId }); if (newNote && isMobile.value && type !== 'folder') isSidebarOpen.value = false; };
 const onPublishSuccess = (newType: string) => { if (activeNote.value) { activeNote.value.isPublic = true; activeNote.value.type = newType as NoteType; } };
 const handleUnpublish = async () => { if (!currentNoteId.value) return; try { await lingmaiApi.unpublishNote(currentNoteId.value); if (activeNote.value) activeNote.value.isPublic = false; } catch (err) {} };

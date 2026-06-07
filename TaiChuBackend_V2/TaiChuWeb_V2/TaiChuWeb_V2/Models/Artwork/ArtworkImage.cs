@@ -11,6 +11,10 @@ namespace TaiChuWeb_V2.Models.Artwork
         [Required]
         public string ImageUrl { get; set; } = string.Empty;
 
+        // 🌟 新增字段
+        [MaxLength(500)]
+        public string? Caption { get; set; }
+
         // 是否为封面图
         public bool IsCover { get; set; } = false;
 

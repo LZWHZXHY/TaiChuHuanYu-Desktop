@@ -31,7 +31,7 @@ export interface SpiritNote {
   resonance: number;
   status: number;
   targetId?: number | null;
-
+  blocks?: any[]; 
   extraData?: string;
 }
 
@@ -205,6 +205,7 @@ const getNotesInFolder = (folderId: string) =>
         notes.value[index].content = freshData.tiptapContent || { type: 'doc', content: [] };
         notes.value[index].title = freshData.title;
         notes.value[index].extraData = freshData.extraData || "[]";
+        notes.value[index].blocks = freshData.blocks || [];
       } catch (err) {
         console.error("加载详情失败:", err);
       } finally {

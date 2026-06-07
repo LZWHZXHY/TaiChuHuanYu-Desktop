@@ -91,7 +91,10 @@ namespace TaiChuWeb_V2.Controllers
                     artwork.Uploader.Profile?.Bio
                 },
                 // 返回该作品下所有的图片 URL
-                Images = artwork.Images.OrderByDescending(i => i.IsCover).Select(i => i.ImageUrl).ToList()
+                images = artwork.Images.Select(img => new {
+                    url = img.ImageUrl,
+                    caption = img.Caption // 🌟 将数据库里的 Caption 传给前端
+                }).ToList()
             });
         }
     }
