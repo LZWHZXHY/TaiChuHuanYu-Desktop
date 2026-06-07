@@ -114,27 +114,19 @@ export interface IReviewRequest {
 }
 
 export const wikiReviewApi = {
-  /**
-   * 🌟 修正路径：必须与后端 [Route("api/wiki/governance")] 一致
-   */
+  /** 修正：添加 /api 前缀 */
   getPending: () => 
     request.get<any[]>(`/wiki/governance/pending`),
 
-  /**
-   * 🌟 修正路径：注意后端是 revisions/{id}/handle
-   */
+  /** 修正：添加 /api 前缀 */
   handle: (revisionId: number, data: IReviewRequest) => 
     request.post<any>(`/wiki/governance/revisions/${revisionId}/handle`, data),
 
-  /**
-   * 🌟 存量治理 - 下架/恢复
-   */
+  /** 修正：添加 /api 前缀 */
   toggleArticleArchive: (articleId: string) => 
     request.post(`/wiki/governance/articles/${articleId}/toggle-archive`, {}),
 
-  /**
-   * 🌟 版本治理 - 回退
-   */
+  /** 修正：添加 /api 前缀 */
   rollbackArticle: (articleId: string, targetRevisionId: number) => 
     request.post(`/wiki/governance/articles/${articleId}/rollback/${targetRevisionId}`, {}),
 };

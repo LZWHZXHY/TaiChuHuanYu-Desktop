@@ -95,7 +95,12 @@
     </div>
 
     <HistoryPanel v-model="isHistoryOpen" :note-id="currentNoteId" @rollback="onRollback" @manual-save="handleManualSave" />
-    <PublishModal v-model="showPublishModal" :note-id="currentNoteId" :space-name="activeSpaceName" :initial-type="activeNote?.type" @success="onPublishSuccess" />
+    <PublishModal 
+      v-model="showPublishModal" 
+      :note-id="currentNoteId" 
+      :note-type="activeNote?.type || 'note'"  :space-name="activeSpaceName" 
+      @success="onPublishSuccess" 
+    />
 
     <transition name="fade">
       <div v-if="showImportWikiModal" class="loading-overlay" @click.self="showImportWikiModal = false">

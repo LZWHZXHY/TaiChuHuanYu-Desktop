@@ -141,32 +141,52 @@ namespace TaiChuWeb_V2.Controllers.Admin
         [HttpPost("/api/admin/wiki/requests/{id}/approve")]
         public async Task<IActionResult> ApproveCategoryRequest(int id)
         {
-            var requestItem = await _context.WikiCategoryRequests.FindAsync(id);
+            // 开启数据库事务，确保原子性
+            using var transaction = await _context.Database.BeginTransactionAsync();
 
-            if (requestItem == null || requestItem.Status != 0)
-                return NotFound(new { message = "该申请不存在或已被处理" });
-
-            // 1. 将申请信息转换为正式的分类
-            var newCategory = new WikiCategory
+            try
             {
-                Name = requestItem.CategoryName,
-                ParentId = requestItem.ParentId,
-                SortOrder = requestItem.SortOrder,
-                OwnershipType = 0,   // 默认转为社区共有
-                OwnerId = null,
-                NeedsReview = true
-            };
+                var requestItem = await _context.WikiCategoryRequests.FindAsync(id);
+                if (requestItem == null || requestItem.Status != 0)
+                    return NotFound(new { message = "该申请不存在或已被处理" });
 
-            // 2. 添加进正式分类表
-            _context.WikiCategories.Add(newCategory);
+                // 1. 创建分类
+                var newCategory = new WikiCategory
+                {
+                    Name = requestItem.CategoryName,
+                    ParentId = requestItem.ParentId, // 前端传来的父级ID在此生效
+                    SortOrder = requestItem.SortOrder,
+                    OwnershipType = 0,
+                    OwnerId = null,
+                    NeedsReview = false // 已审核通过
+                };
 
-            // 3. 将申请状态改为 1 (已批准)
-            requestItem.Status = 1;
+                _context.WikiCategories.Add(newCategory);
 
-            // 4. 一次性保存所有更改
-            await _context.SaveChangesAsync();
+                // 2. 批准当前申请
+                requestItem.Status = 1;
 
-            return Ok(new { message = "申请已批准，分类已正式开辟" });
+                // 3. 🌟 扩展逻辑：如果存在针对同一个文章ID的其它重复申请，在此一并驳回
+                // 避免脏数据
+                var otherRequests = await _context.WikiCategoryRequests
+                    .Where(r => r.CategoryName == requestItem.CategoryName && r.Status == 0)
+                    .ToListAsync();
+
+                foreach (var req in otherRequests)
+                {
+                    req.Status = 2; // 自动驳回同名的重复申请
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return Ok(new { message = "申请已批准，分类已正式开辟" });
+            }
+            catch (Exception ex)
+            {
+                await transaction.RollbackAsync();
+                return StatusCode(500, new { message = "处理失败", details = ex.Message });
+            }
         }
 
         [HttpPost("/api/admin/wiki/requests/{id}/reject")]

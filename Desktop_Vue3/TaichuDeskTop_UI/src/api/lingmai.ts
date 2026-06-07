@@ -258,9 +258,15 @@ export const lingmaiApi = {
    * @param noteId 笔记的 GUID
    * @param type 发布形态 'note' (随笔) | 'thought' (简语)
    */
-  publishNote(noteId: string, type: string = 'note') {
-    return request.post(`/LingMaiPublish/notes/${noteId}/publish?type=${type}`);
-  },
+  publishNote(noteId: string, payload: { 
+  type: string; 
+  categoryId?: number | string; 
+  tags?: string[] 
+}) {
+  // 🌟 核心：直接把整个对象作为 body 传给后端
+  // 后端现在会解析 [FromBody] PublishRequest，无论你是 wiki 还是 art，统统吃得下
+  return request.post(`/LingMaiPublish/notes/${noteId}/publish`, payload);
+},
 
   /**
    * 🌟 取消发布（从广场物理下线，清除发布表数据）

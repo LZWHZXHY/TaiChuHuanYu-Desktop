@@ -1,67 +1,39 @@
 <template>
   <transition name="fade">
-    <div v-if="modelValue" class="md-modal-overlay" @click.self="$emit('update:modelValue', false)">
-      <div class="md-modal-container">
+    <div v-if="modelValue" class="md-overlay" @click.self="$emit('update:modelValue', false)">
+      <div class="md-container">
         <header class="md-header">
           <div class="md-title">
-            <h1>编织发布</h1>
-            <span class="md-space-tag"># {{ spaceName }}</span>
+            <span class="md-label">发布碎片</span>
+            <h1>{{ publishTitle }}</h1>
           </div>
-          <button class="md-close-btn" @click="$emit('update:modelValue', false)">ESC</button>
+          <button class="md-close" @click="$emit('update:modelValue', false)">✕</button>
         </header>
 
         <div class="md-body">
-          <p class="md-label">选择折射形态 / SELECT TYPE</p>
-          <ul class="md-type-list">
-            <li 
-              v-for="opt in PUBLISH_OPTIONS" 
-              :key="opt.type"
-              :class="{ 'is-active': selectedType === opt.type }"
-              @click="selectedType = opt.type"
-            >
-              <span class="md-radio-indicator"></span>
-              <div class="md-type-content">
-                <span class="md-type-title">{{ opt.title }}</span>
-                <span class="md-type-desc">{{ opt.desc }}</span>
-              </div>
-            </li>
-          </ul>
+          <div class="simple-confirm-text">
+            即将将此 <strong>{{ displayType }}</strong> 固化至灵脉广场。
+          </div>
 
-          <transition name="expand">
-            <div v-if="selectedType === 'wiki'" class="md-extra-form">
-              <div class="md-form-group">
-                <label class="md-label">词条分类 / CATEGORY</label>
-                <select v-model="wikiData.categoryId" class="md-select" :disabled="isLoadingCategories">
-                  <option value="" disabled>{{ isLoadingCategories ? '解析界域结构中...' : '请选择所属界域...' }}</option>
-                  <option 
-                    v-for="cat in flatCategories" 
-                    :key="cat.id" 
-                    :value="cat.id"
-                  >
-                    {{ ' '.repeat(cat.level) + (cat.level > 0 ? '└─ ' : '') + cat.name }}
+          <transition name="fade">
+            <div v-if="noteType === 'wiki'" class="wiki-extra-zone">
+              <div class="form-group">
+                <label>所属界域 (Category)</label>
+                <select v-model="wikiData.categoryId" :disabled="isLoadingCategories">
+                  <option value="" disabled>选择界域...</option>
+                  <option v-for="cat in flatCategories" :key="cat.id" :value="cat.id">
+                    {{ '—'.repeat(cat.level) }} {{ cat.name }}
                   </option>
                 </select>
               </div>
 
-              <div class="md-form-group">
-                <label class="md-label">意象标签 / TAGS</label>
-                <div class="md-tags-container">
-                  <span 
-                    v-for="(tag, index) in wikiData.tags" 
-                    :key="index" 
-                    class="md-tag"
-                  >
-                    # {{ tag }}
-                    <button class="md-tag-remove" @click="removeTag(index)">&times;</button>
+              <div class="form-group">
+                <label>意象标签 (Tags)</label>
+                <div class="tag-input-box">
+                  <span v-for="(tag, i) in wikiData.tags" :key="i" class="tag-pill">
+                    {{ tag }} <button @click="removeTag(i)">×</button>
                   </span>
-                  <input 
-                    v-model="tagInput"
-                    @keydown.enter.prevent="addTag"
-                    @keydown.delete="handleTagDelete"
-                    type="text" 
-                    class="md-input" 
-                    placeholder="输入标签后按回车..."
-                  />
+                  <input v-model="tagInput" @keydown.enter.prevent="addTag" placeholder="输入标签按回车" />
                 </div>
               </div>
             </div>
@@ -69,17 +41,14 @@
         </div>
 
         <footer class="md-footer">
-          <div class="md-footer-line"></div>
-          <div class="md-actions">
-            <button class="md-btn-secondary" @click="$emit('update:modelValue', false)">放弃</button>
-            <button 
-              class="md-btn-primary" 
-              :disabled="isProcessing || !canSubmit"
-              @click="handleConfirm"
-            >
-              {{ isProcessing ? '同步中...' : '确认发布' }}
-            </button>
-          </div>
+          <button class="btn-cancel" @click="$emit('update:modelValue', false)">放弃</button>
+          <button 
+            class="btn-primary" 
+            :disabled="isProcessing || !canSubmit"
+            @click="handleConfirm"
+          >
+            {{ isProcessing ? '正在锚定...' : '确认发布' }}
+          </button>
         </footer>
       </div>
     </div>
@@ -87,197 +56,116 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue';
-import { wikiApi, type IWikiCategory } from '@/api/Wiki'; // 🌟 引入真实 API
-import { lingmaiApi } from '../../../api/lingmai'; // 原有的笔记发布 API
+import { ref, reactive, computed, onMounted } from 'vue';
+import { wikiApi, type IWikiCategory } from '@/api/Wiki';
+import { lingmaiApi } from '../../../api/lingmai';
 
-const props = defineProps<{
-  modelValue: boolean;
-  noteId: string;
-  spaceName: string;
-  initialType?: string;
+const props = defineProps<{ 
+  modelValue: boolean; 
+  noteId: string; 
+  noteType: string; // 🌟 接收当前笔记的真实类型
+  spaceName: string; 
 }>();
 
 const emit = defineEmits(['update:modelValue', 'success']);
 
-const PUBLISH_OPTIONS = [
-  { type: 'note',    title: '随笔 (Blog)', desc: '深度记录，保留于知识骨架中。' },
-  { type: 'thought', title: '简语 (Post)', desc: '瞬时灵感，不占据目录空间。' },
-  { type: 'wiki',    title: '词条 (Wiki)', desc: '底层设定，作为世界观之基石。' },
-  { type: 'art',     title: '画廊 (Gallery)', desc: '视觉呈现，将意象物理同步至艺术展厅。' }
-];
-
-// --- 🌟 分类数据流 ---
+const isProcessing = ref(false);
+const wikiData = reactive({ categoryId: 3, tags: [] as string[] }); // 🌟 默认值 3 对齐你的分类 ID
+const tagInput = ref('');
 const rawCategories = ref<IWikiCategory[]>([]);
 const isLoadingCategories = ref(false);
 
-const loadCategories = async () => {
-  isLoadingCategories.value = true;
-  try {
-    rawCategories.value = await wikiApi.getCategories();
-  } catch (error) {
-    console.error("界域读取失败", error);
-  } finally {
-    isLoadingCategories.value = false;
-  }
-};
+const displayType = computed(() => {
+  const map: Record<string, string> = { 
+    'wiki': '百科词条', 'char': '角色档案', 
+    'post': '太初随笔', 'blog': '博客', 'art': '艺术画廊', 'thought': '简语' 
+  };
+  return map[props.noteType] || '灵脉碎片';
+});
 
-// 页面挂载时拉取分类
-onMounted(loadCategories);
+const publishTitle = computed(() => {
+  if (props.noteType === 'wiki') return '发布至百科宇宙';
+  return '固化至灵脉广场';
+});
 
-// 🌟 将扁平的 API 数组转换为带有层级深度（level）的拍平列表，方便 <select> 渲染树状结构
 const flatCategories = computed(() => {
   const result: (IWikiCategory & { level: number })[] = [];
-  
-  // 递归寻找子节点
   const buildTree = (parentId: number | null, level: number) => {
-    const children = rawCategories.value.filter(c => c.parentId === parentId);
-    // 后端已经通过 SortOrder 排序过，所以直接按顺序处理即可
-    for (const child of children) {
-      result.push({ ...child, level });
-      buildTree(child.id, level + 1);
-    }
+    rawCategories.value.filter(c => c.parentId === parentId).forEach(c => {
+      result.push({ ...c, level });
+      buildTree(c.id, level + 1);
+    });
   };
-
   buildTree(null, 0);
   return result;
 });
 
+const canSubmit = computed(() => props.noteType !== 'wiki' || !!wikiData.categoryId);
 
-const selectedType = ref(props.initialType || 'note');
-const isProcessing = ref(false);
-
-// Wiki 专属数据状态
-const wikiData = reactive({
-  categoryId: '' as number | string,
-  tags: [] as string[]
-});
-const tagInput = ref('');
-
-// 监听初始类型变化
-watch(() => props.initialType, (val) => {
-  if (val) selectedType.value = val;
-});
-
-// 重置表单（当切换类型时，可选择性重置）
-watch(selectedType, (newType) => {
-  if (newType !== 'wiki') {
-    wikiData.categoryId = '';
-    wikiData.tags = [];
-    tagInput.value = '';
-  }
-});
-
-// 标签逻辑
 const addTag = () => {
-  const trimmed = tagInput.value.trim();
-  if (trimmed && !wikiData.tags.includes(trimmed)) {
-    wikiData.tags.push(trimmed);
-  }
-  tagInput.value = ''; // 清空输入框
+  const t = tagInput.value.trim();
+  if (t && !wikiData.tags.includes(t)) wikiData.tags.push(t);
+  tagInput.value = '';
 };
 
-const removeTag = (index: number) => {
-  wikiData.tags.splice(index, 1);
-};
+const removeTag = (i: number) => wikiData.tags.splice(i, 1);
 
-// 如果输入框为空且按下删除键，删除最后一个标签
-const handleTagDelete = () => {
-  if (tagInput.value === '' && wikiData.tags.length > 0) {
-    wikiData.tags.pop();
-  }
-};
-
-// 提交按钮状态控制
-const canSubmit = computed(() => {
-  if (selectedType.value === 'wiki') {
-    // 发布到 Wiki 时，强制要求选择分类
-    return !!wikiData.categoryId;
-  }
-  return true;
-});
-
+// 🌟 统一发布逻辑：不分流，直接传给后端
 const handleConfirm = async () => {
-  if (!props.noteId || !canSubmit.value) return;
+
+  console.log("即将发送的发布形态:", props.noteType);
+
   isProcessing.value = true;
-  
   try {
-    const payload = {
-      noteId: props.noteId,
-      type: selectedType.value,
-      // 如果是 wiki，将额外数据打包传出
-      ...(selectedType.value === 'wiki' ? { 
-        categoryId: wikiData.categoryId, 
-        tags: wikiData.tags 
-      } : {})
-    };
+    await lingmaiApi.publishNote(props.noteId, {
+      type: props.noteType,
+      categoryId: wikiData.categoryId,
+      tags: wikiData.tags
+    });
 
-    console.log('提交发布载荷:', payload);
-    
-    // 🌟 核心分发逻辑：Wiki走专属通道，其余全部走灵脉通道
-    if (selectedType.value === 'wiki') {
-      // Wiki 词条发布
-      await wikiApi.publishFromNote(payload);
-    } else {
-      // 博客(note)、帖子(thought)、画廊(art) 走原有接口
-      await lingmaiApi.publishNote(props.noteId, selectedType.value);
-    }
-
-    // 成功后通知父组件关闭弹窗并刷新
-    emit('success', payload);
+    emit('success');
     emit('update:modelValue', false);
-    
-  } catch (err) {
-    console.error('发布异常', err);
-    alert('发布折射时产生干扰，请按 F12 检查控制台报错。'); // 建议加个失败提示
+  } catch (err) { 
+    console.error(err);
+    alert('发布系统感应到干扰'); 
   } finally {
     isProcessing.value = false;
   }
 };
+
+onMounted(async () => {
+  console.log("【调试】发布弹窗已挂载，开始拉取界域...");
+  isLoadingCategories.value = true;
+  try {
+    const data = await wikiApi.getCategories();
+    console.log("【调试】界域API返回结果:", data);
+    rawCategories.value = data || [];
+  } catch (error) {
+    console.error("【调试】界域读取崩溃:", error);
+  } finally {
+    isLoadingCategories.value = false;
+  }
+});
 </script>
 
 <style scoped>
-/* 你的 CSS 保持绝对不变，我没有修改任何视觉代码以保持你的留白极简设计 */
-.md-modal-overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.95); z-index: 5000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
-.md-modal-container { width: 100%; max-width: 500px; padding: 40px; background: transparent; color: #1a1a1a; font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-height: 90vh; overflow-y: auto; }
-.md-modal-container::-webkit-scrollbar { display: none; }
-.md-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 60px; }
-.md-title h1 { font-size: 24px; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
-.md-space-tag { font-size: 13px; color: #86868b; margin-top: 8px; display: block; font-family: monospace; }
-.md-close-btn { background: none; border: 1px solid #e5e5e5; padding: 4px 10px; font-size: 10px; color: #c7c7cc; cursor: pointer; transition: all 0.2s; }
-.md-close-btn:hover { border-color: #000; color: #000; }
-.md-label { font-size: 11px; font-weight: 700; color: #d2d2d7; letter-spacing: 0.1em; margin-bottom: 24px; display: block; }
-.md-type-list { list-style: none; padding: 0; margin: 0; }
-.md-type-list li { display: flex; align-items: flex-start; gap: 20px; padding: 20px 0; border-bottom: 1px solid #f2f2f2; cursor: pointer; transition: all 0.2s; opacity: 0.4; }
-.md-type-list li:hover { opacity: 0.8; }
-.md-type-list li.is-active { opacity: 1; }
-.md-radio-indicator { width: 12px; height: 12px; border: 1px solid #000; border-radius: 50%; margin-top: 4px; position: relative; flex-shrink: 0; }
-.is-active .md-radio-indicator::after { content: ''; position: absolute; inset: 2px; background: #000; border-radius: 50%; }
-.md-type-content { display: flex; flex-direction: column; gap: 4px; }
-.md-type-title { font-size: 16px; font-weight: 600; }
-.md-type-desc { font-size: 13px; color: #86868b; line-height: 1.5; }
-.md-extra-form { margin-top: 40px; padding-top: 40px; border-top: 1px dashed #e5e5e5; display: flex; flex-direction: column; gap: 32px; }
-.md-form-group { display: flex; flex-direction: column; }
-.md-select { width: 100%; padding: 12px 0; font-size: 14px; font-family: inherit; color: #1a1a1a; background: transparent; border: none; border-bottom: 1px solid #e5e5e5; outline: none; cursor: pointer; appearance: none; transition: border-color 0.2s; }
-.md-select:focus { border-bottom-color: #000; }
-.md-select:disabled { opacity: 0.5; cursor: not-allowed; }
-.md-tags-container { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid #e5e5e5; padding-bottom: 8px; transition: border-color 0.2s; }
-.md-tags-container:focus-within { border-bottom-color: #000; }
-.md-tag { display: inline-flex; align-items: center; gap: 6px; background: #f5f5f7; padding: 4px 10px; font-size: 12px; font-weight: 500; color: #1a1a1a; border-radius: 2px; }
-.md-tag-remove { background: none; border: none; padding: 0; font-size: 14px; color: #86868b; cursor: pointer; line-height: 1; }
-.md-tag-remove:hover { color: #ff3b30; }
-.md-input { flex: 1; min-width: 120px; border: none; background: transparent; font-size: 14px; padding: 8px 0; outline: none; color: #1a1a1a; }
-.md-input::placeholder { color: #c7c7cc; }
-.md-footer { margin-top: 60px; }
-.md-footer-line { height: 1px; background: #eee; width: 40px; margin-bottom: 32px; }
-.md-actions { display: flex; gap: 32px; align-items: center; }
-.md-btn-secondary { background: none; border: none; font-size: 14px; color: #86868b; cursor: pointer; padding: 0; }
-.md-btn-secondary:hover { color: #ff3b30; }
-.md-btn-primary { background: #000; color: #fff; border: none; padding: 10px 24px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
-.md-btn-primary:hover { opacity: 0.8; }
-.md-btn-primary:disabled { background: #d2d2d7; cursor: not-allowed; }
-.fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-.expand-enter-active, .expand-leave-active { transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); overflow: hidden; max-height: 300px; opacity: 1; }
-.expand-enter-from, .expand-leave-to { max-height: 0; opacity: 0; margin-top: 0; padding-top: 0; border-top-color: transparent; }
+/* 极简视觉引导风格 */
+.md-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 5000; }
+.md-container { width: 440px; background: #fff; padding: 32px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
+.md-header { margin-bottom: 32px; display: flex; justify-content: space-between; }
+.md-label { font-size: 10px; color: #86868b; text-transform: uppercase; letter-spacing: 0.1em; }
+.md-title h1 { font-size: 20px; font-weight: 700; margin: 4px 0 0; }
+.simple-confirm-text { padding: 20px; color: #1d1d1f; font-size: 14px; text-align: center; border: 1px solid #f2f2f7; border-radius: 12px; }
+.wiki-extra-zone { padding-top: 10px; }
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 11px; color: #86868b; margin-bottom: 8px; }
+select { width: 100%; border: 1px solid #f2f2f7; padding: 8px; border-radius: 6px; font-size: 13px; outline: none; }
+.tag-input-box { border: 1px solid #f2f2f7; border-radius: 6px; padding: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+.tag-pill { background: #f2f2f7; padding: 2px 8px; border-radius: 4px; font-size: 11px; display: flex; align-items: center; gap: 4px; }
+.tag-pill button { border: none; background: none; cursor: pointer; }
+.tag-input-box input { border: none; padding: 4px; font-size: 12px; outline: none; flex: 1; }
+.md-footer { margin-top: 32px; display: flex; gap: 12px; }
+.btn-cancel { flex: 1; background: none; border: none; color: #86868b; font-size: 13px; cursor: pointer; }
+.btn-primary { flex: 2; padding: 10px; background: #000; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.md-close { background: none; border: none; color: #c7c7cc; cursor: pointer; }
 </style>

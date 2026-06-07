@@ -7,6 +7,7 @@ using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Filters;
 using TaiChuWeb_V2.Services.Email;
 using TaiChuWeb_V2.Services.LingMai;
+using TaiChuWeb_V2.Services.Publish;
 using TaiChuWeb_V2.Services.Trade;
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,7 +34,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-
+builder.Services.AddScoped<ILingMaiPublishHandler, WikiPublishHandler>();
 builder.Services.AddScoped<TradeService>();
 builder.Services.AddScoped<LingMaiService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
