@@ -428,35 +428,31 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         [HttpDelete("notes/{id:guid}")]
         public async Task<IActionResult> DeleteNote(Guid id)
         {
-            var note = await _context.Notes.FindAsync(id);
+            var note = await _context.Notes
+                .Include(n => n.Blocks)   // 如果未配置级联删除，需要加载 Blocks
+                .FirstOrDefaultAsync(n => n.Id == id);
             if (note == null) return NotFound();
 
-            // 🌟 核心逻辑：不执行 _context.Notes.Remove(note)
-            // 而是将其转入“归档态”，确保你依然拥有对 PublishedNote 的管理权
-    
-            // 1. 斩断星图连线（可选）
-            // 如果你希望归档后的内容不再出现在网状图谱中，保留这段代码
+            // 🌟 物理删除：从数据库中彻底移除
+            _context.Notes.Remove(note);
+
+            // 如果未配置级联删除，还需要手动删除关联的 Blocks
+            // _context.Blocks.RemoveRange(note.Blocks);
+
+            // 同时删除关联的星图连线
             var links = _context.NoteLinks.Where(l => l.TargetNoteId == id || l.SourceNoteId == id);
             _context.NoteLinks.RemoveRange(links);
 
-            // 2. 状态切换：移入灵脉深处
-            note.Status = 3;           // 3 = Archived (我们在枚举中定义的)
-            note.ShowInSidebar = false; // 确保彻底从侧边栏消失
-            note.UpdatedAt = DateTime.UtcNow;
-
-            // 3. 更新配额统计
-            // 我们认为归档的内容不再占用用户的“活跃创作”配额
+            // 更新配额（如果配额统计表存在）
             var stats = await _context.UserStats.FirstOrDefaultAsync(s => s.UserId == Guid.Parse(CurrentUserId));
-            if (stats != null) 
+            if (stats != null)
             {
                 stats.UsedNotes = Math.Max(0, stats.UsedNotes - 1);
             }
 
-            // 4. 保存变更
-            // 此时原件（Note）和碎块（Blocks）依然完好，你随时可以去档案馆编辑它们
-            await _context.SaveChangesAsync(); 
-    
-            return Ok(new { success = true, message = "内容已沉淀至档案馆" });
+            await _context.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "碎片已永久粉碎" });
         }
 
 

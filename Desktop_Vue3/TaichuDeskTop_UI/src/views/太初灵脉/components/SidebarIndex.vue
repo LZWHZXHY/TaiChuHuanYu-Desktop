@@ -80,7 +80,6 @@
             <span class="type-label">{{ note.type || 'note' }}</span>
           </div>
           <div class="item-hover-actions">
-            <span @click.stop="handleArchive(note.id)">Archive</span>
             <span class="danger" @click.stop="startDeleteItem(note.id)">Delete</span>
           </div>
         </div>
@@ -103,7 +102,6 @@
 
             <div class="item-hover-actions">
               <span @click.stop="$emit('create', 'note', folder.id)">Add</span>
-              <span @click.stop="handleArchive(folder.id)">Archive</span>
             </div>
           </div>
 
@@ -123,7 +121,7 @@
                   <span class="type-label">{{ subNote.type || 'note' }}</span>
                 </div>
                 <div class="item-hover-actions">
-                  <span @click.stop="handleArchive(subNote.id)">Archive</span>
+                  <span class="danger" @click.stop="startDeleteItem(subNote.id)">Delete</span>
                 </div>
               </div>
             </div>
@@ -132,7 +130,6 @@
       </div>
     </nav>
 
-    <div class="archive-vault-entry" @click="openArchiveVault">Vault</div>
     <div class="sidebar-footer">All synced</div>
 
     <transition name="fade">
@@ -142,32 +139,6 @@
           <div class="dialog-actions">
             <span class="dialog-btn" @click="confirmDialog.visible = false">Cancel</span>
             <span class="dialog-btn danger" @click="executeConfirm">Confirm</span>
-          </div>
-        </div>
-      </div>
-    </transition>
-
-    <transition name="fade">
-      <div v-if="isArchiveOpen" class="archive-overlay" @click.self="isArchiveOpen = false">
-        <div class="archive-panel">
-          <div class="archive-header">
-            <h3>VAULT</h3>
-            <span class="close-txt" @click="isArchiveOpen = false">Close</span>
-          </div>
-          <div class="archive-body">
-            <div v-if="archivedNotes.length === 0" class="empty-archive">
-              <p>档案馆内尚无沉淀内容</p>
-            </div>
-            <div v-for="note in archivedNotes" :key="note.id" class="archive-row">
-              <div class="item-info">
-                <span class="row-title">{{ note.title || 'Untitled' }}</span>
-                <span class="row-meta">{{ new Date(note.updatedAt).toLocaleDateString() }}</span>
-              </div>
-              <div class="row-actions">
-                <span class="action-txt" @click="handleRestore(note.id)">Restore</span>
-                <span class="action-txt danger" @click="startDeleteItem(note.id)">Delete</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -198,8 +169,6 @@ const isSpaceListOpen = ref(false);
 const searchQuery = ref('');
 const expandedFolders = ref(new Set<string>());
 const spaces = ref<any[]>([]);
-const isArchiveOpen = ref(false);
-const archivedNotes = ref<any[]>([]);
 const editingSpaceId = ref<string | null>(null);
 const editingFolderId = ref<string | null>(null);
 const isCreatingSpace = ref(false);
@@ -303,23 +272,6 @@ const onDrop = async (e: DragEvent, targetFolderId: string | null) => {
   }
 };
 
-const handleArchive = async (id: string) => {
-  await lingmaiApi.archiveNote(id);
-  await fetchAllNotes();
-};
-
-const openArchiveVault = async () => {
-  if (!currentSpaceId.value) return;
-  isArchiveOpen.value = true;
-  archivedNotes.value = await lingmaiApi.getArchivedNoteList(currentSpaceId.value);
-};
-
-const handleRestore = async (id: string) => {
-  await lingmaiApi.restoreNote(id);
-  archivedNotes.value = archivedNotes.value.filter(n => n.id !== id);
-  await fetchAllNotes();
-};
-
 const startRenameFolder = (folder: any) => { editingFolderId.value = folder.id; tempName.value = folder.title; };
 const saveFolderName = async (folder: any) => {
   if (tempName.value.trim() && tempName.value !== folder.title) {
@@ -328,13 +280,14 @@ const saveFolderName = async (folder: any) => {
   editingFolderId.value = null;
 };
 
+// 【重点修复】真正执行物理删除并刷新UI
 const startDeleteItem = (id: string) => {
   confirmDialog.value = {
     visible: true,
     message: "彻底粉碎这枚灵魂碎片吗？此操作不可逆。",
     onConfirm: async () => {
       await deleteNote(id);
-      archivedNotes.value = archivedNotes.value.filter(n => n.id !== id);
+      await fetchAllNotes();
       await fetchQuota();
     }
   };
@@ -397,7 +350,6 @@ onUnmounted(() => {
 .sidebar-search input { width: 100%; border: none; padding: 8px 0; font-size: 12px; border-bottom: 1px solid #f2f2f2; outline: none; background: transparent; }
 .note-list { flex: 1; overflow-y: auto; padding: 0 16px; }
 
-
 /* =========================================
    🌟 核心重构：多态列表排版体系 (无图标极简风)
 ========================================== */
@@ -448,7 +400,6 @@ onUnmounted(() => {
 .note-item.type-wiki::before { background: #34c759; }
 .note-item.type-note::before { background: #8e8e93; }
 
-
 /* 2. 标题区组合 */
 .item-content {
   display: flex;
@@ -470,7 +421,6 @@ onUnmounted(() => {
 .note-item.type-wiki .item-title { font-weight: 600; letter-spacing: 0.02em; }
 .note-item.type-art .item-title { font-family: "Georgia", serif; letter-spacing: 0.02em; }
 
-
 /* 3. 微型排版标签 (Micro Typography) */
 .type-label {
   font-size: 8px;
@@ -487,7 +437,6 @@ onUnmounted(() => {
 .note-item.type-wiki .type-label { color: #34c759; }
 .note-item.type-note .type-label { color: #8e8e93; }
 
-
 /* 4. 悬浮交互：标签消失，动作按钮显现 */
 .item-hover-actions { display: none; gap: 8px; font-size: 10px; color: #c7c7cc; }
 .danger { color: #ff3b30 !important; }
@@ -496,7 +445,6 @@ onUnmounted(() => {
 .note-item:hover .item-hover-actions, .folder-header:hover .item-hover-actions { display: flex; }
 
 /* ========================================= */
-
 
 /* 弹窗样式 */
 .spirit-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); z-index: 5000; display: flex; align-items: center; justify-content: center; }
@@ -507,20 +455,7 @@ onUnmounted(() => {
 .dialog-btn:hover { color: #1d1d1f; border-bottom-color: #1d1d1f; }
 .dialog-btn.danger:hover { color: #ff3b30; border-bottom-color: #ff3b30; }
 
-.archive-vault-entry { margin: 20px 24px; padding: 10px 0; font-size: 11px; color: #c7c7cc; border-top: 1px solid #f9f9f9; cursor: pointer; text-align: center; text-transform: uppercase; letter-spacing: 0.1em; }
 .sidebar-footer { padding: 20px 24px; font-size: 9px; color: #c7c7cc; text-transform: uppercase; }
-
-/* 档案馆样式 */
-.archive-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.98); z-index: 200; display: flex; align-items: center; justify-content: center; }
-.archive-panel { width: 100%; max-width: 600px; padding: 80px 40px; height: 100vh; overflow-y: auto; }
-.archive-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 50px; border-bottom: 1px solid #1d1d1f; padding-bottom: 12px; }
-.archive-header h3 { font-size: 26px; font-weight: 300; letter-spacing: 0.2em; }
-.close-txt { font-size: 11px; color: #86868b; cursor: pointer; text-transform: uppercase; border-bottom: 1px solid #86868b; }
-.archive-row { display: flex; justify-content: space-between; align-items: center; padding: 20px 0; border-bottom: 1px solid #f9f9f9; }
-.row-title { font-size: 15px; color: #1d1d1f; }
-.row-meta { font-size: 10px; color: #c7c7cc; }
-.row-actions { display: flex; gap: 20px; font-size: 11px; color: #86868b; }
-.action-txt:hover { color: #0066cc; }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
