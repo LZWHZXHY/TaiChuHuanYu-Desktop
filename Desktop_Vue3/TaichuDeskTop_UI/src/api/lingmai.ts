@@ -105,16 +105,8 @@ export const lingmaiApi = {
     return request.get(url);
   },
 
-  /**
-   * 🌟 同步块数据（自动拍平）
-   */
-  async syncBlocks(noteId: string, tiptapDoc: any) {
-    const blocks = flattenTiptapJson(tiptapDoc);
-    return request.post('/LingMai/sync', {
-      noteId,
-      blocks
-    });
-  },
+  
+
   updateSpaceMeta(spaceId: string, updates: any) {
     // 对应后端的 PATCH /api/LingMai/spaces/{id}
     return request.patch(`/LingMai/spaces/${spaceId}`, updates);
@@ -312,5 +304,35 @@ getArchivedNoteList(spaceId: string) {
 getQuotaUsage() {
   return request.get('/LingMai/quota');
 },
+
+// src/api/lingmai.ts 内部
+
+  /**
+   * 🌟 同步块数据与 Wiki 扩展属性 (Frontmatter)
+   * 完美的扁平化载荷发送，与 C# NoteSyncDto 完全对齐
+   */
+  async updateNoteContent(noteId: string, payload: {
+    noteId: string;
+    title: string;
+    extraData: string; // 🌟 包含 JSON.stringify 后的属性区字符串
+    blocks: FlatBlock[]; // 🌟 扁平化块结构
+  }) {
+    // 对应后端的 [HttpPost("sync")] 节点
+    return request.post('/LingMai/sync', payload);
+  },
+
+  /**
+   * 🌟 保留你原来的老同步函数，内部重构为调用新函数，防止引发其他地方的报错
+   */
+  async syncBlocks(noteId: string, tiptapDoc: any) {
+    const blocks = flattenTiptapJson(tiptapDoc);
+    return this.updateNoteContent(noteId, {
+      noteId,
+      title: '', // 老调用缺省传入空，由后端自适应
+      extraData: '[]', // 缺省传入空的 JSON 数组
+      blocks
+    });
+  },
+
 
 };

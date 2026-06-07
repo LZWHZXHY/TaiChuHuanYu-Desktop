@@ -4,20 +4,21 @@ namespace TaiChuWeb_V2.Models.LingMai
     public static class NoteTypes
     {
         public const string Note = "note";         // 基础笔记、长文随笔、博客
-        public const string Thought = "thought";   // 短动态、简语
+        public const string Post = "post";   // 短动态、简语
         public const string Art = "art";           // 艺术作品、画廊
         public const string Video = "video";       // 视频内容
         public const string Audio = "audio";       // 声音/音乐
         public const string Event = "event";       // 世界事件
         public const string Character = "char";    // 角色档案
         public const string Wiki = "wiki";         // 世界观设定/百科
+        public const string Blog = "blog";
         public const string Community = "community"; // 🌟 新增：社区规则、教程、公共知识
 
         public static bool IsValid(string type)
         {
             return type switch
             {
-                Note or Thought or Art or Video or Audio
+                Note or Post or Art or Video or Audio
                 or Event or Character or Wiki or Community => true, // 🌟 包含新类型
                 _ => false
             };
@@ -30,7 +31,7 @@ namespace TaiChuWeb_V2.Models.LingMai
         {
             return type switch
             {
-                Note or Wiki or Character or Community => true, // 🌟 百科类内容必须进目录树
+                Note or Wiki or Character or Community or Art or Blog => true,
                 _ => false
             };
         }

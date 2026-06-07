@@ -1,7 +1,7 @@
 <template>
   <aside class="spirit-sidebar">
     <div class="space-selector-area">
-      <div class="current-space-label" @click="toggleSpaceList">
+      <div class="current-space-label" @click.stop="toggleSpaceList">
         <span class="space-text">{{ currentSpaceName }}</span>
         <svg class="chevron-icon" :class="{ rotated: isSpaceListOpen }" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6" /></svg>
       </div>
@@ -39,9 +39,24 @@
         <span class="index-label">INDEX</span>
         <span class="quota-text">{{ quota.usedNotes }}/{{ quota.maxNotes }}</span>
       </div>
-      <div class="header-actions">
+      
+      <div class="header-actions" style="position: relative;">
         <span class="text-btn" @click="$emit('create', 'folder')">Folder</span>
-        <span class="text-btn active" @click="$emit('create', 'note')">New</span>
+        
+        <span class="text-btn active" @click.stop="toggleCreateMenu">
+          New <span style="font-size: 8px; margin-left: 2px;">▼</span>
+        </span>
+
+        <transition name="fade">
+          <div v-if="isCreateMenuOpen" class="create-dropdown" @click.stop>
+            <div class="create-opt" @click="handleCreateWithType('note')">笔记 (Note)</div>
+            <div class="create-opt" @click="handleCreateWithType('post')">简语 (Post)</div>
+            <div class="create-opt" @click="handleCreateWithType('blog')">随笔 (Blog)</div>
+            <div class="create-opt" @click="handleCreateWithType('wiki')">词条 (Wiki)</div>
+            <div class="create-opt" @click="handleCreateWithType('char')">角色 (Char)</div>
+            <div class="create-opt" @click="handleCreateWithType('art')">画廊 (Art)</div>
+          </div>
+        </transition>
       </div>
     </div>
 
@@ -55,12 +70,15 @@
           v-for="note in filteredRootNotes" 
           :key="note.id" 
           class="note-item" 
-          :class="{ active: activeId === note.id }" 
+          :class="['type-' + (note.type || 'note'), { active: activeId === note.id }]" 
           @click="$emit('select', note.id)"
           draggable="true" 
           @dragstart="onDragStart($event, note.id)"
         >
-          <span class="item-title">{{ note.title || 'Untitled' }}</span>
+          <div class="item-content">
+            <span class="item-title">{{ note.title || 'Untitled' }}</span>
+            <span class="type-label">{{ note.type || 'note' }}</span>
+          </div>
           <div class="item-hover-actions">
             <span @click.stop="handleArchive(note.id)">Archive</span>
             <span class="danger" @click.stop="startDeleteItem(note.id)">Delete</span>
@@ -95,12 +113,15 @@
                 v-for="subNote in filteredNotesInFolder(folder.id)" 
                 :key="subNote.id" 
                 class="note-item sub" 
-                :class="{ active: activeId === subNote.id }" 
+                :class="['type-' + (subNote.type || 'note'), { active: activeId === subNote.id }]" 
                 @click="$emit('select', subNote.id)"
                 draggable="true"
                 @dragstart="onDragStart($event, subNote.id)"
               >
-                <span class="item-title">{{ subNote.title }}</span>
+                <div class="item-content">
+                  <span class="item-title">{{ subNote.title || 'Untitled' }}</span>
+                  <span class="type-label">{{ subNote.type || 'note' }}</span>
+                </div>
                 <div class="item-hover-actions">
                   <span @click.stop="handleArchive(subNote.id)">Archive</span>
                 </div>
@@ -155,22 +176,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useSpiritData } from '../../../composables/useSpiritData';
 import { lingmaiApi } from '../../../api/lingmai';
 
-// 自动聚焦指令
 const vFocus = { mounted: (el: HTMLElement) => el.focus() };
 
-const props = defineProps<{ activeId: string }>();
+const props = defineProps<{ 
+  activeId: string;
+  filters?: Record<string, boolean>; 
+}>();
 const emit = defineEmits(['select', 'create']);
 
 const { 
-folders, rootNotes, getNotesInFolder, 
+  folders, rootNotes, getNotesInFolder, 
   updateNoteTitle, deleteNote, moveNote, currentSpaceId, fetchAllNotes 
 } = useSpiritData();
 
-// --- 状态定义 ---
 const quota = ref({ usedNotes: 0, maxNotes: 100, usedSpaces: 0, maxSpaces: 1 });
 const isSpaceListOpen = ref(false);
 const searchQuery = ref('');
@@ -184,12 +206,42 @@ const isCreatingSpace = ref(false);
 const tempName = ref('');
 const confirmDialog = ref({ visible: false, message: '', onConfirm: () => {} });
 
-// --- 计算属性 ---
-const filteredRootNotes = computed(() => rootNotes.value.filter(n => n.type !== 'folder' && n.status === 0));
-const filteredNotesInFolder = (folderId: string) => getNotesInFolder(folderId).filter(n => n.status === 0);
+const isCreateMenuOpen = ref(false);
+
+const toggleCreateMenu = () => {
+  isCreateMenuOpen.value = !isCreateMenuOpen.value;
+};
+
+const handleCreateWithType = (type: string) => {
+  emit('create', type);
+  isCreateMenuOpen.value = false;
+};
+
+const closeDropdowns = () => {
+  if (isCreateMenuOpen.value) isCreateMenuOpen.value = false;
+  if (isSpaceListOpen.value) isSpaceListOpen.value = false;
+};
+
+const filteredRootNotes = computed(() => {
+  return rootNotes.value.filter(n => {
+    if (n.type === 'folder' || n.status !== 0) return false;
+    if (n.showInSidebar === false) return false;
+    if (props.filters && props.filters[n.type] === false) return false;
+    return true;
+  });
+});
+
+const filteredNotesInFolder = (folderId: string) => {
+  return getNotesInFolder(folderId).filter(n => {
+    if (n.status !== 0) return false;
+    if (n.showInSidebar === false) return false;
+    if (props.filters && props.filters[n.type] === false) return false;
+    return true;
+  });
+};
+
 const currentSpaceName = computed(() => spaces.value.find(s => s.id === currentSpaceId.value)?.name || 'Spirit');
 
-// --- 空间管理逻辑 ---
 const toggleSpaceList = () => isSpaceListOpen.value = !isSpaceListOpen.value;
 
 const switchSpace = async (space: any) => {
@@ -199,8 +251,6 @@ const switchSpace = async (space: any) => {
 };
 
 const startCreateSpace = () => { tempName.value = ''; isCreatingSpace.value = true; };
-
-// 🌟 修复：补全 cancelCreateSpace 函数
 const cancelCreateSpace = () => { isCreatingSpace.value = false; };
 
 const confirmCreateSpace = async () => {
@@ -214,7 +264,6 @@ const confirmCreateSpace = async () => {
 };
 
 const startRenameSpace = (space: any) => { editingSpaceId.value = space.id; tempName.value = space.name; };
-
 const saveSpaceName = async (space: any) => {
   if (tempName.value.trim() && tempName.value !== space.name) {
     await lingmaiApi.updateSpaceName(space.id, tempName.value.trim());
@@ -223,7 +272,6 @@ const saveSpaceName = async (space: any) => {
   editingSpaceId.value = null;
 };
 
-// 🌟 修复：补全 startDeleteSpace 函数
 const startDeleteSpace = (space: any) => {
   confirmDialog.value = {
     visible: true,
@@ -239,7 +287,6 @@ const startDeleteSpace = (space: any) => {
   };
 };
 
-// --- 拖拽逻辑 ---
 const onDragStart = (e: DragEvent, noteId: string) => {
   if (e.dataTransfer) {
     e.dataTransfer.setData('noteId', noteId);
@@ -256,7 +303,6 @@ const onDrop = async (e: DragEvent, targetFolderId: string | null) => {
   }
 };
 
-// --- 归档与删除 ---
 const handleArchive = async (id: string) => {
   await lingmaiApi.archiveNote(id);
   await fetchAllNotes();
@@ -275,7 +321,6 @@ const handleRestore = async (id: string) => {
 };
 
 const startRenameFolder = (folder: any) => { editingFolderId.value = folder.id; tempName.value = folder.title; };
-
 const saveFolderName = async (folder: any) => {
   if (tempName.value.trim() && tempName.value !== folder.title) {
     await updateNoteTitle(folder.id, tempName.value.trim());
@@ -311,11 +356,19 @@ const initSpaces = async () => {
 
 const toggleFolder = (id: string) => expandedFolders.value.has(id) ? expandedFolders.value.delete(id) : expandedFolders.value.add(id);
 
-onMounted(() => { initSpaces(); fetchQuota(); });
+onMounted(() => { 
+  initSpaces(); 
+  fetchQuota(); 
+  window.addEventListener('click', closeDropdowns);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('click', closeDropdowns);
+});
 </script>
 
 <style scoped>
-/* 核心：纯白背景、极细线 */
+/* 基础容器 */
 .spirit-sidebar { display: flex; flex-direction: column; height: 100%; background: #ffffff; color: #1d1d1f; border-right: 1px solid #f2f2f2; }
 .inline-input { border: none; background: transparent; padding: 0; font-size: inherit; color: #0066cc; outline: none; width: 100%; border-bottom: 1px solid #0066cc; }
 .space-selector-area { padding: 40px 24px 20px; position: relative; }
@@ -334,15 +387,116 @@ onMounted(() => { initSpaces(); fetchQuota(); });
 .header-actions { display: flex; gap: 12px; }
 .text-btn { font-size: 11px; color: #86868b; cursor: pointer; }
 .text-btn.active { color: #0066cc; }
+
+/* 创建菜单下拉 */
+.create-dropdown { position: absolute; top: 30px; right: 0; width: 140px; background: #ffffff; border: 1px solid #f2f2f2; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); z-index: 100; padding: 6px; }
+.create-opt { padding: 8px 12px; font-size: 12px; color: #1d1d1f; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
+.create-opt:hover { background: #f5f5f7; color: #0066cc; }
+
 .sidebar-search { padding: 0 24px 15px; }
 .sidebar-search input { width: 100%; border: none; padding: 8px 0; font-size: 12px; border-bottom: 1px solid #f2f2f2; outline: none; background: transparent; }
 .note-list { flex: 1; overflow-y: auto; padding: 0 16px; }
-.note-item, .folder-header { padding: 10px 8px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #3a3a3c; }
+
+
+/* =========================================
+   🌟 核心重构：多态列表排版体系 (无图标极简风)
+========================================== */
+
+.note-item, .folder-header { 
+  border-radius: 6px; 
+  cursor: pointer; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center; 
+  font-size: 13px; 
+  color: #3a3a3c; 
+}
+.folder-header { padding: 10px 8px; }
+/* 预留左侧光轴的位置 */
+.note-item { padding: 10px 8px 10px 16px; position: relative; }
+/* 文件夹内的节点再向右缩进 */
+.note-item.sub { padding-left: 28px; }
+
 .note-item:hover, .folder-header:hover { background: #fbfbfb; }
 .note-item.active { background: #f5f5f7; color: #0066cc; font-weight: 500; }
+
+/* 1. 侧边琉璃光轴 (色带暗示) */
+.note-item::before {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 10px;
+  border-radius: 2px;
+  background: #d2d2d7;
+  opacity: 0.4;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.note-item.sub::before { left: 18px; }
+
+.note-item:hover::before, .note-item.active::before {
+  height: 16px;
+  opacity: 1;
+}
+
+/* 形态专属色系呼应 */
+.note-item.type-art::before { background: #af52de; }
+.note-item.type-thought::before { background: #32ade6; }
+.note-item.type-char::before { background: #ff9500; }
+.note-item.type-wiki::before { background: #34c759; }
+.note-item.type-note::before { background: #8e8e93; }
+
+
+/* 2. 标题区组合 */
+.item-content {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1;
+  min-width: 0; 
+}
+
+.item-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.2s;
+}
+
+/* 🌟 多态字体暗示 (极简表达) */
+.note-item.type-thought .item-title { font-style: italic; color: #6e6e73; }
+.note-item.type-wiki .item-title { font-weight: 600; letter-spacing: 0.02em; }
+.note-item.type-art .item-title { font-family: "Georgia", serif; letter-spacing: 0.02em; }
+
+
+/* 3. 微型排版标签 (Micro Typography) */
+.type-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
+}
+.note-item.type-art .type-label { color: #af52de; }
+.note-item.type-thought .type-label { color: #32ade6; }
+.note-item.type-char .type-label { color: #ff9500; }
+.note-item.type-wiki .type-label { color: #34c759; }
+.note-item.type-note .type-label { color: #8e8e93; }
+
+
+/* 4. 悬浮交互：标签消失，动作按钮显现 */
 .item-hover-actions { display: none; gap: 8px; font-size: 10px; color: #c7c7cc; }
-.note-item:hover .item-hover-actions, .folder-header:hover .item-hover-actions { display: flex; }
 .danger { color: #ff3b30 !important; }
+
+.note-item:hover .type-label { display: none; }
+.note-item:hover .item-hover-actions, .folder-header:hover .item-hover-actions { display: flex; }
+
+/* ========================================= */
+
 
 /* 弹窗样式 */
 .spirit-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); z-index: 5000; display: flex; align-items: center; justify-content: center; }

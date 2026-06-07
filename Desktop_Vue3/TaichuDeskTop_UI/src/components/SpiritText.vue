@@ -58,6 +58,9 @@ import { spiritExtensions, spiritColors, slashCommands } from '../utils/editorCo
 import { useSpiritData } from '../composables/useSpiritData'
 import { useCos } from '../composables/useCos'
 
+// 🌟 新增：向外广播内容变化的事件
+const emit = defineEmits(['change'])
+
 // 1. 接入数据大脑
 const { notes, currentNoteId, updateNoteContent, selectNote } = useSpiritData()
 
@@ -148,6 +151,9 @@ const handleImageProcess = async (view: any, file: File, pos?: number) => {
     if (finalJson) {
       updateNoteContent(currentNoteId.value, finalJson);
       lastSyncedJson = JSON.stringify(finalJson);
+      
+      // 🌟 图片上传完毕后，也要通知父组件内容变了，以便更新画廊状态校验
+      emit('change', finalJson);
     }
 
   } catch (err) {
@@ -278,6 +284,9 @@ const editor = useEditor({
 
     updateNoteContent(currentNoteId.value, currentJson);
     lastSyncedJson = currentJsonStr; 
+    
+    // 🌟 核心变动：将最新的数据抛给外部，供 index.vue 进行多态类型校验
+    emit('change', currentJson);
   }
 })
 

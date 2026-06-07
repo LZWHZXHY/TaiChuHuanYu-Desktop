@@ -31,6 +31,12 @@ namespace TaiChuWeb_V2.Models.LingMai
         [MaxLength(255)]
         public string Title { get; set; } = string.Empty;
 
+
+        // 🌟 新增：用于存储 Wiki 属性、角色数值等动态键值对 (Frontmatter)
+        // 前端传过来的 [{key: "Category", value: "Core Rules"}] 会被序列化成 JSON 存在这里
+        [Column(TypeName = "json")]
+        public string? ExtraData { get; set; }
+
         [Required]
         public string SortOrder { get; set; } = "0";
 

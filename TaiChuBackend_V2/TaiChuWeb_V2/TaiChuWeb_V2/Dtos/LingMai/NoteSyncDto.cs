@@ -5,6 +5,8 @@
         public Guid NoteId { get; set; }
         // 🌟 增加标题同步，防止编辑器改了标题，侧边栏不更新
         public string? Title { get; set; }
+
+        public string? ExtraData { get; set; }
         public List<BlockSyncDto> Blocks { get; set; } = new();
     }
 

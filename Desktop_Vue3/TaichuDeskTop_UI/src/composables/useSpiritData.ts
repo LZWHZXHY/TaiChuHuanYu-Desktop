@@ -31,6 +31,8 @@ export interface SpiritNote {
   resonance: number;
   status: number;
   targetId?: number | null;
+
+  extraData?: string;
 }
 
 export interface Backlink {
@@ -202,6 +204,7 @@ const getNotesInFolder = (folderId: string) =>
         // 1. 数据拿到了，存进内存
         notes.value[index].content = freshData.tiptapContent || { type: 'doc', content: [] };
         notes.value[index].title = freshData.title;
+        notes.value[index].extraData = freshData.extraData || "[]";
       } catch (err) {
         console.error("加载详情失败:", err);
       } finally {
