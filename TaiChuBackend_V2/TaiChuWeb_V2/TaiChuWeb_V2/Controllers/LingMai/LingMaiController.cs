@@ -428,31 +428,50 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         [HttpDelete("notes/{id:guid}")]
         public async Task<IActionResult> DeleteNote(Guid id)
         {
-            var note = await _context.Notes
-                .Include(n => n.Blocks)   // 如果未配置级联删除，需要加载 Blocks
-                .FirstOrDefaultAsync(n => n.Id == id);
+            // 1. 仅查询 Note 本身（去掉会报错的 Include）
+            var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == id);
             if (note == null) return NotFound();
 
-            // 🌟 物理删除：从数据库中彻底移除
-            _context.Notes.Remove(note);
+            // 2. 🌟 核心修改：手动查询关联的多态 Blocks (将 Guid 转为 string 进行匹配)
+            var noteIdStr = id.ToString();
+            var relatedBlocks = await _context.Blocks
+                .Where(b => b.OwnerId == noteIdStr)
+                .ToListAsync();
 
-            // 如果未配置级联删除，还需要手动删除关联的 Blocks
-            // _context.Blocks.RemoveRange(note.Blocks);
-
-            // 同时删除关联的星图连线
-            var links = _context.NoteLinks.Where(l => l.TargetNoteId == id || l.SourceNoteId == id);
-            _context.NoteLinks.RemoveRange(links);
-
-            // 更新配额（如果配额统计表存在）
-            var stats = await _context.UserStats.FirstOrDefaultAsync(s => s.UserId == Guid.Parse(CurrentUserId));
-            if (stats != null)
+            // 如果有 Blocks，将其标记为删除
+            if (relatedBlocks.Any())
             {
-                stats.UsedNotes = Math.Max(0, stats.UsedNotes - 1);
+                _context.Blocks.RemoveRange(relatedBlocks);
             }
 
+            // 3. 删除关联的星图连线 (建议加上 ToListAsync，避免在执行 SaveChanges 前触发并发读写限制)
+            var links = await _context.NoteLinks
+                .Where(l => l.TargetNoteId == id || l.SourceNoteId == id)
+                .ToListAsync();
+
+            if (links.Any())
+            {
+                _context.NoteLinks.RemoveRange(links);
+            }
+
+            // 4. 物理删除：从数据库中彻底移除 Note 本身
+            _context.Notes.Remove(note);
+
+            // 5. 更新配额（如果配额统计表存在）
+            // 注意：确保 CurrentUserId 确实存在并且是合法的 Guid 格式
+            if (!string.IsNullOrEmpty(CurrentUserId) && Guid.TryParse(CurrentUserId, out Guid parsedUserId))
+            {
+                var stats = await _context.UserStats.FirstOrDefaultAsync(s => s.UserId == parsedUserId);
+                if (stats != null)
+                {
+                    stats.UsedNotes = Math.Max(0, stats.UsedNotes - 1);
+                }
+            }
+
+            // 6. 统一提交到数据库（EF Core 会在一个隐式事务中安全地执行上述所有 Delete 操作）
             await _context.SaveChangesAsync();
 
-            return Ok(new { success = true, message = "碎片已永久粉碎" });
+            return Ok(new { success = true, message = "碎片及其关联的所有块和星图连线已永久粉碎" });
         }
 
 

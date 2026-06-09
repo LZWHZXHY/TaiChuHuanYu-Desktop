@@ -118,14 +118,23 @@ export function useSpiritData() {
   const folders = computed(() => notes.value.filter(n => n.type === 'folder'));
   
   // 1. 根目录笔记：除了文件夹以外的所有活跃内容
-const rootNotes = computed(() => 
-  notes.value.filter(n => 
-    n.type !== 'folder' &&           // 🌟 不管它是 note 还是 wiki，只要不是文件夹就行
-    !n.folderId &&                   // 必须在根目录
-    n.showInSidebar !== false &&     // 允许显示
-    n.status === 0                   // 必须是活跃状态（未归档）
-  )
-);
+const rootNotes = computed(() => {
+  // 先提取当前真实存在的所有文件夹 ID 集合
+  const validFolderIds = new Set(folders.value.map(f => f.id));
+  
+  return notes.value.filter(n => {
+    // 1. 过滤掉文件夹本身
+    if (n.type === 'folder') return false;
+    // 2. 过滤掉非活跃的
+    if (n.status !== 0) return false;
+    // 3. 过滤掉不允许侧边栏显示的
+    if (n.showInSidebar === false) return false;
+    
+    // 🌟 核心逻辑：如果没有 folderId，或者是找不到“生父”的孤儿，通通算作根目录碎片
+    const isOrphan = n.folderId && !validFolderIds.has(n.folderId);
+    return !n.folderId || isOrphan;
+  });
+});
 
 // 2. 文件夹内的笔记：逻辑一致，只是多了 folderId 匹配
 const getNotesInFolder = (folderId: string) => 

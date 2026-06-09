@@ -21,16 +21,47 @@ namespace TaiChuWeb_V2.Controllers.Admin
         [HttpGet]
         public async Task<IActionResult> GetAllCategories()
         {
+            // 🌟 核心修改：使用 Select 联表查出昵称
             var categories = await _context.WikiCategories
                 .OrderBy(c => c.SortOrder)
                 .ThenBy(c => c.Id)
+                .Select(c => new
+                {
+                    c.Id,
+                    c.Name,
+                    c.ParentId,
+                    c.SortOrder,
+                    c.OwnerId,
+                    c.OwnershipType,
+                    c.NeedsReview,
+                    // 👇 拿着分类的 OwnerId 去找用户的 Username
+                    OwnerNickname = _context.Users.FirstOrDefault(u => u.Id.ToString() == c.OwnerId).Username
+                })
                 .ToListAsync();
 
             return Ok(categories);
         }
 
 
-      
+        [HttpGet("/api/admin/users/search")]
+        public async Task<IActionResult> SearchUsers([FromQuery] string keyword)
+        {
+            if (string.IsNullOrWhiteSpace(keyword))
+                return Ok(new List<object>()); // 关键字为空返回空列表
+
+            // 模糊匹配昵称/用户名，最多返回 10 条避免数据量过大
+            var users = await _context.Users
+                .Where(u => u.Username.Contains(keyword.Trim()))
+                .Take(10)
+                .Select(u => new
+                {
+                    id = u.Id, // 返回 Guid
+                    username = u.Username // 返回昵称
+                })
+                .ToListAsync();
+
+            return Ok(users);
+        }
 
 
         [HttpPost]
@@ -43,15 +74,47 @@ namespace TaiChuWeb_V2.Controllers.Admin
             if (exists)
                 return BadRequest(new { message = "已存在同名的分类" });
 
-            // 🌟 完整映射新增字段
+            // 🌟 定义一个变量，用来存放最终存入数据库的真实 Guid 字符串
+            string? resolvedOwnerId = null;
+
+            // 1️⃣ 情况一：前端直接传了确切的 OwnerId (优先处理 ID)
+            if (!string.IsNullOrWhiteSpace(request.OwnerId))
+            {
+                if (Guid.TryParse(request.OwnerId, out Guid userGuid))
+                {
+                    // 可选：校验这个 Guid 用户在数据库里是否存在
+                    var userExists = await _context.Users.AnyAsync(u => u.Id == userGuid);
+                    if (!userExists)
+                        return BadRequest(new { message = "绑定的责任人 ID 在用户库中不存在" });
+
+                    resolvedOwnerId = request.OwnerId;
+                }
+                else
+                {
+                    return BadRequest(new { message = "责任人 ID 格式错误，必须是合法的 Guid 字符串" });
+                }
+            }
+            // 2️⃣ 情况二：前端没传 ID，但是传了昵称 (通过昵称反查 ID)
+            else if (!string.IsNullOrWhiteSpace(request.OwnerNickname))
+            {
+                var user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Username == request.OwnerNickname.Trim());
+
+                if (user == null)
+                    return BadRequest(new { message = $"找不到名为 '{request.OwnerNickname}' 的用户，请检查是否拼写错误" });
+
+                resolvedOwnerId = user.Id.ToString(); // 找到了，把他的 Guid 转成字符串
+            }
+
+            // 🌟 完整映射新字段
             var category = new WikiCategory
             {
                 Name = request.Name.Trim(),
                 ParentId = request.ParentId,
                 SortOrder = request.SortOrder,
-                OwnerId = request.OwnerId,           // 绑定所有者
-                OwnershipType = request.OwnershipType, // 绑定归属模式
-                NeedsReview = true                   // 默认开启审核
+                OwnerId = resolvedOwnerId,             // 🌟 存入解析出来的真实 Guid
+                OwnershipType = request.OwnershipType,
+                NeedsReview = true
             };
 
             _context.WikiCategories.Add(category);
@@ -78,11 +141,38 @@ namespace TaiChuWeb_V2.Controllers.Admin
             if (nameExists)
                 return BadRequest(new { message = "已存在同名的其他分类" });
 
+            // 🌟 同样的兼容解析逻辑
+            string? resolvedOwnerId = null;
+
+            if (!string.IsNullOrWhiteSpace(request.OwnerId))
+            {
+                if (Guid.TryParse(request.OwnerId, out Guid userGuid))
+                {
+                    var userExists = await _context.Users.AnyAsync(u => u.Id == userGuid);
+                    if (!userExists) return BadRequest(new { message = "绑定的责任人 ID 不存在" });
+                    resolvedOwnerId = request.OwnerId;
+                }
+                else
+                {
+                    return BadRequest(new { message = "责任人 ID 格式错误" });
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(request.OwnerNickname))
+            {
+                var user = await _context.Users
+                    .FirstOrDefaultAsync(u => u.Username == request.OwnerNickname.Trim());
+
+                if (user == null)
+                    return BadRequest(new { message = $"找不到名为 '{request.OwnerNickname}' 的用户" });
+
+                resolvedOwnerId = user.Id.ToString();
+            }
+
             // 🌟 更新字段
             category.Name = request.Name.Trim();
             category.ParentId = request.ParentId;
             category.SortOrder = request.SortOrder;
-            category.OwnerId = request.OwnerId;
+            category.OwnerId = resolvedOwnerId; // 🌟 更新为解析后的 ID
             category.OwnershipType = request.OwnershipType;
 
             await _context.SaveChangesAsync();
@@ -213,6 +303,10 @@ namespace TaiChuWeb_V2.Controllers.Admin
         public int SortOrder { get; set; }
         // 🌟 DTO 字段确保前端能传进来
         public string? OwnerId { get; set; }
+
+        public string? OwnerNickname { get; set; }
         public int OwnershipType { get; set; }
+
+
     }
 }

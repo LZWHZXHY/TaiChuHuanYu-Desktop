@@ -7,6 +7,7 @@
             <th>分类名称 (层级结构)</th>
             <th>ID</th>
             <th>排序</th>
+            <th>责任人</th>
             <th class="text-right">
               <button class="btn-add" @click="openAdd">＋ 新增</button>
             </th>
@@ -20,6 +21,10 @@
             </td>
             <td class="mono">#{{ String(item.id).padStart(3, '0') }}</td>
             <td>{{ item.sortOrder }}</td>
+            <td>
+              <span v-if="item.ownerNickname" class="owner-badge">{{ item.ownerNickname }}</span>
+              <span v-else class="text-gray">-</span>
+            </td>
             <td class="text-right actions">
               <button class="btn-s" @click="openEdit(item)">修订</button>
               <button class="btn-s danger" @click="confirmDelete(item)">抹除</button>
@@ -45,6 +50,9 @@
             </option>
           </select>
 
+          <label class="md-label">责任人 (可选)</label>
+          <input v-model="form.ownerNickname" type="text" class="md-input" placeholder="直接输入用户昵称，如：张三..." />
+
           <button class="btn-black" @click="submit">确认并同步</button>
         </div>
       </div>
@@ -61,7 +69,15 @@ const emit = defineEmits(['refresh']);
 
 const showModal = ref(false);
 const isEdit = ref(false);
-const form = ref({ id: 0, name: '', parentId: null as number | null, sortOrder: 0 });
+
+// 🌟 修改：将 ownerId 替换为 ownerNickname
+const form = ref({ 
+  id: 0, 
+  name: '', 
+  parentId: null as number | null, 
+  ownerNickname: null as string | null, // 绑定昵称
+  sortOrder: 0 
+});
 
 const flattened = computed(() => {
   const result: any[] = [];
@@ -77,13 +93,21 @@ const flattened = computed(() => {
 
 const openAdd = () => {
   isEdit.value = false;
-  form.value = { id: 0, name: '', parentId: null, sortOrder: 0 };
+  // 🌟 初始化包含 ownerNickname: null
+  form.value = { id: 0, name: '', parentId: null, ownerNickname: null, sortOrder: 0 };
   showModal.value = true;
 };
 
 const openEdit = (item: any) => {
   isEdit.value = true;
-  form.value = { id: item.id, name: item.name, parentId: item.parentId, sortOrder: item.sortOrder };
+  // 🌟 回显数据时，直接带入该分类现有的责任人昵称
+  form.value = { 
+    id: item.id, 
+    name: item.name, 
+    parentId: item.parentId, 
+    ownerNickname: item.ownerNickname || null, // 如果有昵称就显示，方便修改
+    sortOrder: item.sortOrder 
+  };
   showModal.value = true;
 };
 
@@ -95,16 +119,39 @@ const confirmDelete = async (item: any) => {
 };
 
 const submit = async () => {
-  isEdit.value 
-    ? await adminWikiApi.updateCategory(form.value.id, form.value as any)
-    : await adminWikiApi.createCategory(form.value as any);
-  showModal.value = false;
-  emit('refresh');
+  // 🌟 修改：清洗输入的昵称
+  const cleanedNickname = form.value.ownerNickname && form.value.ownerNickname.trim() !== '' 
+    ? form.value.ownerNickname.trim() 
+    : null;
+
+  // 组装发给后端的 payload
+  const payload = {
+    ...form.value,
+    ownerNickname: cleanedNickname,
+    ownerId: null // 显式传 null，让后端走 OwnerNickname 的逻辑去查人
+  };
+
+  try {
+    isEdit.value 
+      ? await adminWikiApi.updateCategory(payload.id, payload as any)
+      : await adminWikiApi.createCategory(payload as any);
+      
+    showModal.value = false;
+    emit('refresh');
+  } catch (error: any) {
+    // 如果管理员填了一个不存在的昵称，后端会返回 400 BadRequest
+    // 这里简单拦截并弹窗提示错误信息（比如：“找不到该用户”）
+    alert(error.response?.data?.message || '保存失败，请检查填写内容');
+  }
 };
 </script>
 
 <style scoped>
 @import './Wiki子组件风格.css';
+
+/* 新增一点展示标签的样式 */
+.owner-badge { background: #f2f2f7; color: #1c1c1e; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+.text-gray { color: #8e8e93; }
 
 .btn-add { background: #000; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
 .tree-line { display: inline-block; width: 16px; color: #d1d1d6; margin-right: 4px; font-weight: bold; }

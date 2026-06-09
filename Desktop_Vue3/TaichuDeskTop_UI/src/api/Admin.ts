@@ -52,6 +52,8 @@ export interface IWikiCategory {
   name: string;
   parentId: number | null;
   sortOrder: number;
+  ownerId?: string | null;  // 用户的 Guid ID，可能为空
+  ownerNickname?: string;  // 用户的昵称。加个问号 `?` 代表它是“可选”的，防止某些旧数据没有这个字段时报错
 }
 
 export interface ICategoryPayload {

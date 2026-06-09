@@ -105,17 +105,75 @@ onMounted(loadDetail);
 </script>
 
 <style scoped>
-/* 样式保持不变 */
-.wiki-minimalist-page { max-width: 700px; margin: 100px auto; padding: 0 20px; color: #1a1a1a; line-height: 1.7; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-.header { margin-bottom: 40px; }
-.header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
-.back-btn { background: none; border: none; font-size: 16px; cursor: pointer; padding: 0; color: #999; }
-.back-btn:hover { color: #000; }
-.edit-btn { background: none; border: 1px solid #eee; padding: 6px 14px; font-size: 0.85rem; cursor: pointer; color: #333; border-radius: 4px; transition: all 0.2s; }
-.edit-btn:hover { background: #f0f0f0; border-color: #ccc; }
-.title { font-size: 2.5rem; font-weight: 700; margin: 0 0 16px; letter-spacing: -0.02em; line-height: 1.2; }
-.meta { font-size: 0.9rem; color: #86868b; }
-.content { font-size: 1.15rem; margin-bottom: 80px; }
-.footer { border-top: 1px solid #f0f0f0; padding-top: 24px; font-size: 0.85rem; color: #86868b; }
-.loading-state { text-align: center; margin-top: 200px; color: #999; }
+.wiki-minimalist-page { 
+  max-width: 720px; 
+  margin: 60px auto 120px; 
+  padding: 0 20px; 
+  color: #1d1d1f; 
+  line-height: 1.8; 
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+}
+
+.header { 
+  margin-bottom: 64px; 
+  position: relative;
+}
+
+.header-actions { 
+  display: flex; justify-content: space-between; align-items: center; 
+  margin-bottom: 40px; 
+}
+
+.back-btn { 
+  display: flex; align-items: center; gap: 6px;
+  background: none; border: none; font-size: 0.9rem; 
+  cursor: pointer; padding: 6px 12px; margin-left: -12px;
+  color: #86868b; border-radius: 6px; transition: all 0.2s;
+  font-weight: 500;
+}
+.back-btn:hover { background: #f5f5f7; color: #1d1d1f; }
+
+.edit-btn { 
+  background: #1d1d1f; color: #fff; border: none; 
+  padding: 8px 16px; font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; border-radius: 8px; transition: all 0.2s; 
+}
+.edit-btn:hover { background: #333; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+.title { 
+  font-size: 3rem; 
+  font-weight: 800; 
+  margin: 0 0 24px; 
+  letter-spacing: -0.03em; 
+  line-height: 1.15; 
+  /* 标题可使用更加雄浑的衬线体 */
+  font-family: "Noto Serif SC", STSong, serif;
+}
+
+.meta { 
+  font-size: 0.9rem; color: #86868b; font-weight: 500;
+  display: flex; align-items: center; gap: 8px;
+}
+
+.meta span:not(:last-child)::after {
+  content: "•"; margin-left: 8px; color: #d1d1d6;
+}
+
+.content { 
+  font-size: 1.1rem; 
+  margin-bottom: 80px; 
+  /* 深度优化内部 Tiptap 渲染出来的元素间距 */
+}
+.content :deep(p) { margin-bottom: 1.5em; }
+.content :deep(h2), .content :deep(h3) { margin-top: 2em; margin-bottom: 1em; font-weight: 700; }
+
+.footer { 
+  border-top: 1px solid #e5e5ea; 
+  padding-top: 32px; font-size: 0.85rem; color: #86868b; 
+}
+.contributors { display: flex; gap: 8px; align-items: center; flex-wrap: wrap;}
+.label { font-weight: 600; color: #1d1d1f; }
+.c-item { background: #f5f5f7; padding: 4px 10px; border-radius: 20px; color: #1d1d1f; font-weight: 500; }
+
+.loading-state { text-align: center; margin-top: 200px; color: #86868b; font-size: 0.9rem; letter-spacing: 0.1em; text-transform: uppercase; }
 </style>
