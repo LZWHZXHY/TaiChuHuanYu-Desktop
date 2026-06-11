@@ -90,7 +90,7 @@
         v-if="!isMobile && activeNote && currentNoteId" 
         :note-id="currentNoteId" 
         v-model:extraData="activeNote.extraData"
-        @select="handleSelectNote" 
+        v-model:tags="activeNote.tags"      @select="handleSelectNote" 
         @change="triggerDebouncedSync"
       />
     </div>
@@ -345,14 +345,17 @@ const executeNetworkSync = async (editorJson: any) => {
     finalExtraData = activeNote.value.extraData;
   }
 
+  // 🌟 补全符合 TypeScript 接口定义的 Payload
   const syncPayload = {
     noteId: safeNoteId,
     title: activeNote.value?.title || displayNote.value?.title || '', 
     extraData: finalExtraData,
+    tags: activeNote.value?.tags || [], // 👈 TypeScript 报错的元凶已修复
     blocks: finalBlocks
   };
 
   try {
+    // 这里的参数签名完全吻合：(noteId, payload)
     await lingmaiApi.updateNoteContent(safeNoteId, syncPayload);
   } catch (e) {
     console.error("同步失败:", e);

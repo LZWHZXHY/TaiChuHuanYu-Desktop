@@ -225,7 +225,7 @@ onMounted(loadData);
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
   display: flex;
-  height: 100vh;
+  height: 100%;
   background: var(--c-app-bg);
   color: var(--c-text-main);
   font-family: var(--font-sans);

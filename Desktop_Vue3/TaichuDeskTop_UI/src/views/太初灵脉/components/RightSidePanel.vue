@@ -95,15 +95,18 @@
 
 <script setup lang="ts">
 import { ref, watchEffect, watch } from 'vue';
+import type { PropType } from 'vue';
 import { lingmaiApi } from '@/api/lingmai';
 
 const props = defineProps({
   noteId: { type: String, required: true },
-  extraData: { type: String, default: '[]' }
+  extraData: { type: String, default: '[]' },
+  // 🌟 1. 声明接收从父组件传来的 tags 数组
+  tags: { type: Array as PropType<string[]>, default: () => [] } 
 });
 
-// 🌟【核心修复】暗号必须完美匹配父组件的 v-model:extraData 以及 @change
-const emit = defineEmits(['update:extraData', 'change', 'select']);
+// 🌟 2. 增加 'update:tags' 事件暗号
+const emit = defineEmits(['update:extraData', 'update:tags', 'change', 'select']);
 
 const subTab = ref('back');
 const isLinksLoading = ref(false);
@@ -143,18 +146,21 @@ const loadLinkRelations = async () => {
 
 watch(() => props.noteId, () => {
   loadLinkRelations();
-  localTags.value = ['灵脉内核', '百科词条']; 
+  // 🌟 3. 这里删除了原先的假数据 ['灵脉内核', '百科词条']
 }, { immediate: true });
 
-// 3. 🌟【核心修复】将属性改动转化为规范的 JSON 字符串逆向贯穿给 v-model
+// 🌟 4. 监听父组件传入的真实 tags，并在本地响应渲染
+watch(() => props.tags, (newVal) => {
+  localTags.value = [...(newVal || [])];
+}, { immediate: true, deep: true });
+
+
+// 5. 将属性改动转化为规范的 JSON 字符串逆向贯穿给 v-model
 const handlePropChange = () => {
   const validProps = localProperties.value.filter(p => p.key.trim() || p.value.trim());
   const jsonString = JSON.stringify(validProps);
   
-  // 第一步：触发 v-model 机制，让父组件的 activeNote.extraData 瞬间被复写为最新数据字符串
   emit('update:extraData', jsonString);
-  
-  // 第二步：触发 @change 机制，立刻通知父组件执行 triggerDebouncedSync() 进入防抖保存
   emit('change');
 };
 
@@ -172,20 +178,29 @@ const removeProperty = (index: number) => {
   handlePropChange();
 };
 
-// 4. 标签驱动逻辑保持原样
+// 🌟 6. 新增：标签变化时的上报逻辑
+const handleTagsChange = () => {
+  // 第一步：触发 v-model，更新父组件 activeNote 里的 tags
+  emit('update:tags', localTags.value);
+  // 第二步：触发 change，让父组件去调接口 (SyncNote)
+  emit('change'); 
+};
+
+// 7. 标签驱动逻辑
 const addTag = () => {
   const cleanTag = newTagInput.value.trim().replace('#', '');
   if (cleanTag && !localTags.value.includes(cleanTag)) {
     localTags.value.push(cleanTag);
+    handleTagsChange(); // 🌟 触发上报
   }
   newTagInput.value = '';
 };
 
 const removeTag = (index: number) => {
   localTags.value.splice(index, 1);
+  handleTagsChange(); // 🌟 触发上报
 };
 </script>
-
 <style scoped>
 /* 保持你的精美垂直分层 CSS 样式不变 */
 .spirit-right-panel { width: 310px; border-left: 1px solid #f2f2f7; background: #ffffff; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }

@@ -8,6 +8,8 @@
 
         public string? ExtraData { get; set; }
         public List<BlockSyncDto> Blocks { get; set; } = new();
+
+        public List<string>? Tags { get; set; }
     }
 
     public class BlockSyncDto

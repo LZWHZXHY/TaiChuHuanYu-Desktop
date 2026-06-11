@@ -313,29 +313,35 @@ getQuotaUsage() {
 
 // src/api/lingmai.ts 内部
 
-  /**
-   * 🌟 同步块数据与 Wiki 扩展属性 (Frontmatter)
-   * 完美的扁平化载荷发送，与 C# NoteSyncDto 完全对齐
-   */
+ 
   async updateNoteContent(noteId: string, payload: {
     noteId: string;
     title: string;
-    extraData: string; // 🌟 包含 JSON.stringify 后的属性区字符串
-    blocks: FlatBlock[]; // 🌟 扁平化块结构
+    extraData: string; 
+    tags: string[]; 
+    rawContent?: any; // 接收前端传来的原始 Tiptap 树
+    blocks?: FlatBlock[]; 
   }) {
-    // 对应后端的 [HttpPost("sync")] 节点
+    // 如果存在 rawContent，在这里将其拍平赋值给 blocks
+    if (payload.rawContent) {
+      payload.blocks = flattenTiptapJson(payload.rawContent);
+      delete payload.rawContent; // 删掉原始树，不发给后端
+    }
+    
+    // 发送请求，后端完美接收 [FromBody] NoteSyncDto
     return request.post('/LingMai/sync', payload);
   },
 
   /**
-   * 🌟 保留你原来的老同步函数，内部重构为调用新函数，防止引发其他地方的报错
+   * 🌟 保留的老同步函数：现在它能安全地借道 updateNoteContent，且不会报错
    */
   async syncBlocks(noteId: string, tiptapDoc: any) {
     const blocks = flattenTiptapJson(tiptapDoc);
     return this.updateNoteContent(noteId, {
       noteId,
-      title: '', // 老调用缺省传入空，由后端自适应
-      extraData: '[]', // 缺省传入空的 JSON 数组
+      title: '', 
+      extraData: '[]', 
+      tags: [], // 🌟 补上缺省的空标签数组，防止后端接收到 null
       blocks
     });
   },

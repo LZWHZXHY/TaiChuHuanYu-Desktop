@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.LingMai;
 using TaiChuWeb_V2.Models.LingMai;
+using TaiChuWeb_V2.Models.Tag;
 using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.Services.LingMai;
 
@@ -272,24 +273,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             return Ok(notes);
         }
 
-        [HttpPatch("notes/{id:guid}/archive")]
-        public async Task<IActionResult> ArchiveNote(Guid id)
-        {
-            if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
-
-            var note = await _context.Notes.FindAsync(id);
-            if (note == null) return NotFound();
-
-            var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
-            if (!isOwner) return Forbid();
-
-            note.Status = (int)NoteStatus.Archived; // 设为 3
-            note.ShowInSidebar = false;             // 🌟 物理同步：确保不占据侧边栏
-            note.UpdatedAt = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync();
-            return Ok(new { success = true, message = "内容已移入灵脉深处（归档）" });
-        }
+        
 
         // 🌟 恢复动作：从归档库放回侧边栏
         [HttpPatch("notes/{id:guid}/restore")]
@@ -311,17 +295,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             return Ok(new { success = true, message = "内容已回归活跃视界" });
         }
 
-        // 🌟 归档库查询：专门看那些被藏起来的内容
-        [HttpGet("archived")]
-        public async Task<IActionResult> GetArchivedNotes([FromQuery] Guid spaceId)
-        {
-            if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
 
-            return Ok(await _context.Notes
-                .Where(n => n.SpaceId == spaceId && n.Status == (int)NoteStatus.Archived)
-                .OrderByDescending(n => n.UpdatedAt)
-                .ToListAsync());
-        }
 
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetNoteById(Guid id)
@@ -335,12 +309,17 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
             if (!isOwner) return Forbid();
 
-            // 2. 🌟 手动查询该 Note 下绑定的 Blocks，使用新的 OwnerId 和 OwnerType 逻辑
+            // 2. 手动查询该 Note 下绑定的 Blocks
             var blocks = await _context.Blocks
                 .Where(b => b.OwnerId == id.ToString() && b.OwnerType == "note")
                 .OrderBy(b => b.SortOrder)
                 .Select(b => new { b.Id, b.Type, b.Data, b.SortOrder })
                 .ToListAsync();
+
+            // 🌟 3. 新增：解析标签快照字符串为数组
+            var tagsArray = string.IsNullOrWhiteSpace(note.Tags)
+                ? Array.Empty<string>()
+                : note.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(t => t.Trim()).ToArray();
 
             return Ok(new
             {
@@ -351,11 +330,12 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 note.Type,
                 note.IsPublic,
                 extraData = note.ExtraData,
+                tags = tagsArray,             // 🌟 关键补全：返回解析后的标签数组
                 note.ShowInSidebar,
                 note.SortOrder,
                 note.CreatedAt,
                 note.UpdatedAt,
-                Blocks = blocks // 🌟 直接返回上面查出来的 blocks
+                Blocks = blocks
             });
         }
 
@@ -538,38 +518,30 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         note.UpdatedAt = DateTime.UtcNow;
 
                         // ========================================================================
-                        // 🌟🌟🌟 核心重构：改用单表增量 UPSERT (不再使用全删全加的 ExecuteDelete) 🌟🌟🌟
+                        // 2. 块数据的增量 UPSERT
                         // ========================================================================
-
-                        // A. 查出数据库里现有的所有 blocks，转为字典（利用你的联合索引，查询极快且只加行级读锁）
                         var existingBlocks = await _context.Blocks
                             .Where(b => b.OwnerId == dto.NoteId.ToString() && b.OwnerType == "note")
                             .ToDictionaryAsync(b => b.Id);
 
-                        // B. 准备双链捕获池
                         var currentOutlinkIds = new HashSet<Guid>();
 
                         if (dto.Blocks != null)
                         {
                             foreach (var b in dto.Blocks)
                             {
-                                // 检查当前传过来的块，在数据库里是否已经存在
                                 if (existingBlocks.TryGetValue(b.Id, out var dbBlock))
                                 {
-                                    // 情况一：如果存在，则“就地更新”数据和排序权重，绝不乱删，MySQL 仅加行级排他锁
                                     dbBlock.Data = b.Data ?? string.Empty;
                                     dbBlock.Type = b.Type;
                                     dbBlock.SortOrder = b.SortOrder ?? 0;
                                     dbBlock.UpdatedAt = DateTime.UtcNow;
 
                                     _context.Blocks.Update(dbBlock);
-
-                                    // 从现有字典里移除，剩下的没被移除的，就是前端已经删掉了的块
                                     existingBlocks.Remove(b.Id);
                                 }
                                 else
                                 {
-                                    // 情况二：如果不存在，则是真正的新节点，执行 Add
                                     var newBlock = new Block
                                     {
                                         Id = b.Id,
@@ -583,7 +555,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                     _context.Blocks.Add(newBlock);
                                 }
 
-                                // 🔍 自动解析双链规则保持不变
                                 if (!string.IsNullOrWhiteSpace(b.Data))
                                 {
                                     var matches = Regex.Matches(b.Data, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
@@ -598,7 +569,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                             }
                         }
 
-                        // C. 字典里剩下的 Blocks，说明是用户在前端删掉的段落，执行物理 Remove 批量抹去
                         if (existingBlocks.Any())
                         {
                             _context.Blocks.RemoveRange(existingBlocks.Values);
@@ -607,8 +577,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         // ========================================================================
                         // 3. 增量更新 NoteLinks 表中的双链关联关系
                         // ========================================================================
-                        // 因为双链表没有天然的 NanoID，这里的全删全加风险较小，
-                        // 但为了保险，我们将其移到 SaveChanges 之前，避免和 Blocks 发生死锁咬合
                         await _context.NoteLinks.Where(nl => nl.SourceNoteId == dto.NoteId).ExecuteDeleteAsync();
 
                         foreach (var targetId in currentOutlinkIds)
@@ -626,16 +594,65 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                             }
                         }
 
+                        // ========================================================================
+                        // 🌟 4. 新增：同步标签系统 (主表快照 + 多态关联表双写)
+                        // ========================================================================
+                        if (dto.Tags != null)
+                        {
+                            // A. 更新主表快照字段（O(1)读取极速渲染）
+                            note.Tags = dto.Tags.Any() ? string.Join(",", dto.Tags) : null;
+
+                            // B. 重建关联表
+                            var oldTags = await _context.TagAssignments
+                                .Where(ta => ta.EntityId == dto.NoteId.ToString() && ta.EntityType == "Note")
+                                .ToListAsync();
+                            _context.TagAssignments.RemoveRange(oldTags);
+
+                            foreach (var tagName in dto.Tags)
+                            {
+                                if (string.IsNullOrWhiteSpace(tagName)) continue;
+
+                                var cleanName = tagName.Trim();
+                                var normalizedName = cleanName.ToLower();
+
+                                // 查找全局标签库是否已有该标签
+                                var tag = await _context.Tags
+                                    .FirstOrDefaultAsync(t => t.NormalizedName == normalizedName && t.SpaceId == note.SpaceId);
+
+                                // 没有则新建全局标签
+                                if (tag == null)
+                                {
+                                    tag = new Tag
+                                    {
+                                        Id = Guid.NewGuid(),
+                                        SpaceId = note.SpaceId,
+                                        Name = cleanName,
+                                        NormalizedName = normalizedName,
+                                        CreatedAt = DateTime.UtcNow
+                                    };
+                                    _context.Tags.Add(tag);
+                                }
+
+                                // 写入多态关联关系
+                                _context.TagAssignments.Add(new TagAssignment
+                                {
+                                    Id = Guid.NewGuid(),
+                                    TagId = tag.Id,
+                                    EntityId = note.Id.ToString(),
+                                    EntityType = "Note",
+                                    CreatedAt = DateTime.UtcNow
+                                });
+                            }
+                        }
+
                         // 统一提交变更并提交事务
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
 
                         return Ok(new { success = true });
                     }
-                    // 🌟 多加一层死锁异常特异性捕获拦截
                     catch (DbUpdateException ex) when (ex.InnerException is MySqlConnector.MySqlException mySqlEx && mySqlEx.Number == 1213)
                     {
-                        // 1213 是 MySQL 的 Deadlock 错误码
                         await transaction.RollbackAsync();
                         Console.WriteLine("⚠️ 检测到极深层微秒级死锁，已自动降级无痕回滚，让路给下一发最新请求。");
                         return Ok(new { success = true, message = "并发重叠已由新版本覆盖" });
@@ -657,8 +674,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 return StatusCode(500, $"灵脉同步异常: {ex.Message}");
             }
         }
-
-
 
 
 

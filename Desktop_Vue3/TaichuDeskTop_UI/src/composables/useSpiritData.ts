@@ -33,6 +33,8 @@ export interface SpiritNote {
   targetId?: number | null;
   blocks?: any[]; 
   extraData?: string;
+
+  tags?: string[];
 }
 
 export interface Backlink {
@@ -177,7 +179,8 @@ const getNotesInFolder = (folderId: string) =>
         isPublic: n.isPublic || false,
         resonance: n.resonance || 0,
         status: n.status || 0,
-        targetId: n.targetId || null
+        targetId: n.targetId || null,
+        tags: n.tags || [] // 🌟 新增：初始化为空数组
       }));
 
       const hasValidNote = notes.value.some(n => n.id === currentNoteId.value);
@@ -214,6 +217,7 @@ const getNotesInFolder = (folderId: string) =>
         notes.value[index].content = freshData.tiptapContent || { type: 'doc', content: [] };
         notes.value[index].title = freshData.title;
         notes.value[index].extraData = freshData.extraData || "[]";
+        notes.value[index].tags = freshData.tags || []; // 🌟 新增：接住后端返回的数组
         notes.value[index].blocks = freshData.blocks || [];
       } catch (err) {
         console.error("加载详情失败:", err);
@@ -276,7 +280,8 @@ const getNotesInFolder = (folderId: string) =>
         isPublic: selectedType === 'thought', // 简语默认公开，随笔默认私密
         resonance: 0,
         status: 0,
-        targetId: null
+        targetId: null,
+        tags: [] // 🌟 新增：新创建的笔记标签为空
       };
 
       notes.value.unshift(newNote);
@@ -289,13 +294,22 @@ const getNotesInFolder = (folderId: string) =>
     }
   };
 
-  const syncContentToApi = async (id: string, content: any) => {
+  // ============================================================================
+  // 🌟 核心防抖同步引擎 (重构版：支持 Title + Content + ExtraData + Tags 全量打包)
+  // ============================================================================
+  
+  // 1. 底层 API 调用：直接传送组装好的完整 payload
+  const syncContentToApi = async (payload: any) => {
     try {
-      await lingmaiApi.syncBlocks(id, content);
+      // 🌟 注意这里：为了兼容你在 api 层保留的双参数签名
+      // 第一个参数传 id，第二个参数传完整的 payload 对象
+      await lingmaiApi.updateNoteContent(payload.noteId, payload);
     } catch (error) {
       console.error("❌ 灵脉内容云端同步失败:", error);
     }
   };
+
+  const debouncedSyncContent = debounce(syncContentToApi, 1000);
 
   const syncTitleToApi = async (id: string, title: string) => {
     try {
@@ -304,17 +318,33 @@ const getNotesInFolder = (folderId: string) =>
       console.error("❌ 灵脉标题云端同步失败:", error);
     }
   };
-
-  const debouncedSyncContent = debounce(syncContentToApi, 1000);
   const debouncedSyncTitle = debounce(syncTitleToApi, 1000);
 
-  const updateNoteContent = async (id: string, content: any) => {
+  // 2. 触发层：当编辑器、属性栏或标签栏发生变化时触发
+  const updateNoteContent = async (id: string, content?: any) => {
     const note = notes.value.find(n => n.id === id);
-    if (note) {
+    if (!note) return;
+
+    // A. 更新本地内存状态 (如果传了 content 才更新，没传说明是 tags/extraData 触发的保存)
+    if (content) {
       note.content = content;
-      note.updateAt = Date.now();
-      debouncedSyncContent(id, content);
     }
+    note.updateAt = Date.now();
+
+    // B. 组装最完美的 Payload 炸弹，涵盖当前笔记的所有状态
+    // 注意：如果在前端直接转换 block 困难，我们需要借助 lingmaiApi 里的 flatten 工具
+    // 假设你在 useSpiritData 里无法直接导入 flattenTiptapJson，最稳妥的做法是将完整数据交给 API 层去 flatten
+    const payload = {
+      noteId: note.id,
+      title: note.title || '',
+      extraData: note.extraData || '[]',
+      tags: note.tags || [], // 🌟 标签数据终于上车了！
+      // 关键：将原始的 tiptap 对象传过去，让 API 层的 flattenTiptapJson 去处理扁平化
+      rawContent: note.content 
+    };
+
+    // C. 丢给防抖函数
+    debouncedSyncContent(payload);
   };
 
   const updateNoteTitle = async (id: string, newTitle: string) => {
