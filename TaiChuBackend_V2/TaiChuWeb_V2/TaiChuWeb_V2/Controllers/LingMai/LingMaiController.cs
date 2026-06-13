@@ -489,39 +489,32 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 return StatusCode(423, new { message = "灵脉空间已淤积，编辑功能已锁定。" });
             }
 
-            var note = await _context.Notes.FindAsync(dto.NoteId);
-            if (note == null) return NotFound(new { message = "未找到对应的笔记" });
-
-            var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
-            if (!isOwner) return Forbid();
-
             var strategy = _context.Database.CreateExecutionStrategy();
 
             try
             {
-                return await strategy.ExecuteAsync(async () =>
+                return await strategy.ExecuteAsync<IActionResult>(async () =>
                 {
+                    // 🌟 优化：将查询前置到重试策略内部，避免重试时持有过期的脏数据
+                    var note = await _context.Notes.FindAsync(dto.NoteId);
+                    if (note == null) return NotFound(new { message = "未找到对应的笔记" });
+
+                    var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
+                    if (!isOwner) return Forbid();
+
                     using var transaction = await _context.Database.BeginTransactionAsync();
                     try
                     {
-                        // 1. 更新基本元数据与 Wiki 扩展属性
-                        if (!string.IsNullOrEmpty(dto.Title))
-                        {
-                            note.Title = dto.Title;
-                        }
-
-                        if (dto.ExtraData != null)
-                        {
-                            note.ExtraData = dto.ExtraData;
-                        }
-
+                        // 1. 更新基本元数据
+                        if (!string.IsNullOrEmpty(dto.Title)) note.Title = dto.Title;
+                        if (dto.ExtraData != null) note.ExtraData = dto.ExtraData;
                         note.UpdatedAt = DateTime.UtcNow;
 
                         // ========================================================================
-                        // 2. 块数据的增量 UPSERT
+                        // 2. 块数据的增量 UPSERT (🌟 终极绝杀：开启 EF Core 智能追踪差分更新)
                         // ========================================================================
                         var existingBlocks = await _context.Blocks
-                            .Where(b => b.OwnerId == dto.NoteId.ToString() && b.OwnerType == "note")
+                            .Where(b => b.OwnerId == dto.NoteId.ToString() && b.OwnerType == note.Type)
                             .ToDictionaryAsync(b => b.Id);
 
                         var currentOutlinkIds = new HashSet<Guid>();
@@ -532,29 +525,40 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                             {
                                 if (existingBlocks.TryGetValue(b.Id, out var dbBlock))
                                 {
-                                    dbBlock.Data = b.Data ?? string.Empty;
-                                    dbBlock.Type = b.Type;
-                                    dbBlock.SortOrder = b.SortOrder ?? 0;
-                                    dbBlock.UpdatedAt = DateTime.UtcNow;
+                                    // 🌟 核心性能优化点：按需对比，拒绝全量覆盖
+                                    bool isChanged = false;
+                                    var newData = b.Data ?? string.Empty;
+                                    var newSortOrder = b.SortOrder ?? 0;
 
-                                    _context.Blocks.Update(dbBlock);
+                                    if (dbBlock.Data != newData) { dbBlock.Data = newData; isChanged = true; }
+                                    if (dbBlock.SortOrder != newSortOrder) { dbBlock.SortOrder = newSortOrder; isChanged = true; }
+                                    if (dbBlock.Type != b.Type) { dbBlock.Type = b.Type; isChanged = true; }
+
+                                    if (isChanged)
+                                    {
+                                        dbBlock.UpdatedAt = DateTime.UtcNow;
+                                        // 🚨 故意去掉了 _context.Blocks.Update(dbBlock); 
+                                        // 因为对象是从数据库查出来的，EF Core 的 Change Tracker 已经在内存里盯着它了。
+                                        // 只有 isChanged 为 true 的属性，才会被 EF Core 自动生成一条极其精准的 UPDATE 语句。
+                                    }
+
                                     existingBlocks.Remove(b.Id);
                                 }
                                 else
                                 {
-                                    var newBlock = new Block
+                                    _context.Blocks.Add(new Block
                                     {
                                         Id = b.Id,
                                         OwnerId = dto.NoteId.ToString(),
-                                        OwnerType = "note",
+                                        OwnerType = note.Type, // 👈 动态识别，完美兼容 "canvas"
                                         Type = b.Type,
                                         Data = b.Data ?? string.Empty,
                                         SortOrder = b.SortOrder ?? 0,
                                         UpdatedAt = DateTime.UtcNow
-                                    };
-                                    _context.Blocks.Add(newBlock);
+                                    });
                                 }
 
+                                // 提取双链 GUID
                                 if (!string.IsNullOrWhiteSpace(b.Data))
                                 {
                                     var matches = Regex.Matches(b.Data, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
@@ -569,20 +573,41 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                             }
                         }
 
+                        // 清理前端已删除的旧区块
                         if (existingBlocks.Any())
                         {
                             _context.Blocks.RemoveRange(existingBlocks.Values);
                         }
 
                         // ========================================================================
-                        // 3. 增量更新 NoteLinks 表中的双链关联关系
+                        // 3. 增量更新 NoteLinks 表 (🌟 差分比对，拒绝全删全建)
                         // ========================================================================
-                        await _context.NoteLinks.Where(nl => nl.SourceNoteId == dto.NoteId).ExecuteDeleteAsync();
+                        var existingLinks = await _context.NoteLinks
+                            .Where(nl => nl.SourceNoteId == dto.NoteId)
+                            .ToListAsync();
 
-                        foreach (var targetId in currentOutlinkIds)
+                        // 提取数据库中已有的目标 ID 集合
+                        var existingTargetIds = existingLinks.Select(nl => nl.TargetNoteId).ToHashSet();
+
+                        // 1. 找出需要删除的废弃链接（在数据库中存在，但前端这次没传过来）
+                        var linksToRemove = existingLinks.Where(nl => !currentOutlinkIds.Contains(nl.TargetNoteId)).ToList();
+                        if (linksToRemove.Any())
                         {
-                            var targetExists = await _context.Notes.AnyAsync(n => n.Id == targetId);
-                            if (targetExists)
+                            _context.NoteLinks.RemoveRange(linksToRemove);
+                        }
+
+                        // 2. 找出需要新增的链接（前端传过来了，但数据库里还没有）
+                        var targetIdsToAdd = currentOutlinkIds.Where(id => !existingTargetIds.Contains(id)).ToList();
+
+                        if (targetIdsToAdd.Any())
+                        {
+                            // 批量验证这些新增的目标 ID 是否在数据库真实存在 (完美避免 N+1)
+                            var validTargetIds = await _context.Notes
+                                .Where(n => targetIdsToAdd.Contains(n.Id))
+                                .Select(n => n.Id)
+                                .ToListAsync();
+
+                            foreach (var targetId in validTargetIds)
                             {
                                 _context.NoteLinks.Add(new NoteLink
                                 {
@@ -595,57 +620,58 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         }
 
                         // ========================================================================
-                        // 🌟 4. 新增：同步标签系统 (主表快照 + 多态关联表双写)
+                        // 4. 同步标签系统
                         // ========================================================================
                         if (dto.Tags != null)
                         {
-                            // A. 更新主表快照字段（O(1)读取极速渲染）
                             note.Tags = dto.Tags.Any() ? string.Join(",", dto.Tags) : null;
 
-                            // B. 重建关联表
                             var oldTags = await _context.TagAssignments
                                 .Where(ta => ta.EntityId == dto.NoteId.ToString() && ta.EntityType == "Note")
                                 .ToListAsync();
                             _context.TagAssignments.RemoveRange(oldTags);
 
-                            foreach (var tagName in dto.Tags)
+                            if (dto.Tags.Any())
                             {
-                                if (string.IsNullOrWhiteSpace(tagName)) continue;
+                                var cleanTags = dto.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).ToList();
+                                var normalizedTags = cleanTags.Select(t => t.ToLower()).ToList();
 
-                                var cleanName = tagName.Trim();
-                                var normalizedName = cleanName.ToLower();
+                                // 一次性查出数据库中已有的标签
+                                var existingDbTags = await _context.Tags
+                                    .Where(t => t.SpaceId == note.SpaceId && normalizedTags.Contains(t.NormalizedName))
+                                    .ToDictionaryAsync(t => t.NormalizedName);
 
-                                // 查找全局标签库是否已有该标签
-                                var tag = await _context.Tags
-                                    .FirstOrDefaultAsync(t => t.NormalizedName == normalizedName && t.SpaceId == note.SpaceId);
-
-                                // 没有则新建全局标签
-                                if (tag == null)
+                                foreach (var cleanName in cleanTags)
                                 {
-                                    tag = new Tag
+                                    var normalizedName = cleanName.ToLower();
+
+                                    if (!existingDbTags.TryGetValue(normalizedName, out var tag))
+                                    {
+                                        tag = new Tag
+                                        {
+                                            Id = Guid.NewGuid(),
+                                            SpaceId = note.SpaceId,
+                                            Name = cleanName,
+                                            NormalizedName = normalizedName,
+                                            CreatedAt = DateTime.UtcNow
+                                        };
+                                        _context.Tags.Add(tag);
+                                        existingDbTags[normalizedName] = tag; // 存入字典以备本次循环复用
+                                    }
+
+                                    _context.TagAssignments.Add(new TagAssignment
                                     {
                                         Id = Guid.NewGuid(),
-                                        SpaceId = note.SpaceId,
-                                        Name = cleanName,
-                                        NormalizedName = normalizedName,
+                                        TagId = tag.Id,
+                                        EntityId = note.Id.ToString(),
+                                        EntityType = "Note",
                                         CreatedAt = DateTime.UtcNow
-                                    };
-                                    _context.Tags.Add(tag);
+                                    });
                                 }
-
-                                // 写入多态关联关系
-                                _context.TagAssignments.Add(new TagAssignment
-                                {
-                                    Id = Guid.NewGuid(),
-                                    TagId = tag.Id,
-                                    EntityId = note.Id.ToString(),
-                                    EntityType = "Note",
-                                    CreatedAt = DateTime.UtcNow
-                                });
                             }
                         }
 
-                        // 统一提交变更并提交事务
+                        // 🌟 最终只有在这里才会真正去操作数据库，零多余更新，毫秒级响应！
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
 
@@ -654,7 +680,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                     catch (DbUpdateException ex) when (ex.InnerException is MySqlConnector.MySqlException mySqlEx && mySqlEx.Number == 1213)
                     {
                         await transaction.RollbackAsync();
-                        Console.WriteLine("⚠️ 检测到极深层微秒级死锁，已自动降级无痕回滚，让路给下一发最新请求。");
+                        Console.WriteLine("⚠️ 检测到死锁，已自动降级无痕回滚，让路给下一发最新请求。");
                         return Ok(new { success = true, message = "并发重叠已由新版本覆盖" });
                     }
                     catch (DbUpdateConcurrencyException)
@@ -674,8 +700,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 return StatusCode(500, $"灵脉同步异常: {ex.Message}");
             }
         }
-
-
 
 
         #endregion

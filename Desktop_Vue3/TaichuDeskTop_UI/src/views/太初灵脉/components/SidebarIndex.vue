@@ -55,6 +55,8 @@
             <div class="create-opt" @click="handleCreateWithType('wiki')">词条 (Wiki)</div>
             <div class="create-opt" @click="handleCreateWithType('char')">角色 (Char)</div>
             <div class="create-opt" @click="handleCreateWithType('art')">画廊 (Art)</div>
+            <div class="create-opt" @click="handleCreateWithType('canvas')">星图白板 (Canvas)</div>
+            <div class="create-opt" @click="handleCreateWithType('map')">世界地图 (Map)</div>
           </div>
         </transition>
       </div>
@@ -399,6 +401,9 @@ onUnmounted(() => {
 .note-item.type-char::before { background: #ff9500; }
 .note-item.type-wiki::before { background: #34c759; }
 .note-item.type-note::before { background: #8e8e93; }
+/* 🌟 新增白板和地图的侧边流光色 */
+.note-item.type-canvas::before { background: #5856d6; } 
+.note-item.type-map::before { background: #00c7be; }
 
 /* 2. 标题区组合 */
 .item-content {
@@ -436,6 +441,9 @@ onUnmounted(() => {
 .note-item.type-char .type-label { color: #ff9500; }
 .note-item.type-wiki .type-label { color: #34c759; }
 .note-item.type-note .type-label { color: #8e8e93; }
+/* 🌟 新增白板和地图的标签文字色 */
+.note-item.type-canvas .type-label { color: #5856d6; }
+.note-item.type-map .type-label { color: #00c7be; }
 
 /* 4. 悬浮交互：标签消失，动作按钮显现 */
 .item-hover-actions { display: none; gap: 8px; font-size: 10px; color: #c7c7cc; }
