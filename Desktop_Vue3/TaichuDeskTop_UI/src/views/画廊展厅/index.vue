@@ -15,9 +15,7 @@
         </div>
       </div>
       
-      <div class="nav-right" v-if="userStore.userInfo">
-        <button class="upload-link" @click="handleUpload">提交灵感</button>
-      </div>
+     
     </header>
 
     <main class="gallery-view">
