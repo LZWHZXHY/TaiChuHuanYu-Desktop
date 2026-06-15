@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Org.BouncyCastle.Asn1.Ocsp;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.LoginRegister;
+using TaiChuWeb_V2.Models.LingMai;
 using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.Services.Email; // 确保引用了接口命名空间
 
@@ -81,9 +82,13 @@ namespace TaiChuWeb_V2.Controllers
             if (await _context.Users.AnyAsync(u => u.Username == dto.Username))
                 return BadRequest(new { message = "名号已存在，请重新输入" });
 
-            // 3. 执行“一键三连”
+            // 🌟 提前生成新用户的 ID，因为我们要用它来绑定“默认空间”
+            var newUserId = Guid.NewGuid();
+
+            // 3. 执行“一键四连”：账号 + 档案 + 数值/配额 + 默认空间
             var newUser = new User
             {
+                Id = newUserId, // 🌟 显式赋值 ID
                 Username = dto.Username,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 Email = dto.Email,
@@ -97,20 +102,40 @@ namespace TaiChuWeb_V2.Controllers
                     SocialLinks = "[]", // 初始化为空的 JSON 数组字符串
                     Mood = "暂无心情"
                 },
-                // 初始化数值
+                // 初始化数值与配额
                 Stats = new UserStats
                 {
                     Experience = 0,
                     CurrentSignStreak = 0,
-                    MaxSignStreak = 0
+                    MaxSignStreak = 0,
+                    // 🌟 补齐配额系统所需的基础字段
+                    MaxSpaces = 1,
+                    MaxNotes = 100,
+                    UsedSpaces = 1, // 算上下面即将分配的默认空间，已用 1 个
+                    UsedNotes = 0
                 }
             };
 
             _context.Users.Add(newUser);
 
-            // 4. 注册成功后作废验证码
+            // ========================================================================
+            // 🌟 4. 新手大礼包：发配初始默认空间
+            // ========================================================================
+            var defaultSpace = new Space
+            {
+                Id = Guid.NewGuid(),
+                Name = "我的初识灵脉", // 充满寰宇气息的默认名字
+                UserId = newUserId.ToString(), // 你的 Space.UserId 是 string 类型
+                IsPublic = false, // 保护新手隐私，默认私有
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _context.Spaces.Add(defaultSpace);
+
+            // 5. 注册成功后作废验证码
             _context.EmailVerifications.Remove(v);
 
+            // 统一提交事务，如果这一步出错，User、Profile、Stats、Space 会一起回滚，保证数据绝对干净
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "认证成功！欢迎来到太初寰宇。" });
