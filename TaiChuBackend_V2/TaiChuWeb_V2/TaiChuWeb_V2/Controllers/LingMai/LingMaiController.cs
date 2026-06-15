@@ -253,7 +253,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             var isOwner = await _context.Spaces.AnyAsync(s => s.Id == spaceId && s.UserId == CurrentUserId);
             if (!isOwner) return Forbid();
 
-            // 1. 拉取所有活跃的 Notes
+            // 1. 拉取所有活跃的 Notes，包含 BlocksData (为画布准备)
             var notes = await _context.Notes
                 .Where(n => n.SpaceId == spaceId && n.Status == (int)NoteStatus.Active)
                 .OrderByDescending(n => n.UpdatedAt)
@@ -269,37 +269,96 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                     n.CreatedAt,
                     n.UpdatedAt,
                     n.Tags,
-                    n.ExtraData
+                    n.ExtraData,
+                    n.BlocksData // 🌟 拉取画布专属数据
                 })
                 .ToListAsync();
 
-            // 2. 提取所有 Note 的 ID
-            var noteIds = notes.Select(n => n.Id.ToString()).ToList();
+            // 2. 仅提取“普通笔记”的 ID
+            var normalNoteIds = notes
+                .Where(n => n.Type != NoteTypes.Canvas && n.Type != NoteTypes.Map)
+                .Select(n => n.Id.ToString())
+                .ToList();
 
-            // 3. 🌟 核心修复：批量查询这些 Note 下属的所有 Blocks (避免 N+1 性能黑洞)
-            var allBlocks = await _context.Blocks
-                .Where(b => noteIds.Contains(b.OwnerId))
-                .Select(b => new { b.Id, b.OwnerId, b.Type, b.Data, b.SortOrder })
-                .ToListAsync();
+            // 3. 批量查询普通笔记的 Blocks (🌟 完美解决 CS0173 报错：统一返回 List<Block>)
+            var allBlocks = normalNoteIds.Any()
+                ? await _context.Blocks
+                    .Where(b => normalNoteIds.Contains(b.OwnerId))
+                    .ToListAsync()
+                : new List<Block>();
 
-            // 4. 在内存中将 Blocks 拼接到对应的 Note 身上
-            var result = notes.Select(n => new {
-                n.Id,
-                n.Title,
-                n.SpaceId,
-                n.FolderId,
-                n.Type,
-                n.IsPublic,
-                n.ShowInSidebar,
-                n.SortOrder,
-                n.CreatedAt,
-                n.UpdatedAt,
-                tags = string.IsNullOrWhiteSpace(n.Tags)
-                        ? Array.Empty<string>()
-                        : n.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(t => t.Trim()).ToArray(),
-                extraData = n.ExtraData,
-                // 👇 将归属于此卡片的万能块组装进去
-                blocks = allBlocks.Where(b => b.OwnerId == n.Id.ToString()).OrderBy(b => b.SortOrder).ToList()
+            // 4. 在内存中智能分流拼装数据
+            var result = notes.Select(n =>
+            {
+                // --- 标签平滑兼容解析 ---
+                string[] tagsArray = Array.Empty<string>();
+                if (!string.IsNullOrWhiteSpace(n.Tags))
+                {
+                    try
+                    {
+                        tagsArray = JsonSerializer.Deserialize<string[]>(n.Tags) ?? Array.Empty<string>();
+                    }
+                    catch (System.Text.Json.JsonException)
+                    {
+                        tagsArray = n.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                          .Select(t => t.Trim())
+                                          .ToArray();
+                    }
+                }
+
+                // --- 万能块双轨分流处理 ---
+                object finalBlocks;
+                if (n.Type == NoteTypes.Canvas || n.Type == NoteTypes.Map)
+                {
+                    // 路线 A：画布直接反序列化 JSON
+                    if (!string.IsNullOrWhiteSpace(n.BlocksData))
+                    {
+                        try
+                        {
+                            finalBlocks = JsonSerializer.Deserialize<System.Text.Json.JsonElement>(n.BlocksData);
+                        }
+                        catch
+                        {
+                            finalBlocks = Array.Empty<object>();
+                        }
+                    }
+                    else
+                    {
+                        finalBlocks = Array.Empty<object>();
+                    }
+                }
+                else
+                {
+                    // 路线 B：普通笔记在内存匹配，并转换为前端所需的匿名格式
+                    finalBlocks = allBlocks
+                        .Where(b => b.OwnerId == n.Id.ToString())
+                        .OrderBy(b => b.SortOrder)
+                        .Select(b => new
+                        {
+                            id = b.Id,
+                            type = b.Type,
+                            data = b.Data,
+                            sortOrder = b.SortOrder
+                        })
+                        .ToList();
+                }
+
+                return new
+                {
+                    n.Id,
+                    n.Title,
+                    n.SpaceId,
+                    n.FolderId,
+                    n.Type,
+                    n.IsPublic,
+                    n.ShowInSidebar,
+                    n.SortOrder,
+                    n.CreatedAt,
+                    n.UpdatedAt,
+                    tags = tagsArray,
+                    extraData = n.ExtraData,
+                    blocks = finalBlocks // 🌟 最终无缝拼装
+                };
             });
 
             return Ok(result);
@@ -329,6 +388,9 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
 
 
+
+
+
         [HttpGet("{id:guid}")]
         public async Task<IActionResult> GetNoteById(Guid id)
         {
@@ -343,34 +405,58 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             if (!isOwner) return Forbid();
 
             // ==========================================
-            // 🌟 核心修复 1：拉取该碎片绑定的所有万能块
+            // 🌟 核心修复 1：分流读取万能块数据
             // ==========================================
-            var blocks = await _context.Blocks
-                .Where(b => b.OwnerId == id.ToString() && b.OwnerType == note.Type)
-                .OrderBy(b => b.SortOrder) // 保证前端渲染顺序
-                .Select(b => new
+            object finalBlocks; // 声明一个 object 用来动态承载两种不同来源的数据
+
+            if (note.Type == NoteTypes.Canvas || note.Type == NoteTypes.Map)
+            {
+                // 🚀 路线 A：如果是白板或地图，直接读取 BlocksData 字段
+                if (!string.IsNullOrWhiteSpace(note.BlocksData))
                 {
-                    id = b.Id,
-                    type = b.Type,
-                    data = b.Data,
-                    sortOrder = b.SortOrder
-                })
-                .ToListAsync();
+                    try
+                    {
+                        // 反序列化为 JsonElement，这样在最后 Ok() 返回时，ASP.NET 框架会正确把它渲染成 JSON 数组，而不是带转义的字符串
+                        finalBlocks = JsonSerializer.Deserialize<System.Text.Json.JsonElement>(note.BlocksData);
+                    }
+                    catch
+                    {
+                        finalBlocks = Array.Empty<object>(); // 解析失败的兜底
+                    }
+                }
+                else
+                {
+                    finalBlocks = Array.Empty<object>();
+                }
+            }
+            else
+            {
+                // 🛣️ 路线 B：如果是普通笔记或 Wiki，继续从 Blocks 表查询
+                finalBlocks = await _context.Blocks
+                    .Where(b => b.OwnerId == id.ToString() && b.OwnerType == note.Type)
+                    .OrderBy(b => b.SortOrder) // 保证前端渲染顺序
+                    .Select(b => new
+                    {
+                        id = b.Id,
+                        type = b.Type,
+                        data = b.Data,
+                        sortOrder = b.SortOrder
+                    })
+                    .ToListAsync();
+            }
 
             // ==========================================
-            // 🌟 核心修复 2：JSON 反序列化解析 Tags
+            // 🌟 核心修复 2：JSON 反序列化解析 Tags (保持不变)
             // ==========================================
             string[] tagsArray = Array.Empty<string>();
             if (!string.IsNullOrWhiteSpace(note.Tags))
             {
                 try
                 {
-                    // 尝试按新的 JSON 格式解析
                     tagsArray = JsonSerializer.Deserialize<string[]>(note.Tags) ?? Array.Empty<string>();
                 }
-                catch (JsonException)
+                catch (System.Text.Json.JsonException)
                 {
-                    // 🌟 平滑过渡：如果解析失败，说明是老数据（逗号分隔的），回退到 Split 模式
                     tagsArray = note.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries)
                                          .Select(t => t.Trim())
                                          .ToArray();
@@ -386,15 +472,25 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 folderId = note.FolderId,
                 type = note.Type,
                 isPublic = note.IsPublic,
-                extraData = note.ExtraData,   // 包含地图底图等扩展属性
-                tags = tagsArray,             // 完美的数组格式
+                extraData = note.ExtraData,
+                tags = tagsArray,
                 showInSidebar = note.ShowInSidebar,
                 sortOrder = note.SortOrder,
                 createdAt = note.CreatedAt,
                 updatedAt = note.UpdatedAt,
-                blocks = blocks               // 🌟 塞入万能块大军
+                blocks = finalBlocks          // 🌟 无缝塞入刚才分流获取的块数据
             });
         }
+
+
+
+
+
+
+
+
+
+
 
         [HttpPost("notes")]
         public async Task<IActionResult> CreateNote([FromBody] CreateNoteDto dto)
@@ -566,71 +662,110 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         if (dto.ExtraData != null) note.ExtraData = dto.ExtraData;
                         note.UpdatedAt = DateTime.UtcNow;
 
-                        // ========================================================================
-                        // 2. 块数据的增量 UPSERT (万能块核心逻辑)
-                        // ========================================================================
-                        var existingBlocks = await _context.Blocks
-                            .Where(b => b.OwnerId == dto.NoteId.ToString() && b.OwnerType == note.Type)
-                            .ToDictionaryAsync(b => b.Id);
-
+                        // 准备收集所有的双链 ID
                         var currentOutlinkIds = new HashSet<Guid>();
 
-                        if (dto.Blocks != null)
+                        // ========================================================================
+                        // 🌟 2. 核心分流逻辑：判断是结构化文档，还是非结构化白板
+                        // ========================================================================
+                        bool isCanvasOrMap = note.Type == NoteTypes.Canvas || note.Type == NoteTypes.Map;
+
+                        if (isCanvasOrMap)
                         {
-                            // 遍历前端传来的块，带上索引 i 提供兜底 SortOrder
-                            foreach (var (b, index) in dto.Blocks.Select((item, i) => (item, i)))
+                            // 🚀 路线 A：白板/地图 -> 走 JSON 降维打击路线（彻底解决超时问题）
+                            // 🚀 路线 A：降维打击，白板直接存大 JSON
+                            // 🌟 新增：强制使用小驼峰命名策略，匹配前端习惯
+                            var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+                            string blocksJson = dto.Blocks != null && dto.Blocks.Any()
+                                ? JsonSerializer.Serialize(dto.Blocks, jsonOptions)
+                                : "[]";
+                            note.BlocksData = blocksJson; // 存入专门的新字段
+
+                            // 极速提取双链：直接用正则扫描超大 JSON 字符串
+                            if (blocksJson.Length > 2)
                             {
-                                if (existingBlocks.TryGetValue(b.Id, out var dbBlock))
+                                var matches = Regex.Matches(blocksJson, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+                                foreach (Match match in matches)
                                 {
-                                    bool isChanged = false;
-                                    var newData = b.Data ?? string.Empty;
-                                    var newSortOrder = b.SortOrder ?? index;
-
-                                    if (dbBlock.Data != newData) { dbBlock.Data = newData; isChanged = true; }
-                                    if (dbBlock.SortOrder != newSortOrder) { dbBlock.SortOrder = newSortOrder; isChanged = true; }
-                                    if (dbBlock.Type != b.Type) { dbBlock.Type = b.Type; isChanged = true; }
-
-                                    if (isChanged) dbBlock.UpdatedAt = DateTime.UtcNow;
-
-                                    existingBlocks.Remove(b.Id);
-                                }
-                                else
-                                {
-                                    _context.Blocks.Add(new Block
+                                    if (Guid.TryParse(match.Value, out Guid linkedId) && linkedId != dto.NoteId)
                                     {
-                                        Id = b.Id,
-                                        OwnerId = dto.NoteId.ToString(),
-                                        OwnerType = note.Type, // 继承宿主Type，命中复合索引
-                                        Type = b.Type,
-                                        Data = b.Data ?? string.Empty,
-                                        SortOrder = b.SortOrder ?? index,
-                                        UpdatedAt = DateTime.UtcNow
-                                    });
+                                        currentOutlinkIds.Add(linkedId);
+                                    }
                                 }
+                            }
 
-                                // 提取双链 GUID
-                                if (!string.IsNullOrWhiteSpace(b.Data))
+                            // 防御性清理：如果这个白板以前不小心在 Blocks 表里存了数据，顺手清理掉，避免产生垃圾数据
+                            var obsoleteBlocks = await _context.Blocks.Where(b => b.OwnerId == dto.NoteId.ToString()).ToListAsync();
+                            if (obsoleteBlocks.Any())
+                            {
+                                _context.Blocks.RemoveRange(obsoleteBlocks);
+                            }
+                        }
+                        else
+                        {
+                            // 🛣️ 路线 B：普通笔记/Wiki -> 走你原来的 Blocks 表增量 UPSERT 路线（保留块级排版能力）
+                            var existingBlocks = await _context.Blocks
+                                .Where(b => b.OwnerId == dto.NoteId.ToString() && b.OwnerType == note.Type)
+                                .ToDictionaryAsync(b => b.Id);
+
+                            if (dto.Blocks != null)
+                            {
+                                // 遍历前端传来的块，带上索引 i 提供兜底 SortOrder
+                                foreach (var (b, index) in dto.Blocks.Select((item, i) => (item, i)))
                                 {
-                                    var matches = Regex.Matches(b.Data, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
-                                    foreach (Match match in matches)
+                                    if (existingBlocks.TryGetValue(b.Id, out var dbBlock))
                                     {
-                                        if (Guid.TryParse(match.Value, out Guid linkedId) && linkedId != dto.NoteId)
+                                        bool isChanged = false;
+                                        var newData = b.Data ?? string.Empty;
+                                        var newSortOrder = b.SortOrder ?? index;
+
+                                        if (dbBlock.Data != newData) { dbBlock.Data = newData; isChanged = true; }
+                                        if (dbBlock.SortOrder != newSortOrder) { dbBlock.SortOrder = newSortOrder; isChanged = true; }
+                                        if (dbBlock.Type != b.Type) { dbBlock.Type = b.Type; isChanged = true; }
+
+                                        if (isChanged) dbBlock.UpdatedAt = DateTime.UtcNow;
+
+                                        existingBlocks.Remove(b.Id);
+                                    }
+                                    else
+                                    {
+                                        _context.Blocks.Add(new Block
                                         {
-                                            currentOutlinkIds.Add(linkedId);
+                                            Id = b.Id,
+                                            OwnerId = dto.NoteId.ToString(),
+                                            OwnerType = note.Type, // 继承宿主Type，命中复合索引
+                                            Type = b.Type,
+                                            Data = b.Data ?? string.Empty,
+                                            SortOrder = b.SortOrder ?? index,
+                                            UpdatedAt = DateTime.UtcNow
+                                        });
+                                    }
+
+                                    // 提取单个块的双链 GUID
+                                    if (!string.IsNullOrWhiteSpace(b.Data))
+                                    {
+                                        var matches = Regex.Matches(b.Data, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+                                        foreach (Match match in matches)
+                                        {
+                                            if (Guid.TryParse(match.Value, out Guid linkedId) && linkedId != dto.NoteId)
+                                            {
+                                                currentOutlinkIds.Add(linkedId);
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
 
-                        // 清理前端已删除的旧区块
-                        if (existingBlocks.Any())
-                        {
-                            _context.Blocks.RemoveRange(existingBlocks.Values);
+                            // 清理前端已删除的旧区块
+                            if (existingBlocks.Any())
+                            {
+                                _context.Blocks.RemoveRange(existingBlocks.Values);
+                            }
                         }
 
                         // ========================================================================
-                        // 3. 增量更新 NoteLinks 表 (双链)
+                        // 3. 增量更新 NoteLinks 表 (双链) - 公共逻辑，无需修改
                         // ========================================================================
                         var existingLinks = await _context.NoteLinks
                             .Where(nl => nl.SourceNoteId == dto.NoteId)
@@ -662,7 +797,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         }
 
                         // ========================================================================
-                        // 4. 同步标签系统
+                        // 4. 同步标签系统 - 公共逻辑，无需修改
                         // ========================================================================
                         if (dto.Tags != null)
                         {
@@ -739,6 +874,11 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 return StatusCode(500, $"灵脉同步异常: {ex.Message}");
             }
         }
+
+
+
+
+
 
 
         #endregion

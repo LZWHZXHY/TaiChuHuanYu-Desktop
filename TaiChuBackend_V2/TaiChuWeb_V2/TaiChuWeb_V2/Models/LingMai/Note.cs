@@ -27,6 +27,11 @@ namespace TaiChuWeb_V2.Models.LingMai
         [MaxLength(20)]
         public string Type { get; set; } = NoteTypes.Note; // note 或 thought
 
+
+        [Column(TypeName = "json")]
+        public string? BlocksData { get; set; }
+
+
         [Required]
         [MaxLength(255)]
         public string Title { get; set; } = string.Empty;

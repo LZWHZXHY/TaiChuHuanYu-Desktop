@@ -230,6 +230,15 @@ export const slashCommands = [
     }
   },
   {
+    label: '待办事项', 
+    icon: '☑️',
+    command: (editor: any) => {
+      const { from, to } = editor.state.selection
+      // 删除触发指令的 '/' 符号，并切换为待办事项列表
+      editor.chain().focus().deleteRange({ from: from - 1, to }).toggleTaskList().run()
+    }
+  },
+  {
     label: '有序列表', icon: '1.',
     command: (editor: any) => {
       const { from, to } = editor.state.selection

@@ -4,7 +4,7 @@ import { bus } from './bus';
 // 1. 创建原始实例
 const request = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
-  timeout: 8000,
+  timeout: 15000,
 });
 
 // 2. 请求拦截器
