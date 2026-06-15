@@ -139,6 +139,10 @@
         </div>
       </div>
     </transition>
+
+
+    <SpiritToast ref="toastRef" />
+
   </div>
 </template>
 
@@ -159,11 +163,16 @@ import WorkspaceArt from './components/WorkspaceArt.vue';
 import WorkspaceCanvas from './components/WorkspaceCanvas.vue';
 import WorkspaceMap from './components/WorkspaceMap.vue';
 
-
+import SpiritToast from '@/components/SpiritToast.vue';
 
 import { useSpiritData } from '../../composables/useSpiritData';
 import { lingmaiApi } from '../../api/lingmai';
 import { wikiApi } from '@/api/Wiki'; 
+
+
+
+
+
 
 type NoteType = 'note' | 'thought' | 'wiki' | 'char' | 'art' | 'folder' | 'canvas' | 'map';
 
@@ -178,6 +187,7 @@ const isSidebarOpen = ref(false);
 const isHistoryOpen = ref(false); 
 const isGraphViewOpen = ref(false);
 const editorRef = ref();
+const toastRef = ref(); // 🌟 抓取 Toast 组件的实例
 const isContentLoading = ref(false);
 const showPublishModal = ref(false);
 const spaces = ref<any[]>([]); 
@@ -440,7 +450,7 @@ const executeNetworkSync = async (editorJson: any) => {
   let finalExtraData = activeNote.value?.extraData || '[]';
 
   if ((activeNote.value?.type === 'art' || activeNote.value?.type === 'canvas') && workspaceBlocks.value.length) {
-  finalBlocks = workspaceBlocks.value;
+    finalBlocks = workspaceBlocks.value;
   }
   else if (editorJson && editorJson.content) {
     finalBlocks = editorJson.content.map((b: any, i: number) => ({
@@ -469,8 +479,12 @@ const executeNetworkSync = async (editorJson: any) => {
 
   try {
     await lingmaiApi.updateNoteContent(safeNoteId, syncPayload);
+    
+    // 🌟 增加轻量级、短停留时间的自动保存提示（1.5秒后迅速消失）
+    toastRef.value?.show("☁️ 已自动同步", 1500); 
   } catch (e) {
     console.error("同步失败:", e);
+    toastRef.value?.show("❌ 灵脉连接波动，自动同步失败");
   }
 };
 
@@ -480,19 +494,32 @@ const handleSave = async () => {
     try {
       const data = wikiEditData.value as any;
       if(typeof (wikiApi as any).updateFromNote === 'function') {
-         await (wikiApi as any).updateFromNote({ articleId: data.id, content: JSON.stringify(content), summary: isWikiAuthor.value ? "原作者更新" : "协作修改", baseRevisionId: data.currentRevisionId || data.revisionId });
-        alert("提交成功！");
+         await (wikiApi as any).updateFromNote({ 
+           articleId: data.id, 
+           content: JSON.stringify(content), 
+           summary: isWikiAuthor.value ? "原作者更新" : "协作修改", 
+           baseRevisionId: data.currentRevisionId || data.revisionId 
+         });
+         
+        // 🌟 修改点 1：Wiki 保存成功提示
+        toastRef.value?.show("✨ 百科词条提交成功！");
       }
       exitWikiMode();
     } catch (e: any) {
-      if (e.response && e.response.status === 409) alert("⚠️ 提交失败：词条已被更新。");
-      else alert("操作失败，请重试");
+      // 🌟 修改点 2 & 3：错误状态提示
+      if (e.response && e.response.status === 409) {
+        toastRef.value?.show("⚠️ 提交失败：词条已被更新。");
+      } else {
+        toastRef.value?.show("❌ 操作失败，请重试");
+      }
     }
   } else {
     if (!editorRef.value) return;
     if (syncDebounceTimer) clearTimeout(syncDebounceTimer); 
     await executeNetworkSync(editorRef.value.getJSON());
-    alert("灵脉同步成功！");
+    
+    // 🌟 修改点 4：普通灵脉笔记同步成功提示
+    toastRef.value?.show("✨ 灵脉同步成功！");
   }
 };
 

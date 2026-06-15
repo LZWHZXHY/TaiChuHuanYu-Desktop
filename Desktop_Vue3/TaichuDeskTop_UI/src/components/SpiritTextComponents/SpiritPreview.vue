@@ -108,9 +108,13 @@ const renderedHtml = computed(() => {
 });
 </script>
 
-<style scoped>
-/* 🌟 引入刚剥离出来的灵魂样式 */
+<style>
 @import "./spirit-typography.css";
+</style>
+
+
+<style scoped>
+
 
 .spirit-render-engine {
   width: 100%;
