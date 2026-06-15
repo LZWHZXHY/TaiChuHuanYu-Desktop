@@ -353,9 +353,14 @@ defineExpose({
 });
 </script>
 
+<style>
+@import "./SpiritTextComponents/spirit-typography.css";
+</style>
+
+
 <style scoped>
 /* 1. 引入公共排版引擎样式 */
-@import "./SpiritTextComponents/spirit-typography.css";
+
 
 /* 2. 编辑器外层容器 */
 .spirit-editor-wrapper {
