@@ -253,8 +253,9 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             var isOwner = await _context.Spaces.AnyAsync(s => s.Id == spaceId && s.UserId == CurrentUserId);
             if (!isOwner) return Forbid();
 
+            // 1. 拉取所有活跃的 Notes
             var notes = await _context.Notes
-                .Where(n => n.SpaceId == spaceId && n.Status == (int)NoteStatus.Active) // 🌟 核心修改：仅查询 Active (0) 状态
+                .Where(n => n.SpaceId == spaceId && n.Status == (int)NoteStatus.Active)
                 .OrderByDescending(n => n.UpdatedAt)
                 .Select(n => new {
                     n.Id,
@@ -266,14 +267,45 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                     n.ShowInSidebar,
                     n.SortOrder,
                     n.CreatedAt,
-                    n.UpdatedAt
+                    n.UpdatedAt,
+                    n.Tags,
+                    n.ExtraData
                 })
                 .ToListAsync();
 
-            return Ok(notes);
+            // 2. 提取所有 Note 的 ID
+            var noteIds = notes.Select(n => n.Id.ToString()).ToList();
+
+            // 3. 🌟 核心修复：批量查询这些 Note 下属的所有 Blocks (避免 N+1 性能黑洞)
+            var allBlocks = await _context.Blocks
+                .Where(b => noteIds.Contains(b.OwnerId))
+                .Select(b => new { b.Id, b.OwnerId, b.Type, b.Data, b.SortOrder })
+                .ToListAsync();
+
+            // 4. 在内存中将 Blocks 拼接到对应的 Note 身上
+            var result = notes.Select(n => new {
+                n.Id,
+                n.Title,
+                n.SpaceId,
+                n.FolderId,
+                n.Type,
+                n.IsPublic,
+                n.ShowInSidebar,
+                n.SortOrder,
+                n.CreatedAt,
+                n.UpdatedAt,
+                tags = string.IsNullOrWhiteSpace(n.Tags)
+                        ? Array.Empty<string>()
+                        : n.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(t => t.Trim()).ToArray(),
+                extraData = n.ExtraData,
+                // 👇 将归属于此卡片的万能块组装进去
+                blocks = allBlocks.Where(b => b.OwnerId == n.Id.ToString()).OrderBy(b => b.SortOrder).ToList()
+            });
+
+            return Ok(result);
         }
 
-        
+
 
         // 🌟 恢复动作：从归档库放回侧边栏
         [HttpPatch("notes/{id:guid}/restore")]
@@ -302,40 +334,65 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         {
             if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
 
-            // 1. 去掉 .Include(n => n.Blocks)
+            // 1. 获取核心 Note 实体
             var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == id);
             if (note == null) return NotFound(new { message = "该笔记不存在" });
 
+            // 2. 权限校验
             var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
             if (!isOwner) return Forbid();
 
-            // 2. 手动查询该 Note 下绑定的 Blocks
+            // ==========================================
+            // 🌟 核心修复 1：拉取该碎片绑定的所有万能块
+            // ==========================================
             var blocks = await _context.Blocks
-                .Where(b => b.OwnerId == id.ToString() && b.OwnerType == "note")
-                .OrderBy(b => b.SortOrder)
-                .Select(b => new { b.Id, b.Type, b.Data, b.SortOrder })
+                .Where(b => b.OwnerId == id.ToString() && b.OwnerType == note.Type)
+                .OrderBy(b => b.SortOrder) // 保证前端渲染顺序
+                .Select(b => new
+                {
+                    id = b.Id,
+                    type = b.Type,
+                    data = b.Data,
+                    sortOrder = b.SortOrder
+                })
                 .ToListAsync();
 
-            // 🌟 3. 新增：解析标签快照字符串为数组
-            var tagsArray = string.IsNullOrWhiteSpace(note.Tags)
-                ? Array.Empty<string>()
-                : note.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(t => t.Trim()).ToArray();
+            // ==========================================
+            // 🌟 核心修复 2：JSON 反序列化解析 Tags
+            // ==========================================
+            string[] tagsArray = Array.Empty<string>();
+            if (!string.IsNullOrWhiteSpace(note.Tags))
+            {
+                try
+                {
+                    // 尝试按新的 JSON 格式解析
+                    tagsArray = JsonSerializer.Deserialize<string[]>(note.Tags) ?? Array.Empty<string>();
+                }
+                catch (JsonException)
+                {
+                    // 🌟 平滑过渡：如果解析失败，说明是老数据（逗号分隔的），回退到 Split 模式
+                    tagsArray = note.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                                         .Select(t => t.Trim())
+                                         .ToArray();
+                }
+            }
 
+            // 3. 组装多态数据返回给前端
             return Ok(new
             {
-                note.Id,
-                note.Title,
-                note.SpaceId,
-                note.FolderId,
-                note.Type,
-                note.IsPublic,
-                extraData = note.ExtraData,
-                tags = tagsArray,             // 🌟 关键补全：返回解析后的标签数组
-                note.ShowInSidebar,
-                note.SortOrder,
-                note.CreatedAt,
-                note.UpdatedAt,
-                Blocks = blocks
+                id = note.Id,
+                title = note.Title,
+                spaceId = note.SpaceId,
+                folderId = note.FolderId,
+                type = note.Type,
+                isPublic = note.IsPublic,
+                extraData = note.ExtraData,   // 包含地图底图等扩展属性
+                tags = tagsArray,             // 完美的数组格式
+                showInSidebar = note.ShowInSidebar,
+                sortOrder = note.SortOrder,
+                createdAt = note.CreatedAt,
+                updatedAt = note.UpdatedAt,
+                blocks = blocks               // 🌟 塞入万能块大军
             });
         }
 
@@ -495,7 +552,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             {
                 return await strategy.ExecuteAsync<IActionResult>(async () =>
                 {
-                    // 🌟 优化：将查询前置到重试策略内部，避免重试时持有过期的脏数据
                     var note = await _context.Notes.FindAsync(dto.NoteId);
                     if (note == null) return NotFound(new { message = "未找到对应的笔记" });
 
@@ -511,7 +567,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         note.UpdatedAt = DateTime.UtcNow;
 
                         // ========================================================================
-                        // 2. 块数据的增量 UPSERT (🌟 终极绝杀：开启 EF Core 智能追踪差分更新)
+                        // 2. 块数据的增量 UPSERT (万能块核心逻辑)
                         // ========================================================================
                         var existingBlocks = await _context.Blocks
                             .Where(b => b.OwnerId == dto.NoteId.ToString() && b.OwnerType == note.Type)
@@ -521,26 +577,20 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
                         if (dto.Blocks != null)
                         {
-                            foreach (var b in dto.Blocks)
+                            // 遍历前端传来的块，带上索引 i 提供兜底 SortOrder
+                            foreach (var (b, index) in dto.Blocks.Select((item, i) => (item, i)))
                             {
                                 if (existingBlocks.TryGetValue(b.Id, out var dbBlock))
                                 {
-                                    // 🌟 核心性能优化点：按需对比，拒绝全量覆盖
                                     bool isChanged = false;
                                     var newData = b.Data ?? string.Empty;
-                                    var newSortOrder = b.SortOrder ?? 0;
+                                    var newSortOrder = b.SortOrder ?? index;
 
                                     if (dbBlock.Data != newData) { dbBlock.Data = newData; isChanged = true; }
                                     if (dbBlock.SortOrder != newSortOrder) { dbBlock.SortOrder = newSortOrder; isChanged = true; }
                                     if (dbBlock.Type != b.Type) { dbBlock.Type = b.Type; isChanged = true; }
 
-                                    if (isChanged)
-                                    {
-                                        dbBlock.UpdatedAt = DateTime.UtcNow;
-                                        // 🚨 故意去掉了 _context.Blocks.Update(dbBlock); 
-                                        // 因为对象是从数据库查出来的，EF Core 的 Change Tracker 已经在内存里盯着它了。
-                                        // 只有 isChanged 为 true 的属性，才会被 EF Core 自动生成一条极其精准的 UPDATE 语句。
-                                    }
+                                    if (isChanged) dbBlock.UpdatedAt = DateTime.UtcNow;
 
                                     existingBlocks.Remove(b.Id);
                                 }
@@ -550,10 +600,10 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                     {
                                         Id = b.Id,
                                         OwnerId = dto.NoteId.ToString(),
-                                        OwnerType = note.Type, // 👈 动态识别，完美兼容 "canvas"
+                                        OwnerType = note.Type, // 继承宿主Type，命中复合索引
                                         Type = b.Type,
                                         Data = b.Data ?? string.Empty,
-                                        SortOrder = b.SortOrder ?? 0,
+                                        SortOrder = b.SortOrder ?? index,
                                         UpdatedAt = DateTime.UtcNow
                                     });
                                 }
@@ -580,28 +630,20 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         }
 
                         // ========================================================================
-                        // 3. 增量更新 NoteLinks 表 (🌟 差分比对，拒绝全删全建)
+                        // 3. 增量更新 NoteLinks 表 (双链)
                         // ========================================================================
                         var existingLinks = await _context.NoteLinks
                             .Where(nl => nl.SourceNoteId == dto.NoteId)
                             .ToListAsync();
 
-                        // 提取数据库中已有的目标 ID 集合
                         var existingTargetIds = existingLinks.Select(nl => nl.TargetNoteId).ToHashSet();
 
-                        // 1. 找出需要删除的废弃链接（在数据库中存在，但前端这次没传过来）
                         var linksToRemove = existingLinks.Where(nl => !currentOutlinkIds.Contains(nl.TargetNoteId)).ToList();
-                        if (linksToRemove.Any())
-                        {
-                            _context.NoteLinks.RemoveRange(linksToRemove);
-                        }
+                        if (linksToRemove.Any()) _context.NoteLinks.RemoveRange(linksToRemove);
 
-                        // 2. 找出需要新增的链接（前端传过来了，但数据库里还没有）
                         var targetIdsToAdd = currentOutlinkIds.Where(id => !existingTargetIds.Contains(id)).ToList();
-
                         if (targetIdsToAdd.Any())
                         {
-                            // 批量验证这些新增的目标 ID 是否在数据库真实存在 (完美避免 N+1)
                             var validTargetIds = await _context.Notes
                                 .Where(n => targetIdsToAdd.Contains(n.Id))
                                 .Select(n => n.Id)
@@ -624,7 +666,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         // ========================================================================
                         if (dto.Tags != null)
                         {
-                            note.Tags = dto.Tags.Any() ? string.Join(",", dto.Tags) : null;
+                            note.Tags = dto.Tags.Any() ? JsonSerializer.Serialize(dto.Tags) : null;
 
                             var oldTags = await _context.TagAssignments
                                 .Where(ta => ta.EntityId == dto.NoteId.ToString() && ta.EntityType == "Note")
@@ -636,7 +678,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                 var cleanTags = dto.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).ToList();
                                 var normalizedTags = cleanTags.Select(t => t.ToLower()).ToList();
 
-                                // 一次性查出数据库中已有的标签
                                 var existingDbTags = await _context.Tags
                                     .Where(t => t.SpaceId == note.SpaceId && normalizedTags.Contains(t.NormalizedName))
                                     .ToDictionaryAsync(t => t.NormalizedName);
@@ -656,7 +697,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                             CreatedAt = DateTime.UtcNow
                                         };
                                         _context.Tags.Add(tag);
-                                        existingDbTags[normalizedName] = tag; // 存入字典以备本次循环复用
+                                        existingDbTags[normalizedName] = tag;
                                     }
 
                                     _context.TagAssignments.Add(new TagAssignment
@@ -671,7 +712,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                             }
                         }
 
-                        // 🌟 最终只有在这里才会真正去操作数据库，零多余更新，毫秒级响应！
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
 
@@ -680,7 +720,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                     catch (DbUpdateException ex) when (ex.InnerException is MySqlConnector.MySqlException mySqlEx && mySqlEx.Number == 1213)
                     {
                         await transaction.RollbackAsync();
-                        Console.WriteLine("⚠️ 检测到死锁，已自动降级无痕回滚，让路给下一发最新请求。");
                         return Ok(new { success = true, message = "并发重叠已由新版本覆盖" });
                     }
                     catch (DbUpdateConcurrencyException)

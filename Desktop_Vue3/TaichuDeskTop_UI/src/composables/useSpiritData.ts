@@ -180,7 +180,9 @@ const getNotesInFolder = (folderId: string) =>
         resonance: n.resonance || 0,
         status: n.status || 0,
         targetId: n.targetId || null,
-        tags: n.tags || [] // 🌟 新增：初始化为空数组
+        tags: n.tags || [], // 🌟 新增：初始化为空数组
+        blocks: n.blocks || [],
+        extraData: n.extraData || '[]'
       }));
 
       const hasValidNote = notes.value.some(n => n.id === currentNoteId.value);

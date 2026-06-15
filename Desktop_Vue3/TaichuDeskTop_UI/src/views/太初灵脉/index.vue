@@ -207,16 +207,24 @@ const isQuickEditorLoading = ref(false);
 const quickEditorRef = ref();
 let quickSyncTimer: any = null;
 
-// 当白板节点被双击时触发
+// 找到并完全替换原有的 handleOpenQuickEditor
 const handleOpenQuickEditor = async (targetId: string) => {
-  quickEditorNoteId.value = targetId;
-  isQuickEditorOpen.value = true;
   isQuickEditorLoading.value = true;
 
   try {
     const targetNote: any = await lingmaiApi.getNote(targetId); 
     
-    // 🌟 将卡片的本体属性缓存下来
+    // 🌟 核心拦截 1：如果双击的是画板、地图或文件夹，Tiptap 无法解析！
+    // 我们直接关闭抽屉，让背后的主视图无缝跳进这个画板中。
+    if (targetNote.type === 'canvas' || targetNote.type === 'folder' || targetNote.type === 'map') {
+       isQuickEditorOpen.value = false;
+       selectNote(targetId, true); 
+       return;
+    }
+
+    // 如果是纯文本类型，才安全地打开抽屉
+    quickEditorNoteId.value = targetId;
+    isQuickEditorOpen.value = true;
     quickEditorNoteMeta.value = targetNote || {}; 
     
     // 初始化编辑器内容
@@ -225,9 +233,14 @@ const handleOpenQuickEditor = async (targetId: string) => {
         let contentToSet = { type: 'doc', content: [{ type: 'paragraph' }] };
         
         if (targetNote.blocks && targetNote.blocks.length > 0) {
-           contentToSet.content = targetNote.blocks.map((b: any) => {
+           // 🌟 核心拦截 2：加一道保险，强行过滤掉意外混入的画板数据，防止编辑器崩溃
+           const parsedBlocks = targetNote.blocks.map((b: any) => {
              try { return JSON.parse(b.data); } catch { return null; }
-           }).filter((b: any) => b);
+           }).filter((b: any) => b && b.type !== 'canvas-node' && b.type !== 'canvas-edge');
+
+           if (parsedBlocks.length > 0) {
+             contentToSet.content = parsedBlocks;
+           }
         }
 
         quickEditorRef.value.editor.commands.setContent(contentToSet);
@@ -281,6 +294,11 @@ const handleQuickEditorChange = (json: any) => {
 const handleWorkspaceChange = (payload: any) => {
   if (payload && Array.isArray(payload.blocks)) {
     workspaceBlocks.value = payload.blocks;
+    
+    if (activeNote.value) {
+      activeNote.value.blocks = payload.blocks;
+    }
+    
     triggerDebouncedSync();
   }
 };
@@ -318,6 +336,9 @@ const canPublishDynamic = computed(() => {
 
 watch(currentNoteId, () => { 
   currentEditorJson.value = null; 
+
+  workspaceBlocks.value = [];
+
   if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
   
   if (activeNote.value?.extraData) {
