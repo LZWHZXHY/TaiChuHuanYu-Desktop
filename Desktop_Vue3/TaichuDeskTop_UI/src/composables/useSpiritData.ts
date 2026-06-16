@@ -51,39 +51,35 @@ const isLoading = ref(false);
 
 export function useSpiritData() {
 
-
   const enterWikiMode = async (wikiId: string) => {
-  isLoading.value = true;
-  try {
-    const data = await wikiApi.getArticleDetail(wikiId);
-    
-    wikiEditData.value = {
-      id: wikiId,
-      title: data.title,
-      content: typeof data.content === 'string' ? JSON.parse(data.content) : data.content,
+    isLoading.value = true;
+    try {
+      const data = await wikiApi.getArticleDetail(wikiId);
       
-      // 🌟 核心修复：把后端传来的作者 ID 和版本号接住！
-      authorId: data.authorId,
-      currentRevisionId: data.currentRevisionId 
-    };
-    
-    isWikiMode.value = true;
-    currentNoteId.value = ''; // 清空选中笔记，避免冲突
-  } catch (e) {
-    console.error("Wiki 加载失败", e);
-    throw e;
-  } finally {
-    isLoading.value = false;
-  }
-};
+      wikiEditData.value = {
+        id: wikiId,
+        title: data.title,
+        content: typeof data.content === 'string' ? JSON.parse(data.content) : data.content,
+        
+        // 🌟 核心修复：把后端传来的作者 ID 和版本号接住！
+        authorId: data.authorId,
+        currentRevisionId: data.currentRevisionId 
+      };
+      
+      isWikiMode.value = true;
+      currentNoteId.value = ''; // 清空选中笔记，避免冲突
+    } catch (e) {
+      console.error("Wiki 加载失败", e);
+      throw e;
+    } finally {
+      isLoading.value = false;
+    }
+  };
 
   const exitWikiMode = () => {
     isWikiMode.value = false;
     wikiEditData.value = null;
   };
-
-
-
 
   const archiveNote = async (noteId: string) => {
     try {
@@ -109,8 +105,6 @@ export function useSpiritData() {
     }
   };
 
-
-
   // 当前选中的笔记对象
   const activeNote = computed<SpiritNote | null>(() => {
     return notes.value.find(n => n.id === currentNoteId.value) || null;
@@ -120,32 +114,32 @@ export function useSpiritData() {
   const folders = computed(() => notes.value.filter(n => n.type === 'folder'));
   
   // 1. 根目录笔记：除了文件夹以外的所有活跃内容
-const rootNotes = computed(() => {
-  // 先提取当前真实存在的所有文件夹 ID 集合
-  const validFolderIds = new Set(folders.value.map(f => f.id));
-  
-  return notes.value.filter(n => {
-    // 1. 过滤掉文件夹本身
-    if (n.type === 'folder') return false;
-    // 2. 过滤掉非活跃的
-    if (n.status !== 0) return false;
-    // 3. 过滤掉不允许侧边栏显示的
-    if (n.showInSidebar === false) return false;
+  const rootNotes = computed(() => {
+    // 先提取当前真实存在的所有文件夹 ID 集合
+    const validFolderIds = new Set(folders.value.map(f => f.id));
     
-    // 🌟 核心逻辑：如果没有 folderId，或者是找不到“生父”的孤儿，通通算作根目录碎片
-    const isOrphan = n.folderId && !validFolderIds.has(n.folderId);
-    return !n.folderId || isOrphan;
+    return notes.value.filter(n => {
+      // 1. 过滤掉文件夹本身
+      if (n.type === 'folder') return false;
+      // 2. 过滤掉非活跃的
+      if (n.status !== 0) return false;
+      // 3. 过滤掉不允许侧边栏显示的
+      if (n.showInSidebar === false) return false;
+      
+      // 🌟 核心逻辑：如果没有 folderId，或者是找不到“生父”的孤儿，通通算作根目录碎片
+      const isOrphan = n.folderId && !validFolderIds.has(n.folderId);
+      return !n.folderId || isOrphan;
+    });
   });
-});
 
-// 2. 文件夹内的笔记：逻辑一致，只是多了 folderId 匹配
-const getNotesInFolder = (folderId: string) => 
-  notes.value.filter(n => 
-    n.folderId === folderId && 
-    n.type !== 'folder' &&           // 🌟 同样，只要不是文件夹就行
-    n.showInSidebar !== false && 
-    n.status === 0
-  );
+  // 2. 文件夹内的笔记：逻辑一致，只是多了 folderId 匹配
+  const getNotesInFolder = (folderId: string) => 
+    notes.value.filter(n => 
+      n.folderId === folderId && 
+      n.type !== 'folder' &&            // 🌟 同样，只要不是文件夹就行
+      n.showInSidebar !== false && 
+      n.status === 0
+    );
 
   const fetchAllNotes = async () => {
     if (!currentSpaceId.value || currentSpaceId.value === "" || currentSpaceId.value.startsWith('0000')) {
@@ -279,11 +273,12 @@ const getNotesInFolder = (folderId: string) =>
         
         // 🌟 视界隔离：只有长文随笔默认显示在侧边栏中
         showInSidebar: selectedType === 'note' || selectedType === 'folder',
-        isPublic: selectedType === 'thought', // 简语默认公开，随笔默认私密
+        // 🌟【核心修复点】：将废弃的 selectedType === 'thought' 完美更新为标准短动态 'post'
+        isPublic: selectedType === 'post', // 简语动态默认公开，文章随笔默认私密
         resonance: 0,
         status: 0,
         targetId: null,
-        tags: [] // 🌟 新增：新创建的笔记标签为空
+        tags: [] 
       };
 
       notes.value.unshift(newNote);
@@ -333,15 +328,12 @@ const getNotesInFolder = (folderId: string) =>
     }
     note.updateAt = Date.now();
 
-    // B. 组装最完美的 Payload 炸弹，涵盖当前笔记的所有状态
-    // 注意：如果在前端直接转换 block 困难，我们需要借助 lingmaiApi 里的 flatten 工具
-    // 假设你在 useSpiritData 里无法直接导入 flattenTiptapJson，最稳妥的做法是将完整数据交给 API 层去 flatten
+    // B. 组装最完美的 Payload 涵盖当前笔记的所有状态
     const payload = {
       noteId: note.id,
       title: note.title || '',
       extraData: note.extraData || '[]',
-      tags: note.tags || [], // 🌟 标签数据终于上车了！
-      // 关键：将原始的 tiptap 对象传过去，让 API 层的 flattenTiptapJson 去处理扁平化
+      tags: note.tags || [], 
       rawContent: note.content 
     };
 
@@ -375,7 +367,6 @@ const getNotesInFolder = (folderId: string) =>
     if (note) {
       const targetState = !note.isPublic;
       try {
-        // 调用你已有的后端 API 更新公开状态
         await lingmaiApi.updateNotePublishStatus(id, targetState);
         note.isPublic = targetState;
         note.updateAt = Date.now();

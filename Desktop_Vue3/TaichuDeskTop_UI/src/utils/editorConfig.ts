@@ -12,6 +12,46 @@ import Image from '@tiptap/extension-image'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Mention from '@tiptap/extension-mention'
+import { VueNodeViewRenderer } from '@tiptap/vue-3'
+import PanelGraphBlock from '@/components/SpiritTextComponents/PanelGraphBlock.vue'
+
+
+
+const PanelGraphNode = Node.create({
+  name: 'panelGraph',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+
+  addAttributes() {
+    return {
+      // 默认可以给一个简单的 3 维或 4 维作为初始种子，用户可以肆意增减或修改
+      attributesList: {
+        default: [
+          { name: '属性A', value: 50, min: 0, max: 100 },
+          { name: '属性B', value: 50, min: 0, max: 100 },
+          { name: '属性C', value: 50, min: 0, max: 100 },
+        ]
+      }
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-type="panel-graph"]' }]
+  },
+
+  renderHTML({ HTMLAttributes, node }) {
+    return ['div', mergeAttributes(HTMLAttributes, { 'data-type': 'panel-graph' }), JSON.stringify(node.attrs.attributesList)]
+  },
+
+  addNodeView() {
+    return VueNodeViewRenderer(PanelGraphBlock)
+  }
+})
+
+
+
 
 const SpiritNode = Node.create({
   name: 'spirit-link',
@@ -69,7 +109,7 @@ export const spiritExtensions = [
     nested: true,
     HTMLAttributes: { class: 'spirit-task-item' },
   }),
-  // 🌟🌟🌟 核心修改：直接扩展 Image，保留节点名 'image'，添加 caption 和 NodeView
+  PanelGraphNode,
 
 
   // 🌟🌟🌟 核心修改：直接扩展 Image，保留节点名 'image'，添加 caption 和 NodeView
@@ -250,6 +290,28 @@ export const slashCommands = [
     command: (editor: any) => {
       const { from, to } = editor.state.selection
       editor.chain().focus().deleteRange({ from: from - 1, to }).toggleCodeBlock().run()
+    }
+  },
+  {
+    label: '自定义属性面板图',
+    icon: '📊',
+    command: (editor: any) => {
+      const { from, to } = editor.state.selection
+      editor.chain()
+        .focus()
+        .deleteRange({ from: from - 1, to }) // 擦除 '/'
+        .insertContent({
+          type: 'panelGraph',
+          attrs: {
+            // 初始只给 3 个基础轴，剩下的交给用户肆意设计
+            attributesList: [
+              { name: '力量', value: 10, min: 0, max: 100 },
+              { name: '敏捷', value: 10, min: 0, max: 100 },
+              { name: '智力', value: 10, min: 0, max: 100 }
+            ]
+          }
+        })
+        .run()
     }
   },
   {

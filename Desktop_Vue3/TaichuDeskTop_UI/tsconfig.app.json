@@ -4,16 +4,20 @@
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "types": ["vite/client"],
 
-
     "paths": {
       "@/*": ["./src/*"]
     },
 
+    /* 🌟 核心补丁：解除 luckysheet 的纯 JS 静态分析警报 */
+    "allowJs": true,          // 允许编译器包容并解析 node_modules 和 src 下的纯 .js 物理文件
+    "checkJs": false,         // 只负责加载，不对第三方 .js 文件进行严格的 TypeScript 语法报错校验
+    "moduleResolution": "bundler", // 强力让 TS 采用现代 Vite 的高速寻址策略，完美握手 .d.ts 声明
+
     /* Linting */
-    "noUnusedLocals": false,//这里后面需要改成true
+    "noUnusedLocals": false, //这里后面需要改成true
     "noUnusedParameters": false, //这里后面需要改成true
     "erasableSyntaxOnly": false, //这里后面需要改成true
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue"]
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.d.ts"] 
 }

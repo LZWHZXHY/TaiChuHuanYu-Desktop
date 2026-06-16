@@ -21,6 +21,20 @@
       {{ blockData.text || '状态' }}
     </div>
 
+    <div v-else-if="block.type === 'excel-grid'" class="block-excel-preview">
+      <div class="excel-preview-header">
+        <span class="excel-icon">📊</span>
+        <span class="excel-tag">SPREADSHEET</span>
+      </div>
+      <div class="excel-preview-body">
+        <div class="preview-row" v-for="(row, rIdx) in tableShortCut" :key="rIdx">
+          <span v-for="(cell, cIdx) in row" :key="cIdx" class="preview-cell">
+            {{ cell }}
+          </span>
+        </div>
+      </div>
+    </div>
+
     <div v-else-if="!['canvas-node', 'canvas-edge', 'text', 'hardBreak', 'horizontalRule'].includes(block.type)" class="block-unknown">
       [未知能量块: {{ block.type }}]
     </div>
@@ -64,6 +78,21 @@ const parsedText = computed(() => {
     }
   } catch (e) {}
   return ''
+})
+
+// 🌟 新增：切出 Excel 的前 2 行 3 列用于白板卡片微缩视窗展示
+const tableShortCut = computed(() => {
+  try {
+    if (blockData.value && blockData.value.cells && Array.isArray(blockData.value.cells)) {
+      return blockData.value.cells.slice(0, 2).map((row: any) => {
+        if (Array.isArray(row)) {
+          return row.slice(0, 3).map(cell => (cell !== null && cell !== undefined ? cell : ''))
+        }
+        return ['', '', '']
+      })
+    }
+  } catch (e) {}
+  return [['(空表格)']]
 })
 </script>
 
@@ -129,6 +158,52 @@ const parsedText = computed(() => {
 .status-processing { background: #e5f0ff; color: #0066cc; }
 .status-done { background: #e8f5e9; color: #34c759; }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* 🌟 新增：Excel 电子表格微缩 Apple 风格样式 */
+.block-excel-preview {
+  background: #f5f5f7;
+  border: 1px solid #e5e5ea;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.excel-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.excel-icon { font-size: 12px; }
+.excel-tag { font-size: 9px; font-weight: 700; color: #86868b; letter-spacing: 0.05em; }
+
+.excel-preview-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+  padding: 4px;
+  overflow: hidden;
+}
+.preview-row {
+  display: flex;
+  gap: 2px;
+}
+.preview-cell {
+  flex: 1;
+  font-size: 10px;
+  color: #3a3a3c;
+  background: #fafafa;
+  padding: 2px;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: 0.5px solid #efeff4;
+}
 
 /* 兜底样式 */
 .block-unknown {

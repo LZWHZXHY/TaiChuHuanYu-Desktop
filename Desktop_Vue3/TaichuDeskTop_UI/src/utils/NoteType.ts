@@ -11,7 +11,8 @@ export type NoteType =
   | 'video'     // 灵脉影像
   | 'audio'     // 太初之音
   | 'canvas'    // 星图白板
-  | 'map';      // 世界地图
+  | 'map'      // 世界地图
+  | 'excel';
 
 // 2. 统一管理每种类型的显示文本和元数据
 export const NOTE_TYPE_CONFIG: Record<NoteType, { label: string; desc: string; icon: string }> = {
@@ -64,5 +65,10 @@ export const NOTE_TYPE_CONFIG: Record<NoteType, { label: string; desc: string; i
     label: '世界地图',
     desc: '俯视全局的纯平面坐标系地标',
     icon: '🗺️'
-  }
+  },
+  excel:{
+    label: 'Excel表格',
+    desc: '测试版excel表格',
+    icon: ''
+  },
 };

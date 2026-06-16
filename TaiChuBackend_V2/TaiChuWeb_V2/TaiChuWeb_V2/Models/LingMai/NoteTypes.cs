@@ -16,6 +16,7 @@ namespace TaiChuWeb_V2.Models.LingMai
 
         public const string Canvas = "canvas";     // 🌟 新增：星图白板
         public const string Map = "map";           // 🌟 新增：世界地图
+        public const string Excel = "excel";       // 🌟 新增：数据表格
 
         public static bool IsValid(string type)
         {
@@ -23,7 +24,7 @@ namespace TaiChuWeb_V2.Models.LingMai
             {
                 Note or Post or Art or Video or Audio
                 or Event or Character or Wiki or Community
-                or Canvas or Map => true,  // 🌟 在这里放行新的白板和地图类型
+                or Canvas or Map or Excel => true,  // 🌟 在这里放行新的白板、地图和数据表格类型
                 _ => false
             };
         }
@@ -35,8 +36,8 @@ namespace TaiChuWeb_V2.Models.LingMai
         {
             return type switch
             {
-                // 🌟 让白板和地图创建后默认出现在侧边栏中
-                Note or Wiki or Character or Community or Art or Blog or Post or Canvas or Map => true,
+                // 🌟 让白板、地图和数据表格创建后默认出现在侧边栏中
+                Note or Wiki or Character or Community or Art or Blog or Post or Canvas or Map or Excel => true,
                 _ => false
             };
         }
