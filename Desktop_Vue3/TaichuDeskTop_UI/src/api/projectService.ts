@@ -13,6 +13,7 @@ export interface ProjectMetadata {
   startTime?: string;
   endTime?: string;
   status: number;
+  hasApplied?: boolean; // 🌟 新增映射：公开广场用于判断用户是否已投递申请
 }
 
 // 修改项目时使用的传输对象
@@ -53,16 +54,22 @@ export interface MoveTaskDto {
   nextSortOrder?: number | null;
 }
 
-// 🌟 新增：成员管理相关的 Dto 声明
-// 在 projectService.ts 的类型声明区更新 Dto
 export interface InviteMemberDto {
   usernameOrId: string; // 🌟 接收用户名或唯一 ID 字符串
 }
 
-
-
 export interface UpdateMemberRoleDto {
   roleValue: number; // 0=owner, 1=admin, 2=editor, 3=executor, 4=viewer
+}
+
+// 🌟 新增：提交加入申请传输对象
+export interface SubmitApplicationDto {
+  message?: string;
+}
+
+// 🌟 新增：审批申请传输对象
+export interface HandleApplicationDto {
+  approve: boolean;
 }
 
 
@@ -147,6 +154,25 @@ const projectService = {
   // 🌟 核心：彻底抹除意图（删除任务）
   deleteTask: (projectId: string, taskId: string) =>
     request.delete(`/project/${projectId}/kanban/tasks/${taskId}`),
+
+  /* ========================================================
+     🌟 核心扩充：加入申请与审批模块 (完全对接 ProjectApplicationController)
+     ======================================================== */
+
+  // 1. 广场上点击申请加入或直接加入（后端会根据 joinPolicy 自动分流）
+  // 对应后端：POST api/project/{projectId}/applications/join
+  joinProject: (projectId: string, data: SubmitApplicationDto) =>
+    request.post(`/project/${projectId}/applications/join`, data),
+
+  // 2. 项目管理者视角：获取当前项目下所有待处理的申请列表
+  // 对应后端：GET api/project/{projectId}/applications/pending
+  getPendingApplications: (projectId: string) =>
+    request.get<any[]>(`/project/${projectId}/applications/pending`),
+
+  // 3. 项目管理者视角：审批申请（同意或拒绝）
+  // 对应后端：PUT api/project/{projectId}/applications/{applicationId}/handle
+  handleApplication: (projectId: string, applicationId: string, data: HandleApplicationDto) =>
+    request.put(`/project/${projectId}/applications/${applicationId}/handle`, data)
   
 };
 

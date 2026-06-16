@@ -162,6 +162,8 @@ import WorkspaceWiki from './components/WorkspaceWiki.vue';
 import WorkspaceArt from './components/WorkspaceArt.vue';
 import WorkspaceCanvas from './components/WorkspaceCanvas.vue';
 import WorkspaceMap from './components/WorkspaceMap.vue';
+import WorkspaceBlog from './components/WorkspaceBlog.vue';
+import WorkspacePost from './components/WorkspacePost.vue';
 
 import SpiritToast from '@/components/SpiritToast.vue';
 
@@ -198,6 +200,12 @@ const pendingWikiContent = ref<any>(null);
 const displayFilters = ref<Record<string, boolean>>({
   wiki: true, char: true, art: true, note: true, thought: true, folder: true, canvas: true 
 });
+
+const workspaceMap: Record<string, any> = {
+  note: WorkspaceNote, wiki: WorkspaceWiki, art: WorkspaceArt,
+  thought: WorkspaceNote, char: WorkspaceNote, folder: WorkspaceNote, canvas: WorkspaceCanvas,map: WorkspaceMap,blog: WorkspaceBlog,post: WorkspacePost
+};
+
 
 const isSettingsOpen = ref(false); 
 const currentEditorJson = ref<any>(null);
@@ -362,10 +370,7 @@ watch(currentNoteId, () => {
   }
 }, { immediate: true });
 
-const workspaceMap: Record<string, any> = {
-  note: WorkspaceNote, wiki: WorkspaceWiki, art: WorkspaceArt,
-  thought: WorkspaceNote, char: WorkspaceNote, folder: WorkspaceNote, canvas: WorkspaceCanvas,map: WorkspaceMap
-};
+
 
 const CurrentWorkspaceComponent = computed(() => workspaceMap[displayNote.value?.type || 'note'] || WorkspaceNote);
 

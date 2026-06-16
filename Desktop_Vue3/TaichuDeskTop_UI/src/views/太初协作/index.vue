@@ -24,20 +24,28 @@
     </header>
 
     <main class="project-grid">
+      <!-- 项目卡片 -->
       <div 
         v-for="project in displayProjects" 
         :key="project.id" 
         class="project-entry"
+        :class="{ 'actionable-entry': viewMode === 'public' && !project.isJoined }"
         @click="enterProject(project)"
       >
         <div class="entry-content">
           <div class="entry-header">
-            <span class="role-indicator" v-if="viewMode === 'mine'">
-              {{ getRoleLabel(project.roleId) }}
-            </span>
-            <span class="role-indicator joined-tag" v-else-if="project.isJoined">
-              已加入
-            </span>
+            <!-- 智能化身份与准入状态指示器 -->
+            <template v-if="viewMode === 'mine'">
+              <span class="role-indicator">{{ getRoleLabel(project.roleId) }}</span>
+            </template>
+            <template v-else>
+              <span class="role-indicator joined-tag" v-if="project.isJoined">已加入</span>
+              <span class="role-indicator pending-tag" v-else-if="project.hasApplied">申请中</span>
+              <span class="role-indicator open-tag" v-else-if="project.joinPolicy === 2">直接加入</span>
+              <span class="role-indicator apply-tag" v-else-if="project.joinPolicy === 1">申请加入</span>
+              <span class="role-indicator lock-tag" v-else>仅限邀请</span>
+            </template>
+            
             <h2 class="entry-name">{{ project.name }}</h2>
           </div>
           <p class="entry-desc">{{ project.description || '暂无愿景描述' }}</p>
@@ -61,6 +69,7 @@
         </div>
       </div>
 
+      <!-- 新增占位卡片 -->
       <div 
         v-if="viewMode === 'mine'"
         class="project-entry empty-placeholder" 
@@ -73,6 +82,7 @@
       </div>
     </main>
 
+    <!-- 弹窗：开启新项目 -->
     <Transition name="fade">
       <div v-if="showCreateModal" class="modal-overlay" @click.self="closeModal">
         <div class="minimal-modal">
@@ -125,6 +135,46 @@
         </div>
       </div>
     </Transition>
+
+    <!-- 弹窗：申请加入灵脉 (只有需要审批的项目才会唤起) -->
+    <Transition name="fade">
+      <div v-if="showApplyModal" class="modal-overlay" @click.self="closeApplyModal">
+        <div class="minimal-modal">
+          <header class="modal-inner-header">
+            <h2>申请加入灵脉</h2>
+            <p>向项目发起人提交你的协同意向</p>
+          </header>
+          
+          <div class="modal-body">
+            <div class="apply-target-preview">
+              <label>目标项目灵脉</label>
+              <h3>{{ selectedProject?.name }}</h3>
+            </div>
+
+            <div class="input-group">
+              <label>申请寄语 / 留言</label>
+              <textarea 
+                v-model="applyMessage" 
+                placeholder="阐述你想在此项目中扮演的角色或共建想法..." 
+                rows="3"
+                autofocus
+              ></textarea>
+            </div>
+          </div>
+
+          <footer class="modal-footer">
+            <button class="cancel-btn" @click="closeApplyModal">暂不加入</button>
+            <button 
+              class="confirm-btn" 
+              :disabled="isProcessingApply" 
+              @click="handleApplySubmit"
+            >
+              {{ isProcessingApply ? '正在传书...' : '发送申请' }}
+            </button>
+          </footer>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -137,9 +187,10 @@ const router = useRouter();
 const myProjects = ref<any[]>([]);
 const publicProjects = ref<any[]>([]);
 const viewMode = ref<'mine' | 'public'>('mine');
+
+// 创建灵脉状态
 const showCreateModal = ref(false);
 const isSubmitting = ref(false);
-
 const form = reactive({
   name: '',
   description: '',
@@ -148,7 +199,12 @@ const form = reactive({
   endTime: ''
 });
 
-// 计算属性：当前显示的列表
+// 🌟 申请加入状态
+const showApplyModal = ref(false);
+const isProcessingApply = ref(false);
+const applyMessage = ref('');
+const selectedProject = ref<any>(null);
+
 const displayProjects = computed(() => {
   return viewMode.value === 'mine' ? myProjects.value : publicProjects.value;
 });
@@ -168,7 +224,6 @@ const fetchProjects = async () => {
     if (viewMode.value === 'mine') {
       myProjects.value = await projectService.getMyProjects();
     } else {
-      // 假设你在 projectService 中添加了 getPublicProjects 方法
       publicProjects.value = await projectService.getPublicProjects();
     }
   } catch (err) {
@@ -176,9 +231,7 @@ const fetchProjects = async () => {
   }
 };
 
-// 监听视图模式切换
 watch(viewMode, fetchProjects);
-
 onMounted(fetchProjects);
 
 const handleCreate = async () => {
@@ -186,7 +239,6 @@ const handleCreate = async () => {
   
   isSubmitting.value = true;
   try {
-    // 提交前处理日期，防止后端解析空字符串报错
     const payload = {
       ...form,
       startTime: form.startTime || null,
@@ -205,9 +257,70 @@ const closeModal = () => {
   Object.assign(form, { name: '', description: '', isPublic: false, startTime: '', endTime: '' });
 };
 
-const enterProject = (project: any) => {
-  // 如果已加入，直接进入；如果未加入，跳转到预览或详情页处理申请
-  router.push(`/Project/project/${project.id}`);
+// 🌟 核心修改：智能处理卡片点击动作
+const enterProject = async (project: any) => {
+  // 1. 如果是“我的灵脉”或者已经加入的公开项目，直接进入其看板内部
+  if (viewMode.value === 'mine' || project.isJoined) {
+    router.push(`/Project/project/${project.id}`);
+    return;
+  }
+
+  // 2. 如果已经投递过申请且正在待审批状态，给予善意提示，不再重复触发
+  if (project.hasApplied) {
+    alert("该灵脉的加入申请正通过飞鸽传递中，请静候掌控者审阅。");
+    return;
+  }
+
+  // 3. 自由加入机制 (joinPolicy === 2)：点一下直接呼叫接口进组，并局部转为已加入状态
+  if (project.joinPolicy === 2) {
+    try {
+      await projectService.joinProject(project.id, { message: '' });
+      project.isJoined = true;
+      project.memberCount = (project.memberCount || 0) + 1;
+      alert("已成功融入该项目灵脉！");
+    } catch (err: any) {
+      alert(err.response?.data || "自由加入失败");
+    }
+    return;
+  }
+
+  // 4. 需要审批机制 (joinPolicy === 1)：唤起极简寄语弹窗
+  if (project.joinPolicy === 1) {
+    selectedProject.value = project;
+    showApplyModal.value = true;
+    return;
+  }
+
+  // 5. 仅限邀请 (joinPolicy === 0)
+  alert("该灵脉隐匿于现世，无法主动申请，需通过主理人点对点引入。");
+};
+
+// 🌟 核心提交：发送需要处理的加入申请
+const handleApplySubmit = async () => {
+  if (!selectedProject.value || isProcessingApply.value) return;
+
+  isProcessingApply.value = true;
+  try {
+    await projectService.joinProject(selectedProject.value.id, {
+      message: applyMessage.value
+    });
+    
+    // 局部状态无缝蜕变：更新为“申请中”，让 UI 动态响应
+    selectedProject.value.hasApplied = true;
+    
+    alert("申请传书成功，已递交至掌控者。");
+    closeApplyModal();
+  } catch (err: any) {
+    alert(err.response?.data || "递交申请失败");
+  } finally {
+    isProcessingApply.value = false;
+  }
+};
+
+const closeApplyModal = () => {
+  showApplyModal.value = false;
+  selectedProject.value = null;
+  applyMessage.value = '';
 };
 
 const formatShortDate = (dateStr: string) => {
@@ -218,6 +331,8 @@ const formatShortDate = (dateStr: string) => {
 </script>
 
 <style scoped>
+/* 保持你原汁原味的优秀样式，仅在此处精准补充新增交互的细节美化 */
+
 .collaboration-portal {
   min-height: 100vh;
   background-color: #ffffff;
@@ -240,7 +355,6 @@ const formatShortDate = (dateStr: string) => {
   margin: 0;
 }
 
-/* 视图切换 Tabs */
 .portal-tabs {
   display: flex;
   gap: 32px;
@@ -313,6 +427,11 @@ const formatShortDate = (dateStr: string) => {
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.05);
 }
 
+/* 针对在广场景观下可以产生协同动作的卡片提供微妙的边界色反馈 */
+.actionable-entry:hover {
+  border-color: #cbd5e1;
+}
+
 .role-indicator {
   font-size: 0.6rem;
   font-weight: 700;
@@ -323,9 +442,13 @@ const formatShortDate = (dateStr: string) => {
   text-transform: uppercase;
 }
 
-.joined-tag {
-  color: #1a1a1a;
-}
+.joined-tag { color: #1a1a1a; }
+
+/* 🌟 新增：新标签状态颜色渲染 */
+.pending-tag { color: #d97706; } /* 琥珀色 - 审批待处理 */
+.open-tag { color: #059669; }    /* 翡翠绿 - 自由即刻融入 */
+.apply-tag { color: #2563eb; }   /* 远山蓝 - 有待考核共建 */
+.lock-tag { color: #94a3b8; }    /* 隐蔽灰 - 不开门 */
 
 .entry-name {
   font-size: 1.35rem;
@@ -398,7 +521,7 @@ const formatShortDate = (dateStr: string) => {
   margin-bottom: 10px;
 }
 
-/* Modal 样式保持原有并微调 */
+/* Modal 底层通用与微调 */
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -419,11 +542,46 @@ const formatShortDate = (dateStr: string) => {
   box-shadow: 0 40px 100px rgba(0,0,0,0.03);
 }
 
+.modal-inner-header h2 {
+  font-size: 1.4rem;
+  font-weight: 400;
+  margin: 0 0 8px 0;
+}
+
+.modal-inner-header p {
+  font-size: 0.8rem;
+  color: #999;
+  margin: 0 0 40px 0;
+}
+
+/* 🌟 新增：申请项目名预览区域 */
+.apply-target-preview {
+  margin-bottom: 32px;
+}
+.apply-target-preview label {
+  display: block;
+  font-size: 0.65rem;
+  color: #aaa;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 8px;
+}
+.apply-target-preview h3 {
+  font-size: 1.2rem;
+  font-weight: 400;
+  margin: 0;
+  color: #1a1a1a;
+}
+
 .date-range-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
   margin-bottom: 8px;
+}
+
+.input-group {
+  margin-bottom: 32px;
 }
 
 .input-group label {
@@ -445,6 +603,18 @@ const formatShortDate = (dateStr: string) => {
   background: transparent;
 }
 
+/* 专门针对申请留言文本域微调，使其更规整 */
+.input-group textarea {
+  border: 1px solid #f0f0f0;
+  padding: 12px;
+  font-size: 0.95rem;
+  resize: none;
+  border-radius: 2px;
+}
+.input-group textarea:focus {
+  border-color: #1a1a1a;
+}
+
 .modal-footer {
   margin-top: 60px;
   display: flex;
@@ -452,13 +622,29 @@ const formatShortDate = (dateStr: string) => {
   gap: 24px;
 }
 
+.cancel-btn {
+  background: none;
+  border: none;
+  color: #999;
+  padding: 14px 24px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.cancel-btn:hover { color: #1a1a1a; }
+
 .confirm-btn {
   background: #1a1a1a;
   color: #fff;
   border: none;
   padding: 14px 40px;
+  font-size: 0.85rem;
   cursor: pointer;
   border-radius: 2px;
+}
+.confirm-btn:disabled {
+  background: #f5f5f5;
+  color: #ccc;
+  cursor: not-allowed;
 }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.5s ease; }

@@ -30,10 +30,11 @@
           <ul class="request-list">
             <li v-for="request in joinRequests" :key="request.id" class="request-item">
               <div class="requester-info">
-                <div class="member-avatar small">{{ request.applicantName.charAt(0) }}</div>
+                <div class="member-avatar small">{{ request.applicantName ? request.applicantName.charAt(0) : '?' }}</div>
                 <div class="requester-details">
                   <span class="requester-name">{{ request.applicantName }}</span>
                   <span class="requester-email">{{ request.applicantEmail }}</span>
+                  <p class="request-message" v-if="request.message">“ {{ request.message }} ”</p>
                 </div>
               </div>
               <div class="request-actions">
@@ -53,7 +54,7 @@
         <ul class="member-grid">
           <li v-for="member in members" :key="member.id" class="member-card">
             <div class="card-top">
-              <div class="member-avatar large">{{ member.name.charAt(0) }}</div>
+              <div class="member-avatar large">{{ member.name ? member.name.charAt(0) : '?' }}</div>
               <div class="member-core">
                 <span class="member-name">
                   {{ member.name }}
@@ -116,6 +117,9 @@ const props = defineProps<{
   projectId: string
 }>()
 
+// 🌟 明确声明对外暴露的更新事件，用以跟外层联动看板人数
+const emit = defineEmits(['updated'])
+
 interface Member {
   id: string
   name: string
@@ -127,7 +131,7 @@ interface JoinRequest {
   id: string
   applicantName: string
   applicantEmail: string
-  status: string
+  message: string // 🌟 映射后端返回的 Message 字段
 }
 
 const roleOptions = [
@@ -153,7 +157,7 @@ const getRoleDescription = (roleValue: string) => {
 const isLoading = ref(true)
 const members = ref<Member[]>([])
 const joinRequests = ref<JoinRequest[]>([])
-const inviteTarget = ref('') // 🌟 变更：改为 inviteTarget
+const inviteTarget = ref('') 
 
 const removeModal = ref({
   isOpen: false,
@@ -161,14 +165,18 @@ const removeModal = ref({
   memberName: '',
 })
 
+// 🌟 完善 2：初始化时双管齐下，同步加载成员与挂起的加入申请
 const loadData = async () => {
   isLoading.value = true
   try {
-    const membersData = await projectService.getProjectMembers(props.projectId)
+    const [membersData, requestsData] = await Promise.all([
+      projectService.getProjectMembers(props.projectId),
+      projectService.getPendingApplications(props.projectId) // 调用我们加进服务层的新方法
+    ])
     members.value = membersData as any[]
-    joinRequests.value = []
+    joinRequests.value = requestsData as any[]
   } catch (error) {
-    console.error('加载成员数据失败:', error)
+    console.error('加载成员大厅或申请数据失败:', error)
   } finally {
     isLoading.value = false
   }
@@ -181,12 +189,14 @@ const sendInvitation = async () => {
   const target = inviteTarget.value.trim()
   if (!target) return
   try {
-    // 🌟 变更：向后端传送 usernameOrId 字段
     await projectService.inviteMember(props.projectId, { usernameOrId: target })
     inviteTarget.value = ''
-    await loadData() // 刷新共建者列表
+    alert("已成功将该共建者纳入灵脉。")
+    await loadData() 
+    emit('updated')
   } catch (err) {
     console.error('邀请失败', err)
+    alert("邀请失败，未在太初世界寻得此用户或其已身在此内。")
   }
 }
 
@@ -218,25 +228,40 @@ const executeRemove = async () => {
     await projectService.removeMember(props.projectId, removeModal.value.memberId)
     members.value = members.value.filter(m => m.id !== removeModal.value.memberId)
     closeRemoveModal()
+    emit('updated')
   } catch (err) {
     console.error('移除成员失败', err)
   }
 }
 
+// 🌟 完善 3：彻底打通接受 / 拒绝申请的逻辑，对接后端 HandleApplication 端点
 const handleRequest = async (requestId: string, action: 'approve' | 'reject') => {
   try {
+    // 调动后端接口裁决
+    await projectService.handleApplication(props.projectId, requestId, {
+      approve: action === 'approve'
+    })
+    
+    // 体验提升：前端响应式移除这一项
     joinRequests.value = joinRequests.value.filter(r => r.id !== requestId)
+    
+    // 如果接受了新成员，顺手重新拉取成员大厅以浮现他的卡片
     if (action === 'approve') {
       await loadData()
+      emit('updated') // 冒泡给 Detail 级组件更新统计
     }
+    
+    alert(action === 'approve' ? "已接纳该共建者融入灵脉。" : "已婉拒该用户的申请。")
   } catch (err) {
-    console.error('处理申请失败', err)
+    console.error('裁决申请失败', err)
+    alert("操作失败，请确保您拥有项目管理层权限。")
   }
 }
 </script>
 
 <style scoped>
-/* 保持原有完美的样式不变 */
+/* 完美继承原有精美样式，额外增加极少量的优化样式 */
+
 .member-manager {
   width: 100%;
   max-width: 1200px;
@@ -248,7 +273,7 @@ const handleRequest = async (requestId: string, action: 'approve' | 'reject') =>
 .loading-bar { width: 60px; height: 1px; background: #1a1a1a; animation: pulse 1.5s infinite; }
 .manager-layout { display: flex; gap: 48px; align-items: flex-start; }
 @media (max-width: 800px) { .manager-layout { flex-direction: column; } }
-.side-panel { flex: 0 0 320px; display: flex; flex-direction: column; gap: 32px; }
+.side-panel { flex: 0 0 340px; display: flex; flex-direction: column; gap: 32px; }
 .panel-block { background: #fff; border: 1px solid #f0f0f0; padding: 28px; }
 .members-panel { flex: 1; min-width: 0; }
 .section-title { font-size: 0.85rem; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; color: #888; margin: 0 0 20px 0; display: flex; align-items: center; gap: 8px; }
@@ -259,23 +284,29 @@ const handleRequest = async (requestId: string, action: 'approve' | 'reject') =>
 .invite-btn { padding: 10px 20px; background: #1a1a1a; color: #fff; border: none; font-size: 0.85rem; cursor: pointer; transition: background 0.3s; white-space: nowrap; }
 .invite-btn:disabled { background: #ccc; cursor: not-allowed; }
 .invite-btn:not(:disabled):hover { background: #333; }
-.request-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
-.request-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #f5f5f5; }
+
+.request-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 16px; }
+.request-item { display: flex; flex-direction: column; gap: 16px; padding: 20px 0; border-bottom: 1px solid #f5f5f5; }
 .request-item:last-child { border-bottom: none; }
-.requester-info { display: flex; align-items: center; gap: 12px; }
-.requester-details { display: flex; flex-direction: column; }
+.requester-info { display: flex; align-items: flex-start; gap: 12px; }
+.requester-details { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .requester-name { font-size: 0.9rem; color: #1a1a1a; font-weight: 500; }
-.requester-email { font-size: 0.75rem; color: #999; }
-.request-actions { display: flex; gap: 8px; }
-.accept-btn { background: #1a1a1a; color: #fff; border: none; font-size: 0.75rem; padding: 5px 14px; cursor: pointer; transition: background 0.2s; }
+.requester-email { font-size: 0.75rem; color: #999; margin-bottom: 6px; }
+
+/* 🌟 新增：申请留言文字样式优化 */
+.request-message { font-size: 0.8rem; color: #666; font-style: italic; background: #fafafa; padding: 8px 12px; border-left: 2px solid #1a1a1a; margin: 4px 0 0 0; line-height: 1.5; word-break: break-all; }
+
+.request-actions { display: flex; gap: 8px; justify-content: flex-end; width: 100%; }
+.accept-btn { background: #1a1a1a; color: #fff; border: none; font-size: 0.75rem; padding: 6px 16px; cursor: pointer; transition: background 0.2s; border-radius: 2px; }
 .accept-btn:hover { background: #333; }
-.reject-btn { background: none; border: 1px solid #eaeaea; color: #888; font-size: 0.75rem; padding: 5px 14px; cursor: pointer; transition: all 0.2s; }
-.reject-btn:hover { border-color: #ff4757; color: #ff4757; }
+.reject-btn { background: none; border: 1px solid #eaeaea; color: #888; font-size: 0.75rem; padding: 6px 16px; cursor: pointer; transition: all 0.2s; border-radius: 2px; }
+.reject-btn:hover { border-color: #ff4757; color: #ff4757; background: #fff5f5; }
+
 .member-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 .member-card { background: #fff; border: 1px solid #f0f0f0; padding: 24px; display: flex; flex-direction: column; gap: 16px; transition: border-color 0.2s, box-shadow 0.2s; }
 .member-card:hover { border-color: #ddd; box-shadow: 0 10px 30px rgba(0,0,0,0.03); }
 .card-top { display: flex; align-items: center; gap: 16px; }
-.member-avatar { background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 500; color: #666; text-transform: uppercase; }
+.member-avatar { background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 500; color: #666; text-transform: uppercase; flex-shrink: 0; }
 .member-avatar.small { width: 32px; height: 32px; font-size: 0.75rem; }
 .member-avatar.large { width: 44px; height: 44px; font-size: 0.9rem; }
 .member-core { display: flex; flex-direction: column; gap: 2px; }

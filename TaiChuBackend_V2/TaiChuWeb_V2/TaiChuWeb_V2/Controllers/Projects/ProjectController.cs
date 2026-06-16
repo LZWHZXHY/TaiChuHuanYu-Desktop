@@ -37,9 +37,11 @@ namespace TaiChuWeb_V2.Controllers.Projects
                     p.Status,
                     p.StartTime,
                     p.EndTime,
+                    p.JoinPolicy,
                     p.CreatedAt,
                     MemberCount = _context.ProjectMembers.Count(m => m.ProjectId == p.Id),
-                    IsJoined = _context.ProjectMembers.Any(m => m.ProjectId == p.Id && m.UserId == CurrentUserId)
+                    IsJoined = _context.ProjectMembers.Any(m => m.ProjectId == p.Id && m.UserId == CurrentUserId),
+                    HasApplied = _context.ProjectApplications.Any(a => a.ProjectId == p.Id && a.UserId == CurrentUserId && a.Status == 0)
                 })
                 .ToListAsync();
 

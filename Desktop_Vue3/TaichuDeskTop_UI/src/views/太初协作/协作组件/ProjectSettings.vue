@@ -12,6 +12,16 @@
           <input v-model="form.name" placeholder="输入标题..." @input="checkChanges" />
         </div>
 
+        <div class="input-group">
+          <label>当前状态</label>
+          <select v-model="form.status" @change="checkChanges">
+            <option :value="0">筹备中</option>
+            <option :value="1">活跃运行</option>
+            <option :value="2">圆满结束</option>
+            <option :value="3">已归档</option>
+          </select>
+        </div>
+
         <div class="input-group full-width">
           <label>愿景简介</label>
           <textarea 
@@ -31,13 +41,13 @@
           <input type="date" v-model="form.endTime" @change="checkChanges" />
         </div>
 
+        <!-- 🌟 完善 1：新增准入策略控制（JoinPolicy） -->
         <div class="input-group">
-          <label>当前状态</label>
-          <select v-model="form.status" @change="checkChanges">
-            <option :value="0">筹备中</option>
-            <option :value="1">活跃运行</option>
-            <option :value="2">圆满结束</option>
-            <option :value="3">已归档</option>
+          <label>准入策略</label>
+          <select v-model="form.joinPolicy" @change="checkChanges">
+            <option :value="0">仅限邀请 (主理人主动引入)</option>
+            <option :value="1">允许申请 (需掌控者审批通过)</option>
+            <option :value="2">自由加入 (任何人可直接融入)</option>
           </select>
         </div>
 
@@ -47,7 +57,7 @@
             <label class="checkbox-container">
               <input type="checkbox" v-model="form.isPublic" @change="checkChanges" />
               <span class="checkmark"></span>
-              公开此项目
+              公开此项目（广场可见）
             </label>
           </div>
         </div>
@@ -64,17 +74,22 @@
       </footer>
     </section>
 
+    <!-- 🌟 完善 2：彻底打通彻底解散并抹除项目的动作 -->
     <section class="danger-zone">
       <div class="section-header">
         <h3>危险区域</h3>
+        <p>警告：抹除操作将把此灵脉及旗下所有意图、分栏从太初世界彻底降维消灭</p>
       </div>
-      <button class="delete-link" @click="handleDelete">解散并抹除此项目</button>
+      <button class="delete-link" :disabled="isDeleting" @click="handleDelete">
+        {{ isDeleting ? '正在抹除...' : '解散并抹除此项目' }}
+      </button>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted} from 'vue';
+import { ref, reactive, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import projectService from '../../../api/projectService';
 
 const props = defineProps<{
@@ -82,7 +97,12 @@ const props = defineProps<{
   initialData: any;
 }>();
 
+// 🌟 新增对外冒泡事件，用于在更新完基础配置后让父组件能监听到并刷新外层大厅数据
+const emit = defineEmits(['updated']);
+const router = useRouter();
+
 const isUpdating = ref(false);
+const isDeleting = ref(false);
 const hasChanges = ref(false);
 
 // 响应式表单
@@ -92,7 +112,8 @@ const form = reactive({
   startTime: '',
   endTime: '',
   status: 1,
-  isPublic: false
+  isPublic: false,
+  joinPolicy: 0 // 🌟 补全准入策略响应式初始值
 });
 
 // 深度克隆初始值用于对比
@@ -102,7 +123,7 @@ onMounted(() => {
   if (props.initialData) {
     Object.assign(form, {
       ...props.initialData,
-      // 格式化日期为 input[type="date"] 识别的格式
+      joinPolicy: props.initialData.joinPolicy ?? 0, // 接收外层输送来的准入策略数据
       startTime: props.initialData.startTime?.split('T')[0] || '',
       endTime: props.initialData.endTime?.split('T')[0] || ''
     });
@@ -115,9 +136,10 @@ const checkChanges = () => {
 };
 
 const handleUpdate = async () => {
+  if (isUpdating.value) return;
   isUpdating.value = true;
   
-  // 🌟 处理日期：将 "" 转换为 null
+  // 处理日期：将 "" 转换为 null
   const submitData = {
     ...form,
     startTime: form.startTime || null,
@@ -125,19 +147,40 @@ const handleUpdate = async () => {
   };
 
   try {
-    // 传 submitData 而不是直接传 form
     await projectService.updateProject(props.projectId, submitData);
     originalData = JSON.stringify(form);
     hasChanges.value = false;
+    
+    // 🌟 核心：通知最外层的 ProjectDetail.vue 刷新头部标题与状态面包屑
+    emit('updated');
+    alert("灵脉印记已成功重构更新。");
+  } catch (err) {
+    console.error("更新项目元数据失败", err);
+    alert("设置同步失败，请检查网络或权限。");
   } finally {
     isUpdating.value = false;
   }
 };
 
-const handleDelete = () => {
-  if (confirm('确定要抹除这段灵脉吗？此操作无法撤销。')) {
-    // 调用删除接口逻辑
-    console.log('删除项目:', props.projectId);
+// 🌟 真正打通：调用解散项目端点
+const handleDelete = async () => {
+  const firstConfirm = confirm('确定要抹除这段灵脉吗？此操作将彻底消灭项目旗下一切意图、任务、自定义分栏，且无法撤销！');
+  if (!firstConfirm) return;
+
+  const secondConfirm = confirm('【终极警告】再次确认：是否真的彻底将该项目从太初世界中抹除？');
+  if (!secondConfirm) return;
+
+  isDeleting.value = true;
+  try {
+    await projectService.deleteProject(props.projectId);
+    alert("项目已成功从灵脉大厅彻底抹除。");
+    // 成功解散项目后，直接把用户护送回灵脉大厅
+    router.push('/Project');
+  } catch (err) {
+    console.error('解散项目失败:', err);
+    alert('抹除失败，可能由于您并非该项目的超级管理员（Owner）。');
+  } finally {
+    isDeleting.value = false;
   }
 };
 </script>
@@ -166,6 +209,7 @@ const handleDelete = () => {
 .section-header p {
   font-size: 0.85rem;
   color: #bbb;
+  line-height: 1.5;
 }
 
 /* 网格布局 */
@@ -203,8 +247,15 @@ const handleDelete = () => {
   transition: border-color 0.3s;
 }
 
+/* 针对选择框微调，防止样式在部分浏览器崩塌 */
+.input-group select {
+  cursor: pointer;
+  border-radius: 0;
+}
+
 .input-group input:focus, 
-.input-group textarea:focus {
+.input-group textarea:focus,
+.input-group select:focus {
   border-bottom-color: #1a1a1a;
 }
 
@@ -245,14 +296,20 @@ const handleDelete = () => {
 .delete-link {
   background: none;
   border: none;
-  color: #eee;
+  color: #bbb;
   font-size: 0.85rem;
   cursor: pointer;
   transition: color 0.3s;
+  padding: 8px 0;
 }
 
 .delete-link:hover {
   color: #ff4757;
+}
+
+.delete-link:disabled {
+  color: #eee;
+  cursor: not-allowed;
 }
 
 @keyframes fadeIn {

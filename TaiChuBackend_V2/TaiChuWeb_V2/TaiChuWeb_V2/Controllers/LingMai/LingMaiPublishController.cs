@@ -15,7 +15,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
     {
         private readonly AppDbContext _context;
 
-        // 🌟 核心重构：多态分流策略处理器字典
+        // 🌟 多态分流策略处理器字典
         private readonly Dictionary<string, ILingMaiPublishHandler> _publishHandlers;
 
         // 获取当前登录用户 ID
@@ -34,12 +34,12 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         {
             if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
 
-            // 🌟 这里直接用 req.type 和 req.categoryId
             if (req.type == "note")
             {
                 return BadRequest(new { message = "普通随笔碎片属于私密草稿，无法直接发布" });
             }
 
+            // 🌟 纯粹的多态派发：前端发布面板传来什么 type (例如 "post" 或 "blog")，大厅直接交由对应的 Handler 处理
             if (!_publishHandlers.TryGetValue(req.type, out var handler))
             {
                 return BadRequest(new { message = $"暂未编织该多态碎片形态 [{req.type}] 的分流大厅逻辑" });
@@ -80,7 +80,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                             _context.PublishedNotes.Remove(existingPublish);
                         }
 
-                        // 如果之前是发布的 wiki，同步需要处理你的百科删除，之后可扩展到对应 Handler 内部
                         note.IsPublic = false;
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
@@ -102,7 +101,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
         #endregion
 
-        #region --- 2. 广场流与阅读 (保持兼容) ---
+        #region --- 2. 广场流与阅读 ---
 
         [HttpGet("stream")]
         public async Task<IActionResult> GetPublicStream([FromQuery] string? type = "wiki", [FromQuery] string? spaceId = null)
@@ -110,7 +109,9 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             var query = _context.PublishedNotes.AsNoTracking();
 
             if (!string.IsNullOrEmpty(type))
+            {
                 query = query.Where(pn => pn.Type == type);
+            }
 
             Guid.TryParse(CurrentUserId, out Guid userIdGuid);
 
@@ -147,7 +148,8 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
             if (string.IsNullOrEmpty(type))
             {
-                query = query.Where(pn => pn.Type == "note" || pn.Type == "thought");
+                // 🌟 默认无限制时：只向广场流大厅输送长文随笔 "note" 或标准的短动态 "post"
+                query = query.Where(pn => pn.Type == "note" || pn.Type == NoteTypes.Post);
             }
             else
             {
