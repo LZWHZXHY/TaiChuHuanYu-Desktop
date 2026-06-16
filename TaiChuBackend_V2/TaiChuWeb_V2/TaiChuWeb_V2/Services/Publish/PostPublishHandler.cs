@@ -9,9 +9,7 @@ namespace TaiChuWeb_V2.Services.Publish
     public class PostPublishHandler : ILingMaiPublishHandler
     {
         private readonly AppDbContext _context;
-
-        // 🌟 严格对应前端动态多态形态 type: "post"
-        public string SupportType => NoteTypes.Post; // 即 "post"
+        public string SupportType => NoteTypes.Post;
 
         public PostPublishHandler(AppDbContext context)
         {
@@ -20,32 +18,30 @@ namespace TaiChuWeb_V2.Services.Publish
 
         public async Task<IActionResult> ExecutePublishAsync(Guid noteId, string userId, int? categoryId)
         {
-            // 使用 ExecutionStrategy 确保高并发下的弹性容错
             return await _context.Database.CreateExecutionStrategy().ExecuteAsync<IActionResult>(async () =>
             {
-                // 1. 获取原始草稿
                 var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == noteId);
                 if (note == null) return new NotFoundObjectResult(new { message = "未找到该短动态草稿" });
 
-                // 2. 批量拉取该动态关联的所有富文本区块
                 var postBlocks = await _context.Blocks
-                    .Where(b => b.OwnerId == noteId.ToString() && b.OwnerType == "note")
+                    .Where(b => b.OwnerId == noteId.ToString() && b.OwnerType == note.Type)
                     .OrderBy(b => b.SortOrder)
                     .ToListAsync();
 
-                // 3. 榨取动态全文的第一段话，直接作为广场瀑布流展示的平铺摘要
+                // 1. 提取文字摘要
                 string excerpt = ExtractPostExcerpt(postBlocks);
+
+                // 2. 🌟【核心修复】：升级为深层网络透传扫描器，精准捕捉嵌套的图片 URL
+                string? firstImageUrl = ExtractFirstImageUrl(postBlocks);
 
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
-                    // 4. 寻找或创建广场固化实体
                     var publishedNote = await _context.PublishedNotes
                         .FirstOrDefaultAsync(pn => pn.OriginalNoteId == noteId);
 
                     bool isNew = publishedNote == null;
 
-                    // 转换 Guid 去 Users 表查询创作者
                     Guid.TryParse(userId, out Guid parsedUserId);
                     var dbUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == parsedUserId);
                     string authorName = dbUser?.Username ?? "匿名隐士";
@@ -57,7 +53,7 @@ namespace TaiChuWeb_V2.Services.Publish
                             Id = Guid.NewGuid(),
                             OriginalNoteId = noteId,
                             SpaceId = note.SpaceId,
-                            Type = NoteTypes.Post, // 固化类型为 post
+                            Type = NoteTypes.Post,
                             AuthorName = authorName,
                             Resonance = 0,
                             PublishedAt = DateTime.UtcNow
@@ -65,15 +61,22 @@ namespace TaiChuWeb_V2.Services.Publish
                         _context.PublishedNotes.Add(publishedNote);
                     }
 
-                    // 5. 同步元数据到发布表 (短动态的 Title 通常是你前端截取的前15个字)
+                    // 3. ✨【打包视觉挂件】：确保绝对能生成带有 cardCover 的配置字典
+                    var metaDict = new Dictionary<string, string>();
+                    if (!string.IsNullOrEmpty(firstImageUrl))
+                    {
+                        metaDict["cardCover"] = firstImageUrl;
+                    }
+
                     publishedNote.Title = note.Title;
                     publishedNote.Tags = note.Tags;
-                    publishedNote.Excerpt = excerpt; // 🌟 关键：短动态内容直接平铺在 Excerpt 字段，方便广场秒级渲染
-                    publishedNote.ExtraData = note.ExtraData; // 透传角色雷达或其余 JSON 配置
+                    publishedNote.Excerpt = excerpt;
+
+                    // 如果捞到了图片，塞入专属的 cardCover 键值对，否则降级回原来的额外数据
+                    publishedNote.ExtraData = metaDict.Count > 0 ? JsonSerializer.Serialize(metaDict) : note.ExtraData;
                     publishedNote.PublishedAt = DateTime.UtcNow;
 
-                    // 6. 增量覆写物理发布块 PublishedBlocks 
-                    // 🔒 迎合你的底层强类型：OwnerId 是 string，右侧用 ToString() 对齐
+                    // 4. 同步物理区块表
                     var oldPubBlocks = await _context.PublishedBlocks
                         .Where(pb => pb.OwnerId == publishedNote.Id.ToString())
                         .ToListAsync();
@@ -81,9 +84,7 @@ namespace TaiChuWeb_V2.Services.Publish
 
                     foreach (var block in postBlocks)
                     {
-                        // 🔒 迎合你的底层强类型：block.Id (string) 转换为 Guid
                         Guid.TryParse(block.Id, out Guid parsedBlockId);
-
                         _context.PublishedBlocks.Add(new PublishedBlock
                         {
                             Id = parsedBlockId != Guid.Empty ? parsedBlockId : Guid.NewGuid(),
@@ -95,7 +96,6 @@ namespace TaiChuWeb_V2.Services.Publish
                         });
                     }
 
-                    // 7. 更改原始草稿公开状态
                     note.IsPublic = true;
                     note.UpdatedAt = DateTime.UtcNow;
 
@@ -112,9 +112,6 @@ namespace TaiChuWeb_V2.Services.Publish
             });
         }
 
-        /// <summary>
-        /// 针对短动态优化的文本段落榨取引擎
-        /// </summary>
         private string ExtractPostExcerpt(List<Block> blocks)
         {
             var firstParagraph = blocks.FirstOrDefault(b => b.Type == "paragraph");
@@ -124,19 +121,87 @@ namespace TaiChuWeb_V2.Services.Publish
             try
             {
                 using var doc = JsonDocument.Parse(firstParagraph.Data);
-                if (doc.RootElement.TryGetProperty("content", out var contentArr) && contentArr.ValueKind == JsonValueKind.Array)
+                if (doc.RootElement.TryGetProperty("content", out var contentArr))
                 {
                     var text = string.Concat(contentArr.EnumerateArray()
                                .Where(i => i.TryGetProperty("text", out _))
                                .Select(i => i.GetProperty("text").GetString()));
-
-                    // 短动态不需要截取太短，尽量展示全貌（放宽到 300 字限制）
                     return text.Length > 300 ? text.Substring(0, 300) + "..." : text;
                 }
             }
             catch { }
-
             return "一语落毕，灵脉寂静...";
+        }
+
+        /// <summary>
+        /// 🌟【重构增强版】：深层自适应递归图片链接提取引擎
+        /// </summary>
+        private string? ExtractFirstImageUrl(List<Block> blocks)
+        {
+            foreach (var block in blocks)
+            {
+                if (string.IsNullOrWhiteSpace(block.Data)) continue;
+
+                try
+                {
+                    using var doc = JsonDocument.Parse(block.Data);
+                    var root = doc.RootElement;
+
+                    // 路线 A：如果该 Block 本身就是一个独立的展示图片块 (如前端传来的 type: "image")
+                    if (block.Type == "image" || root.TryGetProperty("type", out var typeProp) && typeProp.GetString() == "image")
+                    {
+                        if (root.TryGetProperty("attrs", out var attrs) && attrs.TryGetProperty("src", out var src))
+                        {
+                            return src.GetString();
+                        }
+                    }
+
+                    // 路线 B：递归穿透深度扫描内部嵌套节点（防止 Tiptap 的复合节点嵌套嵌套）
+                    string? nestedUrl = FindImageUrlInJsonTree(root);
+                    if (!string.IsNullOrEmpty(nestedUrl))
+                    {
+                        return nestedUrl;
+                    }
+                }
+                catch { }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 深度递归辅助器：自适应在任意 JSON 树枝节点中搜寻 src 属性
+        /// </summary>
+        private string? FindImageUrlInJsonTree(JsonElement element)
+        {
+            if (element.ValueKind == JsonValueKind.Object)
+            {
+                // 探测到图片节点的特征属性
+                if (element.TryGetProperty("type", out var t) && t.GetString() == "image")
+                {
+                    if (element.TryGetProperty("attrs", out var attrs) && attrs.TryGetProperty("src", out var src))
+                    {
+                        return src.GetString();
+                    }
+                }
+
+                // 顺着属性节点继续深挖
+                foreach (var prop in element.EnumerateObject())
+                {
+                    string? result = FindImageUrlInJsonTree(prop.Value);
+                    if (!string.IsNullOrEmpty(result)) return result;
+                }
+            }
+            else if (element.ValueKind == JsonValueKind.Array)
+            {
+                // 深度遍历数组内部的所有对象块
+                foreach (var item in element.EnumerateArray())
+                {
+                    string? result = FindImageUrlInJsonTree(item);
+                    if (!string.IsNullOrEmpty(result)) return result;
+                }
+            }
+
+            return null;
         }
     }
 }

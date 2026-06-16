@@ -3,15 +3,15 @@
 // 1. 严格限制类型的值，包含百科系统和可视化构建所需的新形态
 export type NoteType = 
   | 'note'      // 长文随笔
-  | 'thought'   // 短篇简语
+  | 'post'      // 短篇简语 (🌟 彻底将 'thought' 改为 'post')
   | 'folder'    // 文件夹
   | 'wiki'      // 世界观词条
   | 'char'      // 角色档案
   | 'art'       // 艺术作品
   | 'video'     // 灵脉影像
   | 'audio'     // 太初之音
-  | 'canvas'    // 星图白板 (新增)
-  | 'map';      // 世界地图 (新增)
+  | 'canvas'    // 星图白板
+  | 'map';      // 世界地图
 
 // 2. 统一管理每种类型的显示文本和元数据
 export const NOTE_TYPE_CONFIG: Record<NoteType, { label: string; desc: string; icon: string }> = {
@@ -20,7 +20,7 @@ export const NOTE_TYPE_CONFIG: Record<NoteType, { label: string; desc: string; i
     desc: '深度思考，长篇沉浸式 Markdown 文章',
     icon: '📝'
   },
-  thought: {
+  post: { // 🌟 彻底将 'thought' 键名变更为 'post'
     label: '短篇简语',
     desc: '随时捕捉瞬息思绪与生活碎念',
     icon: '💬'
@@ -55,7 +55,6 @@ export const NOTE_TYPE_CONFIG: Record<NoteType, { label: string; desc: string; i
     desc: '音乐与音频流转',
     icon: '🎵'
   },
-  // 👇 🌟 补上这两个新伙伴的视觉配置！
   canvas: {
     label: '星图白板',
     desc: '无限视界的无边际节点图谱',

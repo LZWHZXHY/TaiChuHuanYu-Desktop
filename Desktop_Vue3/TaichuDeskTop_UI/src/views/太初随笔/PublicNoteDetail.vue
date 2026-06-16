@@ -8,7 +8,7 @@
           <span class="arrow">←</span> INDEX
         </button>
         <div class="doc-type">
-          {{ post?.type === 'thought' ? 'FRAGMENT / THOUGHT' : 'ESSAY / NOTE' }}
+          {{ post?.type === 'post' ? 'FRAGMENT / THOUGHT' : 'ESSAY / NOTE' }}
         </div>
       </nav>
 

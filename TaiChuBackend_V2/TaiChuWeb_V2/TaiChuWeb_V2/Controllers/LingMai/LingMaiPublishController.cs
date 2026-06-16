@@ -29,7 +29,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         }
 
         [HttpPost("notes/{id:guid}/publish")]
-        // 🌟 改为直接接收 Body，而不是分开拆解 Query 参数
         public async Task<IActionResult> PublishNote([FromRoute] Guid id, [FromBody] PublishRequest req)
         {
             if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
@@ -127,11 +126,9 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                     pn.SpaceId,
                     pn.PublishedAt,
                     pn.Tags,
-                    Excerpt = _context.PublishedBlocks
-                        .Where(pb => pb.OwnerId == pn.Id.ToString() && pb.Type == "paragraph")
-                        .OrderBy(pb => pb.SortOrder)
-                        .Select(pb => pb.Data)
-                        .FirstOrDefault() ?? "灵脉深处暂无回响..."
+                    pn.ExtraData,
+                    // ✨【性能修复点】：摒弃跨表子查询，直接读取本表已格式化好的摘要字段
+                    Excerpt = pn.Excerpt ?? "灵脉深处暂无回响..."
                 })
                 .ToListAsync();
 
@@ -148,7 +145,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
             if (string.IsNullOrEmpty(type))
             {
-                // 🌟 默认无限制时：只向广场流大厅输送长文随笔 "note" 或标准的短动态 "post"
+                // 默认状态下：广场流只拉取普通长文 "note" 或规范短动态 "post"
                 query = query.Where(pn => pn.Type == "note" || pn.Type == NoteTypes.Post);
             }
             else
@@ -172,11 +169,9 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                     pn.PublishedAt,
                     pn.Resonance,
                     pn.AuthorName,
-                    Excerpt = _context.PublishedBlocks
-                        .Where(pb => pb.OwnerId == pn.Id.ToString() && pb.OwnerType == "note" && pb.Type == "paragraph")
-                        .OrderBy(pb => pb.SortOrder)
-                        .Select(pb => pb.Data)
-                        .FirstOrDefault()
+                    pn.ExtraData,
+                    // ✨【核心兼性能修复点】：直接返回平铺好的本表 Excerpt，不要再去跨表查 PublishedBlocks！
+                    Excerpt = pn.Excerpt ?? "灵脉深处暂无回响..."
                 })
                 .ToListAsync();
 
@@ -242,8 +237,9 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
             if (publishedNote == null) return NotFound(new { message = "内容不存在" });
 
+            // ✨【核心修复点】：去掉硬编码的 pb.OwnerType == "note"，支持短动态多态性区块通畅拉取
             var blocks = await _context.PublishedBlocks
-                .Where(pb => pb.OwnerId == id.ToString() && pb.OwnerType == "note")
+                .Where(pb => pb.OwnerId == id.ToString())
                 .OrderBy(pb => pb.SortOrder)
                 .Select(pb => new { pb.Id, pb.Type, pb.Data, pb.SortOrder })
                 .ToListAsync();
@@ -254,6 +250,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 publishedNote.Title,
                 publishedNote.Type,
                 publishedNote.PublishedAt,
+                // 🌟 前端兼容：对齐前端需要的大写形式 Blocks
                 Blocks = blocks
             });
         }

@@ -176,7 +176,7 @@ import { wikiApi } from '@/api/Wiki';
 
 
 
-type NoteType = 'note' | 'thought' | 'wiki' | 'char' | 'art' | 'folder' | 'canvas' | 'map';
+type NoteType = 'note' | 'post' | 'wiki' | 'char' | 'art' | 'folder' | 'canvas' | 'map';
 
 const { 
   notes, currentNoteId, activeNote, isLoading, currentSpaceId,
@@ -347,7 +347,7 @@ const canPublishDynamic = computed(() => {
   if (!activeNote.value) return false;
   switch (activeNote.value.type) {
     case 'art': return hasArtImage.value;
-    case 'thought': return currentTextLength.value <= 500;
+    case 'post': return currentTextLength.value <= 500;
     default: return true; 
   }
 });

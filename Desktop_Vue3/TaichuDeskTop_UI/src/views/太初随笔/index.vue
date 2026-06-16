@@ -14,14 +14,14 @@
             全部
           </button>
           <button 
-            @click="changeFilter('essay')" 
-            :class="['mode-item', { active: currentFilter === 'essay' }]"
+            @click="changeFilter('note')" 
+            :class="['mode-item', { active: currentFilter === 'note' }]"
           >
             长文随笔
           </button>
           <button 
-            @click="changeFilter('thought')" 
-            :class="['mode-item', { active: currentFilter === 'thought' }]"
+            @click="changeFilter('post')" 
+            :class="['mode-item', { active: currentFilter === 'post' }]"
           >
             短篇简语
           </button>
@@ -48,10 +48,10 @@
         <div 
           v-for="item in posts" :key="item.id" 
           class="stream-card" 
-          :class="[item.type === 'essay' ? 'is-blog' : 'is-post']"
+          :class="[item.type === 'note' ? 'is-blog' : 'is-post', { 'has-image-hero': item.cardCover }]"
           @click="openArtwork(item.id)"
         >
-          <template v-if="item.type === 'essay'">
+          <template v-if="item.type === 'note'">
             <div class="card-meta">
               <span class="meta-tag">ESSAY</span>
               <span class="meta-dot">/</span>
@@ -72,22 +72,28 @@
             </div>
           </template>
 
-          <template v-else>
-            <div class="card-meta">
-              <span class="meta-tag post-tag">FRAGMENT</span>
-              <span class="meta-dot">/</span>
-              <span class="meta-author">{{ item.author }}</span>
+          <template v-else-if="item.type === 'post'">
+            <div v-if="item.cardCover" class="post-card-hero">
+              <img :src="item.cardCover" alt="动态配图" class="hero-img" loading="lazy" />
             </div>
-            <div class="card-body">
-              <p class="post-text">
-    “ {{ getSnippet(item.excerpt, 160) || item.title || '灵脉波动中...' }} ”
-  </p>
-            </div>
-            <div class="card-footer">
-              <time class="post-time">{{ formatTime(item.publishedAt || item.createdAt) }}</time>
-              <div class="resonance-stat">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                <span>{{ item.resonance || 0 }}</span>
+
+            <div class="post-card-content-wrapper">
+              <div class="card-meta">
+                <span class="meta-tag post-tag">FRAGMENT</span>
+                <span class="meta-dot">/</span>
+                <span class="meta-author">{{ item.author }}</span>
+              </div>
+              <div class="card-body">
+                <p class="post-text">
+                  “ {{ getSnippet(item.excerpt || item.content, 160) || item.title || '灵脉波动中...' }} ”
+                </p>
+              </div>
+              <div class="card-footer">
+                <time class="post-time">{{ formatTime(item.publishedAt || item.createdAt) }}</time>
+                <div class="resonance-stat">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                  <span>{{ item.resonance || 0 }}</span>
+                </div>
               </div>
             </div>
           </template>
@@ -118,19 +124,18 @@ import PublicNoteDetail from './PublicNoteDetail.vue';
 import type { PublishedNoteItem } from '../../api/NotePublish';
 import { notePublishApi } from '../../api/NotePublish';
 
-interface FrontMixedPost extends Omit<PublishedNoteItem, 'type'> {
-  type: 'essay' | 'thought';
+interface FrontMixedPost extends PublishedNoteItem {
   content?: string;
   author: string;
+  cardCover?: string; // ✨ 挂载提取出来的首图 URL
 }
 
 const router = useRouter();
-const currentFilter = ref<'all' | 'essay' | 'thought'>('all');
+const currentFilter = ref<'all' | 'note' | 'post'>('all');
 const posts = ref<FrontMixedPost[]>([]);
 const loading = ref(false);
 const activePostId = ref<string | null>(null);
 
-// 🌟 1. 补上缺失的分页与加载状态变量
 const page = ref(1);
 const pageSize = ref(20);
 const hasMore = ref(true);
@@ -138,22 +143,18 @@ const loadingMore = ref(false);
 const loadMoreTrigger = ref<HTMLElement | null>(null);
 let observer: IntersectionObserver | null = null;
 
-// 🌟 2. 改造 fetchStream 支持分页和追加数据
 const fetchStream = async (isLoadMore = false) => {
   if (isLoadMore) {
     loadingMore.value = true;
   } else {
     loading.value = true;
-    page.value = 1; // 首次加载或切换分类时，重置为第一页
+    page.value = 1; 
     hasMore.value = true;
   }
 
   try {
-    const typeQuery = currentFilter.value === 'all' 
-      ? undefined 
-      : (currentFilter.value === 'essay' ? 'note' : 'thought');
+    const typeQuery = currentFilter.value === 'all' ? undefined : currentFilter.value;
 
-    // 发起真正的分页请求
     const res = await notePublishApi.getPublicStream({
       type: typeQuery,
       page: page.value,
@@ -161,24 +162,54 @@ const fetchStream = async (isLoadMore = false) => {
     });
     
     if (res && Array.isArray(res)) {
-      const formattedData = res.map((item: any) => ({
-        ...item,
-        type: item.type === 'note' ? 'essay' : 'thought',
-        author: item.authorName || '太初隐者', // 优先用后端传来的名字
-        content: item.excerpt
-      }));
+      const formattedData = res.map((item: any) => {
+  let extractedCover = '';
+  
+  // 1. 优先从后端的 ExtraData 元数据包中反序列化提取
+  if (item.extraData && item.extraData.startsWith('{')) {
+    try {
+      const meta = JSON.parse(item.extraData);
+      extractedCover = meta.cardCover || '';
+    } catch(e) {}
+  }
+
+  // 2. ✨【前端高容错兜底】：如果后端没有注入 cardCover，但发现 excerpt 本身包含图片特征，强行穿透提取！
+  if (!extractedCover && item.excerpt && item.excerpt.includes('"type":"image"')) {
+    try {
+      const scanTiptapImage = (node: any): string => {
+        if (!node) return '';
+        if (node.type === 'image' && node.attrs?.src) return node.attrs.src;
+        if (Array.isArray(node.content)) {
+          for (const child of node.content) {
+            const src = scanTiptapImage(child);
+            if (src) return src;
+          }
+        }
+        return '';
+      };
+      const parsedJson = JSON.parse(item.excerpt);
+      extractedCover = scanTiptapImage(parsedJson);
+    } catch(e) {}
+  }
+
+  return {
+    ...item,
+    author: item.authorName || '太初隐者', 
+    content: item.excerpt,
+    cardCover: extractedCover // 绑定给卡片大图渲染层
+  }
+});
 
       if (isLoadMore) {
-        posts.value.push(...formattedData); // 触底加载，追加到尾部
+        posts.value.push(...formattedData); 
       } else {
-        posts.value = formattedData; // 首次加载，直接覆盖
+        posts.value = formattedData; 
       }
 
-      // 判断后端是否还有更多数据
       if (res.length < pageSize.value) {
         hasMore.value = false;
       } else {
-        page.value++; // 准备好下一页的页码
+        page.value++; 
       }
     } else {
       hasMore.value = false;
@@ -186,23 +217,21 @@ const fetchStream = async (isLoadMore = false) => {
   } catch (err) {
     console.error('广场数据感应失败:', err);
     hasMore.value = false;
-  } finally {
+  } finally { 
     loading.value = false;
     loadingMore.value = false;
   }
 };
 
-// 🌟 3. 新增触底观察者逻辑
 const setupObserver = () => {
   if (observer) observer.disconnect();
 
   observer = new IntersectionObserver((entries) => {
-    // 如果底部探测器出现在视野内，且还有数据、没在加载中
     if (entries[0].isIntersecting && !loading.value && !loadingMore.value && hasMore.value) {
       fetchStream(true);
     }
   }, {
-    rootMargin: '200px', // 提前 200px 触发，体验更丝滑
+    rootMargin: '200px', 
   });
 
   if (loadMoreTrigger.value) {
@@ -214,7 +243,6 @@ const extractTiptapText = (rawStr: string | undefined): string => {
   if (!rawStr) return '';
   const trimmed = rawStr.trim();
   
-  // 如果不是 JSON 格式，说明是老系统的纯文本数据，直接返回
   if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
     return rawStr;
   }
@@ -225,24 +253,20 @@ const extractTiptapText = (rawStr: string | undefined): string => {
       if (!node) return '';
       if (typeof node === 'string') return node;
       if (node.type === 'text') return node.text || '';
-      
-      // 🌟 重点：有些 Tiptap 结构内容在 content 数组里
       if (Array.isArray(node.content)) {
         return node.content.map(parseNode).join('');
       }
-      
-      // 🌟 重点：如果是一个顶层 doc 对象
       if (node.type === 'doc' && Array.isArray(node.content)) {
         return node.content.map(parseNode).join('');
       }
-      
       return '';
     };
     return parseNode(obj);
   } catch (e) {
-    return rawStr; // 解析失败也返回原样，防止报错
+    return rawStr;
   }
 };
+
 const getSnippet = (rawStr: string | undefined, maxLength: number): string => {
   const plainText = extractTiptapText(rawStr);
   if (!plainText) return '';
@@ -264,11 +288,11 @@ const goToLingMai = () => {
   router.push('/lingmai');
 };
 
-const changeFilter = (type: 'all' | 'essay' | 'thought') => {
-  if (currentFilter.value === type) return; // 避免重复点击
+const changeFilter = (type: 'all' | 'note' | 'post') => {
+  if (currentFilter.value === type) return; 
   currentFilter.value = type;
-  window.scrollTo({ top: 0, behavior: 'smooth' }); // 切换分类回到顶部
-  fetchStream(false); // 重新请求第一页
+  window.scrollTo({ top: 0, behavior: 'smooth' }); 
+  fetchStream(false); 
 };
 
 const formatTime = (timeStr: string | undefined) => {
@@ -279,7 +303,7 @@ const formatTime = (timeStr: string | undefined) => {
 
 onMounted(async () => {
   await fetchStream(false);
-  setupObserver(); // 🌟 数据加载完后开启滚动监听
+  setupObserver(); 
 
   const path = window.location.pathname;
   if (path.startsWith('/posts/')) {
@@ -290,12 +314,10 @@ onMounted(async () => {
   }
 });
 
-// 🌟 4. 组件销毁时断开监听，防止内存泄漏
 onUnmounted(() => {
   if (observer) observer.disconnect();
 });
 </script>
-
 
 <style scoped>
 .curated-gallery-container {
@@ -315,12 +337,11 @@ onUnmounted(() => {
   -webkit-font-smoothing: antialiased;
 }
 
-/* 🌟 顶部导航 - 响应式优化 */
 .curated-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 104px; /* 桌面端高度 */
+  height: 104px;
   padding: 0 5%;
   border-bottom: 1px solid var(--color-line);
   position: sticky; 
@@ -354,7 +375,6 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
-/* 🌟 视界主体布局 */
 .curated-view { max-width: 1400px; margin: 0 auto; padding: 72px 5% 120px; }
 .curated-stream-grid {
   display: grid;
@@ -362,7 +382,6 @@ onUnmounted(() => {
   gap: 40px 32px;
 }
 
-/* 🌟 卡片通用规范 */
 .stream-card {
   display: flex; flex-direction: column; justify-content: space-between;
   cursor: pointer; border-bottom: 1px solid var(--color-line); padding-bottom: 40px;
@@ -374,7 +393,6 @@ onUnmounted(() => {
 .meta-dot { color: var(--color-line); }
 .meta-author { color: var(--color-ink); opacity: 0.85; }
 
-/* 🌟 博客排版（长文） */
 .is-blog { grid-column: span 8; padding-right: 48px; }
 .is-blog .blog-title {
   font-family: var(--font-serif); font-size: 2rem; font-weight: 700;
@@ -384,14 +402,48 @@ onUnmounted(() => {
   font-family: var(--font-serif); font-size: 1.1rem; line-height: 1.85; color: #333336; margin: 0;
 }
 
-/* 🌟 帖子排版（短语） */
+/* 短篇简语卡片通用配置 */
 .is-post {
   grid-column: span 4;
   background: var(--color-card-bg);
-  padding: 32px;
-  border-radius: 12px;
+  border-radius: 16px;
   border-bottom: none;
+  overflow: hidden;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
 }
+
+.is-post:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.04);
+}
+
+.post-card-content-wrapper {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+}
+
+/* ✨【新增】：置顶大图英雄区样式 */
+.post-card-hero {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: #f5f5f7;
+}
+
+.hero-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.is-post:hover .hero-img {
+  transform: scale(1.02);
+}
+
 .is-post .post-text { font-size: 1.05rem; font-weight: 400; line-height: 1.75; color: #2c2c2e; margin: 0; }
 
 .card-footer {
@@ -400,90 +452,42 @@ onUnmounted(() => {
 }
 .resonance-stat { display: flex; align-items: center; gap: 4px; }
 
-/* 📱 移动端适配核心代码 (Mobile First Adjustments) */
 @media (max-width: 768px) {
-  /* 1. 缩小 Header 并处理溢出 */
   .curated-nav {
-    height: 72px; /* 移动端减小高度 */
+    height: 72px;
     padding: 0 20px;
     flex-direction: row;
     justify-content: space-between;
   }
-
   .nav-left { gap: 20px; width: 70%; }
-  
-  /* 隐藏副标题以节省空间 */
   .brand-sub { display: none; }
   .brand-title { font-size: 1.2rem; }
-
-  /* 模式选择器改为水平滑动，不换行 */
   .mode-selectors {
     gap: 20px;
     overflow-x: auto;
     padding-bottom: 4px;
     -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; /* 隐藏进度条 */
+    scrollbar-width: none;
   }
   .mode-selectors::-webkit-scrollbar { display: none; }
   .mode-item { font-size: 0.85rem; }
-
-  /* 灵脉按钮在手机端简化 */
-  .lingmai-link {
-    padding: 8px 14px;
-    font-size: 0.75rem;
-  }
-  .lingmai-link span { display: none; } /* 隐藏箭头 */
-
-  /* 2. 网格调整为单列流 */
-  .curated-view {
-    padding: 32px 20px 80px;
-  }
-  
-  .curated-stream-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 48px; /* 增加卡片垂直间距 */
-  }
-
-  .is-blog, .is-post {
-    width: 100%;
-    grid-column: auto;
-    padding-right: 0;
-  }
-
-  /* 3. 字体微调 */
-  .is-blog .blog-title {
-    font-size: 1.5rem; /* 减小标题字号防止断行太碎 */
-    margin-bottom: 12px;
-  }
-  .is-blog .blog-excerpt {
-    font-size: 1rem;
-    line-height: 1.7;
-  }
-
-  .is-post {
-    padding: 24px; /* 减小内边距 */
-  }
-  
-  .card-meta { margin-bottom: 16px; }
-  .card-footer { margin-top: 24px; }
+  .lingmai-link { padding: 8px 14px; font-size: 0.75rem; }
+  .lingmai-link span { display: none; }
+  .curated-view { padding: 32px 20px 80px; }
+  .curated-stream-grid { display: flex; flex-direction: column; gap: 48px; }
+  .is-blog, .is-post { width: 100%; grid-column: auto; padding-right: 0; }
+  .is-blog .blog-title { font-size: 1.5rem; margin-bottom: 12px; }
+  .is-blog .blog-excerpt { font-size: 1rem; line-height: 1.7; }
+  .post-card-content-wrapper { padding: 24px; }
 }
 
-/* 针对极窄屏幕（如 iPhone SE） */
 @media (max-width: 380px) {
-  .mode-selectors { display: none; } /* 屏幕太小时隐藏分类，或可考虑放入汉堡菜单 */
+  .mode-selectors { display: none; }
 }
 
-/* 加载与动画保持不变 */
 .curated-loading, .curated-empty { padding: 120px 0; text-align: center; color: var(--color-slate); }
-.loading-pulse {
-  width: 28px; height: 28px; border: 2px solid var(--color-line); border-top-color: var(--color-ink);
-  border-radius: 50%; margin: 0 auto 16px; animation: spin 0.85s linear infinite;
-}
+.loading-pulse { width: 28px; height: 28px; border: 2px solid var(--line); border-top-color: var(--color-ink); border-radius: 50%; margin: 0 auto 16px; animation: spin 0.85s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 </style>
