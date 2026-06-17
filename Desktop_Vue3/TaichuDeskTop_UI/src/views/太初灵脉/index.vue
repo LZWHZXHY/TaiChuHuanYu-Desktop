@@ -165,7 +165,7 @@ import WorkspaceMap from './components/WorkspaceMap.vue';
 import WorkspaceBlog from './components/WorkspaceBlog.vue';
 import WorkspacePost from './components/WorkspacePost.vue';
 import WorkspaceExcel from './components/WorkspaceExcel.vue';
-
+import WorkspaceChar from './components/WorkspaceChar.vue';
 
 import SpiritToast from '@/components/SpiritToast.vue';
 
@@ -204,8 +204,8 @@ const displayFilters = ref<Record<string, boolean>>({
 });
 
 const workspaceMap: Record<string, any> = {
-  note: WorkspaceNote, wiki: WorkspaceWiki, art: WorkspaceArt,
-  thought: WorkspaceNote, char: WorkspaceNote, folder: WorkspaceNote, canvas: WorkspaceCanvas,map: WorkspaceMap,blog: WorkspaceBlog,post: WorkspacePost, excel:WorkspaceExcel,
+  note: WorkspaceNote, wiki: WorkspaceWiki, art: WorkspaceArt, char:WorkspaceChar,
+  folder: WorkspaceNote, canvas: WorkspaceCanvas,map: WorkspaceMap,blog: WorkspaceBlog,post: WorkspacePost, excel:WorkspaceExcel,
 };
 
 
@@ -311,14 +311,31 @@ const handleQuickEditorChange = (json: any) => {
 };
 // ==========================================
 
+// 寻找 index.vue 中的 handleWorkspaceChange 函数，用以下代码完全替换：
 const handleWorkspaceChange = (payload: any) => {
   if (payload && Array.isArray(payload.blocks)) {
-    workspaceBlocks.value = payload.blocks;
+    // 🌟 1. 获取当前主内存中现有的所有 blocks 备份
+    const currentBlocks = activeNote.value?.blocks || [];
+    
+    // 🌟 2. 提取出富文本编辑器本身持有的正文块（排除角色卡片块和画廊块）
+    const editorTextBlocks = currentBlocks.filter(
+      (b: any) => b.type !== 'char-layout-block' && b.type !== 'image' && b.type !== 'art-summary'
+    );
+
+    // 🌟 3. 从子组件传过来的新数据里，精准捕获属于卡片设定的块
+    const incomingCharBlocks = payload.blocks.filter((b: any) => b.type === 'char-layout-block');
+
+    // 🌟 4. 将原有的正文和最新的卡片设定在主白板层强行“合流”
+    const finalMergedBlocks = [...editorTextBlocks, ...incomingCharBlocks];
+
+    // 🌟 5. 更新共享缓冲区，这样 executeNetworkSync 就能同时看到正文和卡片
+    workspaceBlocks.value = finalMergedBlocks;
     
     if (activeNote.value) {
-      activeNote.value.blocks = payload.blocks;
+      activeNote.value.blocks = finalMergedBlocks;
     }
     
+    // 🌟 6. 立即触发网络安全层同步
     triggerDebouncedSync();
   }
 };
@@ -419,12 +436,46 @@ const confirmImportWiki = async () => {
   }
 };
 
-watch(() => editorRef.value?.isInitialized, (isReady) => {
-  if (isReady && pendingWikiContent.value && editorRef.value?.editor) {
+// 寻找 index.vue 中的 watch(currentNoteId, () => { ... }) 拦截逻辑，进行如下重构升级：
+
+watch(currentNoteId, () => { 
+  currentEditorJson.value = null; 
+  workspaceBlocks.value = [];
+
+  if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+  
+  // 🌟 核心拦截洗白：当切换或刷新进入角色卡片时，在送给编辑器前，进行 blocks -> tiptap 逆向解构
+  if (activeNote.value?.type === 'char' && activeNote.value.blocks) {
+    const currentBlocks = activeNote.value.blocks;
+    
+    // 1. 过滤出所有属于岁月生平富文本的正文块
+    const textBlocks = currentBlocks.filter((b: any) => b.type !== 'char-layout-block');
+    
+    // 2. 将这些积木块里序列化的 data 字符串，还原解析成 Tiptap 认识的标准 JSON 节点对象
+    const parsedNodes = textBlocks.map((b: any) => {
+      try {
+        return typeof b.data === 'string' ? JSON.parse(b.data) : b.data;
+      } catch {
+        return { type: 'paragraph', content: [] };
+      }
+    });
+
+    // 3. 组装成 Tiptap 核心骨架认识的终极 doc 树，硬核塞入 content 属性中
+    activeNote.value.content = {
+      type: 'doc',
+      content: parsedNodes.length > 0 ? parsedNodes : [{ type: 'paragraph' }]
+    };
+  }
+  
+  // 原有的 extraData 自定义属性加载逻辑保持不变
+  if (activeNote.value?.extraData) {
     try {
-      editorRef.value.editor.commands.setContent(pendingWikiContent.value);
-      pendingWikiContent.value = null; 
-    } catch (e) { console.error("内部错误:", e); }
+      currentWikiProperties.value = JSON.parse(activeNote.value.extraData);
+    } catch {
+      currentWikiProperties.value = [];
+    }
+  } else {
+    currentWikiProperties.value = [];
   }
 }, { immediate: true });
 
@@ -449,17 +500,15 @@ const triggerDebouncedSync = () => {
   }, 2000); 
 };
 
-// src/views/太初灵脉/index.vue 内部的 executeNetworkSync 函数完全体
-
+// 寻找 index.vue 中的 executeNetworkSync 函数，将 blocks 组装逻辑修改为：
 const executeNetworkSync = async (editorJson: any) => {
-  // 🌟 核心修正 1：第一时间将 safeNoteId 提取并固定在函数最顶部，确保所有分支都能物理访问到它
   const safeNoteId = currentNoteId.value; 
   if (!safeNoteId) return;
 
   let finalBlocks: any[] = [];
   let finalExtraData = activeNote.value?.extraData || '[]';
 
-  // 🌟 核心修正 2：条件放行大名单，允许 'excel' 类型的持久化块顺畅通关
+  // 🌟 核心拦截升级：判断是否满足特态组件条件放行
   if (
     (activeNote.value?.type === 'art' || 
      activeNote.value?.type === 'canvas' || 
@@ -468,6 +517,29 @@ const executeNetworkSync = async (editorJson: any) => {
   ) {
     finalBlocks = workspaceBlocks.value;
   }
+  // 🌟 核心追加分流：如果是角色设定卡片类型
+  else if (activeNote.value?.type === 'char') {
+    // 优先从共享缓存里拿合并好的全量 blocks（既包含正文，也包含卡片）
+    if (workspaceBlocks.value && workspaceBlocks.value.length) {
+      finalBlocks = workspaceBlocks.value;
+    } else {
+      // 降级兜底：如果只有编辑器在动，转换富文本并【保留】原有的卡片块
+      const currentBlocks = activeNote.value?.blocks || [];
+      const charMetaBlock = currentBlocks.find((b: any) => b.type === 'char-layout-block');
+      
+      const textBlocks = editorJson?.content ? editorJson.content.map((b: any, i: number) => ({
+        id: b.attrs?.id || Math.random().toString(36).substring(2, 11),
+        ownerId: safeNoteId,
+        ownerType: 'char',
+        type: b.type,
+        sortOrder: i,
+        data: JSON.stringify(b)
+      })) : [];
+
+      finalBlocks = charMetaBlock ? [...textBlocks, charMetaBlock] : textBlocks;
+    }
+  }
+  // 普通正文处理
   else if (editorJson && editorJson.content) {
     finalBlocks = editorJson.content.map((b: any, i: number) => ({
       id: b.attrs?.id || Math.random().toString(36).substring(2, 11),
@@ -481,29 +553,29 @@ const executeNetworkSync = async (editorJson: any) => {
     finalBlocks = [];
   }
 
+  // 每次成功清洗后，将最新成果写回主 blocks 缓存池，形成牢固的内存闭环
+  if (activeNote.value && finalBlocks.length) {
+    activeNote.value.blocks = finalBlocks;
+  }
+
   if (activeNote.value?.extraData) {
     finalExtraData = activeNote.value.extraData;
   }
 
-  // 🌟 核心修正 3：在所有数据（finalBlocks、finalExtraData）收集完毕后，再统一集结组装 syncPayload
   const syncPayload = {
     noteId: safeNoteId,
     title: activeNote.value?.title || displayNote.value?.title || '', 
     extraData: finalExtraData,
-    幕后数据: "taichu-universe", // 保持灵脉规范
+    幕后数据: "taichu-universe",
     tags: activeNote.value?.tags || [], 
     blocks: finalBlocks
   };
 
   try {
-    // 此时 safeNoteId 和 syncPayload 都在其上方稳稳声明，TS 绝对不会再报找不到名称！
     await lingmaiApi.updateNoteContent(safeNoteId, syncPayload);
-    
-    // 轻量级自动保存成功反馈（1.5秒后迅速消失）
     toastRef.value?.show("☁️ 已自动同步", 1500); 
   } catch (e) {
     console.error("同步失败:", e);
-    toastRef.value?.show("❌ 灵脉连接波动，自动同步失败");
   }
 };
 

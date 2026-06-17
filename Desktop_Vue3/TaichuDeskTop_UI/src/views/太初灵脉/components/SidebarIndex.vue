@@ -57,7 +57,14 @@
             <div class="create-opt" @click="handleCreateWithType('art')">画廊 (Art)</div>
             <div class="create-opt" @click="handleCreateWithType('canvas')">星图白板 (Canvas)</div>
             <div class="create-opt" @click="handleCreateWithType('map')">世界地图 (Map)</div>
+  
+            <!--
+            
             <div class="create-opt" @click="handleCreateWithType('excel')">表格 (excel)</div>
+            -->
+         
+         
+         
           </div>
         </transition>
       </div>
