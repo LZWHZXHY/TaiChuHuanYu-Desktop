@@ -5,8 +5,8 @@
     </div>
 
     <div v-else class="manager-layout">
-      <aside class="side-panel">
-        <section class="panel-block invite-section">
+      <aside v-if="hasManagerPermission || joinRequests.length > 0" class="side-panel">
+        <section v-if="hasManagerPermission" class="panel-block invite-section">
           <h2 class="section-title">邀请协作者</h2>
           <div class="invite-form">
             <input
@@ -22,7 +22,7 @@
           </div>
         </section>
 
-        <section v-if="joinRequests.length > 0" class="panel-block requests-section">
+        <section v-if="hasManagerPermission && joinRequests.length > 0" class="panel-block requests-section">
           <h2 class="section-title">
             待审核申请
             <span class="count-badge">{{ joinRequests.length }}</span>
@@ -68,7 +68,7 @@
                 <select
                   class="role-select"
                   :value="member.role"
-                  :disabled="member.role === 'owner'"
+                  :disabled="member.role === 'owner' || !hasManagerPermission"
                   @change="updateRole(member.id, ($event.target as HTMLSelectElement).value)"
                 >
                   <option v-for="role in roleOptions" :key="role.value" :value="role.value">
@@ -80,7 +80,7 @@
                 </p>
               </div>
               <button
-                v-if="member.role !== 'owner'"
+                v-if="member.role !== 'owner' && hasManagerPermission"
                 class="remove-btn"
                 @click="confirmRemove(member)"
               >
@@ -117,7 +117,6 @@ const props = defineProps<{
   projectId: string
 }>()
 
-// 🌟 明确声明对外暴露的更新事件，用以跟外层联动看板人数
 const emit = defineEmits(['updated'])
 
 interface Member {
@@ -131,7 +130,7 @@ interface JoinRequest {
   id: string
   applicantName: string
   applicantEmail: string
-  message: string // 🌟 映射后端返回的 Message 字段
+  message: string 
 }
 
 const roleOptions = [
@@ -158,6 +157,7 @@ const isLoading = ref(true)
 const members = ref<Member[]>([])
 const joinRequests = ref<JoinRequest[]>([])
 const inviteTarget = ref('') 
+const hasManagerPermission = ref(false) // 🌟 新增：标记当前登录用户是否有管理权限
 
 const removeModal = ref({
   isOpen: false,
@@ -165,18 +165,32 @@ const removeModal = ref({
   memberName: '',
 })
 
-// 🌟 完善 2：初始化时双管齐下，同步加载成员与挂起的加入申请
+// 🌟 核心改进：拆解 Promise.all，将常规列表与权限审批解耦加载
 const loadData = async () => {
   isLoading.value = true
+  
+  // 1. 获取团队成员列表（所有成员都能看，不应该被卡住）
   try {
-    const [membersData, requestsData] = await Promise.all([
-      projectService.getProjectMembers(props.projectId),
-      projectService.getPendingApplications(props.projectId) // 调用我们加进服务层的新方法
-    ])
+    const membersData = await projectService.getProjectMembers(props.projectId)
     members.value = membersData as any[]
-    joinRequests.value = requestsData as any[]
   } catch (error) {
-    console.error('加载成员大厅或申请数据失败:', error)
+    console.error('加载常规团队成员失败:', error)
+  }
+
+  // 2. 获取待审核申请列表（仅管理层可读，403 时不应该引发页面溃败）
+  try {
+    const requestsData = await projectService.getPendingApplications(props.projectId)
+    joinRequests.value = requestsData as any[]
+    hasManagerPermission.value = true // 请求成功，说明是项目所有者或管理员
+  } catch (error: any) {
+    // 判断是否是 403 或者是触发了后端的权限校验错误
+    if (error.response?.status === 403 || error.response?.status === 500) {
+      hasManagerPermission.value = false
+      joinRequests.value = []
+      console.log('当前登录用户非管理层，已隐式隐藏审批及邀请面板。')
+    } else {
+      console.error('加载待审核申请列表遇到了其他异常:', error)
+    }
   } finally {
     isLoading.value = false
   }
@@ -234,21 +248,17 @@ const executeRemove = async () => {
   }
 }
 
-// 🌟 完善 3：彻底打通接受 / 拒绝申请的逻辑，对接后端 HandleApplication 端点
 const handleRequest = async (requestId: string, action: 'approve' | 'reject') => {
   try {
-    // 调动后端接口裁决
     await projectService.handleApplication(props.projectId, requestId, {
       approve: action === 'approve'
     })
     
-    // 体验提升：前端响应式移除这一项
     joinRequests.value = joinRequests.value.filter(r => r.id !== requestId)
     
-    // 如果接受了新成员，顺手重新拉取成员大厅以浮现他的卡片
     if (action === 'approve') {
       await loadData()
-      emit('updated') // 冒泡给 Detail 级组件更新统计
+      emit('updated') 
     }
     
     alert(action === 'approve' ? "已接纳该共建者融入灵脉。" : "已婉拒该用户的申请。")
@@ -260,8 +270,6 @@ const handleRequest = async (requestId: string, action: 'approve' | 'reject') =>
 </script>
 
 <style scoped>
-/* 完美继承原有精美样式，额外增加极少量的优化样式 */
-
 .member-manager {
   width: 100%;
   max-width: 1200px;
@@ -292,8 +300,6 @@ const handleRequest = async (requestId: string, action: 'approve' | 'reject') =>
 .requester-details { display: flex; flex-direction: column; flex: 1; min-width: 0; }
 .requester-name { font-size: 0.9rem; color: #1a1a1a; font-weight: 500; }
 .requester-email { font-size: 0.75rem; color: #999; margin-bottom: 6px; }
-
-/* 🌟 新增：申请留言文字样式优化 */
 .request-message { font-size: 0.8rem; color: #666; font-style: italic; background: #fafafa; padding: 8px 12px; border-left: 2px solid #1a1a1a; margin: 4px 0 0 0; line-height: 1.5; word-break: break-all; }
 
 .request-actions { display: flex; gap: 8px; justify-content: flex-end; width: 100%; }

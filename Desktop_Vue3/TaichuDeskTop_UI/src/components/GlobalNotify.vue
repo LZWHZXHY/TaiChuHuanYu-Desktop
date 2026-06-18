@@ -41,8 +41,8 @@ const duration = ref(8000); // 默认 8 秒
 // --- 核心逻辑：响应总线事件 ---
 const handleApiError = (data: { msg: string; detail?: string; type?: string; title?: string }) => {
   // 填充数据
-  title.value = data.title || '天道报错 (Debug)';
-  message.value = data.msg || '未知灵气波动';
+  title.value = data.title || '检测报错 (Debug)';
+  message.value = data.msg || '未知网络波动';
   details.value = data.detail || '';
   type.value = data.type || 'error';
   

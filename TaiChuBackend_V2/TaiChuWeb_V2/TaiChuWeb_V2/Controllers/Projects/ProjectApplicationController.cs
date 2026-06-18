@@ -93,7 +93,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
         {
             if (!await IsManager(projectId))
             {
-                return Forbid("非项目管理层，无权查看审批");
+                return Forbid(); // ✅ 安全返回 403
             }
 
             var applications = await _context.ProjectApplications
@@ -120,7 +120,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
         {
             if (!await IsManager(projectId))
             {
-                return Forbid("非项目管理层，无权操作审批");
+                return Forbid(); // ✅ 安全返回 403
             }
 
             var app = await _context.ProjectApplications.FirstOrDefaultAsync(a => a.Id == applicationId && a.ProjectId == projectId);
