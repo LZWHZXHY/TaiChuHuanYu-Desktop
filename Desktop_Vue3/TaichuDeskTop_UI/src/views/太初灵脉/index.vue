@@ -334,12 +334,22 @@ const getTextLength = (node: any): number => {
 const hasArtImage = computed(() => checkHasImage(currentEditorJson.value || displayNote.value?.content));
 const currentTextLength = computed(() => getTextLength(currentEditorJson.value || displayNote.value?.content));
 
+// index.vue 里的 canPublishDynamic 修改后：
 const canPublishDynamic = computed(() => {
   if (!activeNote.value) return false;
+
+  // 🌟【核心拦截】：封锁普通的 note（笔记）和 folder（文件夹）形态，使其绝不能发布
+  if (activeNote.value.type === 'note' || activeNote.value.type === 'folder') {
+    return false;
+  }
+
   switch (activeNote.value.type) {
-    case 'art': return hasArtImage.value;
-    case 'post': return currentTextLength.value <= 500;
-    default: return true; 
+    case 'art': 
+      return hasArtImage.value; // 画廊：必须包含至少一张图片
+    case 'post': 
+      return currentTextLength.value <= 500; // 简语：限制在 500 字以内
+    default: 
+      return true; // 随笔 (blog)、词条 (wiki)、角色 (char) 等衍生多态组件允许发布
   }
 });
 
