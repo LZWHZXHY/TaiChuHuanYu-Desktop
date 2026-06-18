@@ -27,22 +27,24 @@ namespace TaiChuWeb_V2.Controllers.Projects
         [HttpGet]
         public async Task<IActionResult> GetMembers(string projectId)
         {
-            // 🔒 权限检查：调用者必须是该项目的成员
+            // 🔒 权限检查
             if (!await _context.ProjectMembers.AnyAsync(m => m.ProjectId == projectId && m.UserId == CurrentUserId))
                 return Forbid();
 
-            // 🌟 核心修复：将 ProjectMembers 与你的真实 User 模型（Guid主键）进行联查
+            // 🌟 核心修改：确保返回了 RoleId 原始值或明确的 Owner 标识
             var members = await _context.ProjectMembers
                 .Where(m => m.ProjectId == projectId)
                 .Join(
-                    _context.Users, // 关联用户表
-                    member => member.UserId, // ProjectMember 中的 string/Guid 映射
-                    user => user.Id.ToString(), // User 中的 Guid 转为 string 进行匹配
+                    _context.Users,
+                    member => member.UserId,
+                    user => user.Id.ToString(),
                     (member, user) => new
                     {
                         Id = member.UserId,
-                        Name = user.Username, // 对应 User.cs 中的 Username 属性
-                        Email = user.Email ?? "暂无邮箱", // 对应 User.cs 中的 Email 属性
+                        Name = user.Username,
+                        Email = user.Email ?? "暂无邮箱",
+                        RoleId = member.RoleId, // 🌟 返回原始 RoleId，方便前端判断
+                        IsOwner = member.RoleId == 0, // 🌟 显式返回 Boolean，前端直接 v-if="member.IsOwner"
                         Role = member.RoleId == 0 ? "owner" :
                                member.RoleId == 1 ? "admin" :
                                member.RoleId == 2 ? "editor" :
@@ -160,7 +162,6 @@ namespace TaiChuWeb_V2.Controllers.Projects
             {
                 ProjectId = projectId,
                 UserId = targetUser.Id.ToString(), // 统一转为 string 型持久化
-                RoleId = 4,
                 JoinedAt = DateTime.UtcNow
             };
 

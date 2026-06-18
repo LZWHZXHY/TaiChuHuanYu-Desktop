@@ -52,7 +52,6 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 {
                     ProjectId = projectId,
                     UserId = CurrentUserId,
-                    RoleId = 1,
                     JoinedAt = DateTime.UtcNow
                 });
                 await _context.SaveChangesAsync();
@@ -93,7 +92,10 @@ namespace TaiChuWeb_V2.Controllers.Projects
         {
             if (!await IsManager(projectId))
             {
-                return Forbid(); // ✅ 安全返回 403
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = "非项目管理层，无权查看审批"
+                });
             }
 
             var applications = await _context.ProjectApplications
@@ -144,7 +146,6 @@ namespace TaiChuWeb_V2.Controllers.Projects
                     {
                         ProjectId = projectId,
                         UserId = app.UserId,
-                        RoleId = 1,
                         JoinedAt = DateTime.UtcNow
                     });
                 }

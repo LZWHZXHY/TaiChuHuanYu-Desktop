@@ -88,7 +88,7 @@ const currentTab = ref('kanban');
 const tabs = [
   { id: 'kanban', name: '任务看板' },
   { id: 'timeline', name: '演进线' },
-  { id: 'members', name: '共建者' },
+  { id: 'members', name: '成员' },
   { id: 'document', name: '文档'},
   { id: 'settings', name: '项目配置' }
 ];

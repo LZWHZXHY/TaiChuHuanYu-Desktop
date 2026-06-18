@@ -30,18 +30,27 @@ namespace TaiChuWeb_V2.Controllers.Projects
             var projects = await _context.Projects
                 .Where(p => p.IsPublic)
                 .OrderByDescending(p => p.CreatedAt)
-                .Select(p => new {
-                    p.Id,
-                    p.Name,
-                    p.Description,
-                    p.Status,
-                    p.StartTime,
-                    p.EndTime,
-                    p.JoinPolicy,
-                    p.CreatedAt,
-                    MemberCount = _context.ProjectMembers.Count(m => m.ProjectId == p.Id),
-                    IsJoined = _context.ProjectMembers.Any(m => m.ProjectId == p.Id && m.UserId == CurrentUserId),
-                    HasApplied = _context.ProjectApplications.Any(a => a.ProjectId == p.Id && a.UserId == CurrentUserId && a.Status == 0)
+                // 🌟 核心：联查 Users 表以获取所有者用户名
+                .Join(
+                    _context.Users,
+                    p => p.OwnerId,
+                    u => u.Id,
+                    (p, u) => new { Project = p, OwnerName = u.Username }
+                )
+                .Select(x => new {
+                    x.Project.Id,
+                    x.Project.Name,
+                    x.Project.Description,
+                    x.Project.Status,
+                    x.Project.StartTime,
+                    x.Project.EndTime,
+                    x.Project.JoinPolicy,
+                    x.Project.CreatedAt,
+                    x.OwnerName, // 🌟 返回所有者名字供前端渲染
+                    x.Project.OwnerId, // 🌟 返回 OwnerId，供前端判断当前用户是否就是该项目所有者
+                    MemberCount = _context.ProjectMembers.Count(m => m.ProjectId == x.Project.Id),
+                    IsJoined = _context.ProjectMembers.Any(m => m.ProjectId == x.Project.Id && m.UserId == CurrentUserId),
+                    HasApplied = _context.ProjectApplications.Any(a => a.ProjectId == x.Project.Id && a.UserId == CurrentUserId && a.Status == 0)
                 })
                 .ToListAsync();
 
@@ -69,9 +78,20 @@ namespace TaiChuWeb_V2.Controllers.Projects
                     m.Project.EndTime,
                     m.RoleId,
                     m.Project.CreatedAt,
+
+                    // 🌟 新增：返回所有者 ID
+                    OwnerId = m.Project.OwnerId,
+
+                    // 🌟 新增：联查所有者昵称 (通过 OwnerId 匹配 Users 表)
+                    OwnerName = _context.Users
+                        .Where(u => u.Id.ToString() == m.Project.OwnerId.ToString())
+                        .Select(u => u.Username)
+                        .FirstOrDefault(),
+
                     MemberCount = _context.ProjectMembers.Count(pm => pm.ProjectId == m.Project.Id)
                 })
                 .ToListAsync();
+
             return Ok(projects);
         }
 
@@ -80,22 +100,41 @@ namespace TaiChuWeb_V2.Controllers.Projects
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
+            // 🌟 1. 改为去查询当前登录用户的 Stats 数据
+            var userStats = await _context.UserStats
+                .FirstOrDefaultAsync(s => s.UserId == Guid.Parse(CurrentUserId));
+
+            if (userStats == null) return Unauthorized("未寻得您的太初数据，无法校验额度");
+
+            // 🌟 2. 动态统计当前用户已经创建的、且没有被封存（Status != 3）的项目数量
+            var activeProjectCount = await _context.ProjectMembers
+                .CountAsync(m => m.UserId == CurrentUserId && m.RoleId == 0 && m.Project.Status != 3);
+
+            // 🌟 3. 基于 UserStats 中的最大额度进行拦截
+            if (activeProjectCount >= userStats.MaxProjectCount)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new
+                {
+                    message = $"您的活跃灵脉负载已达上限（{activeProjectCount}/{userStats.MaxProjectCount}）。请前往项目配置封存闲置项目释放额度，或去交易行购置更多空间。"
+                });
+            }
+
+            // --- 4. 允许创建 (以下为您原有的创建逻辑) ---
             var project = new Project
             {
                 Id = Guid.NewGuid().ToString(),
                 Name = dto.Name,
                 Description = dto.Description,
                 IsPublic = dto.IsPublic,
-                JoinPolicy = 0, // 默认仅限邀请
+                JoinPolicy = 0,
                 CreatedAt = DateTime.UtcNow,
                 StartTime = dto.StartTime,
                 EndTime = dto.EndTime,
-                Status = 1 // 创建即默认进入活跃状态
+                Status = 1
             };
 
             _context.Projects.Add(project);
 
-            // 自动设为 Owner
             _context.ProjectMembers.Add(new ProjectMember
             {
                 ProjectId = project.Id,
@@ -105,21 +144,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
             });
 
             await _context.SaveChangesAsync();
-
-            // 🌟 修复：补全返回字段，供前端页面跳转后的顶层组件及看板平稳渲染
-            return Ok(new
-            {
-                id = project.Id,
-                name = project.Name,
-                description = project.Description,
-                isPublic = project.IsPublic,
-                joinPolicy = project.JoinPolicy,
-                status = project.Status,
-                startTime = project.StartTime,
-                endTime = project.EndTime,
-                createdAt = project.CreatedAt,
-                memberCount = 1
-            });
+            return Ok(project);
         }
 
         #endregion
@@ -208,6 +233,10 @@ namespace TaiChuWeb_V2.Controllers.Projects
             await _context.SaveChangesAsync();
             return Ok("项目已从灵脉中抹除");
         }
+
+
+
+                
 
         #endregion
 

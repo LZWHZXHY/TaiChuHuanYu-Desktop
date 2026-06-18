@@ -10,7 +10,7 @@
         // public User User { get; set; } // 关联你现有的用户表
 
         // 权限角色：0=管理员, 1=普通开发者, 2=只读观察者
-        public int RoleId { get; set; }
+        public int RoleId { get; set; } = 4;
 
         public DateTime JoinedAt { get; set; } = DateTime.UtcNow;
     }

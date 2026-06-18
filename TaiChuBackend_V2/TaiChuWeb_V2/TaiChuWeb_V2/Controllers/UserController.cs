@@ -24,12 +24,17 @@ public class UserController : ControllerBase
         var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdStr, out var userId)) return Unauthorized();
 
+        // 🌟 核心优化：联查 User、Profile 和 Stats
         var user = await _context.Users
             .Include(u => u.Profile)
             .Include(u => u.Stats)
             .FirstOrDefaultAsync(u => u.Id == userId);
 
         if (user == null) return NotFound("用户不存在");
+
+        // 🌟 新增：动态计算当前用户已经创建的、且没有被封存（Status != 3）的活跃项目数量
+        var activeProjectCount = await _context.ProjectMembers
+            .CountAsync(m => m.UserId == userIdStr && m.RoleId == 0 && m.Project.Status != 3);
 
         return Ok(new
         {
@@ -54,10 +59,18 @@ public class UserController : ControllerBase
 
             // --- Stats 数据 (已移除 Points) ---
             Level = user.Stats?.Level ?? 0,
-            Experience = user.Stats?.Experience ?? 0, // 现在的“修为”总额
-                                                      // Points = ... 👈 这一行已经被彻底抹除
+            Experience = user.Stats?.Experience ?? 0,
             MaxSignStreak = user.Stats?.MaxSignStreak ?? 0,
-            Title = user.Stats?.Title
+            Title = user.Stats?.Title,
+
+            // 🌟 新增：灵脉编织额度载荷看板（无缝输送给前端）
+            ProjectQuota = new
+            {
+                ActiveCount = activeProjectCount,                           // 已使用的活跃项目数
+                MaxCount = user.Stats?.MaxProjectCount ?? 10,               // 基于 UserStats 表的上限额度（保底 10 个）
+                AvailableCount = (user.Stats?.MaxProjectCount ?? 10) - activeProjectCount, // 剩余可用名额
+                IsFull = activeProjectCount >= (user.Stats?.MaxProjectCount ?? 10)         // 额度是否已满
+            }
         });
     }
 

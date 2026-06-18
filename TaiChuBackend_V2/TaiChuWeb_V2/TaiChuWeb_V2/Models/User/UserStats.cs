@@ -43,6 +43,10 @@ namespace TaiChuWeb_V2.Models.User
         public int MaxNotes { get; set; } = 100; // 最大笔记数，默认100，可通过升级或购买扩展
         public int MaxSpaces { get; set; } = 1; // 最大空间数，默认1，可通过升级或购买扩展
 
+        public int UsedProjectCount { get; set; } = 0;
+
+        public int MaxProjectCount { get; set; } = 10; // 最大项目数，默认10，可通过升级或购买扩展
+
         [ForeignKey("UserId")] // 明确外键关系
         public virtual User User { get; set; } = null!;
     }

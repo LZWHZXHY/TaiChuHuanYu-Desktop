@@ -7,6 +7,11 @@ namespace TaiChuWeb_V2.Models.Project
         [Key]
         public string Id { get; set; } = Guid.NewGuid().ToString();
 
+
+        [Required]
+        public Guid OwnerId { get; set; }
+
+
         [Required]
         [MaxLength(100)]
         public string Name { get; set; }
@@ -18,6 +23,12 @@ namespace TaiChuWeb_V2.Models.Project
         // false = 绝对私有（别人搜不到）
         // true = 公开展示（别人能看到简介和公开文档，但不能改任务）
         public bool IsPublic { get; set; } = false;
+
+        // 🌟 新增：灵脉封面图 URL (可空属性)
+        // 使用 string? 代表它可以为 Null。如果用户不上传，前端可以渲染一张唯美的默认国风水墨背景图。
+        [MaxLength(2048)] // 2048 是主流浏览器和数据库存储 URL 的标准安全上限
+        public string? CoverUrl { get; set; }
+
 
         // 🌟 新增 2：准入策略
         // 0 = 仅限邀请 (Invite Only) - 默认最安全

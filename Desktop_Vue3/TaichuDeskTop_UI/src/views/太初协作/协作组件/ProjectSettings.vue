@@ -7,6 +7,29 @@
       </div>
 
       <div class="form-grid">
+        <div class="input-group full-width cover-upload-group">
+          <label>灵脉封面</label>
+          <div class="cover-uploader">
+            <div v-if="form.coverUrl" class="cover-preview-wrapper">
+              <img :src="form.coverUrl" class="cover-image-preview" alt="项目封面" />
+              <button class="remove-cover-btn" @click="removeCover" :disabled="isCosUploading">移除封面</button>
+            </div>
+            <div v-else class="upload-placeholder-box" @click="triggerFileInput">
+              <span class="upload-icon">{{ isCosUploading ? '⏳' : '✦' }}</span>
+              <span class="upload-text">
+                {{ isCosUploading ? `正在上载到太初云端 (${cosProgress}%)` : '点击描绘灵脉封面' }}
+              </span>
+            </div>
+            <input 
+              ref="fileInputRef" 
+              type="file" 
+              accept="image/*" 
+              class="hidden-file-input" 
+              @change="handleFileChange" 
+            />
+          </div>
+        </div>
+
         <div class="input-group">
           <label>项目标题</label>
           <input v-model="form.name" placeholder="输入标题..." @input="checkChanges" />
@@ -41,7 +64,6 @@
           <input type="date" v-model="form.endTime" @change="checkChanges" />
         </div>
 
-        <!-- 🌟 完善 1：新增准入策略控制（JoinPolicy） -->
         <div class="input-group">
           <label>准入策略</label>
           <select v-model="form.joinPolicy" @change="checkChanges">
@@ -66,7 +88,7 @@
       <footer class="settings-footer">
         <button 
           class="save-btn" 
-          :disabled="!hasChanges || isUpdating" 
+          :disabled="!hasChanges || isUpdating || isCosUploading" 
           @click="handleUpdate"
         >
           {{ isUpdating ? '正在同步...' : '保存更改' }}
@@ -74,7 +96,6 @@
       </footer>
     </section>
 
-    <!-- 🌟 完善 2：彻底打通彻底解散并抹除项目的动作 -->
     <section class="danger-zone">
       <div class="section-header">
         <h3>危险区域</h3>
@@ -91,13 +112,13 @@
 import { ref, reactive, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import projectService from '../../../api/projectService';
+import { useCos } from '@/composables/useCos'; // 🌟 引入你上传的腾讯云 COS 上传封装组件
 
 const props = defineProps<{
   projectId: string;
   initialData: any;
 }>();
 
-// 🌟 新增对外冒泡事件，用于在更新完基础配置后让父组件能监听到并刷新外层大厅数据
 const emit = defineEmits(['updated']);
 const router = useRouter();
 
@@ -105,25 +126,30 @@ const isUpdating = ref(false);
 const isDeleting = ref(false);
 const hasChanges = ref(false);
 
+// 🌟 引入 COS 相关响应式状态和方法
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const { uploadFile, isUploading: isCosUploading, progress: cosProgress } = useCos();
+
 // 响应式表单
 const form = reactive({
   name: '',
   description: '',
+  coverUrl: '', // 🌟 补全项目封面图的响应式字段
   startTime: '',
   endTime: '',
   status: 1,
   isPublic: false,
-  joinPolicy: 0 // 🌟 补全准入策略响应式初始值
+  joinPolicy: 0 
 });
 
-// 深度克隆初始值用于对比
 let originalData = '';
 
 onMounted(() => {
   if (props.initialData) {
     Object.assign(form, {
       ...props.initialData,
-      joinPolicy: props.initialData.joinPolicy ?? 0, // 接收外层输送来的准入策略数据
+      coverUrl: props.initialData.coverUrl || '', // 接收后端同步而来的封面 URL 属性
+      joinPolicy: props.initialData.joinPolicy ?? 0, 
       startTime: props.initialData.startTime?.split('T')[0] || '',
       endTime: props.initialData.endTime?.split('T')[0] || ''
     });
@@ -135,11 +161,48 @@ const checkChanges = () => {
   hasChanges.value = JSON.stringify(form) !== originalData;
 };
 
+// 🌟 触发隐藏的文件选择框
+const triggerFileInput = () => {
+  if (isCosUploading.value) return;
+  fileInputRef.value?.click();
+};
+
+// 🌟 捕获文件更改事件，执行基于腾讯云 COS 的对象存储直传
+const handleFileChange = async (event: Event) => {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+
+  // 简单大小验证保护（示例限制 5MB）
+  if (file.size > 5 * 1024 * 1024) {
+    alert("封面图容量过大，请保持在 5MB 以内。");
+    return;
+  }
+
+  try {
+    // 注入至项目专属的封面路径文件夹中
+    const res = await uploadFile(file, `projects/${props.projectId}/cover`);
+    form.coverUrl = res.url; // 完美捕获自定义 CDN 域名拼接出的图片直链
+    checkChanges();
+  } catch (err) {
+    console.error("COS 封面图上传出错:", err);
+    alert("封面上传至云端网络崩溃，请检查密钥配置。");
+  } finally {
+    // 清空 input 确保同一张图连续选择依然可被正常捕获
+    if (fileInputRef.value) fileInputRef.value.value = '';
+  }
+};
+
+// 🌟 移除现有封面图
+const removeCover = () => {
+  form.coverUrl = '';
+  checkChanges();
+};
+
 const handleUpdate = async () => {
-  if (isUpdating.value) return;
+  if (isUpdating.value || isCosUploading.value) return;
   isUpdating.value = true;
   
-  // 处理日期：将 "" 转换为 null
   const submitData = {
     ...form,
     startTime: form.startTime || null,
@@ -151,7 +214,6 @@ const handleUpdate = async () => {
     originalData = JSON.stringify(form);
     hasChanges.value = false;
     
-    // 🌟 核心：通知最外层的 ProjectDetail.vue 刷新头部标题与状态面包屑
     emit('updated');
     alert("灵脉印记已成功重构更新。");
   } catch (err) {
@@ -162,7 +224,6 @@ const handleUpdate = async () => {
   }
 };
 
-// 🌟 真正打通：调用解散项目端点
 const handleDelete = async () => {
   const firstConfirm = confirm('确定要抹除这段灵脉吗？此操作将彻底消灭项目旗下一切意图、任务、自定义分栏，且无法撤销！');
   if (!firstConfirm) return;
@@ -174,7 +235,6 @@ const handleDelete = async () => {
   try {
     await projectService.deleteProject(props.projectId);
     alert("项目已成功从灵脉大厅彻底抹除。");
-    // 成功解散项目后，直接把用户护送回灵脉大厅
     router.push('/Project');
   } catch (err) {
     console.error('解散项目失败:', err);
@@ -247,7 +307,6 @@ const handleDelete = async () => {
   transition: border-color 0.3s;
 }
 
-/* 针对选择框微调，防止样式在部分浏览器崩塌 */
 .input-group select {
   cursor: pointer;
   border-radius: 0;
@@ -257,6 +316,74 @@ const handleDelete = async () => {
 .input-group textarea:focus,
 .input-group select:focus {
   border-bottom-color: #1a1a1a;
+}
+
+/* 🌟 新增：极简轻量化的封面上传器外观样式 */
+.cover-upload-group {
+  margin-bottom: 10px;
+}
+.cover-uploader {
+  width: 100%;
+  position: relative;
+}
+.upload-placeholder-box {
+  width: 100%;
+  height: 160px;
+  border: 1px dashed #e0e0e0;
+  background: #fafafa;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.upload-placeholder-box:hover {
+  border-color: #1a1a1a;
+  background: #f5f5f5;
+}
+.upload-icon {
+  font-size: 1.6rem;
+  color: #aaa;
+}
+.upload-text {
+  font-size: 0.8rem;
+  color: #888;
+  font-weight: 300;
+}
+.cover-preview-wrapper {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+  border: 1px solid #f0f0f0;
+}
+.cover-image-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.remove-cover-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+  border: 1px solid #ddd;
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  color: #ff4757;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.remove-cover-btn:hover {
+  background: #ff4757;
+  color: #fff;
+  border-color: #ff4757;
+}
+.hidden-file-input {
+  display: none;
 }
 
 .switch-wrapper {

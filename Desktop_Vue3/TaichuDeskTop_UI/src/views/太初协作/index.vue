@@ -3,6 +3,20 @@
     <header class="portal-header">
       <div class="brand-section">
         <h1 class="title">太初协作</h1>
+        
+        <div v-if="quotaInfo" class="quota-dashboard">
+          <span class="quota-text">
+            活跃灵脉负载：<strong>{{ quotaInfo.activeCount }}</strong> / {{ quotaInfo.maxCount }}
+          </span>
+          <div class="quota-progress-track">
+            <div 
+              class="quota-progress-bar" 
+              :class="{ 'is-full': quotaInfo.isFull }"
+              :style="{ width: `${(quotaInfo.activeCount / quotaInfo.maxCount) * 100}%` }"
+            ></div>
+          </div>
+        </div>
+
         <nav class="portal-tabs">
           <button 
             :class="['tab-link', { active: viewMode === 'mine' }]" 
@@ -18,13 +32,18 @@
           </button>
         </nav>
       </div>
-      <button class="create-trigger" @click="showCreateModal = true">
-        <span class="plus">+</span> 开启新项目
+
+      <button 
+        class="create-trigger" 
+        :class="{ 'quota-locked': quotaInfo?.isFull }"
+        @click="triggerCreateModal"
+      >
+        <span class="plus">{{ quotaInfo?.isFull ? '⚠️' : '+' }}</span> 
+        {{ quotaInfo?.isFull ? '活跃灵脉已满' : '开启新项目' }}
       </button>
     </header>
 
     <main class="project-grid">
-      <!-- 项目卡片 -->
       <div 
         v-for="project in displayProjects" 
         :key="project.id" 
@@ -34,7 +53,6 @@
       >
         <div class="entry-content">
           <div class="entry-header">
-            <!-- 智能化身份与准入状态指示器 -->
             <template v-if="viewMode === 'mine'">
               <span class="role-indicator">{{ getRoleLabel(project.roleId) }}</span>
             </template>
@@ -45,7 +63,10 @@
               <span class="role-indicator apply-tag" v-else-if="project.joinPolicy === 1">申请加入</span>
               <span class="role-indicator lock-tag" v-else>仅限邀请</span>
             </template>
-            
+            <span class="role-indicator">
+              {{ viewMode === 'mine' ? getRoleLabel(project.roleId) : 'OWNER' }} 
+              | {{ project.ownerName }}
+            </span>
             <h2 class="entry-name">{{ project.name }}</h2>
           </div>
           <p class="entry-desc">{{ project.description || '暂无愿景描述' }}</p>
@@ -69,20 +90,19 @@
         </div>
       </div>
 
-      <!-- 新增占位卡片 -->
       <div 
         v-if="viewMode === 'mine'"
         class="project-entry empty-placeholder" 
-        @click="showCreateModal = true"
+        :class="{ 'placeholder-locked': quotaInfo?.isFull }"
+        @click="triggerCreateModal"
       >
         <div class="placeholder-content">
-          <div class="placeholder-icon">+</div>
-          <p>新增项目</p>
+          <div class="placeholder-icon">{{ quotaInfo?.isFull ? '⚠️' : '+' }}</div>
+          <p>{{ quotaInfo?.isFull ? '灵脉负载已满' : '新增项目' }}</p>
         </div>
       </div>
     </main>
 
-    <!-- 弹窗：开启新项目 -->
     <Transition name="fade">
       <div v-if="showCreateModal" class="modal-overlay" @click.self="closeModal">
         <div class="minimal-modal">
@@ -136,7 +156,6 @@
       </div>
     </Transition>
 
-    <!-- 弹窗：申请加入灵脉 (只有需要审批的项目才会唤起) -->
     <Transition name="fade">
       <div v-if="showApplyModal" class="modal-overlay" @click.self="closeApplyModal">
         <div class="minimal-modal">
@@ -182,11 +201,20 @@
 import { ref, onMounted, reactive, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import projectService from '../../api/projectService';
+// 🌟 核心改动：接入你写好的全局 Pinia Store
+import { useUserStore } from '../../stores/user'; 
 
 const router = useRouter();
+const userStore = useUserStore(); // 🌟 实例化 Store
+
 const myProjects = ref<any[]>([]);
 const publicProjects = ref<any[]>([]);
 const viewMode = ref<'mine' | 'public'>('mine');
+
+// 🌟 核心改动：通过计算属性直接代理全局 Store 的数据负载，严格采用小驼峰对齐
+const quotaInfo = computed(() => {
+  return (userStore.userInfo as any)?.projectQuota || null;
+});
 
 // 创建灵脉状态
 const showCreateModal = ref(false);
@@ -199,7 +227,7 @@ const form = reactive({
   endTime: ''
 });
 
-// 🌟 申请加入状态
+// 申请加入状态
 const showApplyModal = ref(false);
 const isProcessingApply = ref(false);
 const applyMessage = ref('');
@@ -219,6 +247,7 @@ const getStatusLabel = (status: number) => {
   return labels[status] || '未知';
 };
 
+// 🌟 核心优化：不再发起点对点的孤立 me 接口调用，而是直接借由全局 Store 驱动
 const fetchProjects = async () => {
   try {
     if (viewMode.value === 'mine') {
@@ -226,13 +255,28 @@ const fetchProjects = async () => {
     } else {
       publicProjects.value = await projectService.getPublicProjects();
     }
+
+    // 🌟 保险逻辑：如若别的全局组件没有提前加载用户信息，这里顺手拉起，绝不产生二次并发
+    if (!userStore.userInfo) {
+      await userStore.fetchUserInfo();
+    }
   } catch (err) {
     console.error("加载项目失败");
   }
 };
 
+// 🌟 完美承袭你原有版本的单次呼叫逻辑
 watch(viewMode, fetchProjects);
 onMounted(fetchProjects);
+
+// 🌟 新增：拦截点击，确保额度已满时在前端即时拦截，严格校准小驼峰
+const triggerCreateModal = () => {
+  if (quotaInfo.value && quotaInfo.value.isFull) {
+    alert(`您的活跃灵脉负载已达上限（${quotaInfo.value.activeCount}/${quotaInfo.value.maxCount}）。\n请前往项目配置封存闲置项目释放额度，或去交易行购置更多空间。`);
+    return;
+  }
+  showCreateModal.value = true;
+};
 
 const handleCreate = async () => {
   if (!form.name || isSubmitting.value) return;
@@ -246,6 +290,10 @@ const handleCreate = async () => {
     };
     const res = await projectService.createProject(payload);
     showCreateModal.value = false;
+
+    // 🌟 体验大升级：创建项目成功后，强刷一次全局用户信息，让额度看板数字瞬间+1
+    await userStore.fetchUserInfo();
+
     router.push(`/Project/project/${res.id}`);
   } finally {
     isSubmitting.value = false;
@@ -257,21 +305,18 @@ const closeModal = () => {
   Object.assign(form, { name: '', description: '', isPublic: false, startTime: '', endTime: '' });
 };
 
-// 🌟 核心修改：智能处理卡片点击动作
+// 智能处理卡片点击动作
 const enterProject = async (project: any) => {
-  // 1. 如果是“我的灵脉”或者已经加入的公开项目，直接进入其看板内部
   if (viewMode.value === 'mine' || project.isJoined) {
     router.push(`/Project/project/${project.id}`);
     return;
   }
 
-  // 2. 如果已经投递过申请且正在待审批状态，给予善意提示，不再重复触发
   if (project.hasApplied) {
     alert("该灵脉的加入申请正通过飞鸽传递中，请静候掌控者审阅。");
     return;
   }
 
-  // 3. 自由加入机制 (joinPolicy === 2)：点一下直接呼叫接口进组，并局部转为已加入状态
   if (project.joinPolicy === 2) {
     try {
       await projectService.joinProject(project.id, { message: '' });
@@ -284,18 +329,15 @@ const enterProject = async (project: any) => {
     return;
   }
 
-  // 4. 需要审批机制 (joinPolicy === 1)：唤起极简寄语弹窗
   if (project.joinPolicy === 1) {
     selectedProject.value = project;
     showApplyModal.value = true;
     return;
   }
 
-  // 5. 仅限邀请 (joinPolicy === 0)
   alert("该灵脉隐匿于现世，无法主动申请，需通过主理人点对点引入。");
 };
 
-// 🌟 核心提交：发送需要处理的加入申请
 const handleApplySubmit = async () => {
   if (!selectedProject.value || isProcessingApply.value) return;
 
@@ -305,7 +347,6 @@ const handleApplySubmit = async () => {
       message: applyMessage.value
     });
     
-    // 局部状态无缝蜕变：更新为“申请中”，让 UI 动态响应
     selectedProject.value.hasApplied = true;
     
     alert("申请传书成功，已递交至掌控者。");
@@ -331,8 +372,6 @@ const formatShortDate = (dateStr: string) => {
 </script>
 
 <style scoped>
-/* 保持你原汁原味的优秀样式，仅在此处精准补充新增交互的细节美化 */
-
 .collaboration-portal {
   min-height: 100vh;
   background-color: #ffffff;
@@ -348,6 +387,13 @@ const formatShortDate = (dateStr: string) => {
   margin-bottom: 80px;
 }
 
+/* 🌟 将品牌区改为纵向弹性，优雅容纳额度条 */
+.brand-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .title {
   font-size: 2.2rem;
   font-weight: 300;
@@ -355,10 +401,42 @@ const formatShortDate = (dateStr: string) => {
   margin: 0;
 }
 
+/* 🌟 新增：额度条美化控制 */
+.quota-dashboard {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+.quota-text {
+  font-size: 0.8rem;
+  color: #888;
+  font-weight: 300;
+}
+.quota-text strong {
+  color: #1a1a1a;
+  font-weight: 600;
+}
+.quota-progress-track {
+  width: 120px;
+  height: 3px;
+  background: #f0f0f0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.quota-progress-bar {
+  height: 100%;
+  background: #1a1a1a;
+  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.quota-progress-bar.is-full {
+  background: #ff4d4f;
+}
+
 .portal-tabs {
   display: flex;
   gap: 32px;
-  margin-top: 24px;
+  margin-top: 16px; /* 微调间距 */
 }
 
 .tab-link {
@@ -403,6 +481,18 @@ const formatShortDate = (dateStr: string) => {
   transform: translateY(-2px);
 }
 
+/* 🌟 新增：额度被锁定时按钮的外观弱化 */
+.create-trigger.quota-locked {
+  background: #f5f5f5;
+  color: #bbb;
+  border: 1px solid #e5e5e5;
+  cursor: pointer;
+}
+.create-trigger.quota-locked:hover {
+  transform: none;
+  background: #f5f5f5;
+}
+
 .project-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -427,7 +517,6 @@ const formatShortDate = (dateStr: string) => {
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.05);
 }
 
-/* 针对在广场景观下可以产生协同动作的卡片提供微妙的边界色反馈 */
 .actionable-entry:hover {
   border-color: #cbd5e1;
 }
@@ -443,12 +532,10 @@ const formatShortDate = (dateStr: string) => {
 }
 
 .joined-tag { color: #1a1a1a; }
-
-/* 🌟 新增：新标签状态颜色渲染 */
-.pending-tag { color: #d97706; } /* 琥珀色 - 审批待处理 */
-.open-tag { color: #059669; }    /* 翡翠绿 - 自由即刻融入 */
-.apply-tag { color: #2563eb; }   /* 远山蓝 - 有待考核共建 */
-.lock-tag { color: #94a3b8; }    /* 隐蔽灰 - 不开门 */
+.pending-tag { color: #d97706; } 
+.open-tag { color: #059669; }    
+.apply-tag { color: #2563eb; }   
+.lock-tag { color: #94a3b8; }    
 
 .entry-name {
   font-size: 1.35rem;
@@ -492,6 +579,7 @@ const formatShortDate = (dateStr: string) => {
 .status-0 { color: #aaa; background: #f9f9f9; }
 .status-1 { color: #fff; background: #1a1a1a; }
 .status-2 { color: #1a1a1a; border: 1px solid #1a1a1a; }
+.status-3 { color: #888; background: #f0f0f0; text-decoration: line-through; } /* 🌟 封存项目线 */
 
 .count {
   font-size: 0.75rem;
@@ -514,6 +602,13 @@ const formatShortDate = (dateStr: string) => {
   justify-content: center;
   align-items: center;
 }
+/* 🌟 新增：额度满时占位卡的警示色 */
+.empty-placeholder.placeholder-locked:hover {
+  border-color: #ff4d4f;
+}
+.empty-placeholder.placeholder-locked .placeholder-icon {
+  color: #ff4d4f;
+}
 
 .placeholder-icon {
   font-size: 2rem;
@@ -521,7 +616,6 @@ const formatShortDate = (dateStr: string) => {
   margin-bottom: 10px;
 }
 
-/* Modal 底层通用与微调 */
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -554,7 +648,6 @@ const formatShortDate = (dateStr: string) => {
   margin: 0 0 40px 0;
 }
 
-/* 🌟 新增：申请项目名预览区域 */
 .apply-target-preview {
   margin-bottom: 32px;
 }
@@ -603,7 +696,6 @@ const formatShortDate = (dateStr: string) => {
   background: transparent;
 }
 
-/* 专门针对申请留言文本域微调，使其更规整 */
 .input-group textarea {
   border: 1px solid #f0f0f0;
   padding: 12px;
