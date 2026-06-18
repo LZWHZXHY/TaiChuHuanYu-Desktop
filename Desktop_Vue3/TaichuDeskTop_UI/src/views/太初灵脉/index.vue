@@ -192,7 +192,17 @@ const importWikiId = ref('');
 const pendingWikiContent = ref<any>(null);
 const isHistoryOpen = ref(false);
 const displayFilters = ref<Record<string, boolean>>({
-  wiki: true, char: true, art: true, note: true, thought: true, folder: true, canvas: true 
+  note: true,
+  post: true,
+  blog: true,
+  wiki: true,
+  char: true,
+  art: true,
+  canvas: true,
+  map: true,
+  excel: true,
+  thought: true,
+  folder: true
 });
 
 // 🌟 多态组件映射总表

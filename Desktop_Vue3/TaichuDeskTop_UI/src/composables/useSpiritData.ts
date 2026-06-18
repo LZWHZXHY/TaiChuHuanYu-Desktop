@@ -271,10 +271,10 @@ export function useSpiritData() {
         content: payload.type === 'folder' ? null : { type: 'doc', content: [] },
         updateAt: Date.now(),
         
-        // 🌟 视界隔离：只有长文随笔默认显示在侧边栏中
-        showInSidebar: selectedType === 'note' || selectedType === 'folder',
-        // 🌟【核心修复点】：将废弃的 selectedType === 'thought' 完美更新为标准短动态 'post'
-        isPublic: selectedType === 'post', // 简语动态默认公开，文章随笔默认私密
+        // 🌟【修改这里】：除了文件夹之外，所有新增的特态组件类型默认全部在侧边栏树中可见
+        showInSidebar: true, 
+        
+        isPublic: selectedType === 'post', // 简语动态默认公开
         resonance: 0,
         status: 0,
         targetId: null,

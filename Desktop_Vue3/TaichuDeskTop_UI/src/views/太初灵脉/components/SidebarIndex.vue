@@ -57,14 +57,6 @@
             <div class="create-opt" @click="handleCreateWithType('art')">画廊 (Art)</div>
             <div class="create-opt" @click="handleCreateWithType('canvas')">星图白板 (Canvas)</div>
             <div class="create-opt" @click="handleCreateWithType('map')">世界地图 (Map)</div>
-  
-            <!--
-            
-            <div class="create-opt" @click="handleCreateWithType('excel')">表格 (excel)</div>
-            -->
-         
-         
-         
           </div>
         </transition>
       </div>
@@ -163,14 +155,17 @@ import { lingmaiApi } from '../../../api/lingmai';
 
 const vFocus = { mounted: (el: HTMLElement) => el.focus() };
 
+// 🌟【核心修改 1】显式接收父组件传进来的全量响应式 notes
 const props = defineProps<{ 
+  notes: any[];
   activeId: string;
   filters?: Record<string, boolean>; 
 }>();
 const emit = defineEmits(['select', 'create']);
 
+// 🌟【核心修改 2】从解构中移除 rootNotes，脱离 Composable 数据孤岛
 const { 
-  folders, rootNotes, getNotesInFolder, 
+  folders, getNotesInFolder, 
   updateNoteTitle, deleteNote, moveNote, currentSpaceId, fetchAllNotes 
 } = useSpiritData();
 
@@ -201,20 +196,37 @@ const closeDropdowns = () => {
   if (isSpaceListOpen.value) isSpaceListOpen.value = false;
 };
 
+// 🌟【核心修改 3】将过滤源彻底绑定到基于 Props 传入的 notes
 const filteredRootNotes = computed(() => {
-  return rootNotes.value.filter(n => {
+  if (!props.notes) return [];
+  return props.notes.filter(n => {
+    // 过滤文件夹、逻辑删除项、不在根目录的笔记、以及标记不显示的笔记
     if (n.type === 'folder' || n.status !== 0) return false;
+    if (n.folderId) return false; 
     if (n.showInSidebar === false) return false;
     if (props.filters && props.filters[n.type] === false) return false;
+    
+    // 搜索词过滤
+    if (searchQuery.value.trim()) {
+      const q = searchQuery.value.toLowerCase();
+      return (n.title || '').toLowerCase().includes(q);
+    }
     return true;
   });
 });
 
+// 🌟【核心修改 4】同步改写文件夹子节点过滤源为 props.notes
 const filteredNotesInFolder = (folderId: string) => {
-  return getNotesInFolder(folderId).filter(n => {
-    if (n.status !== 0) return false;
+  if (!props.notes) return [];
+  return props.notes.filter(n => {
+    if (n.folderId !== folderId || n.status !== 0) return false;
     if (n.showInSidebar === false) return false;
     if (props.filters && props.filters[n.type] === false) return false;
+    
+    if (searchQuery.value.trim()) {
+      const q = searchQuery.value.toLowerCase();
+      return (n.title || '').toLowerCase().includes(q);
+    }
     return true;
   });
 };
@@ -290,7 +302,6 @@ const saveFolderName = async (folder: any) => {
   editingFolderId.value = null;
 };
 
-// 【重点修复】真正执行物理删除并刷新UI
 const startDeleteItem = (id: string) => {
   confirmDialog.value = {
     visible: true,
@@ -331,7 +342,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 基础容器 */
+/* 样式部分保持原样，无需改动 */
 .spirit-sidebar { display: flex; flex-direction: column; height: 100%; background: #ffffff; color: #1d1d1f; border-right: 1px solid #f2f2f2; }
 .inline-input { border: none; background: transparent; padding: 0; font-size: inherit; color: #0066cc; outline: none; width: 100%; border-bottom: 1px solid #0066cc; }
 .space-selector-area { padding: 40px 24px 20px; position: relative; }
@@ -351,7 +362,6 @@ onUnmounted(() => {
 .text-btn { font-size: 11px; color: #86868b; cursor: pointer; }
 .text-btn.active { color: #0066cc; }
 
-/* 创建菜单下拉 */
 .create-dropdown { position: absolute; top: 30px; right: 0; width: 140px; background: #ffffff; border: 1px solid #f2f2f2; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); z-index: 100; padding: 6px; }
 .create-opt { padding: 8px 12px; font-size: 12px; color: #1d1d1f; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
 .create-opt:hover { background: #f5f5f7; color: #0066cc; }
@@ -359,10 +369,6 @@ onUnmounted(() => {
 .sidebar-search { padding: 0 24px 15px; }
 .sidebar-search input { width: 100%; border: none; padding: 8px 0; font-size: 12px; border-bottom: 1px solid #f2f2f2; outline: none; background: transparent; }
 .note-list { flex: 1; overflow-y: auto; padding: 0 16px; }
-
-/* =========================================
-   🌟 核心重构：多态列表排版体系 (无图标极简风)
-========================================== */
 
 .note-item, .folder-header { 
   border-radius: 6px; 
@@ -374,15 +380,12 @@ onUnmounted(() => {
   color: #3a3a3c; 
 }
 .folder-header { padding: 10px 8px; }
-/* 预留左侧光轴的位置 */
 .note-item { padding: 10px 8px 10px 16px; position: relative; }
-/* 文件夹内的节点再向右缩进 */
 .note-item.sub { padding-left: 28px; }
 
 .note-item:hover, .folder-header:hover { background: #fbfbfb; }
 .note-item.active { background: #f5f5f7; color: #0066cc; font-weight: 500; }
 
-/* 1. 侧边琉璃光轴 (色带暗示) */
 .note-item::before {
   content: '';
   position: absolute;
@@ -403,17 +406,14 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-/* 形态专属色系呼应 */
 .note-item.type-art::before { background: #af52de; }
 .note-item.type-thought::before { background: #32ade6; }
 .note-item.type-char::before { background: #ff9500; }
 .note-item.type-wiki::before { background: #34c759; }
 .note-item.type-note::before { background: #8e8e93; }
-/* 🌟 新增白板和地图的侧边流光色 */
 .note-item.type-canvas::before { background: #5856d6; } 
 .note-item.type-map::before { background: #00c7be; }
 
-/* 2. 标题区组合 */
 .item-content {
   display: flex;
   align-items: baseline;
@@ -429,12 +429,10 @@ onUnmounted(() => {
   transition: color 0.2s;
 }
 
-/* 🌟 多态字体暗示 (极简表达) */
 .note-item.type-thought .item-title { font-style: italic; color: #6e6e73; }
 .note-item.type-wiki .item-title { font-weight: 600; letter-spacing: 0.02em; }
 .note-item.type-art .item-title { font-family: "Georgia", serif; letter-spacing: 0.02em; }
 
-/* 3. 微型排版标签 (Micro Typography) */
 .type-label {
   font-size: 8px;
   font-weight: 700;
@@ -449,20 +447,15 @@ onUnmounted(() => {
 .note-item.type-char .type-label { color: #ff9500; }
 .note-item.type-wiki .type-label { color: #34c759; }
 .note-item.type-note .type-label { color: #8e8e93; }
-/* 🌟 新增白板和地图的标签文字色 */
 .note-item.type-canvas .type-label { color: #5856d6; }
 .note-item.type-map .type-label { color: #00c7be; }
 
-/* 4. 悬浮交互：标签消失，动作按钮显现 */
 .item-hover-actions { display: none; gap: 8px; font-size: 10px; color: #c7c7cc; }
 .danger { color: #ff3b30 !important; }
 
 .note-item:hover .type-label { display: none; }
 .note-item:hover .item-hover-actions, .folder-header:hover .item-hover-actions { display: flex; }
 
-/* ========================================= */
-
-/* 弹窗样式 */
 .spirit-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.85); backdrop-filter: blur(8px); z-index: 5000; display: flex; align-items: center; justify-content: center; }
 .spirit-dialog { background: #ffffff; padding: 40px; border: 1px solid #f2f2f2; border-radius: 12px; box-shadow: 0 15px 50px rgba(0,0,0,0.05); text-align: center; max-width: 320px; }
 .dialog-msg { font-size: 14px; margin-bottom: 30px; color: #1d1d1f; line-height: 1.6; }
