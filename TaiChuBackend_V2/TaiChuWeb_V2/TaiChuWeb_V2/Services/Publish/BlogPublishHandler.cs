@@ -27,14 +27,15 @@ namespace TaiChuWeb_V2.Services.Publish
                 var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == noteId);
                 if (note == null) return new NotFoundObjectResult(new { message = "草稿不存在" });
 
-                // 2. 批量拉取该笔记关联的所有富文本正文数据块
+                // 2. 🌟 组件自治配套：允许 OwnerType == "blog" 或 "note" 合流抓取正文积木块，确保数据完美固化
+                string noteIdStr = noteId.ToString();
                 var blogBlocks = await _context.Blocks
-                    .Where(b => b.OwnerId == noteId.ToString() && b.OwnerType == "note")
+                    .Where(b => b.OwnerId == noteIdStr && (b.OwnerType == "blog" || b.OwnerType == "note"))
                     .OrderBy(b => b.SortOrder)
                     .ToListAsync();
 
-                // 3. 提取第一段文字作为摘要
-                string excerpt = ExtractFirstParagraph(blogBlocks);
+                // 3. 🌟 核心升级：调用针对自治架构的专属摘要榨取函数
+                string excerpt = ExtractBlogExcerpt(blogBlocks);
 
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
@@ -45,11 +46,8 @@ namespace TaiChuWeb_V2.Services.Publish
 
                     bool isNew = publishedNote == null;
 
-                    // 🌟 强转换 Guid 去 Users 查询
                     Guid.TryParse(userId, out Guid parsedUserId);
                     var dbUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == parsedUserId);
-
-                    // 🌟 针对你的数据库 User 实体属性名匹配
                     string authorName = dbUser?.Username ?? "匿名隐士";
 
                     if (isNew)
@@ -61,7 +59,7 @@ namespace TaiChuWeb_V2.Services.Publish
                             SpaceId = note.SpaceId,
                             Type = "blog", // 标记发布类型为博客
                             AuthorName = authorName,
-                            Resonance = 0, // 初始共鸣度
+                            Resonance = 0,
                             PublishedAt = DateTime.UtcNow
                         };
                         _context.PublishedNotes.Add(publishedNote);
@@ -69,13 +67,12 @@ namespace TaiChuWeb_V2.Services.Publish
 
                     // 5. 同步更新发布实体的核心信息
                     publishedNote.Title = note.Title;
-                    publishedNote.Tags = note.Tags;       // 继承同步过来的标签快照
-                    publishedNote.Excerpt = excerpt;       // 🌟 完美同步到 PublishedNote 的 Excerpt 冗余字段中
-                    publishedNote.ExtraData = note.ExtraData; // 传递包含封面图在内的配置数据
+                    publishedNote.Tags = note.Tags;
+                    publishedNote.Excerpt = excerpt;
+                    publishedNote.ExtraData = note.ExtraData;
                     publishedNote.PublishedAt = DateTime.UtcNow;
 
                     // 6. 物理同步发布块 PublishedBlocks（先清空旧发布，再无缝覆写）
-                    // 🌟 解决旧的编译器报错：OwnerId 是 string，右侧必须用 ToString() 对齐
                     var oldPubBlocks = await _context.PublishedBlocks
                         .Where(pb => pb.OwnerId == publishedNote.Id.ToString())
                         .ToListAsync();
@@ -84,17 +81,14 @@ namespace TaiChuWeb_V2.Services.Publish
                     // 遍历存入发布专属的区块表
                     foreach (var block in blogBlocks)
                     {
-                        // 🌟 解决 block.Id 是 string，向 PublishedBlock.Id (Guid) 转换的问题
                         Guid.TryParse(block.Id, out Guid parsedBlockId);
 
                         _context.PublishedBlocks.Add(new PublishedBlock
                         {
-                            // 如果前端传过来的 Block.Id 是合法的 Guid 字符串，则原样奉还，否则自动生成
                             Id = parsedBlockId != Guid.Empty ? parsedBlockId : Guid.NewGuid(),
-
-                            // 🌟 解决 OwnerId 强类型匹配：必须转成字符串存储
                             OwnerId = publishedNote.Id.ToString(),
-                            OwnerType = "note",
+                            // 🌟 配合组件自治契约：发布后的固化区段也标记为大统一的 "blog" 标识，方便大厅详情页拉取
+                            OwnerType = "blog",
                             Type = block.Type,
                             Data = block.Data,
                             SortOrder = block.SortOrder
@@ -118,30 +112,73 @@ namespace TaiChuWeb_V2.Services.Publish
             });
         }
 
-        /// <summary>
-        /// 从 Blocks 中榨取第一段文字作为摘要
-        /// </summary>
-        private string ExtractFirstParagraph(List<Block> blocks)
+        private string ExtractBlogExcerpt(List<Block> blocks)
         {
-            var firstParagraph = blocks.FirstOrDefault(b => b.Type == "paragraph");
-            if (firstParagraph == null || string.IsNullOrWhiteSpace(firstParagraph.Data))
-                return "灵脉深处暂无回响...";
+            string coverUrl = "";
+            string textExcerpt = "";
 
-            try
+            // 1. 提取封面图 URL
+            var fixedCoverBlock = blocks.FirstOrDefault(b => b.Type == "blog_fixed_cover");
+            if (fixedCoverBlock != null && !string.IsNullOrWhiteSpace(fixedCoverBlock.Data))
             {
-                using var doc = JsonDocument.Parse(firstParagraph.Data);
-                if (doc.RootElement.TryGetProperty("content", out var contentArr) && contentArr.ValueKind == JsonValueKind.Array)
+                try
                 {
-                    var text = string.Concat(contentArr.EnumerateArray()
-                               .Where(i => i.TryGetProperty("text", out _))
-                               .Select(i => i.GetProperty("text").GetString()));
+                    using var doc = JsonDocument.Parse(fixedCoverBlock.Data);
+                    if (doc.RootElement.TryGetProperty("url", out var urlProp))
+                    {
+                        coverUrl = urlProp.GetString() ?? "";
+                    }
+                }
+                catch { }
+            }
 
-                    return text.Length > 150 ? text.Substring(0, 150) + "..." : text;
+            // 2. 提取摘要文本 (策略 1：固定摘要块)
+            var fixedExcerptBlock = blocks.FirstOrDefault(b => b.Type == "blog_fixed_excerpt");
+            if (fixedExcerptBlock != null && !string.IsNullOrWhiteSpace(fixedExcerptBlock.Data))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(fixedExcerptBlock.Data);
+                    if (doc.RootElement.TryGetProperty("text", out var textProp))
+                    {
+                        textExcerpt = textProp.GetString()?.Trim() ?? "";
+                    }
+                }
+                catch { }
+            }
+
+            // 策略 2：自动向正文截取兜底[cite: 11]
+            if (string.IsNullOrEmpty(textExcerpt))
+            {
+                var firstTextParagraph = blocks.FirstOrDefault(b => b.Type == "paragraph" && b.SortOrder >= 2); 
+        if (firstTextParagraph != null && !string.IsNullOrWhiteSpace(firstTextParagraph.Data))
+                {
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(firstTextParagraph.Data);
+                        if (doc.RootElement.TryGetProperty("content", out var contentArr) && contentArr.ValueKind == JsonValueKind.Array)
+                        {
+                            var text = string.Concat(contentArr.EnumerateArray()
+                                       .Where(i => i.TryGetProperty("text", out _))
+                                       .Select(i => i.GetProperty("text").GetString()));
+                            textExcerpt = text.Length > 150 ? text.Substring(0, 150) + "..." : text;
+                        }
+                    }
+                    catch { }
                 }
             }
-            catch { }
 
-            return "灵脉深处暂无回响...";
+            if (string.IsNullOrEmpty(textExcerpt)) textExcerpt = "深度博客，静候回响..."; 
+
+    // 3. 🌟【核心闭环】：将封面与摘要打包成一段结构化 JSON 塞进 Excerpt 字段
+    // 这样既不污染 ExtraData，首页列表接口拉取时又能同时拿到图片和纯文字
+    var payload = new
+    {
+        coverUrl = coverUrl,
+        text = textExcerpt
+    };
+
+            return JsonSerializer.Serialize(payload);
         }
     }
 }

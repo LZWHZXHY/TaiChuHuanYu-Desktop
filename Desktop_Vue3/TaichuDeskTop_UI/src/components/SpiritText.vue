@@ -58,7 +58,7 @@ import { spiritExtensions, spiritColors, slashCommands } from '../utils/editorCo
 import { useSpiritData } from '../composables/useSpiritData'
 import { useCos } from '../composables/useCos'
 
-// 🌟 新增：向外广播内容变化的事件
+// 🌟 向外广播内容变化的常规 Vue 信号事件
 const emit = defineEmits(['change'])
 
 // 1. 接入数据大脑
@@ -152,7 +152,13 @@ const handleImageProcess = async (view: any, file: File, pos?: number) => {
       updateNoteContent(currentNoteId.value, finalJson);
       lastSyncedJson = JSON.stringify(finalJson);
       
-      // 🌟 图片上传完毕后，也要通知父组件内容变了，以便更新画廊状态校验
+      // 🌟 图片上传完毕后，除了 Vue 层的广播事件外，同样向外派发可跨多级 DOM 的冒泡暗号事件
+      // 🌟 修复：直接使用局部变量 editor（100% 安全，彻底消除编译报错）
+      editor.value?.view.dom.dispatchEvent(new CustomEvent('change-content', {
+        bubbles: true,
+        detail: finalJson
+      }));
+
       emit('change', finalJson);
     }
 
@@ -282,10 +288,17 @@ const editor = useEditor({
       showLinkSelector.value = false;
     }
 
+    // 🌟【最核心改动点】：打字导致内容发生演变更新时，向对应的原生富文本真实 DOM 节点触发一个自定义原生事件信号。
+    // 设置 bubbles: true 开启 HTML 标准冒泡。这样类似 WorkspaceBlog.vue 的特态外层卡片就能无感、安全地精准捞取编辑器最新的快照结构了
+    editor.view.dom.dispatchEvent(new CustomEvent('change-content', {
+      bubbles: true, 
+      detail: currentJson
+    }));
+
     updateNoteContent(currentNoteId.value, currentJson);
     lastSyncedJson = currentJsonStr; 
     
-    // 🌟 核心变动：将最新的数据抛给外部，供 index.vue 进行多态类型校验
+    // 将最新的数据抛给外部，供 index.vue 进行多态类型校验
     emit('change', currentJson);
   }
 })
@@ -334,9 +347,9 @@ onMounted(() => {
   document.addEventListener('click', handleLinkNavigation, { capture: true });
   document.addEventListener('keydown', handleKeyDown, true); // 在捕获阶段拦截键盘按键
 
-  if (editor.value) {
-    editor.value.view.dom.addEventListener('spirit-insert-image', handleSlashImageInsert);
-  }
+  if (editor.value && editor.value.view) {
+      editor.value.view.dom.addEventListener('spirit-insert-image', handleSlashImageInsert);
+    }
 });
 
 onUnmounted(() => {
@@ -357,39 +370,32 @@ defineExpose({
 @import "./SpiritTextComponents/spirit-typography.css";
 </style>
 
-
 <style scoped>
-/* 1. 引入公共排版引擎样式 */
-
-
-/* 2. 编辑器外层容器 */
 .spirit-editor-wrapper {
   position: relative;
   width: 100%;
   min-height: 500px; 
 }
 
-/* 🌟 3. 极致简约风格的顶部微光流关进度条 */
 .spirit-top-progress-loader {
   position: fixed;
   top: 0;
   left: 0;
   height: 4px;
-  background: linear-gradient(90deg, #0066cc, #34c759); /* 灵脉蓝到治愈绿的星图渐变 */
+  background: linear-gradient(90deg, #0066cc, #34c759); 
   z-index: 10000;
   box-shadow: 0 1px 6px rgba(0, 102, 204, 0.3);
   transition: width 0.2s cubic-bezier(0.1, 0.8, 0.1, 1);
 }
 
-/* 🌟 4. 当富文本检测到含有暗号的占位图节点时，赋予其专属的微光骨架屏样式 */
 :deep(img[alt^="spirit_img_loading_"]) {
   width: 100%;
-  height: 180px; /* 优雅的预留高度占位 */
+  height: 180px; 
   border-radius: 12px;
   background: linear-gradient(90deg, #f5f5f7 25%, #e8e8ed 37%, #f5f5f7 63%);
   background-size: 400% 100%;
   animation: spiritSkeletonShimmer 1.4s ease infinite;
-  content: "" !important; /* 隐藏破碎图图标 */
+  content: "" !important; 
   display: block;
 }
 
@@ -398,24 +404,20 @@ defineExpose({
   100% { background-position: 0% 50%; }
 }
 
-/* 交互式编辑器内容区 */
 :deep(.tiptap) {
   outline: none;
 }
 
-/* 编辑器特有：光标样式 */
 :deep(.ProseMirror-dropcursor) {
   color: #0066cc;
   width: 2px;
 }
 
-/* 被选中的节点（如图片被选中时的外框） */
 :deep(.ProseMirror-selectednode) {
   outline: 2px solid #0066cc;
   box-shadow: 0 4px 20px rgba(0, 102, 204, 0.15);
 }
 
-/* 浮动菜单通用样式 */
 .spirit-floating-menu {
   position: fixed; 
   width: 280px;

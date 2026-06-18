@@ -13,6 +13,10 @@
       </nav>
 
       <div class="md-wrapper" v-if="post">
+        <div v-if="post.type === 'blog' && extractedCoverUrl" class="blog-detail-cover-wrapper">
+          <img :src="extractedCoverUrl" class="blog-detail-cover-img" alt="文章封面" />
+        </div>
+
         <article class="md-article">
           <header class="article-header">
             <h1 v-if="post.type === 'note' || post.title" class="title">
@@ -22,7 +26,7 @@
             <div class="metadata">
               <div class="author-block">
                 <div class="mini-avatar-placeholder"></div>
-                <span class="name">太初隐者</span>
+                <span class="name">{{ post.authorName || '太初隐者' }}</span>
               </div>
               <span class="divider">/</span>
               <time class="date">{{ formatTime(post.publishedAt) }}</time>
@@ -60,7 +64,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useEditor, EditorContent } from '@tiptap/vue-3';
-import { spiritExtensions } from '../../utils/editorConfig'; // 🌟 引入你的编辑器扩展
+import { spiritExtensions } from '../../utils/editorConfig'; // 🌟 引入编辑器扩展
 import { notePublishApi } from '../../api/NotePublish';
 import type { PublishedNoteDetail } from '../../api/NotePublish';
 
@@ -72,6 +76,7 @@ defineEmits(['close']);
 
 const post = ref<PublishedNoteDetail | null>(null);
 const loading = ref(true);
+const extractedCoverUrl = ref(''); // 🌟 用于捕获博客封面链接
 
 // 🌟 只读 Tiptap 引擎
 const editor = useEditor({
@@ -81,22 +86,43 @@ const editor = useEditor({
 });
 
 /**
- * 🌟 重组：完美还原你 lingmai.ts 中的 rebuildTiptapJson 算法
- * 解析后端返回的扁平化 block 的 data 字符串，转回树状富文本文档
+ * 🌟 核心升级：面向组件自治大协议的“业务/内容清洗拆分器”
+ * 过滤剔除前端各组件扔出来的非富文本自定义系统区块，防止 Tiptap 发生解析白屏崩溃
  */
 const rebuildTiptapContent = (blocks: any[]) => {
+  const safeBlocks = blocks || [];
+
+  // 1. 抓取并提取出博客专用的固定封面，交给原生 HTML 区域去大面积精美铺开渲染
+  const blogCoverBlock = safeBlocks.find(b => b.type === 'blog_fixed_cover');
+  if (blogCoverBlock?.data) {
+    try {
+      extractedCoverUrl.value = JSON.parse(blogCoverBlock.data).url || '';
+    } catch (e) {}
+  }
+
+  // 2. 🌟 严格清洗：过滤剔除掉所有非富文本编辑器的纯业务属性积木块，只保留纯文本正文块
+  const pureTextContentBlocks = safeBlocks.filter(b => 
+    b.type !== 'blog_fixed_cover' && 
+    b.type !== 'blog_fixed_excerpt' && 
+    b.type !== 'char-layout-block' &&
+    b.type !== 'canvas-node' &&
+    b.type !== 'canvas-edge' &&
+    b.type !== 'map-layout-block'
+  );
+
+  // 3. 将剩下干净的正文文本重新组装返回给只读编辑器
   return {
     type: 'doc',
-    content: (blocks || []).map(b => {
+    content: pureTextContentBlocks.map(b => {
       try {
-        const parsedData = JSON.parse(b.data);
+        const parsedData = typeof b.data === 'string' ? JSON.parse(b.data) : b.data;
         return {
           type: b.type,
-          attrs: { ...parsedData.attrs, id: b.id },
-          content: parsedData.content
+          attrs: { ...parsedData?.attrs, id: b.id },
+          content: parsedData?.content
         };
       } catch (e) {
-        console.warn("解析 Block 出错，作为空段落降级处理", b);
+        console.warn("解析内容 Block 出错", b);
         return { type: 'paragraph', content: [] };
       }
     })
@@ -114,7 +140,7 @@ const fetchDetail = async () => {
     if (res && editor.value) {
       post.value = res;
       
-      // 🌟 解析并写入 Tiptap 文档树
+      // 🌟 调用升级后的清洗器，还原 Tiptap 文档树
       const tiptapJson = rebuildTiptapContent(res.blocks);
       editor.value.commands.setContent(tiptapJson, { emitUpdate: false });
     }
@@ -171,8 +197,24 @@ onUnmounted(() => {
 .back-btn:hover { opacity: 0.6; }
 .doc-type { font-size: 10px; font-weight: 700; color: #86868b; letter-spacing: 0.2em; }
 
-.md-wrapper { padding: 80px 0 120px; }
-.article-header { margin-bottom: 60px; }
+/* 🌟 新增：详情页大面积铺开的长文博客视觉封面样式 */
+.blog-detail-cover-wrapper {
+  width: 100%;
+  aspect-ratio: 21 / 9;
+  border-radius: 24px;
+  overflow: hidden;
+  margin-top: 40px;
+  border: 1px solid rgba(0,0,0,0.03);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+}
+.blog-detail-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.md-wrapper { padding: 40px 0 120px; }
+.article-header { margin-bottom: 60px; margin-top: 20px; }
 .title {
   font-size: 2.5rem; font-weight: 700; color: #1d1d1f;
   letter-spacing: -0.03em; line-height: 1.2; margin: 0 0 24px 0;
@@ -183,7 +225,7 @@ onUnmounted(() => {
 .divider { color: #d2d2d7; }
 .resonance { display: flex; align-items: center; gap: 4px; }
 
-/* 🌟 Tiptap 容器松紧度样式 */
+/* Tiptap 容器松紧度样式 */
 .article-body { margin-bottom: 60px; }
 :deep(.spirit-typography-engine .tiptap) {
   outline: none; font-size: 1.25rem; line-height: 2.2;

@@ -22,68 +22,85 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import SpiritMap from '@/components/SpiritMap.vue';
-// 👇 引入你的数据方法，用于触发后端保存
 import { useSpiritData } from '@/composables/useSpiritData'; 
 
 const props = defineProps<{
   title: string;
   noteId: string;
-  extraData?: string;
+  blocks?: any[];     // 🌟 接收拉取出来的区块数据
+  extraData?: string; // 🌟 松绑对齐：纯净释放给右侧属性面板使用
 }>();
 
-const emit = defineEmits(['update:title', 'change', 'open-sub-drawer', 'update-extraData']);
+const emit = defineEmits(['update:title', 'change', 'open-sub-drawer']);
 
-// 拿到保存数据的方法和当前的 notes 列表
-const { notes, updateNoteContent } = useSpiritData();
+const { activeNote } = useSpiritData();
 
-// 🌟 解析当前地图的 extraData，提取背景图数据
-const parsedExtra = computed(() => {
-  try {
-    if (props.extraData && props.extraData !== "[]") {
-      return JSON.parse(props.extraData);
+// 本地响应式底图状态
+const currentBgUrl = ref('');
+const currentBgBounds = ref<any>(null);
+
+// 🌟 自治修复：从 blocks 积木池中精准过滤提炼出地图底图的配置数据
+const loadMapMetaFromBlocks = () => {
+  if (!props.blocks || !Array.isArray(props.blocks)) return;
+  
+  const mapLayoutBlock = props.blocks.find(b => b.type === 'map-layout-block');
+  if (mapLayoutBlock?.data) {
+    try {
+      const parsed = JSON.parse(mapLayoutBlock.data);
+      currentBgUrl.value = parsed.bgUrl || '';
+      currentBgBounds.value = parsed.bgBounds || null;
+    } catch (e) {
+      console.warn("解析地图数据块异常", e);
     }
-  } catch (e) {
-    console.warn("解析地图 extraData 失败", e);
   }
-  return {};
-});
+};
 
-// 计算出当前的背景链接和边界，响应式地传给子组件
-const currentBgUrl = computed(() => parsedExtra.value.bgUrl);
-const currentBgBounds = computed(() => parsedExtra.value.bgBounds);
+// 监听外界区块传入，同步还原地图底图
+watch(() => props.blocks, () => { loadMapMetaFromBlocks(); }, { immediate: true, deep: true });
 
 const onTitleInput = (e: Event) => {
   const target = e.target as HTMLInputElement;
   emit('update:title', target.value);
 };
 
-// 拦截地图组件里的双击事件，转发给 index.vue 呼出右侧抽屉
 const handleNodeDoubleClick = (targetNoteId: string) => {
   emit('open-sub-drawer', targetNoteId);
 };
 
-// 🌟 核心：监听到用户上传新底图后，把数据写入 extraData 并保存到数据库
+// 🌟 自治核心：监听到上传新底图后，组装成 map-layout-block，通过 change 标准协议安全上报
 const handleMapBgUpdate = async (bgData: { url: string, bounds: any }) => {
-  // 1. 组装新的 extraData，确保不会覆盖掉里面原有的其他数据
-  const newExtraData = {
-    ...parsedExtra.value,
+  currentBgUrl.value = bgData.url;
+  currentBgBounds.value = bgData.bounds;
+
+  // 1. 将底图坐标信息包装为地图专有形态的元积木块
+  const mapLayoutData = {
     bgUrl: bgData.url,
     bgBounds: bgData.bounds
   };
-  
-  const extraString = JSON.stringify(newExtraData);
-  
-  // 2. 如果你的外层组件（比如 index.vue）需要响应式更新，抛出事件
-  emit('update-extraData', extraString);
-  
-  // 3. 直接在这里触发保存到后端的逻辑
-  const currentNote = notes.value.find(n => n.id === props.noteId);
-  if (currentNote) {
-    currentNote.extraData = extraString; // 更新前端状态
-    updateNoteContent(props.noteId);     // 调用 API 保存到数据库
+
+  const mapMetaBlock = {
+    id: `map_layout_block_${props.noteId}`,
+    ownerId: props.noteId,
+    ownerType: 'map',
+    type: 'map-layout-block', // 地图布局特态标识
+    data: JSON.stringify(mapLayoutData),
+    sortOrder: 0
+  };
+
+  // 2. 预留：过滤掉原有的旧布局块，防止重复堆叠（未来如果地图有图标打点等其他 type，可以在此进行 filter 过滤合流）
+  const otherMapBlocks = (props.blocks || []).filter(b => b.type !== 'map-layout-block');
+
+  const fullBlocks = [mapMetaBlock, ...otherMapBlocks];
+
+  // 3. 强行刷新共享缓冲区及本地主内存，维持状态同步闭环
+  if (activeNote.value) {
+    activeNote.value.blocks = fullBlocks;
   }
+
+  // 4. 标准格式协议上报给主控层 index.vue 去统一执行防抖自动保存
+  emit('change', { blocks: fullBlocks });
 };
 </script>
 

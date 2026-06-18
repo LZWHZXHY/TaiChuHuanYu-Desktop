@@ -16,9 +16,13 @@
 </template>
 
 <script setup lang="ts">
+// 🌟 契约对齐：显式声明接收主控层分发的 noteId、extraData、blocks（在这里不改写、不污染）
 defineProps<{
   title: string;
   readonly?: boolean;
+  noteId?: string;
+  extraData?: string; // 纯净释放给右侧栏使用
+  blocks?: any[];
 }>();
 
 defineEmits(['update:title']);

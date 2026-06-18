@@ -28,7 +28,8 @@ import SpiritCanvas from '@/components/SpiritCanvas.vue';
 const props = defineProps<{
   title: string;
   noteId: string;
-  blocks?: any[]; // 接收从数据库里拉取出来的坐标数据
+  blocks?: any[];     // 接收从数据库里拉取出来的坐标数据
+  extraData?: string; // 🌟 仅需在这里补上这一行！用于对齐主控层的多态组件传参契约
 }>();
 
 const emit = defineEmits(['update:title', 'change', 'open-sub-drawer']);

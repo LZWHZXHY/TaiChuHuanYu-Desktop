@@ -140,9 +140,7 @@
       </div>
     </transition>
 
-
     <SpiritToast ref="toastRef" />
-
   </div>
 </template>
 
@@ -173,12 +171,7 @@ import { useSpiritData } from '../../composables/useSpiritData';
 import { lingmaiApi } from '../../api/lingmai';
 import { wikiApi } from '@/api/Wiki'; 
 
-
-
-
-
-
-type NoteType = 'note' | 'post' | 'wiki' | 'char' | 'art' | 'folder' | 'canvas' | 'map' | 'excel';
+type NoteType = 'note' | 'post' | 'wiki' | 'char' | 'art' | 'folder' | 'canvas' | 'map' | 'excel' | 'blog';
 
 const { 
   notes, currentNoteId, activeNote, isLoading, currentSpaceId,
@@ -188,26 +181,25 @@ const {
 
 const isMobile = ref(false);
 const isSidebarOpen = ref(false);
-const isHistoryOpen = ref(false); 
 const isGraphViewOpen = ref(false);
 const editorRef = ref();
-const toastRef = ref(); // 🌟 抓取 Toast 组件的实例
+const toastRef = ref(); 
 const isContentLoading = ref(false);
 const showPublishModal = ref(false);
 const spaces = ref<any[]>([]); 
 const showImportWikiModal = ref(false);
 const importWikiId = ref('');
 const pendingWikiContent = ref<any>(null);
-
+const isHistoryOpen = ref(false);
 const displayFilters = ref<Record<string, boolean>>({
   wiki: true, char: true, art: true, note: true, thought: true, folder: true, canvas: true 
 });
 
+// 🌟 多态组件映射总表
 const workspaceMap: Record<string, any> = {
-  note: WorkspaceNote, wiki: WorkspaceWiki, art: WorkspaceArt, char:WorkspaceChar,
-  folder: WorkspaceNote, canvas: WorkspaceCanvas,map: WorkspaceMap,blog: WorkspaceBlog,post: WorkspacePost, excel:WorkspaceExcel,
+  note: WorkspaceNote, wiki: WorkspaceWiki, art: WorkspaceArt, char: WorkspaceChar,
+  folder: WorkspaceNote, canvas: WorkspaceCanvas, map: WorkspaceMap, blog: WorkspaceBlog, post: WorkspacePost, excel: WorkspaceExcel,
 };
-
 
 const isSettingsOpen = ref(false); 
 const currentEditorJson = ref<any>(null);
@@ -216,44 +208,41 @@ const currentWikiProperties = ref<any[]>([]);
 let syncDebounceTimer: any = null;
 const workspaceBlocks = ref<any[]>([]);
 
-// ==========================================
-// 🌟 魔法点 3：右侧滑出抽屉的专属数据与逻辑
-// ==========================================
 const isQuickEditorOpen = ref(false);
 const quickEditorNoteId = ref('');
-// 🌟 新增：用来缓存抽屉当前卡片的标题和标签，防止被空数据覆盖
 const quickEditorNoteMeta = ref<any>({}); 
 const isQuickEditorLoading = ref(false);
 const quickEditorRef = ref();
 let quickSyncTimer: any = null;
 
-// 找到并完全替换原有的 handleOpenQuickEditor
+// 🌟 补全缺失项 1：计算属性 CurrentWorkspaceComponent，供模板多态挂载
+const CurrentWorkspaceComponent = computed(() => workspaceMap[displayNote.value?.type || 'note'] || WorkspaceNote);
+
+// 🌟 补全缺失项 2：计算属性 displayNote，处理百科（Wiki）模式与常规形态的数据切换流
+const displayNote = computed<any>(() => isWikiMode.value && wikiEditData.value ? { ...(wikiEditData.value as any), type: 'wiki' } : activeNote.value);
+
+// 🌟 补全缺失项 3：用户鉴权及 Wiki 创作者标记计算属性
+const currentUserId = ref('current_user_id'); 
+const isWikiAuthor = computed(() => (wikiEditData.value as any)?.authorId === currentUserId.value);
+
 const handleOpenQuickEditor = async (targetId: string) => {
   isQuickEditorLoading.value = true;
-
   try {
     const targetNote: any = await lingmaiApi.getNote(targetId); 
-    
-    // 🌟 核心拦截 1：如果双击的是画板、地图或文件夹，Tiptap 无法解析！
-    // 我们直接关闭抽屉，让背后的主视图无缝跳进这个画板中。
     if (targetNote.type === 'canvas' || targetNote.type === 'folder' || targetNote.type === 'map') {
        isQuickEditorOpen.value = false;
        selectNote(targetId, true); 
        return;
     }
 
-    // 如果是纯文本类型，才安全地打开抽屉
     quickEditorNoteId.value = targetId;
     isQuickEditorOpen.value = true;
     quickEditorNoteMeta.value = targetNote || {}; 
     
-    // 初始化编辑器内容
     setTimeout(() => {
       if (quickEditorRef.value && quickEditorRef.value.editor) {
         let contentToSet = { type: 'doc', content: [{ type: 'paragraph' }] };
-        
         if (targetNote.blocks && targetNote.blocks.length > 0) {
-           // 🌟 核心拦截 2：加一道保险，强行过滤掉意外混入的画板数据，防止编辑器崩溃
            const parsedBlocks = targetNote.blocks.map((b: any) => {
              try { return JSON.parse(b.data); } catch { return null; }
            }).filter((b: any) => b && b.type !== 'canvas-node' && b.type !== 'canvas-edge');
@@ -262,25 +251,21 @@ const handleOpenQuickEditor = async (targetId: string) => {
              contentToSet.content = parsedBlocks;
            }
         }
-
         quickEditorRef.value.editor.commands.setContent(contentToSet);
       }
       isQuickEditorLoading.value = false;
     }, 100);
-
   } catch (e) {
     console.error("抽取数据失败", e);
     isQuickEditorLoading.value = false;
   }
 };
 
-// 抽屉里的富文本实时自动保存
 const handleQuickEditorChange = (json: any) => {
   if (quickSyncTimer) clearTimeout(quickSyncTimer);
   quickSyncTimer = setTimeout(async () => {
      if (!quickEditorNoteId.value) return;
      let finalBlocks: any[] = [];
-     
      if (json && json.content) {
         finalBlocks = json.content.map((b: any, i: number) => ({
           id: b.attrs?.id || Math.random().toString(36).substring(2, 11),
@@ -291,9 +276,7 @@ const handleQuickEditorChange = (json: any) => {
           data: JSON.stringify(b)
         }));
      }
-
      try {
-        // 🌟 补齐 TypeScript 要求的必填字段，原样奉还缓存的元数据
         const syncPayload = {
             noteId: quickEditorNoteId.value,
             title: quickEditorNoteMeta.value?.title || '',
@@ -301,41 +284,20 @@ const handleQuickEditorChange = (json: any) => {
             tags: quickEditorNoteMeta.value?.tags || [],
             blocks: finalBlocks
         };
-
-        // 使用 as any 兜底，彻底消灭红色波浪线
         await lingmaiApi.updateNoteContent(quickEditorNoteId.value, syncPayload as any); 
      } catch(e) {
         console.error("抽屉同步失败", e);
      }
-  }, 2000); // 2秒防抖
+  }, 2000);
 };
-// ==========================================
 
-// 寻找 index.vue 中的 handleWorkspaceChange 函数，用以下代码完全替换：
+// 🌟 高内聚组件契约达成：主控接收全量积木链快照，不做多余的过滤、拆分或重刷
 const handleWorkspaceChange = (payload: any) => {
   if (payload && Array.isArray(payload.blocks)) {
-    // 🌟 1. 获取当前主内存中现有的所有 blocks 备份
-    const currentBlocks = activeNote.value?.blocks || [];
-    
-    // 🌟 2. 提取出富文本编辑器本身持有的正文块（排除角色卡片块和画廊块）
-    const editorTextBlocks = currentBlocks.filter(
-      (b: any) => b.type !== 'char-layout-block' && b.type !== 'image' && b.type !== 'art-summary'
-    );
-
-    // 🌟 3. 从子组件传过来的新数据里，精准捕获属于卡片设定的块
-    const incomingCharBlocks = payload.blocks.filter((b: any) => b.type === 'char-layout-block');
-
-    // 🌟 4. 将原有的正文和最新的卡片设定在主白板层强行“合流”
-    const finalMergedBlocks = [...editorTextBlocks, ...incomingCharBlocks];
-
-    // 🌟 5. 更新共享缓冲区，这样 executeNetworkSync 就能同时看到正文和卡片
-    workspaceBlocks.value = finalMergedBlocks;
-    
+    workspaceBlocks.value = payload.blocks;
     if (activeNote.value) {
-      activeNote.value.blocks = finalMergedBlocks;
+      activeNote.value.blocks = payload.blocks;
     }
-    
-    // 🌟 6. 立即触发网络安全层同步
     triggerDebouncedSync();
   }
 };
@@ -371,32 +333,7 @@ const canPublishDynamic = computed(() => {
   }
 });
 
-watch(currentNoteId, () => { 
-  currentEditorJson.value = null; 
-
-  workspaceBlocks.value = [];
-
-  if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
-  
-  if (activeNote.value?.extraData) {
-    try {
-      currentWikiProperties.value = JSON.parse(activeNote.value.extraData);
-    } catch {
-      currentWikiProperties.value = [];
-    }
-  } else {
-    currentWikiProperties.value = [];
-  }
-}, { immediate: true });
-
-
-
-const CurrentWorkspaceComponent = computed(() => workspaceMap[displayNote.value?.type || 'note'] || WorkspaceNote);
-
-const currentUserId = ref('current_user_id'); 
-const isWikiAuthor = computed(() => (wikiEditData.value as any)?.authorId === currentUserId.value);
-const displayNote = computed<any>(() => isWikiMode.value && wikiEditData.value ? { ...(wikiEditData.value as any), type: 'wiki' } : activeNote.value);
-
+// 🌟 补全缺失项 4：百科召唤与接入方法
 const handleImportWiki = () => { importWikiId.value = ''; showImportWikiModal.value = true; };
 
 const confirmImportWiki = async () => {
@@ -436,44 +373,35 @@ const confirmImportWiki = async () => {
   }
 };
 
-// 寻找 index.vue 中的 watch(currentNoteId, () => { ... }) 拦截逻辑，进行如下重构升级：
-
 watch(currentNoteId, () => { 
   currentEditorJson.value = null; 
   workspaceBlocks.value = [];
 
   if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
-  
-  // 🌟 核心拦截洗白：当切换或刷新进入角色卡片时，在送给编辑器前，进行 blocks -> tiptap 逆向解构
-  if (activeNote.value?.type === 'char' && activeNote.value.blocks) {
-    const currentBlocks = activeNote.value.blocks;
-    
-    // 1. 过滤出所有属于岁月生平富文本的正文块
-    const textBlocks = currentBlocks.filter((b: any) => b.type !== 'char-layout-block');
-    
-    // 2. 将这些积木块里序列化的 data 字符串，还原解析成 Tiptap 认识的标准 JSON 节点对象
-    const parsedNodes = textBlocks.map((b: any) => {
-      try {
-        return typeof b.data === 'string' ? JSON.parse(b.data) : b.data;
-      } catch {
-        return { type: 'paragraph', content: [] };
-      }
-    });
+  if (!activeNote.value) return;
 
-    // 3. 组装成 Tiptap 核心骨架认识的终极 doc 树，硬核塞入 content 属性中
-    activeNote.value.content = {
-      type: 'doc',
-      content: parsedNodes.length > 0 ? parsedNodes : [{ type: 'paragraph' }]
-    };
+  const currentBlocks = activeNote.value.blocks || [];
+
+  if (activeNote.value.type === 'char') {
+    const textBlocks = currentBlocks.filter((b: any) => b.type !== 'char-layout-block');
+    const parsedNodes = textBlocks.map((b: any) => {
+      try { return typeof b.data === 'string' ? JSON.parse(b.data) : b.data; } catch { return { type: 'paragraph', content: [] }; }
+    });
+    activeNote.value.content = { type: 'doc', content: parsedNodes.length > 0 ? parsedNodes : [{ type: 'paragraph' }] };
+  } 
+  else if (activeNote.value.type === 'blog') {
+    const textBlocks = currentBlocks.filter(
+      (b: any) => b.type !== 'blog_fixed_cover' && b.type !== 'blog_fixed_excerpt'
+    ).sort((a: any, b: any) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+    const parsedNodes = textBlocks.map((b: any) => {
+      try { return typeof b.data === 'string' ? JSON.parse(b.data) : b.data; } catch { return { type: 'paragraph', content: [] }; }
+    });
+    activeNote.value.content = { type: 'doc', content: parsedNodes.length > 0 ? parsedNodes : [{ type: 'paragraph' }] };
   }
   
-  // 原有的 extraData 自定义属性加载逻辑保持不变
   if (activeNote.value?.extraData) {
-    try {
-      currentWikiProperties.value = JSON.parse(activeNote.value.extraData);
-    } catch {
-      currentWikiProperties.value = [];
-    }
+    try { currentWikiProperties.value = JSON.parse(activeNote.value.extraData); } catch { currentWikiProperties.value = []; }
   } else {
     currentWikiProperties.value = [];
   }
@@ -494,52 +422,21 @@ const handleEditorAutoSync = (latestJson: any) => {
 
 const triggerDebouncedSync = () => {
   if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
-  
   syncDebounceTimer = setTimeout(() => {
     executeNetworkSync(editorRef.value?.getJSON());
   }, 2000); 
 };
 
-// 寻找 index.vue 中的 executeNetworkSync 函数，将 blocks 组装逻辑修改为：
 const executeNetworkSync = async (editorJson: any) => {
   const safeNoteId = currentNoteId.value; 
-  if (!safeNoteId) return;
+  if (!safeNoteId || !activeNote.value) return;
 
   let finalBlocks: any[] = [];
-  let finalExtraData = activeNote.value?.extraData || '[]';
+  let finalExtraData = activeNote.value.extraData || '[]';
 
-  // 🌟 核心拦截升级：判断是否满足特态组件条件放行
-  if (
-    (activeNote.value?.type === 'art' || 
-     activeNote.value?.type === 'canvas' || 
-     activeNote.value?.type === 'excel') && 
-    workspaceBlocks.value.length
-  ) {
+  if (workspaceBlocks.value && workspaceBlocks.value.length) {
     finalBlocks = workspaceBlocks.value;
   }
-  // 🌟 核心追加分流：如果是角色设定卡片类型
-  else if (activeNote.value?.type === 'char') {
-    // 优先从共享缓存里拿合并好的全量 blocks（既包含正文，也包含卡片）
-    if (workspaceBlocks.value && workspaceBlocks.value.length) {
-      finalBlocks = workspaceBlocks.value;
-    } else {
-      // 降级兜底：如果只有编辑器在动，转换富文本并【保留】原有的卡片块
-      const currentBlocks = activeNote.value?.blocks || [];
-      const charMetaBlock = currentBlocks.find((b: any) => b.type === 'char-layout-block');
-      
-      const textBlocks = editorJson?.content ? editorJson.content.map((b: any, i: number) => ({
-        id: b.attrs?.id || Math.random().toString(36).substring(2, 11),
-        ownerId: safeNoteId,
-        ownerType: 'char',
-        type: b.type,
-        sortOrder: i,
-        data: JSON.stringify(b)
-      })) : [];
-
-      finalBlocks = charMetaBlock ? [...textBlocks, charMetaBlock] : textBlocks;
-    }
-  }
-  // 普通正文处理
   else if (editorJson && editorJson.content) {
     finalBlocks = editorJson.content.map((b: any, i: number) => ({
       id: b.attrs?.id || Math.random().toString(36).substring(2, 11),
@@ -549,25 +446,18 @@ const executeNetworkSync = async (editorJson: any) => {
       sortOrder: i,
       data: JSON.stringify(b)
     }));
-  } else {
-    finalBlocks = [];
   }
 
-  // 每次成功清洗后，将最新成果写回主 blocks 缓存池，形成牢固的内存闭环
-  if (activeNote.value && finalBlocks.length) {
+  if (finalBlocks.length) {
     activeNote.value.blocks = finalBlocks;
-  }
-
-  if (activeNote.value?.extraData) {
-    finalExtraData = activeNote.value.extraData;
   }
 
   const syncPayload = {
     noteId: safeNoteId,
-    title: activeNote.value?.title || displayNote.value?.title || '', 
+    title: activeNote.value.title || '', 
     extraData: finalExtraData,
     幕后数据: "taichu-universe",
-    tags: activeNote.value?.tags || [], 
+    tags: activeNote.value.tags || [], 
     blocks: finalBlocks
   };
 
@@ -591,13 +481,10 @@ const handleSave = async () => {
            summary: isWikiAuthor.value ? "原作者更新" : "协作修改", 
            baseRevisionId: data.currentRevisionId || data.revisionId 
          });
-         
-        // 🌟 修改点 1：Wiki 保存成功提示
-        toastRef.value?.show("✨ 百科词条提交成功！");
+         toastRef.value?.show("✨ 百科词条提交成功！");
       }
       exitWikiMode();
     } catch (e: any) {
-      // 🌟 修改点 2 & 3：错误状态提示
       if (e.response && e.response.status === 409) {
         toastRef.value?.show("⚠️ 提交失败：词条已被更新。");
       } else {
@@ -608,8 +495,6 @@ const handleSave = async () => {
     if (!editorRef.value) return;
     if (syncDebounceTimer) clearTimeout(syncDebounceTimer); 
     await executeNetworkSync(editorRef.value.getJSON());
-    
-    // 🌟 修改点 4：普通灵脉笔记同步成功提示
     toastRef.value?.show("✨ 灵脉同步成功！");
   }
 };
@@ -617,9 +502,7 @@ const handleSave = async () => {
 const handleUpdateTitle = (val: string) => { 
   if (!isWikiMode.value && currentNoteId.value) {
     updateNoteTitle(currentNoteId.value, val); 
-    if (activeNote.value) {
-      activeNote.value.title = val;
-    }
+    if (activeNote.value) activeNote.value.title = val;
     triggerDebouncedSync();
   } 
 };
@@ -633,11 +516,7 @@ const checkScreen = () => { isMobile.value = window.innerWidth <= 1024; };
 const handleSelectNote = async (id: string) => {
   if (isMobile.value) isSidebarOpen.value = false;
   isContentLoading.value = true;
-  try {
-    await selectNote(id, true); 
-  } finally {
-    setTimeout(() => { isContentLoading.value = false; }, 200);
-  }
+  try { await selectNote(id, true); } finally { setTimeout(() => { isContentLoading.value = false; }, 200); }
 };
 const handleCreateNote = async (type: NoteType = 'note', folderId: string | null = null) => { const newNote = await createNewNote({ type: type, folderId: folderId }); if (newNote && isMobile.value && type !== 'folder') isSidebarOpen.value = false; };
 const onPublishSuccess = (newType: string) => { if (activeNote.value) { activeNote.value.isPublic = true; activeNote.value.type = newType as NoteType; } };
@@ -648,105 +527,24 @@ const handleManualSave = async () => { if (!editorRef.value || !currentNoteId.va
 const initSpaces = async () => { try { spaces.value = await lingmaiApi.getSpaces() as any; } catch (e) {} };
 
 onMounted(async () => { checkScreen(); window.addEventListener('resize', checkScreen); await initSpaces(); await fetchAllNotes(); if (currentNoteId.value) await handleSelectNote(currentNoteId.value); });
-onUnmounted(() => {
-  window.removeEventListener('resize', checkScreen);
-  if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
-});
+onUnmounted(() => { window.removeEventListener('resize', checkScreen); if (syncDebounceTimer) clearTimeout(syncDebounceTimer); });
 </script>
 
 <style scoped>
 .spirit-link-app { display: flex; width: 100%; height: 94vh; background: #ffffff; overflow: hidden; position: relative; }
 .sidebar-layer { width: 280px; flex-shrink: 0; transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); z-index: 2000; border-right: 1px solid #f2f2f2; }
-
-.editor-workspace-layout {
-  display: flex;
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  position: relative; /* 为抽屉提供绝对定位依据 */
-}
-
+.editor-workspace-layout { display: flex; flex: 1; width: 100%; height: 100%; overflow: hidden; position: relative; }
 .spirit-main-editor { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #fafafa; }
 .editor-scroll-body { flex: 1; overflow-y: auto; padding: 0; position: relative; }
-
-/* ==========================================
-   🌟 魔法点 4：抽屉的 CSS 毛玻璃沉浸样式
-   ========================================== */
-.quick-editor-drawer {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  bottom: 16px;
-  width: 480px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(24px) saturate(180%);
-  border-radius: 20px;
-  box-shadow: -10px 0 40px rgba(0,0,0,0.08), 0 0 1px rgba(0,0,0,0.2);
-  display: flex;
-  flex-direction: column;
-  z-index: 1000;
-  overflow: hidden;
-}
-
-.quick-drawer-header {
-  padding: 18px 24px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid rgba(0,0,0,0.05);
-}
-
-.quick-drawer-header h4 { 
-  margin: 0; 
-  font-size: 15px; 
-  color: #1d1d1f; 
-  font-weight: 700;
-}
-
-.sub-id { 
-  color: #86868b; 
-  font-weight: 500; 
-  font-size: 12px; 
-  margin-left: 8px;
-  background: #f2f2f7;
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.close-drawer-btn { 
-  background: #f2f2f7; 
-  border: none; 
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  font-size: 14px; 
-  cursor: pointer; 
-  color: #1d1d1f;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
+.quick-editor-drawer { position: absolute; top: 16px; right: 16px; bottom: 16px; width: 480px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(24px) saturate(180%); border-radius: 20px; box-shadow: -10px 0 40px rgba(0,0,0,0.08), 0 0 1px rgba(0,0,0,0.2); display: flex; flex-direction: column; z-index: 1000; overflow: hidden; }
+.quick-drawer-header { padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.05); }
+.quick-drawer-header h4 { margin: 0; font-size: 15px; color: #1d1d1f; font-weight: 700; }
+.sub-id { color: #86868b; font-weight: 500; font-size: 12px; margin-left: 8px; background: #f2f2f7; padding: 2px 6px; border-radius: 6px; }
+.close-drawer-btn { background: #f2f2f7; border: none; width: 28px; height: 28px; border-radius: 50%; font-size: 14px; cursor: pointer; color: #1d1d1f; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
 .close-drawer-btn:hover { background: #e5e5ea; transform: scale(1.05); }
-
-.quick-drawer-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-}
-
-/* 抽屉进出动画 */
-.drawer-slide-enter-active, .drawer-slide-leave-active { 
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s; 
-}
-.drawer-slide-enter-from, .drawer-slide-leave-to { 
-  transform: translateX(120%); 
-  opacity: 0; 
-}
-/* ========================================== */
-
+.quick-drawer-body { flex: 1; overflow-y: auto; padding: 24px; }
+.drawer-slide-enter-active, .drawer-slide-leave-active { transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s; }
+.drawer-slide-enter-from, .drawer-slide-leave-to { transform: translateX(120%); opacity: 0; }
 .loading-overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); z-index: 9999; display: flex; align-items: center; justify-content: center; }
 .spirit-loading-content { text-align: center; color: #86868b; }
 .spirit-spinner { width: 32px; height: 32px; border: 2px solid #f3f3f3; border-top: 2px solid #0066cc; border-radius: 50%; margin: 0 auto 16px; animation: spin 1s linear infinite; }
@@ -754,12 +552,7 @@ onUnmounted(() => {
 .mini-spinner { width: 24px; height: 24px; border: 2px solid #f2f2f7; border-top-color: #0066cc; border-radius: 50%; animation: spin 0.8s linear infinite; }
 .mobile-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.7); backdrop-filter: blur(4px); z-index: 1999; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@media (max-width: 1024px) { 
-  .editor-workspace-layout { flex-direction: column; }
-  .sidebar-layer { position: absolute; top: 0; left: 0; bottom: 0; transform: translateX(-100%); background: #ffffff; box-shadow: 20px 0 50px rgba(0,0,0,0.05); } 
-  .sidebar-layer.open { transform: translateX(0); } 
-  .editor-scroll-body { padding: 20px; } 
-}
+@media (max-width: 1024px) { .editor-workspace-layout { flex-direction: column; } .sidebar-layer { position: absolute; top: 0; left: 0; bottom: 0; transform: translateX(-100%); background: #ffffff; box-shadow: 20px 0 50px rgba(0,0,0,0.05); } .sidebar-layer.open { transform: translateX(0); } .editor-scroll-body { padding: 20px; } }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .pop-enter-active { animation: pop 0.3s cubic-bezier(0.16, 1, 0.3, 1); }

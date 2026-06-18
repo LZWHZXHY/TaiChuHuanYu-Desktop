@@ -33,6 +33,7 @@ const props = defineProps<{
   title: string;
   noteId?: string;
   tags?: string[];
+  extraData?: string; // 🌟 补齐对齐项：声明接收可选属性，完全释放给右侧栏
 }>();
 
 const emit = defineEmits(['update:title', 'change']);
@@ -40,7 +41,7 @@ const emit = defineEmits(['update:title', 'change']);
 const { activeNote } = useSpiritData();
 const isInitialized = ref(false);
 
-// 🌟 深度递归计算当前动态的纯文字总长度（用于动态字数限制高亮）
+// 深度递归计算当前动态的纯文字总长度（用于动态字数限制高亮）
 const getTextLength = (node: any): number => {
   if (!node) return 0;
   let len = 0;
@@ -55,8 +56,10 @@ const getTextLength = (node: any): number => {
 
 // 响应式捕获当前 Tiptap 数据流中的文本总字数
 const currentLength = computed(() => {
+  // 🌟 修复点：加入非空安全链式防御
+  if (!activeNote.value) return 0;
   const note = activeNote.value as any;
-  if (!note || !note.blocks || !Array.isArray(note.blocks)) return 0;
+  if (!note.blocks || !Array.isArray(note.blocks)) return 0;
   
   let totalLen = 0;
   note.blocks.forEach((block: any) => {
@@ -70,19 +73,20 @@ const currentLength = computed(() => {
   return totalLen;
 });
 
-// 对应你 index.vue 中的校验规则：thought/post 类型限制在 500 字内
+// thought/post 类型限制在 500 字内[cite: 12]
 const isOverLimit = computed(() => currentLength.value > 500);
 
-// 🌟 自动对齐：短动态不需要标题，我们自动将正文的前 15 个字同步更新为该 Notes 的 title，方便在侧边栏显示
+// 自动对齐：短动态不需要标题，自动将正文的前 15 个字同步更新为该 Notes 的 title 方便显示[cite: 12]
 const syncPostTitleToSidebar = () => {
+  // 🌟 修复点：加入非空守卫
+  if (!activeNote.value) return;
   const note = activeNote.value as any;
-  if (!note || !note.blocks || !Array.isArray(note.blocks)) return;
+  if (!note.blocks || !Array.isArray(note.blocks)) return;
 
   const firstPara = note.blocks.find((b: any) => b.type === 'paragraph');
   if (firstPara) {
     try {
       const blockData = typeof firstPara.data === 'string' ? JSON.parse(firstPara.data) : firstPara.data;
-      let pureText = firstPara.data ? getTextLength(blockData) > 0 ? "" : "" : "";
       
       // 提取纯文本
       const extractPureText = (n: any): string => {
@@ -92,20 +96,22 @@ const syncPostTitleToSidebar = () => {
         return '';
       };
       
-      pureText = extractPureText(blockData).trim();
+      const pureText = extractPureText(blockData).trim();
       
       if (pureText) {
-        // 截取前 15 个字作为侧边栏和数据库里的标题
+        // 截取前 15 个字作为侧边栏和数据库里的标题[cite: 12]
         const shortTitle = pureText.length > 15 ? pureText.substring(0, 15) + '...' : pureText;
         if (props.title !== shortTitle) {
           emit('update:title', shortTitle);
+          // 🌟 顺带通过自治协议派发变更，保持 blocks 积木快照同步
+          emit('change', { blocks: note.blocks });
         }
       }
     } catch (e) {}
   }
 };
 
-// 监听外界数据变化，实时保持侧边栏标题平滑更新
+// 监听外界数据变化，实时保持侧边栏标题平滑更新[cite: 12]
 watch(
   () => activeNote.value?.blocks,
   () => {

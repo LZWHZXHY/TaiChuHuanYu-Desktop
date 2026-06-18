@@ -31,7 +31,7 @@ namespace TaiChuWeb_V2.Services.Publish
                 // 1. 提取文字摘要
                 string excerpt = ExtractPostExcerpt(postBlocks);
 
-                // 2. 🌟【核心修复】：升级为深层网络透传扫描器，精准捕捉嵌套的图片 URL
+                // 2. 升级为深层网络透传扫描器，精准捕捉嵌套的图片 URL
                 string? firstImageUrl = ExtractFirstImageUrl(postBlocks);
 
                 using var transaction = await _context.Database.BeginTransactionAsync();
@@ -61,7 +61,7 @@ namespace TaiChuWeb_V2.Services.Publish
                         _context.PublishedNotes.Add(publishedNote);
                     }
 
-                    // 3. ✨【打包视觉挂件】：确保绝对能生成带有 cardCover 的配置字典
+                    // 3. 打包视觉挂件：确保绝对能生成带有 cardCover 的配置字典
                     var metaDict = new Dictionary<string, string>();
                     if (!string.IsNullOrEmpty(firstImageUrl))
                     {
@@ -89,7 +89,8 @@ namespace TaiChuWeb_V2.Services.Publish
                         {
                             Id = parsedBlockId != Guid.Empty ? parsedBlockId : Guid.NewGuid(),
                             OwnerId = publishedNote.Id.ToString(),
-                            OwnerType = "note",
+                            // 🌟【大一统修复对齐】：固化区段统一标记为大统一的 Post 标识，确保广场详情页能无缝拉取
+                            OwnerType = NoteTypes.Post,
                             Type = block.Type,
                             Data = block.Data,
                             SortOrder = block.SortOrder
@@ -133,9 +134,6 @@ namespace TaiChuWeb_V2.Services.Publish
             return "一语落毕，灵脉寂静...";
         }
 
-        /// <summary>
-        /// 🌟【重构增强版】：深层自适应递归图片链接提取引擎
-        /// </summary>
         private string? ExtractFirstImageUrl(List<Block> blocks)
         {
             foreach (var block in blocks)
@@ -147,7 +145,6 @@ namespace TaiChuWeb_V2.Services.Publish
                     using var doc = JsonDocument.Parse(block.Data);
                     var root = doc.RootElement;
 
-                    // 路线 A：如果该 Block 本身就是一个独立的展示图片块 (如前端传来的 type: "image")
                     if (block.Type == "image" || root.TryGetProperty("type", out var typeProp) && typeProp.GetString() == "image")
                     {
                         if (root.TryGetProperty("attrs", out var attrs) && attrs.TryGetProperty("src", out var src))
@@ -156,26 +153,18 @@ namespace TaiChuWeb_V2.Services.Publish
                         }
                     }
 
-                    // 路线 B：递归穿透深度扫描内部嵌套节点（防止 Tiptap 的复合节点嵌套嵌套）
                     string? nestedUrl = FindImageUrlInJsonTree(root);
-                    if (!string.IsNullOrEmpty(nestedUrl))
-                    {
-                        return nestedUrl;
-                    }
+                    if (!string.IsNullOrEmpty(nestedUrl)) return nestedUrl;
                 }
                 catch { }
             }
             return null;
         }
 
-        /// <summary>
-        /// 深度递归辅助器：自适应在任意 JSON 树枝节点中搜寻 src 属性
-        /// </summary>
         private string? FindImageUrlInJsonTree(JsonElement element)
         {
             if (element.ValueKind == JsonValueKind.Object)
             {
-                // 探测到图片节点的特征属性
                 if (element.TryGetProperty("type", out var t) && t.GetString() == "image")
                 {
                     if (element.TryGetProperty("attrs", out var attrs) && attrs.TryGetProperty("src", out var src))
@@ -184,7 +173,6 @@ namespace TaiChuWeb_V2.Services.Publish
                     }
                 }
 
-                // 顺着属性节点继续深挖
                 foreach (var prop in element.EnumerateObject())
                 {
                     string? result = FindImageUrlInJsonTree(prop.Value);
@@ -193,14 +181,12 @@ namespace TaiChuWeb_V2.Services.Publish
             }
             else if (element.ValueKind == JsonValueKind.Array)
             {
-                // 深度遍历数组内部的所有对象块
                 foreach (var item in element.EnumerateArray())
                 {
                     string? result = FindImageUrlInJsonTree(item);
                     if (!string.IsNullOrEmpty(result)) return result;
                 }
             }
-
             return null;
         }
     }

@@ -1,10 +1,6 @@
 <template>
   <div class="taichu-char-workspace">
-    <!-- ========================================== -->
-    <!-- 1. 顶部：高维度角色核心档案名片 -->
-    <!-- ========================================== -->
     <header class="char-profile-section">
-      <!-- 左侧：头像/立绘祭坛 -->
       <div class="avatar-altar-container">
         <div class="avatar-altar">
           <img v-if="localMeta.avatarUrl" :src="localMeta.avatarUrl" class="altar-image" alt="真容" />
@@ -15,7 +11,6 @@
         </div>
       </div>
 
-      <!-- 右侧：多维基础文字档案格 -->
       <div class="profile-inputs-grid">
         <div class="name-row-full">
           <input 
@@ -29,37 +24,33 @@
         <div class="meta-inputs-flex">
           <div class="info-cell">
             <span class="cell-label">命格头衔</span>
-            <input v-model="localMeta.identity" @input="syncAllToBlocks" class="cell-input" placeholder="如：混沌行者" />
+            <input v-model="localMeta.identity" @input="compileAndDispatchAll" class="cell-input" placeholder="如：混沌行者" />
           </div>
           <div class="info-cell">
             <span class="cell-label">所属阵营</span>
-            <input v-model="localMeta.faction" @input="syncAllToBlocks" class="cell-input" placeholder="如：太初圣地" />
+            <input v-model="localMeta.faction" @input="compileAndDispatchAll" class="cell-input" placeholder="如：太初圣地" />
           </div>
           <div class="info-cell">
             <span class="cell-label">性别/形态</span>
-            <input v-model="localMeta.gender" @input="syncAllToBlocks" class="cell-input" placeholder="如：男 / 灵体" />
+            <input v-model="localMeta.gender" @input="compileAndDispatchAll" class="cell-input" placeholder="如：男 / 灵体" />
           </div>
           <div class="info-cell">
             <span class="cell-label">寿元/年龄</span>
-            <input v-model="localMeta.age" @input="syncAllToBlocks" class="cell-input" placeholder="如：3000岁" />
+            <input v-model="localMeta.age" @input="compileAndDispatchAll" class="cell-input" placeholder="如：3000岁" />
           </div>
           <div class="info-cell">
             <span class="cell-label">身高/体型</span>
-            <input v-model="localMeta.height" @input="syncAllToBlocks" class="cell-input" placeholder="如：185cm" />
+            <input v-model="localMeta.height" @input="compileAndDispatchAll" class="cell-input" placeholder="如：185cm" />
           </div>
           <div class="info-cell">
             <span class="cell-label">本命星象</span>
-            <input v-model="localMeta.astrology" @input="syncAllToBlocks" class="cell-input" placeholder="如：紫微破军" />
+            <input v-model="localMeta.astrology" @input="compileAndDispatchAll" class="cell-input" placeholder="如：紫微破军" />
           </div>
         </div>
       </div>
     </header>
 
-    <!-- ========================================== -->
-    <!-- 2. 中部双栏：左天道演化矩阵图组 vs 右天赋特质 -->
-    <!-- ========================================== -->
     <div class="char-double-columns">
-      <!-- 左栏：全新升级的自适应破格叠层雷达引擎与横向矩阵填报系统 -->
       <div class="column-card radar-panel-card">
         <div class="panel-header border-style">
           <div class="template-selector-bar">
@@ -67,18 +58,16 @@
             <button @click="saveAsTemplate" class="action-ghost-btn">💾 存为骨架</button>
             <button @click="loadTemplateMenu = !loadTemplateMenu" class="action-ghost-btn">📋 唤入骨架</button>
           </div>
-          <button @click="isRadarEditing = !isRadarEditing" class="spirit-mini-btn">
+          <button @click="toggleEditMode" class="spirit-mini-btn">
             {{ isRadarEditing ? '锁定矩阵配置' : '重塑演化矩阵' }}
           </button>
         </div>
 
-        <!-- 骨架快选菜单 -->
         <div v-if="loadTemplateMenu" class="template-pop-menu">
           <div v-for="tpl in savedTemplates" :key="tpl.name" @click="applyTemplate(tpl)" class="tpl-item">{{ tpl.name }} ({{ tpl.schema.length }}维)</div>
           <div v-if="savedTemplates.length === 0" class="tpl-empty">本地暂无暂存骨架</div>
         </div>
 
-        <!-- 雷达物理渲染视窗：放行 1.0 百分比上限，支持极致数据破格锐角刺穿外圈！ -->
         <div class="radar-render-box">
           <svg viewBox="0 0 360 260" class="radar-svg">
             <polygon v-for="scale in [1, 0.75, 0.5, 0.25]" :key="scale" :points="getGridPoints(scale)" class="radar-grid-line" />
@@ -95,7 +84,6 @@
           </svg>
         </div>
 
-        <!-- 常态闭合下的流层气泡图例 -->
         <div v-if="!isRadarEditing" class="static-layers-legends inline-card">
           <div v-for="layer in localLayers" :key="layer.name" class="legend-tag">
             <span class="legend-color-dot" :style="{ backgroundColor: layer.color }"></span>
@@ -103,44 +91,41 @@
           </div>
         </div>
 
-        <!-- 操控台设计视窗 -->
         <div v-if="isRadarEditing" class="radar-designer-container">
           <div class="tabs-header">
             <span :class="{ active: radarTab === 'schema' }" @click="radarTab = 'schema'">1. 维度与公式大纲</span>
             <span :class="{ active: radarTab === 'data' }" @click="radarTab = 'data'">2. 横向矩阵数据填报</span>
           </div>
 
-          <!-- 操控子面板 A：公式与指标骨架设计 -->
           <div v-if="radarTab === 'schema'" class="schema-designer-inner-list">
             <div v-for="(item, idx) in localSchema" :key="idx" class="schema-row-card-inner">
               <div class="row-main-flex">
-                <input v-model="item.name" class="editor-inline-input name-field-large" placeholder="属性名" @input="syncAllToBlocks" />
-                <select v-model="item.type" class="spirit-select-mini" @change="syncAllToBlocks">
+                <input v-model="item.name" class="editor-inline-input name-field-large" placeholder="属性名" @input="compileAndDispatchAll" />
+                <select v-model="item.type" class="spirit-select-mini" @change="compileAndDispatchAll">
                   <option value="base">滑块维度</option>
                   <option value="raw_counter">寄存池(不上墙)</option>
                   <option value="computed">公式衍生</option>
                 </select>
                 <div class="range-inputs-mini" v-if="item.type !== 'raw_counter'">
-                  <input v-model="item.min" class="editor-inline-input bound-field-mini" placeholder="0" @input="syncAllToBlocks" />
+                  <input v-model="item.min" class="editor-inline-input bound-field-mini" placeholder="0" @input="compileAndDispatchAll" />
                   <span>~</span>
-                  <input v-model="item.max" class="editor-inline-input bound-field-mini" placeholder="AUTO" @input="syncAllToBlocks" />
+                  <input v-model="item.max" class="editor-inline-input bound-field-mini" placeholder="AUTO" @input="compileAndDispatchAll" />
                 </div>
                 <label v-if="item.type !== 'raw_counter'" class="reverse-label-mini">
-                  <input type="checkbox" v-model="item.reverse" @change="syncAllToBlocks" /> <span>逆收益</span>
+                  <input type="checkbox" v-model="item.reverse" @change="compileAndDispatchAll" /> <span>逆收益</span>
                 </label>
                 <button @click="removeSchemaItem(idx)" class="delete-inline-btn" :disabled="localSchema.length <= 3">✕</button>
               </div>
               <div v-if="item.type === 'computed'" class="formula-row-inner">
                 <span class="fx-symbol">ƒ(x) =</span>
-                <input v-model="item.formula" class="editor-inline-input formula-input-inner" placeholder="公式如: [力量] * 1.5" @input="syncAllToBlocks" />
+                <input v-model="item.formula" class="editor-inline-input formula-input-inner" placeholder="公式如: [力量] * 1.5" @input="compileAndDispatchAll" />
               </div>
             </div>
             <button @click="addNewSchemaItem" class="add-dim-btn">+ 肆意扩张新维度属性</button>
           </div>
 
-          <!-- 操控子面板 B：颠覆式横向 Excel 矩阵式无滚轮快速填报网格 -->
           <div v-if="radarTab === 'data'" class="matrix-grid-inner-panel">
-            <button @click="addNewLayer" class="add-dim-btn style-solid">+ 追加对比叠层(如变身流派/状态备份)</button>
+            <button @click="addNewLayer" class="add-dim-btn style-solid">+ 追加对比叠层</button>
             <div class="matrix-grid-scroll-container">
               <table class="matrix-grid-table">
                 <thead>
@@ -148,8 +133,8 @@
                     <th class="sticky-col-header">属性维度 \ 状态</th>
                     <th v-for="(layer, lIdx) in localLayers" :key="'th-'+lIdx">
                       <div class="th-input-wrapper">
-                        <input v-model="layer.color" type="color" class="matrix-color-picker" @change="syncAllToBlocks" />
-                        <input v-model="layer.name" class="matrix-th-input" @input="syncAllToBlocks" />
+                        <input v-model="layer.color" type="color" class="matrix-color-picker" @change="compileAndDispatchAll" />
+                        <input v-model="layer.name" class="matrix-th-input" @input="compileAndDispatchAll" />
                         <button @click="removeLayer(lIdx)" class="matrix-del-col" :disabled="localLayers.length<=1">✕</button>
                       </div>
                     </th>
@@ -159,22 +144,19 @@
                   <tr v-for="schemaItem in localSchema" :key="schemaItem.name">
                     <td class="sticky-col-dim"><span class="dim-badge" :class="schemaItem.type">{{ schemaItem.name }}</span></td>
                     <td v-for="(layer, lIdx) in localLayers" :key="'td-'+lIdx+'-'+schemaItem.name">
-                      <!-- 原生输入滑块 -->
                       <div v-if="schemaItem.type === 'base'" class="matrix-cell-flex">
-                        <input type="range" :min="schemaItem.min" :max="getDynamicMaxLimit(schemaItem)" step="any" v-model="layer.values[schemaItem.name]" @input="syncAllToBlocks" class="matrix-slider" />
-                        <input type="text" v-model="layer.values[schemaItem.name]" class="matrix-num-input" @input="syncAllToBlocks" />
+                        <input type="range" :min="schemaItem.min" :max="getDynamicMaxLimit(schemaItem)" step="any" v-model="layer.values[schemaItem.name]" @input="compileAndDispatchAll" class="matrix-slider" />
+                        <input type="text" v-model="layer.values[schemaItem.name]" class="matrix-num-input" @input="compileAndDispatchAll" />
                       </div>
-                      <!-- 寄存池流水快速累计 -->
                       <div v-else-if="schemaItem.type === 'raw_counter'" class="matrix-cell-counter">
                         <div class="counter-actions-row">
                           <button @click="quickAdjustCounter(layer, schemaItem.name, 1)" class="matrix-step-btn">+1</button>
                           <button @click="quickAdjustCounter(layer, schemaItem.name, -1)" class="matrix-step-btn">-1</button>
-                          <input type="text" v-model="layer.values[schemaItem.name]" class="matrix-num-input plain" @input="syncAllToBlocks" />
+                          <input type="text" v-model="layer.values[schemaItem.name]" class="matrix-num-input plain" @input="compileAndDispatchAll" />
                         </div>
                         <input type="number" placeholder="回车追加累计..." class="matrix-append-input" @keyup.enter="appendMatchStream($event, layer, schemaItem.name)" />
                       </div>
-                      <!-- 天道衍生公式展示 -->
-                      <div v-else class="matrix-cell-computed">
+                      <div class="matrix-cell-computed" v-else>
                         {{ formatNumber(calculateFormula(schemaItem, layer)) }}
                       </div>
                     </td>
@@ -186,7 +168,6 @@
         </div>
       </div>
 
-      <!-- 右栏：天赋玄功 & 宿命特质  -->
       <div class="column-card traits-panel-card">
         <div class="panel-header">
           <span class="panel-title">⚡ 天赋玄功 & 宿命特质</span> 
@@ -196,19 +177,16 @@
         <div class="traits-scroll-area"> 
           <div v-for="(trait, idx) in localTraits" :key="idx" class="trait-node"> 
             <div class="trait-title-row"> 
-              <input v-model="trait.title" @input="syncAllToBlocks" class="trait-title-input" placeholder="功法/特质名称" /> 
+              <input v-model="trait.title" @input="compileAndDispatchAll" class="trait-title-input" placeholder="功法/特质名称" /> 
               <button @click="removeTrait(idx)" class="delete-inline-btn">✕</button> 
             </div>
-            <textarea v-model="trait.desc" @input="syncAllToBlocks" class="trait-desc-textarea" placeholder="输入关于此天赋或功法的具体效果机理..." rows="2" /> 
+            <textarea v-model="trait.desc" @input="compileAndDispatchAll" class="trait-desc-textarea" placeholder="输入效果机理..." rows="2" /> 
           </div>
           <div v-if="localTraits.length === 0" class="empty-placeholder-tip">暂无特质描述，点击右上角赐予功法</div> 
         </div>
       </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 3. 下部：天道因果羁绊（人物关系网络）  -->
-    <!-- ========================================== -->
     <section class="char-relations-section"> 
       <div class="panel-header border-style"> 
         <span class="panel-title">🔗 天道因果羁绊（人物关系）</span> 
@@ -218,20 +196,17 @@
       <div class="relations-matrix-grid"> 
         <div v-for="(rel, idx) in localRelations" :key="idx" class="relation-card"> 
           <div class="rel-top-bar"> 
-            <input v-model="rel.targetName" @input="syncAllToBlocks" class="rel-name-input" placeholder="目标角色姓名" /> 
-            <input v-model="rel.type" @input="syncAllToBlocks" class="rel-type-input" placeholder="关系类型 (如: 师徒)" /> 
+            <input v-model="rel.targetName" @input="compileAndDispatchAll" class="rel-name-input" placeholder="目标角色姓名" /> 
+            <input v-model="rel.type" @input="compileAndDispatchAll" class="rel-type-input" placeholder="关系类型 (如: 师徒)" /> 
             <button @click="removeRelation(idx)" class="delete-inline-btn">✕</button> 
           </div>
-          <textarea v-model="rel.description" @input="syncAllToBlocks" class="rel-desc-textarea" placeholder="描述此段因果的具体由来的纠葛..." rows="2" /> 
+          <textarea v-model="rel.description" @input="compileAndDispatchAll" class="rel-desc-textarea" placeholder="描述此段因果的具体由来..." rows="2" /> 
         </div>
       </div>
       <div v-if="localRelations.length === 0" class="empty-placeholder-tip text-center">命途清澈，暂无天道因果羁绊纠葛</div> 
     </section>
 
-    <!-- ========================================== -->
-    <!-- 4. 底部：核心生平传记（主长文富文本编辑器）  -->
-    <!-- ========================================== -->
-    <section class="char-biography-section"> 
+    <section class="char-biography-section" @change-content="handleBiographyContentCaptured"> 
       <div class="panel-header border-style"> 
         <span class="panel-title">📜 岁月生平履历详纪</span> 
       </div>
@@ -245,7 +220,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useSpiritData } from '@/composables/useSpiritData'; 
 import { useCos } from '@/composables/useCos'; 
 
@@ -258,12 +233,10 @@ interface FullCharMeta {
   gender: string; age: string; height: string; astrology: string;
 } 
 
-// 🌟 核心突破：将所有具名属性全部加 "?" 松绑为非必填的可选参数！
-// 这样画布分发器无论是只传 block，还是在任意场景残缺传递，TS 插件都会一路放行！
 const props = defineProps<{ 
   title?: string; 
   noteId?: string; 
-  extraData?: string; 
+  extraData?: string; // 🌟 纯净释放给右侧栏
   blocks?: any[]; 
 }>(); 
 
@@ -278,10 +251,12 @@ const radarTab = ref<'schema' | 'data'>('schema');
 const loadTemplateMenu = ref(false);
 const savedTemplates = ref<any[]>([]);
 const fileInputRef = ref<HTMLInputElement>(); 
+
+// 🌟 核心高内聚本地闭环缓存
+let cachedTextBlocks: any[] = [];
 let isInitialized = false; 
 let saveTimer: any = null; 
 
-// 🌟 智能自适应网关：若外层无显式传参（如画布内调用），组件自动向全局主内存树 activeNote 里锚定捞取
 const displayTitle = computed(() => props.title || activeNote.value?.title || '未命名碎片');
 const displayNoteId = computed(() => props.noteId || activeNote.value?.id || '');
 
@@ -295,9 +270,8 @@ const localLayers = ref<LayerItem[]>([]);
 const localTraits = ref<TraitItem[]>([]); 
 const localRelations = ref<RelationItem[]>([]); 
 
-// SVG 常数几何网络空间
+// SVG 雷达几何参数结构
 const width = 360; const height = 260; const centerX = width / 2; const centerY = height / 2; const radius = 75;
-
 const visibleSchema = computed(() => localSchema.value.filter(s => s.type !== 'raw_counter'));
 const totalAxes = computed(() => visibleSchema.value.length);
 const angles = computed<number[]>(() => {
@@ -314,7 +288,6 @@ const axisLines = computed(() => angles.value.map((angle) => ({
   x: centerX + radius * Math.cos(angle), y: centerY + radius * Math.sin(angle)
 })));
 
-// 公式解构执行单元
 const calculateFormula = (item: SchemaItem, layer: LayerItem): number => {
   if (!item.formula) return 0;
   let expr = item.formula;
@@ -345,7 +318,6 @@ const getDynamicMaxLimit = (item: SchemaItem): number => {
   return parseFloat(item.max as string) || 100;
 };
 
-// 破格数据映射网络：支持极致数据破格锐角刺穿外圈！
 const getLayerDataPoints = (layer: LayerItem) => {
   return visibleSchema.value.map((item, i) => {
     const angle = angles.value[i];
@@ -385,10 +357,15 @@ const formatNumber = (val: number | string): string => {
 
 // 恢复全量积木包数据
 const loadFromBlocks = () => {
+  if (!activeNote.value) return;
   const note = activeNote.value as any; 
-  if (!note || !note.blocks) return; 
+  if (!note || !note.blocks || !Array.isArray(note.blocks)) return; 
 
   const charLayoutBlock = note.blocks.find((b: any) => b.type === 'char-layout-block'); 
+  
+  // 🌟 高内聚解耦：提前把属于主编辑器的纯富文本块剥离出来并缓存在本地
+  cachedTextBlocks = note.blocks.filter((b: any) => b.type !== 'char-layout-block');
+
   if (charLayoutBlock?.data) { 
     try {
       const parsed = JSON.parse(charLayoutBlock.data); 
@@ -400,30 +377,30 @@ const loadFromBlocks = () => {
         localSchema.value = parsed.schema;
         localLayers.value = parsed.layers || [];
       } else {
-        localSchema.value = [
-          { name: '力量', type: 'base', min: 0, max: 100, reverse: false },
-          { name: '速度', type: 'base', min: 0, max: 100, reverse: false },
-          { name: '智力', type: 'base', min: 0, max: 100, reverse: false }
-        ];
-        localLayers.value = [{ name: '初始状态流层', color: '#0066cc', values: { '力量': 70, '速度': 60, '智力': 80 } }];
+        setDefaultSchema();
       }
     } catch (e) {
-      console.warn("解析角色积木块异常", e); 
+      setDefaultSchema();
     }
   } else {
-    localSchema.value = [
-      { name: '力量', type: 'base', min: 0, max: 100, reverse: false },
-      { name: '速度', type: 'base', min: 0, max: 100, reverse: false },
-      { name: '智力', type: 'base', min: 0, max: 100, reverse: false }
-    ];
-    localLayers.value = [{ name: '初始状态流层', color: '#0066cc', values: { '力量': 70, '速度': 60, '智力': 80 } }];
+    setDefaultSchema();
   }
 };
 
-const syncAllToBlocks = () => {
-  if (!isInitialized) return; 
-  const note = activeNote.value as any; 
-  if (!note) return; 
+const setDefaultSchema = () => {
+  localSchema.value = [
+    { name: '力量', type: 'base', min: 0, max: 100, reverse: false },
+    { name: '速度', type: 'base', min: 0, max: 100, reverse: false },
+    { name: '智力', type: 'base', min: 0, max: 100, reverse: false }
+  ];
+  localLayers.value = [{ name: '初始状态流层', color: '#0066cc', values: { '力量': 70, '速度': 60, '智力': 80 } }];
+};
+
+// 🌟 组件完全内聚自治：由 WorkspaceChar 全权合成卡片矩阵与生平纯富文本块并向上派发
+const compileAndDispatchAll = () => {
+  if (!isInitialized || !activeNote.value) return; 
+  const safeNoteId = displayNoteId.value;
+  if (!safeNoteId) return;
 
   const charCardPayload = {
     meta: localMeta.value,
@@ -433,39 +410,62 @@ const syncAllToBlocks = () => {
     relations: localRelations.value 
   };
 
-  const currentBlocks = note.blocks || []; 
-  const textBiographyBlocks = currentBlocks.filter((b: any) => b.type !== 'char-layout-block'); 
-
+  // 1. 构建卡片特态属性专属物理块
   const updatedCharMetaBlock = {
-    id: `char_meta_block_${displayNoteId.value}`, 
-    ownerId: displayNoteId.value, 
+    id: `char_meta_block_${safeNoteId}`, 
+    ownerId: safeNoteId, 
     ownerType: 'char',
     type: 'char-layout-block',
     data: JSON.stringify(charCardPayload),
-    sortOrder: 999
+    sortOrder: cachedTextBlocks.length
   };
 
-  const mergedBlocks = [...textBiographyBlocks, updatedCharMetaBlock]; 
-  note.blocks = mergedBlocks; 
+  // 2. 重新编排已经捕获在本地的纯富文本块序号
+  const orderedTextBlocks = cachedTextBlocks.map((b: any, idx: number) => ({
+    ...b,
+    ownerType: 'char',
+    sortOrder: idx
+  }));
+
+  // 3. 全量积木链强行合流
+  const fullBlocks = [...orderedTextBlocks, updatedCharMetaBlock];
+
+  // 4. 写回共享缓存，触发上报
+  activeNote.value.blocks = fullBlocks; 
 
   if (saveTimer) clearTimeout(saveTimer); 
   saveTimer = setTimeout(() => {
-    emit('change', { 
-      blocks: mergedBlocks, 
-      type: 'char-gallery'
-    });
+    emit('change', { blocks: fullBlocks });
   }, 400); 
+};
+
+// 🌟 核心捕获网关：捕获由于打字更新原生冒泡上来的编辑器 JSON 节点树
+const handleBiographyContentCaptured = (e: Event) => {
+  const customEvent = e as CustomEvent;
+  if (customEvent.detail && Array.isArray(customEvent.detail.content)) {
+    // 将 Tiptap 子节点映射成标准后端 Block
+    cachedTextBlocks = customEvent.detail.content.map((b: any, i: number) => ({
+      id: b.attrs?.id || Math.random().toString(36).substring(2, 11),
+      ownerId: displayNoteId.value,
+      ownerType: 'char',
+      type: b.type,
+      sortOrder: i,
+      data: JSON.stringify(b)
+    }));
+    
+    compileAndDispatchAll();
+  }
 };
 
 const onNameInput = (e: Event) => {
   const val = (e.target as HTMLInputElement).value; 
   emit('update:title', val); 
   if (activeNote.value) activeNote.value.title = val; 
-  syncAllToBlocks(); 
+  compileAndDispatchAll(); 
 };
 
 const toggleEditMode = () => { isRadarEditing.value = !isRadarEditing.value; };
-const quickAdjustCounter = (layer: LayerItem, name: string, step: number) => { const current = parseFloat(layer.values[name] as string) || 0; layer.values[name] = Math.max(0, current + step); syncAllToBlocks(); };
+const quickAdjustCounter = (layer: LayerItem, name: string, step: number) => { const current = parseFloat(layer.values[name] as string) || 0; layer.values[name] = Math.max(0, current + step); compileAndDispatchAll(); };
 const appendMatchStream = (event: Event, layer: LayerItem, counterName: string) => {
   const target = event.target as HTMLInputElement; const inputVal = parseFloat(target.value); if (isNaN(inputVal)) return;
   const previousTotal = parseFloat(layer.values[counterName] as string) || 0; layer.values[counterName] = previousTotal + inputVal;
@@ -473,22 +473,22 @@ const appendMatchStream = (event: Event, layer: LayerItem, counterName: string) 
   if (matchCountSchema) {
     const prevCount = parseFloat(layer.values[matchCountSchema.name] as string) || 0; layer.values[matchCountSchema.name] = prevCount + 1;
   }
-  target.value = ''; syncAllToBlocks();
+  target.value = ''; compileAndDispatchAll();
 };
 
-const addNewSchemaItem = () => { localSchema.value.push({ name: `新核心维度${localSchema.value.length+1}`, type: 'base', min: 0, max: 100, reverse: false }); syncAllToBlocks(); };
-const removeSchemaItem = (idx: number) => { localSchema.value.splice(idx, 1); syncAllToBlocks(); };
-const addNewLayer = () => { const defaultValues: Record<string, any> = {}; localSchema.value.forEach(s => { defaultValues[s.name] = s.min ?? 0 }); localLayers.value.push({ name: `新叠层形态${localLayers.value.length+1}`, color: '#e63946', values: defaultValues }); syncAllToBlocks(); };
-const removeLayer = (idx: number) => { localLayers.value.splice(idx, 1); syncAllToBlocks(); };
+const addNewSchemaItem = () => { localSchema.value.push({ name: `新核心维度${localSchema.value.length+1}`, type: 'base', min: 0, max: 100, reverse: false }); compileAndDispatchAll(); };
+const removeSchemaItem = (idx: number) => { localSchema.value.splice(idx, 1); compileAndDispatchAll(); };
+const addNewLayer = () => { const defaultValues: Record<string, any> = {}; localSchema.value.forEach(s => { defaultValues[s.name] = s.min ?? 0 }); localLayers.value.push({ name: `新叠层形态${localLayers.value.length+1}`, color: '#e63946', values: defaultValues }); compileAndDispatchAll(); };
+const removeLayer = (idx: number) => { localLayers.value.splice(idx, 1); compileAndDispatchAll(); };
 
 const saveAsTemplate = () => { const name = prompt('输入骨架模板名称:', '武力量纲骨架'); if (!name) return; const currentPool = JSON.parse(localStorage.getItem('spirit_radar_templates') || '[]'); currentPool.push({ name, schema: JSON.parse(JSON.stringify(localSchema.value)) }); localStorage.setItem('spirit_radar_templates', JSON.stringify(currentPool)); loadTemplatesFromStorage(); };
-const applyTemplate = (tpl: any) => { localSchema.value = JSON.parse(JSON.stringify(tpl.schema)); localLayers.value.forEach(layer => { const newValues: Record<string, any> = {}; localSchema.value.forEach(s => { newValues[s.name] = layer.values[s.name] ?? s.min }); layer.values = newValues }); loadTemplateMenu.value = false; syncAllToBlocks(); };
+const applyTemplate = (tpl: any) => { localSchema.value = JSON.parse(JSON.stringify(tpl.schema)); localLayers.value.forEach(layer => { const newValues: Record<string, any> = {}; localSchema.value.forEach(s => { newValues[s.name] = layer.values[s.name] ?? s.min }); layer.values = newValues }); loadTemplateMenu.value = false; compileAndDispatchAll(); };
 const loadTemplatesFromStorage = () => { savedTemplates.value = JSON.parse(localStorage.getItem('spirit_radar_templates') || '[]'); };
 
-const addNewTrait = () => { localTraits.value.push({ title: '新功法特质', desc: '' }); syncAllToBlocks(); }; 
-const removeTrait = (idx: number) => { localTraits.value.splice(idx, 1); syncAllToBlocks(); }; 
-const addNewRelation = () => { localRelations.value.push({ targetName: '', type: '', description: '' }); syncAllToBlocks(); }; 
-const removeRelation = (idx: number) => { localRelations.value.splice(idx, 1); syncAllToBlocks(); }; 
+const addNewTrait = () => { localTraits.value.push({ title: '新功法特质', desc: '' }); compileAndDispatchAll(); }; 
+const removeTrait = (idx: number) => { localTraits.value.splice(idx, 1); compileAndDispatchAll(); }; 
+const addNewRelation = () => { localRelations.value.push({ targetName: '', type: '', description: '' }); compileAndDispatchAll(); }; 
+const removeRelation = (idx: number) => { localRelations.value.splice(idx, 1); compileAndDispatchAll(); }; 
 
 const triggerAvatarUpload = () => { fileInputRef.value?.click(); }; 
 const handleAvatarSelected = async (e: Event) => {
@@ -499,18 +499,18 @@ const handleAvatarSelected = async (e: Event) => {
     const result = await uploadFile(file, 'char_avatar'); 
     if (result?.url) { 
       localMeta.value.avatarUrl = result.url; 
-      syncAllToBlocks(); 
+      compileAndDispatchAll(); 
     }
   } catch (err) { console.error(err); } 
 };
 
 watch(() => activeNote.value?.id, (newId) => { 
-  if (newId) { 
+  if (newId && activeNote.value && (activeNote.value as any).blocks !== undefined) { 
     isInitialized = false; 
     loadFromBlocks(); 
     isInitialized = true; 
   }
-});
+}, { immediate: true });
 
 onMounted(() => {
   loadTemplatesFromStorage();
@@ -519,6 +519,8 @@ onMounted(() => {
     isInitialized = true; 
   }
 });
+
+onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
 </script>
 
 <style scoped>
@@ -542,7 +544,6 @@ onMounted(() => {
 .char-double-columns { display: grid; grid-template-columns: 1fr; gap: 24px; } 
 @media (min-width: 768px) { .char-double-columns { grid-template-columns: 4.8fr 5.2fr; } }
 .column-card { background: #ffffff; border: 1px solid rgba(0,0,0,0.06); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; } 
-
 .radar-render-box { display: flex; justify-content: center; align-items: center; padding: 10px 0; } 
 .radar-svg { width: 100%; max-width: 290px; height: auto; overflow: visible; }
 .radar-grid-line { fill: none; stroke: #e5e5ea; stroke-width: 0.8; } 
@@ -550,8 +551,6 @@ onMounted(() => {
 .radar-value-area { fill: var(--layer-color); fill-opacity: 0.1; stroke: var(--layer-color); stroke-width: 2.2; stroke-linejoin: round; }
 .radar-value-dot { fill: #ffffff; stroke-width: 2; }
 .radar-label { font-size: 10px; font-weight: 700; fill: #1d1d1f; }
-
-/* 模板与设计面板控制 */
 .template-selector-bar { display: flex; align-items: center; gap: 8px; }
 .action-ghost-btn { background: none; border: none; color: #0066cc; font-size: 11px; font-weight: 600; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
 .action-ghost-btn:hover { background: rgba(0, 102, 204, 0.05); }
@@ -559,13 +558,11 @@ onMounted(() => {
 .tpl-item { font-size: 12px; padding: 6px 10px; border-radius: 6px; cursor: pointer; color: #1d1d1f; }
 .tpl-item:hover { background: #f5f5f7; color: #0066cc; }
 .tpl-empty { font-size: 11px; color: #c7c7cc; text-align: center; padding: 10px; }
-
 .radar-designer-container { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
 .tabs-header { display: flex; border-bottom: 1px solid #f2f2f7; gap: 16px; padding-bottom: 2px; }
 .tabs-header span { font-size: 12px; font-weight: 600; color: #86868b; cursor: pointer; padding-bottom: 6px; }
 .tabs-header span.active { color: #0066cc; font-weight: 700; position: relative; }
 .tabs-header span.active::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: #0066cc; }
-
 .schema-designer-inner-list { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
 .schema-row-card-inner { background: #f5f5f7; padding: 10px; border-radius: 12px; display: flex; flex-direction: column; gap: 6px; }
 .row-main-flex { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -577,8 +574,6 @@ onMounted(() => {
 .formula-row-inner { display: flex; align-items: center; gap: 6px; background: #ffffff; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.02); }
 .fx-symbol { font-size: 11px; font-weight: 700; color: #0066cc; font-family: monospace; }
 .formula-input-inner { flex: 1; border: none; padding: 2px; font-size: 11px; background: transparent; font-family: monospace; }
-
-/* 🌟 横向表格网格系统布局 */
 .matrix-grid-inner-panel { display: flex; flex-direction: column; gap: 10px; }
 .matrix-grid-scroll-container { width: 100%; overflow-x: auto; border: 1px solid #e5e5ea; border-radius: 12px; background: #ffffff; }
 .matrix-grid-table { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
@@ -586,12 +581,10 @@ onMounted(() => {
 .matrix-grid-table th.sticky-col-header { position: sticky; left: 0; z-index: 5; background: #e8e8ed; min-width: 90px; font-weight: 700; }
 .matrix-grid-table td { padding: 6px 10px; border-bottom: 1px solid #efeff4; border-right: 1px solid #efeff4; vertical-align: middle; }
 .matrix-grid-table td.sticky-col-dim { position: sticky; left: 0; z-index: 4; background: #fbfbfd; font-weight: 700; border-right: 2px solid #e5e5ea; min-width: 90px; }
-
 .dim-badge { font-size: 10px; padding: 1px 4px; border-radius: 3px; display: inline-block; }
 .dim-badge.base { background: rgba(0, 102, 204, 0.06); color: #0066cc; }
 .dim-badge.raw_counter { background: rgba(142, 142, 147, 0.1); color: #555559; }
 .dim-badge.computed { background: rgba(52, 199, 89, 0.08); color: #24b249; }
-
 .th-input-wrapper { display: flex; align-items: center; gap: 4px; }
 .matrix-color-picker { border: none; background: transparent; width: 16px; height: 18px; cursor: pointer; padding: 0; }
 .matrix-th-input { border: none; background: transparent; font-weight: 700; font-size: 12px; outline: none; flex: 1; width: 50px; }
@@ -605,17 +598,14 @@ onMounted(() => {
 .matrix-step-btn { background: #e8e8ed; border: none; font-size: 9px; font-weight: 700; width: 18px; height: 16px; border-radius: 3px; cursor: pointer; }
 .matrix-append-input { font-size: 10px; padding: 2px 4px; border: 1px solid #0066cc; border-radius: 4px; color: #0066cc; outline: none; width: 100%; box-sizing: border-box; }
 .matrix-cell-computed { font-weight: 700; color: #0066cc; background: rgba(0,102,204,0.02); padding: 2px; border-radius: 4px; text-align: center; }
-
 .static-layers-legends { display: flex; flex-wrap: wrap; gap: 8px; background: #f5f5f7; padding: 6px 12px; border-radius: 10px; margin-top: 6px; }
 .legend-tag { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #1d1d1f; }
 .legend-color-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-
 .static-field-name { font-size: 12px; font-weight: 700; color: #3a3a3c; width: 45px; } 
 .editor-inline-input { border: 1px solid #d2d2d7; border-radius: 4px; padding: 2px 4px; font-size: 11px; outline: none; background: #ffffff; } 
 .delete-inline-btn { background: none; border: none; color: #ff3b30; cursor: pointer; font-size: 11px; } 
 .add-dim-btn { background: none; border: 1px dashed #0066cc; color: #0066cc; padding: 5px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; text-align: center; width: 100%; }
 .add-dim-btn.style-solid { border-style: solid; background: rgba(0,102,204,0.03); margin-bottom: 4px; }
-
 .traits-scroll-area { flex: 1; overflow-y: auto; max-height: 380px; display: flex; flex-direction: column; gap: 12px; } 
 .trait-node { background: #f5f5f7; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; } 
 .trait-title-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.04); padding-bottom: 4px; } 

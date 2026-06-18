@@ -36,7 +36,7 @@
           :value="localExcerpt" 
           @input="onExcerptInput" 
           class="excerpt-textarea"
-          placeholder="这里是文章的第一段，也是对外的简短摘要..." 
+          placeholder="这里是文章的简短摘要..." 
           rows="2" 
         />
       </div>
@@ -51,14 +51,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { useSpiritData } from '@/composables/useSpiritData';
 import { useCos } from '@/composables/useCos';
 
 const props = defineProps<{
   title: string;
   noteId?: string;
-  extraData?: string; 
+  extraData?: string; // 🌟 彻底安全释放：右侧面板属性专属通道，不在此组件产生任何污染
 }>();
 
 const emit = defineEmits(['update:title', 'change']);
@@ -72,87 +72,54 @@ const fileInputRef = ref<HTMLInputElement>();
 let saveTimer: any = null;
 let isInitialized = false; 
 
-// 🌟 深度递归榨取 Tiptap 段落节点里的纯文本
-const extractTextFromNode = (node: any): string => {
-  if (!node) return '';
-  if (node.text) return node.text;
-  if (node.content && Array.isArray(node.content)) {
-    return node.content.map(extractTextFromNode).join('');
-  }
-  return '';
-};
-
-// 🌟 从当前激活的灵脉节点中恢复数据
-const loadBlogMeta = () => {
+// 🌟 核心控制层：无缝重组与编排全量数据块
+const dispatchSystemBlocks = (coverValue: string, excerptValue: string) => {
   const note = activeNote.value as any;
   if (!note) return;
 
-  // 1. 封面图依然走独立的 extraData 或者是基础配置解析
-  if (props.extraData && props.extraData !== '[]' && props.extraData !== '{}') {
-    try {
-      const meta = JSON.parse(props.extraData);
-      if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
-        localCoverUrl.value = meta.coverUrl || '';
-      }
-    } catch (e) {}
+  // 1. 保障底层的 blocks 容器处于就绪状态
+  if (!note.blocks || !Array.isArray(note.blocks)) {
+    note.blocks = [];
   }
 
-  // 2. ✨【核心变动】：不再读取自定义块，直接寻找富文本正文中的第一个有效 paragraph
-  if (note.blocks && Array.isArray(note.blocks)) {
-    const firstPara = note.blocks.find((b: any) => b.type === 'paragraph');
-    if (firstPara) {
-      try {
-        const blockData = typeof firstPara.data === 'string' ? JSON.parse(firstPara.data) : firstPara.data;
-        // 把段落深层嵌套的文字榨取出来，同步给摘要输入框
-        localExcerpt.value = extractTextFromNode(blockData);
-      } catch (e) {
-        localExcerpt.value = '';
-      }
-    } else {
-      localExcerpt.value = '';
-    }
-  }
-};
+  // 2. 剥离出现有的“非系统固定块”（即原本用户在编辑器里书写、需要排在 block 2 之后的正文块）
+  const userContentBlocks = note.blocks.filter(
+    (b: any) => b.type !== 'blog_fixed_cover' && b.type !== 'blog_fixed_excerpt'
+  );
 
-// 🌟 当用户在摘要框打字时，反向去修改富文本编辑器的第一段内容
-const onExcerptInput = (e: Event) => {
-  const target = e.target as HTMLTextAreaElement;
-  localExcerpt.value = target.value;
-
-  // 1. 获取外层插槽传进来的 Tiptap 编辑器实例
-  // 通过当前项目的架构，Tiptap 挂载在外层的组件或者 DOM 上，我们可以直接利用系统的全局 activeNote 的数据联动，
-  // 或者直接去精准重组第一个 block 的数据向外抛出：
-  const note = activeNote.value as any;
-  if (!note || !note.blocks || !Array.isArray(note.blocks)) return;
-
-  // 2. 找到第一个段落块
-  let firstPara = note.blocks.find((b: any) => b.type === 'paragraph');
-  
-  // 3. 重新组装该 Tiptap 节点的内部 JSON 树结构
-  const newParagraphData = {
-    type: 'paragraph',
-    content: target.value ? [{ type: 'text', text: target.value }] : []
+  // 3. 构建或修正固定的 Block 0：封面图块
+  const coverBlock = {
+    id: 'blog_cover_fixed_id', // 固定特殊 ID 或随机 ID
+    ownerId: props.noteId,
+    ownerType: 'blog',
+    type: 'blog_fixed_cover',  // 固定的特殊封面形态标识
+    sortOrder: 0,
+    data: JSON.stringify({ url: coverValue })
   };
 
-  if (firstPara) {
-    firstPara.data = JSON.stringify(newParagraphData);
-  } else {
-    // 如果正文是空的，我们主动帮它创建一个初始段落块
-    firstPara = {
-      id: Math.random().toString(36).substring(2, 11),
-      ownerId: props.noteId,
-      ownerType: 'blog',
-      type: 'paragraph',
-      sortOrder: 0,
-      data: JSON.stringify(newParagraphData)
-    };
-    note.blocks.unshift(firstPara);
-  }
+  // 4. 构建或修正固定的 Block 1：摘要文本块
+  const excerptBlock = {
+    id: 'blog_excerpt_fixed_id',
+    ownerId: props.noteId,
+    ownerType: 'blog',
+    type: 'blog_fixed_excerpt', // 固定的特殊摘要形态标识
+    sortOrder: 1,
+    data: JSON.stringify({ text: excerptValue })
+  };
 
-  // 4. 重新刷一遍排序序号，确保万无一失
-  note.blocks.forEach((b: any, idx: number) => b.sortOrder = idx);
+  // 5. 重新约束用户内容块的序号，让它们强制从第 2 位向后无限顺延排列
+  userContentBlocks.forEach((b: any, index: number) => {
+    b.sortOrder = index + 2; 
+  });
 
-  // 5. 触发外层统一同步通道，顺便把封面数据通过 extraData 的形式抛出去
+  // 6. 合流重组全量数据块链条
+  note.blocks = [coverBlock, excerptBlock, ...userContentBlocks];
+
+  // 7. 🌟 顺手把摘要和封面明文属性更新给顶层实体，以便后端发布 Handler 提取摘要时瞬间捕捉
+  note.excerpt = excerptValue || '深度博客，静候回响...';
+  note.coverUrl = coverValue;
+
+  // 8. 触发数据异步贯穿与云端自动保存同步机制
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     emit('change', { 
@@ -162,12 +129,42 @@ const onExcerptInput = (e: Event) => {
   }, 300);
 };
 
+// 从当前激活的灵脉节点中恢复恢复数据状态
+const loadBlogMeta = () => {
+  const note = activeNote.value as any;
+  if (!note || !note.blocks || !Array.isArray(note.blocks)) return;
+
+  // 🌟 从固定的块形态中拉取数据还原到本地输入框里
+  const coverBlock = note.blocks.find((b: any) => b.type === 'blog_fixed_cover');
+  const excerptBlock = note.blocks.find((b: any) => b.type === 'blog_fixed_excerpt');
+
+  if (coverBlock) {
+    try {
+      const parsed = JSON.parse(coverBlock.data);
+      localCoverUrl.value = parsed.url || '';
+    } catch (e) {}
+  }
+
+  if (excerptBlock) {
+    try {
+      const parsed = JSON.parse(excerptBlock.data);
+      localExcerpt.value = parsed.text || '';
+    } catch (e) {}
+  }
+};
+
+const onExcerptInput = (e: Event) => {
+  const target = e.target as HTMLTextAreaElement;
+  localExcerpt.value = target.value;
+  dispatchSystemBlocks(localCoverUrl.value, target.value);
+};
+
 const onTitleInput = (e: Event) => {
   const target = e.target as HTMLInputElement;
   emit('update:title', target.value);
 };
 
-// 封面图处理逻辑
+// 封面图处理核心逻辑
 const triggerCoverUpload = () => { fileInputRef.value?.click(); };
 const handleFileSelected = async (e: Event) => {
   const input = e.target as HTMLInputElement;
@@ -177,27 +174,20 @@ const handleFileSelected = async (e: Event) => {
     const result = await uploadFile(file, 'blog_cover');
     if (result?.url) {
       localCoverUrl.value = result.url;
-      // 将封面图序列化存进 extraData 里
-      const currentNote = activeNote.value as any;
-      if (currentNote) {
-        currentNote.extraData = JSON.stringify({ coverUrl: result.url });
-        emit('change', { blocks: currentNote.blocks, type: 'blog-layout' });
-      }
+      dispatchSystemBlocks(result.url, localExcerpt.value);
     }
-  } catch (err) { console.error(err); }
+  } catch (err) { console.error('封面上传感应异常:', err); }
 };
+
 const removeCover = () => {
   if (confirm('确定要移除此文章封面吗？')) {
     localCoverUrl.value = '';
-    const currentNote = activeNote.value as any;
-    if (currentNote) {
-      currentNote.extraData = '[]';
-      emit('change', { blocks: currentNote.blocks, type: 'blog-layout' });
-    }
+    dispatchSystemBlocks('', localExcerpt.value);
   }
 };
 
-// 数据状态感应
+// 数据状态感应生命周期
+// 🌟 完美修复：拿掉多余的冒候，恢复标准 TypeScript 响应式监听
 watch(
   () => activeNote.value,
   (newNote) => {
@@ -225,7 +215,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 样式保持不变，与此前美学规范完全一致 */
 .workspace-blog-frame { max-width: 820px; margin: 0 auto; padding: 24px 24px 100px; background: #ffffff; }
 .blog-cover-wrapper { margin-bottom: 36px; }
 .blog-cover-area { position: relative; width: 100%; aspect-ratio: 21 / 9; border-radius: 20px; overflow: hidden; background: #f5f5f7; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(0, 0, 0, 0.03); transition: box-shadow 0.3s ease; }

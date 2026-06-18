@@ -26,9 +26,11 @@
 </template>
 
 <script setup lang="ts">
-// 🌟 瘦身：剥离了原本多余的 ref、watchEffect 以及所有的属性增删改逻辑函数
+// 🌟 瘦身与契约对齐：补齐 noteId 与 extraData 的可选声明，完全释放通道给右侧属性栏
 defineProps<{ 
   title: string;
+  noteId?: string;
+  extraData?: string;
 }>();
 
 defineEmits(['update:title']);

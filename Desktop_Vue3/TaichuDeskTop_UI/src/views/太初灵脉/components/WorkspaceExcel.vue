@@ -34,6 +34,7 @@ const props = defineProps<{
   title: string;
   noteId: string;
   blocks?: any[]; 
+  extraData?: string; // 🌟 补齐多态对接契约：声明接收可选属性，完全释放通道给右侧面板无污染使用
 }>();
 
 const emit = defineEmits(['update:title', 'change']);
@@ -42,7 +43,7 @@ const excelRootRef = ref<HTMLElement | null>(null);
 const wrapperRef = ref<HTMLElement | null>(null);
 const fileInput = ref<HTMLInputElement | null>(null);
 
-// 🌟 动态绑定容器的绝对整数像素高宽
+// 动态绑定容器的绝对整数像素高宽
 const containerWidth = ref<number>(100);
 const containerHeight = ref<number>(100);
 let resizeObserver: ResizeObserver | null = null;
@@ -51,7 +52,7 @@ const onTitleInput = (e: Event) => {
   emit('update:title', (e.target as HTMLInputElement).value);
 };
 
-// 🌟 只记录有真正内容部分的“稀疏矩阵清洗同步器”
+// 只记录有真正内容部分的“稀疏矩阵清洗同步器”
 const handleDataChange = () => {
   if (!luckysheet) return;
   

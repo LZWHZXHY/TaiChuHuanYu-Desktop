@@ -34,15 +34,16 @@ namespace TaiChuWeb_V2.Services.Publish
                 var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == noteId);
                 if (note == null) return new NotFoundObjectResult(new { message = "未找到对应的灵脉草稿" });
 
-                // 2. 获取数据块并提取元数据
+                // 2. 🌟【组件自治对齐修复】：OwnerType 允许匹配大统一的 "wiki" 标识或通用 "note" 标识，确保数据块绝不漏捞
+                string noteIdStr = noteId.ToString();
                 var draftBlocks = await _context.Blocks
-                    .Where(b => b.OwnerId == noteId.ToString() && b.OwnerType == "note")
+                    .Where(b => b.OwnerId == noteIdStr && (b.OwnerType == "wiki" || b.OwnerType == "note" || b.OwnerType == note.Type))
                     .OrderBy(b => b.SortOrder)
                     .ToListAsync();
 
                 string excerpt = ExtractExcerpt(draftBlocks);
                 var tagNames = await _context.TagAssignments
-                    .Where(ta => ta.EntityId == noteId.ToString() && ta.EntityType == "note")
+                    .Where(ta => ta.EntityId == noteIdStr && ta.EntityType == "note")
                     .Include(ta => ta.Tag)
                     .Select(ta => ta.Tag!.Name)
                     .ToListAsync();
@@ -55,7 +56,7 @@ namespace TaiChuWeb_V2.Services.Publish
                 try
                 {
                     var wikiArticle = await _context.WikiArticles
-                        .FirstOrDefaultAsync(wa => wa.SourceNoteId == noteId.ToString());
+                        .FirstOrDefaultAsync(wa => wa.SourceNoteId == noteIdStr);
 
                     bool isNew = wikiArticle == null;
                     if (isNew)
@@ -63,7 +64,7 @@ namespace TaiChuWeb_V2.Services.Publish
                         wikiArticle = new WikiArticle
                         {
                             Id = Guid.NewGuid().ToString(),
-                            SourceNoteId = noteId.ToString(),
+                            SourceNoteId = noteIdStr,
                             CreatorId = userId,
                             IsFromNote = true,
                             CategoryId = finalCategoryId,

@@ -143,14 +143,14 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         {
             var query = _context.PublishedNotes.AsNoTracking();
 
-            if (string.IsNullOrEmpty(type))
+            if (string.IsNullOrEmpty(type)) //[cite: 1]
             {
-                // 默认状态下：广场流只拉取普通长文 "note" 或规范短动态 "post"
-                query = query.Where(pn => pn.Type == "note" || pn.Type == NoteTypes.Post);
+                // 🌟 修复：把 "blog" 加上去，让它默认并流展示！
+                query = query.Where(pn => pn.Type == "note" || pn.Type == NoteTypes.Post || pn.Type == "blog");
             }
-            else
+            else //[cite: 1]
             {
-                query = query.Where(pn => pn.Type == type);
+                query = query.Where(pn => pn.Type == type); //[cite: 1]
             }
 
             var safePageSize = pageSize > 50 ? 50 : pageSize;
@@ -237,21 +237,30 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
             if (publishedNote == null) return NotFound(new { message = "内容不存在" });
 
-            // ✨【核心修复点】：去掉硬编码的 pb.OwnerType == "note"，支持短动态多态性区块通畅拉取
-            var blocks = await _context.PublishedBlocks
-                .Where(pb => pb.OwnerId == id.ToString())
+            // 在内存中先转化为标准格式的字符串（全小写），确保 SQL 查询能完美命中
+            string ownerIdStr = id.ToString().ToLower();
+
+            var blocksList = await _context.PublishedBlocks
+                .AsNoTracking()
+                .Where(pb => pb.OwnerId == ownerIdStr)
                 .OrderBy(pb => pb.SortOrder)
-                .Select(pb => new { pb.Id, pb.Type, pb.Data, pb.SortOrder })
+                .Select(pb => new {
+                    id = pb.Id,
+                    type = pb.Type,
+                    data = pb.Data,
+                    sortOrder = pb.SortOrder
+                })
                 .ToListAsync();
 
+            // 🌟 修复核心：去掉产生冲突的双属性，仅保留单个属性。
+            // .NET 默认的 CamelCase 会自动将这里的 "blocks" 在网络传输时转换为小写 "blocks"
             return Ok(new
             {
-                publishedNote.Id,
-                publishedNote.Title,
-                publishedNote.Type,
-                publishedNote.PublishedAt,
-                // 🌟 前端兼容：对齐前端需要的大写形式 Blocks
-                Blocks = blocks
+                id = publishedNote.Id,
+                title = publishedNote.Title,
+                type = publishedNote.Type,
+                publishedAt = publishedNote.PublishedAt,
+                blocks = blocksList
             });
         }
 
