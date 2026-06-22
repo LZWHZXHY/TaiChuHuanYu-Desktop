@@ -61,18 +61,32 @@ namespace TaiChuWeb_V2.Services.Publish
                         _context.PublishedNotes.Add(publishedNote);
                     }
 
-                    // 3. 打包视觉挂件：确保绝对能生成带有 cardCover 的配置字典
+                    // 3. 打包视觉挂件
                     var metaDict = new Dictionary<string, string>();
                     if (!string.IsNullOrEmpty(firstImageUrl))
                     {
                         metaDict["cardCover"] = firstImageUrl;
                     }
 
-                    publishedNote.Title = note.Title;
+                    // --- 强制清洗逻辑：防止默认占位符进入数据库 ---
+                    var defaultTitles = new[] { "默认标题", "新灵感碎片", "灵感碎片" };
+                    var generatedTitle = (excerpt.Length > 15) ? excerpt.Substring(0, 15) + "..." : excerpt;
+
+                    if (string.IsNullOrWhiteSpace(note.Title) || defaultTitles.Contains(note.Title))
+                    {
+                        publishedNote.Title = generatedTitle;
+                    }
+                    else
+                    {
+                        publishedNote.Title = note.Title;
+                    }
+                    // --------------------------------------------
+
                     publishedNote.Tags = note.Tags;
                     publishedNote.Excerpt = excerpt;
 
-                    // 如果捞到了图片，塞入专属的 cardCover 键值对，否则降级回原来的额外数据
+                    Console.WriteLine($"DEBUG: 最终赋值的标题是 -> {publishedNote.Title}");
+
                     publishedNote.ExtraData = metaDict.Count > 0 ? JsonSerializer.Serialize(metaDict) : note.ExtraData;
                     publishedNote.PublishedAt = DateTime.UtcNow;
 
@@ -89,7 +103,6 @@ namespace TaiChuWeb_V2.Services.Publish
                         {
                             Id = parsedBlockId != Guid.Empty ? parsedBlockId : Guid.NewGuid(),
                             OwnerId = publishedNote.Id.ToString(),
-                            // 🌟【大一统修复对齐】：固化区段统一标记为大统一的 Post 标识，确保广场详情页能无缝拉取
                             OwnerType = NoteTypes.Post,
                             Type = block.Type,
                             Data = block.Data,
@@ -115,23 +128,30 @@ namespace TaiChuWeb_V2.Services.Publish
 
         private string ExtractPostExcerpt(List<Block> blocks)
         {
-            var firstParagraph = blocks.FirstOrDefault(b => b.Type == "paragraph");
-            if (firstParagraph == null || string.IsNullOrWhiteSpace(firstParagraph.Data))
-                return "一语落毕，灵脉寂静...";
-
-            try
+            // 1. 尝试从所有类型的块中提取文字，不仅仅是 paragraph
+            foreach (var block in blocks.OrderBy(b => b.SortOrder))
             {
-                using var doc = JsonDocument.Parse(firstParagraph.Data);
-                if (doc.RootElement.TryGetProperty("content", out var contentArr))
+                if (string.IsNullOrWhiteSpace(block.Data)) continue;
+
+                try
                 {
-                    var text = string.Concat(contentArr.EnumerateArray()
-                               .Where(i => i.TryGetProperty("text", out _))
-                               .Select(i => i.GetProperty("text").GetString()));
-                    return text.Length > 300 ? text.Substring(0, 300) + "..." : text;
+                    using var doc = JsonDocument.Parse(block.Data);
+                    if (doc.RootElement.TryGetProperty("content", out var contentArr))
+                    {
+                        var text = string.Concat(contentArr.EnumerateArray()
+                                   .Where(i => i.TryGetProperty("text", out _))
+                                   .Select(i => i.GetProperty("text").GetString()));
+
+                        if (!string.IsNullOrWhiteSpace(text))
+                        {
+                            return text.Length > 300 ? text.Substring(0, 300) + "..." : text;
+                        }
+                    }
                 }
+                catch { continue; }
             }
-            catch { }
-            return "一语落毕，灵脉寂静...";
+
+            return "灵感碎片已捕获..."; // 或者你喜欢的简洁占位符
         }
 
         private string? ExtractFirstImageUrl(List<Block> blocks)

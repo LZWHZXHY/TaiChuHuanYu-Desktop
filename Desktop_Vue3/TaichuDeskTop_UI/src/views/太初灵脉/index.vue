@@ -215,6 +215,9 @@ const workspaceMap: Record<string, any> = {
   folder: WorkspaceNote, canvas: WorkspaceCanvas, map: WorkspaceMap, blog: WorkspaceBlog, post: WorkspacePost, excel: WorkspaceExcel, doc:WorkspaceDoc, 
 };
 
+
+
+
 const isSettingsOpen = ref(false); 
 const currentEditorJson = ref<any>(null);
 const currentWikiProperties = ref<any[]>([]);

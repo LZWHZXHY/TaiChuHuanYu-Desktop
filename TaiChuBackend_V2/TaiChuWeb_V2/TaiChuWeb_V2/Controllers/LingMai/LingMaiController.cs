@@ -758,7 +758,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         {
                             // 🛣️ 路线 B：原汁原味的普通流式笔记随笔（文本级排版），维持增量比较
                             var existingBlocks = await _context.Blocks
-                                .Where(b => b.OwnerId == dto.NoteId.ToString() && b.OwnerType == note.Type)
+                                .Where(b => b.OwnerId == dto.NoteId.ToString())
                                 .ToDictionaryAsync(b => b.Id);
 
                             if (dto.Blocks != null)

@@ -32,6 +32,7 @@ import { ref, computed } from 'vue';
 
 // 引入刚刚创建的画廊子组件
 import GalleryGovernance from './作品管理组件/画廊治理.vue';
+import 博客治理 from './作品管理组件/博客治理.vue';
 
 // 预留其他类型组件的引入位置（后续步骤实现）
 // import ArticleGovernance from './作品组件子类/图文治理.vue';
@@ -41,13 +42,13 @@ const activeTab = ref('gallery'); // 默认先展示画廊
 
 // 定义 Tabs 结构
 const TABS = [
-  { id: 'gallery', label: '视觉画廊 (Gallery)', component: GalleryGovernance },
-  // { id: 'article', label: '长篇图文 (Article)', component: ArticleGovernance },
-  // { id: 'video', label: '光影映像 (Video)', component: VideoGovernance }
+  { id: 'gallery', label: '画廊治理' },
+  { id: 'blog', label: '博客管理' } // 2. 添加 Tab 配置
 ];
 
 const currentComponent = computed(() => {
-  return TABS.find(t => t.id === activeTab.value)?.component;
+  if (activeTab.value === 'blog') return 博客治理; // 3. 映射组件
+  return GalleryGovernance;
 });
 </script>
 

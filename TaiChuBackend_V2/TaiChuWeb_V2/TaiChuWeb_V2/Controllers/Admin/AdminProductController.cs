@@ -79,7 +79,75 @@ namespace TaiChuWeb_V2.Controllers.Admin
 
             return Ok(new { items, totalCount });
         }
+        /// <summary>
+        /// 获取博客大盘数据 (Type = "blog")
+        /// </summary>
+        [HttpGet("blog")]
+        public async Task<IActionResult> GetBlogPosts(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 15,
+            [FromQuery] string? search = null)
+        {
+            // 基础查询：限定为博客类型
+            var query = _context.PublishedNotes
+                .Where(n => n.Type == "blog")
+                .AsQueryable();
 
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(n => n.Title != null && n.Title.Contains(search) || n.AuthorName != null && n.AuthorName.Contains(search));
+            }
+
+            var totalCount = await query.CountAsync();
+            var posts = await query
+                .OrderByDescending(n => n.PublishedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            // 映射到前端所需结构
+            var items = posts.Select(p => new
+            {
+                id = p.Id.ToString(), // 使用 GUID
+                title = p.Title ?? "无题",
+                authorName = p.AuthorName ?? "佚名",
+                excerpt = p.Excerpt,
+                resonance = p.Resonance, // 博客的阅读/共鸣数
+                publishedAt = p.PublishedAt
+            });
+
+            return Ok(new { items, totalCount });
+        }
+
+        /// <summary>
+        /// 博客干涉 (修改标题/共鸣数)
+        /// </summary>
+        [HttpPut("blog/{id}/governance")]
+        public async Task<IActionResult> UpdateBlogGovernance(Guid id, [FromBody] BlogGovernanceDto dto)
+        {
+            var note = await _context.PublishedNotes.FindAsync(id);
+            if (note == null || note.Type != "blog") return NotFound(new { message = "未捕捉到该博客实体" });
+
+            note.Title = dto.Title;
+            note.Resonance = dto.Resonance;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "博客数据已修正" });
+        }
+
+        /// <summary>
+        /// 彻底删除博客
+        /// </summary>
+        [HttpDelete("blog/{id}")]
+        public async Task<IActionResult> DeleteBlog(Guid id)
+        {
+            var note = await _context.PublishedNotes.FindAsync(id);
+            if (note == null || note.Type != "blog") return NotFound(new { message = "未捕捉到该博客实体" });
+
+            _context.PublishedNotes.Remove(note);
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "博客已彻底移除" });
+        }
         /// <summary>
         /// 深层干涉：更新画廊作品特征与流转状态
         /// </summary>
@@ -155,7 +223,16 @@ namespace TaiChuWeb_V2.Controllers.Admin
 
 
     }
+    // ✅ 必须在这个 namespace 内部！
+    public class BlogGovernanceDto
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public int ReadCount { get; set; } // 你之前可能写的是这个
 
+        // ✅ 必须添加下面这一行，解决 CS1061 错误
+        public int Resonance { get; set; }
+    }
     /// <summary>
     /// 数据传输对象：接收前端的干涉表单
     /// </summary>

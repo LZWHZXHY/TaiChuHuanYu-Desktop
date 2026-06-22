@@ -9,7 +9,7 @@
           @click="$emit('on-click', art.id)"
         >
           <div class="item-visual">
-            <img :src="art.coverImageUrl || '/default-cover.jpg'" class="item-image" loading="lazy" />
+            <img :src="getFullImageUrl(art.coverImageUrl) || '/default-cover.jpg'" class="item-image" loading="lazy" />
             <div class="item-overlay">
               <span class="badge">{{ art.imageCount }}P</span>
             </div>
@@ -20,7 +20,7 @@
 
             <div class="item-footer">
               <div class="author-info">
-                <img :src="art.authorAvatar || '/default-avatar.png'" class="avatar" />
+                <img :src="getFullImageUrl(art.authorAvatar) || '/default-avatar.png'" class="avatar" />
                 <span>{{ art.authorName }}</span>
               </div>
               
@@ -60,6 +60,21 @@ const offset = ref(0);
 const pageSize = 20;
 
 defineEmits(['on-click']);
+
+
+// 明确 url 的类型为 string，或者是可能为空的 null/undefined
+const getFullImageUrl = (url: string | null | undefined): string => {
+  // 1. 如果 url 为空，返回默认路径或空字符串
+  if (!url) return '/default-cover.jpg'; 
+  
+  // 2. 如果已经包含 http，说明已经是完整路径，直接返回
+  if (url.startsWith('http')) return url;
+  
+  // 3. 否则，拼接基础域名
+  return `https://img.bianyuzhou.com/uploads/${url}`;
+};
+
+
 
 // 响应式列数控制
 const columnCount = ref(5);

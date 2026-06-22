@@ -43,7 +43,8 @@
     </header>
 
     <article class="blog-main-content">
-      <slot name="editor"></slot>
+      <!-- 🔥 传递 cleanContent 和 editorKey，父组件可将 editorKey 绑定到编辑器组件的 :key 上 -->
+      <slot name="editor" :clean-content="cleanContent" :editor-key="editorKey"></slot>
     </article>
 
     <input ref="fileInputRef" type="file" accept="image/*" style="display: none" @change="handleFileSelected" />
@@ -51,167 +52,148 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useSpiritData } from '@/composables/useSpiritData';
 import { useCos } from '@/composables/useCos';
 
 const props = defineProps<{
   title: string;
   noteId?: string;
-  extraData?: string; // 🌟 彻底安全释放：右侧面板属性专属通道，不在此组件产生任何污染
 }>();
 
-const emit = defineEmits(['update:title', 'change']);
-
+const emit = defineEmits(['update:title', 'change', 'refresh']);
 const { activeNote } = useSpiritData();
 const { uploadFile } = useCos();
 
 const localCoverUrl = ref('');
 const localExcerpt = ref('');
 const fileInputRef = ref<HTMLInputElement>();
-let saveTimer: any = null;
-let isInitialized = false; 
+let isInitialized = false;
 
-// 🌟 核心控制层：无缝重组与编排全量数据块
-const dispatchSystemBlocks = (coverValue: string, excerptValue: string) => {
+// 🔥 强制刷新编辑器的 key，每次变化都会导致父组件中绑定了该 key 的编辑器组件重新创建
+const editorKey = ref(0);
+
+// 🔥 递归修复节点 type，确保每个节点都有合法的 type 和 content
+function fixNode(node: any): any {
+  if (!node) return null;
+  // 如果节点没有 type，默认设为 'paragraph'（保留其 content）
+  if (!node.type) {
+    if (Array.isArray(node.content)) {
+      return { type: 'paragraph', content: node.content.map(fixNode).filter(Boolean) };
+    }
+    return null;
+  }
+  // 递归修复 content 中的子节点
+  if (Array.isArray(node.content)) {
+    node.content = node.content.map(fixNode).filter(Boolean);
+  }
+  return node;
+}
+
+// 🔥 清理后的文档内容，供 Tiptap 编辑器使用
+const cleanContent = computed(() => {
   const note = activeNote.value as any;
-  if (!note) return;
-
-  // 1. 保障底层的 blocks 容器处于就绪状态
-  if (!note.blocks || !Array.isArray(note.blocks)) {
-    note.blocks = [];
+  if (!note || !Array.isArray(note.blocks)) {
+    return { type: 'doc', content: [] };
   }
 
-  // 2. 剥离出现有的“非系统固定块”（即原本用户在编辑器里书写、需要排在 block 2 之后的正文块）
-  const userContentBlocks = note.blocks.filter(
-    (b: any) => b.type !== 'blog_fixed_cover' && b.type !== 'blog_fixed_excerpt'
-  );
+  const validBlocks = note.blocks
+    .filter((b: any) => b.type && b.type !== 'blog_fixed_cover' && b.type !== 'blog_fixed_excerpt')
+    .map((b: any) => {
+      try {
+        let data = typeof b.data === 'string' ? JSON.parse(b.data) : b.data;
+        return fixNode(data);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
 
-  // 3. 构建或修正固定的 Block 0：封面图块
-  const coverBlock = {
-    id: 'blog_cover_fixed_id', // 固定特殊 ID 或随机 ID
-    ownerId: props.noteId,
-    ownerType: 'blog',
-    type: 'blog_fixed_cover',  // 固定的特殊封面形态标识
-    sortOrder: 0,
-    data: JSON.stringify({ url: coverValue })
-  };
+  return { type: 'doc', content: validBlocks };
+});
 
-  // 4. 构建或修正固定的 Block 1：摘要文本块
-  const excerptBlock = {
-    id: 'blog_excerpt_fixed_id',
-    ownerId: props.noteId,
-    ownerType: 'blog',
-    type: 'blog_fixed_excerpt', // 固定的特殊摘要形态标识
-    sortOrder: 1,
-    data: JSON.stringify({ text: excerptValue })
-  };
+// 🔥 刷新编辑器（通过更新 key 并发送事件）
+function refreshEditor() {
+  editorKey.value += 1;
+  emit('refresh');
+}
 
-  // 5. 重新约束用户内容块的序号，让它们强制从第 2 位向后无限顺延排列
-  userContentBlocks.forEach((b: any, index: number) => {
-    b.sortOrder = index + 2; 
-  });
+// 存储封面和摘要的系统块
+const dispatchSystemBlocks = (coverValue: string, excerptValue: string) => {
+  const note = activeNote.value as any;
+  if (!note || !Array.isArray(note.blocks)) return;
 
-  // 6. 合流重组全量数据块链条
+  const COVER_ID = 'blog_cover_fixed_id';
+  const EXCERPT_ID = 'blog_excerpt_fixed_id';
+
+  const coverBlock = { id: COVER_ID, ownerId: props.noteId, ownerType: 'blog', type: 'blog_fixed_cover', sortOrder: 0, data: JSON.stringify({ url: coverValue }) };
+  const excerptBlock = { id: EXCERPT_ID, ownerId: props.noteId, ownerType: 'blog', type: 'blog_fixed_excerpt', sortOrder: 1, data: JSON.stringify({ text: excerptValue || '' }) };
+
+  const userContentBlocks = note.blocks.filter((b: any) => b.id !== COVER_ID && b.id !== EXCERPT_ID);
+  
   note.blocks = [coverBlock, excerptBlock, ...userContentBlocks];
-
-  // 7. 🌟 顺手把摘要和封面明文属性更新给顶层实体，以便后端发布 Handler 提取摘要时瞬间捕捉
-  note.excerpt = excerptValue || '深度博客，静候回响...';
   note.coverUrl = coverValue;
+  note.excerpt = excerptValue;
 
-  // 8. 触发数据异步贯穿与云端自动保存同步机制
-  if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    emit('change', { 
-      blocks: note.blocks, 
-      type: 'blog-layout' 
-    });
-  }, 300);
+  emit('change', { blocks: note.blocks });
+  refreshEditor(); // 内容变化后刷新编辑器
 };
 
-// 从当前激活的灵脉节点中恢复恢复数据状态
 const loadBlogMeta = () => {
   const note = activeNote.value as any;
-  if (!note || !note.blocks || !Array.isArray(note.blocks)) return;
+  if (!note || !Array.isArray(note.blocks)) return;
 
-  // 🌟 从固定的块形态中拉取数据还原到本地输入框里
   const coverBlock = note.blocks.find((b: any) => b.type === 'blog_fixed_cover');
   const excerptBlock = note.blocks.find((b: any) => b.type === 'blog_fixed_excerpt');
 
-  if (coverBlock) {
-    try {
-      const parsed = JSON.parse(coverBlock.data);
-      localCoverUrl.value = parsed.url || '';
-    } catch (e) {}
-  }
-
-  if (excerptBlock) {
-    try {
-      const parsed = JSON.parse(excerptBlock.data);
-      localExcerpt.value = parsed.text || '';
-    } catch (e) {}
-  }
+  if (coverBlock) try { localCoverUrl.value = JSON.parse(coverBlock.data).url; } catch {}
+  if (excerptBlock) try { localExcerpt.value = JSON.parse(excerptBlock.data).text; } catch {}
 };
 
 const onExcerptInput = (e: Event) => {
-  const target = e.target as HTMLTextAreaElement;
-  localExcerpt.value = target.value;
-  dispatchSystemBlocks(localCoverUrl.value, target.value);
+  const val = (e.target as HTMLTextAreaElement).value;
+  localExcerpt.value = val;
+  dispatchSystemBlocks(localCoverUrl.value, val);
 };
 
-const onTitleInput = (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  emit('update:title', target.value);
-};
+const onTitleInput = (e: Event) => emit('update:title', (e.target as HTMLInputElement).value);
 
-// 封面图处理核心逻辑
-const triggerCoverUpload = () => { fileInputRef.value?.click(); };
+const triggerCoverUpload = () => fileInputRef.value?.click();
 const handleFileSelected = async (e: Event) => {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0];
+  const file = (e.target as HTMLInputElement).files?.[0];
   if (!file || !file.type.startsWith('image/')) return;
-  try {
-    const result = await uploadFile(file, 'blog_cover');
-    if (result?.url) {
-      localCoverUrl.value = result.url;
-      dispatchSystemBlocks(result.url, localExcerpt.value);
-    }
-  } catch (err) { console.error('封面上传感应异常:', err); }
+  const result = await uploadFile(file, 'blog_cover');
+  if (result?.url) {
+    localCoverUrl.value = result.url;
+    dispatchSystemBlocks(result.url, localExcerpt.value);
+  }
 };
 
 const removeCover = () => {
-  if (confirm('确定要移除此文章封面吗？')) {
+  if (confirm('确定移除封面？')) {
     localCoverUrl.value = '';
     dispatchSystemBlocks('', localExcerpt.value);
   }
 };
 
-// 数据状态感应生命周期
-// 🌟 完美修复：拿掉多余的冒候，恢复标准 TypeScript 响应式监听
-watch(
-  () => activeNote.value,
-  (newNote) => {
-    if (!newNote) return;
-    if ((newNote as any).blocks !== undefined) {
-      loadBlogMeta();
-      if (!isInitialized) {
-        isInitialized = true;
-      }
-    }
-  },
-  { immediate: true, deep: true }
-);
+// 🔥 监听 activeNote 变化，加载元数据并刷新编辑器（保证首次加载也能正确渲染）
+watch(() => activeNote.value, (newNote) => {
+  if (newNote) {
+    loadBlogMeta();
+    isInitialized = true;
+    refreshEditor(); // 强制刷新编辑器以加载最新内容
+  }
+}, { immediate: true, deep: true });
 
 onMounted(() => {
   if (activeNote.value && !isInitialized) {
     loadBlogMeta();
-    isInitialized = true;
+    refreshEditor();
   }
 });
 
-onUnmounted(() => {
-  if (saveTimer) clearTimeout(saveTimer);
-});
+// 暴露刷新方法供父组件调用（备用）
+defineExpose({ refreshEditor, editorKey });
 </script>
 
 <style scoped>

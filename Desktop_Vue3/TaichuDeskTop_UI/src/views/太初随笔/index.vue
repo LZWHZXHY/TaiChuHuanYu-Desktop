@@ -83,32 +83,36 @@
             </div>
           </template>
 
-          <!-- 🌟 模式 B：微言短动态 (瀑布流卡片置顶大图设计) -->
-          <template v-else-if="item.type === 'post'">
-            <div v-if="item.cardCover" class="post-card-hero">
-              <img :src="item.cardCover" alt="动态配图" class="hero-img" loading="lazy" />
-            </div>
+          <!-- 🌟 模式 B：微言短动态 -->
+<template v-else-if="item.type === 'post'">
+  <div v-if="item.cardCover" class="post-card-hero">
+    <img :src="item.cardCover" alt="动态配图" class="hero-img" loading="lazy" />
+  </div>
 
-            <div class="post-card-content-wrapper">
-              <div class="card-meta">
-                <span class="meta-tag post-tag">FRAGMENT</span>
-                <span class="meta-dot">/</span>
-                <span class="meta-author">{{ item.author }}</span>
-              </div>
-              <div class="card-body">
-                <p class="post-text">
-                  “ {{ getSnippet(item.content, 160) || item.title || '灵脉波动中...' }} ”
-                </p>
-              </div>
-              <div class="card-footer">
-                <time class="post-time">{{ formatTime(item.publishedAt || item.createdAt) }}</time>
-                <div class="resonance-stat">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                  <span>{{ item.resonance || 0 }}</span>
-                </div>
-              </div>
-            </div>
-          </template>
+  <div class="post-card-content-wrapper">
+    <div class="card-meta">
+      <span class="meta-tag post-tag">FRAGMENT</span>
+      <span class="meta-dot">/</span>
+      <span class="meta-author">{{ item.author }}</span>
+    </div>
+    
+    <!-- 修改点：不再使用 getSnippet 截断，直接展示内容 -->
+    <div class="card-body">
+      <div class="post-text">
+        <!-- 如果 item.content 就是纯文本，直接显示；如果是 Tiptap JSON，依然可以用 extractTiptapText 转换 -->
+        {{ extractTiptapText(item.content) || item.title || '灵脉波动中...' }}
+      </div>
+    </div>
+
+    <div class="card-footer">
+      <time class="post-time">{{ formatTime(item.publishedAt || item.createdAt) }}</time>
+      <div class="resonance-stat">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        <span>{{ item.resonance || 0 }}</span>
+      </div>
+    </div>
+  </div>
+</template>
         </div>
       </div>
 
