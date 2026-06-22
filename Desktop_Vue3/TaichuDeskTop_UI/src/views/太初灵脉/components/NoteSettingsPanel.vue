@@ -108,6 +108,7 @@ const activeTab = ref<'fragment' | 'space'>('fragment');
 const availableTypes = [
   { value: 'note', label: '笔记 (Note)' },
   { value: 'blog', label: '随笔 (Blog)' },
+  { value: 'schedule', label: '计划表 (schedule)'},
   { value: 'post', label: '简语 (Post)' }, 
   { value: 'wiki', label: '词条 (Wiki)' }, 
   { value: 'char', label: '角色 (Char)' }, 

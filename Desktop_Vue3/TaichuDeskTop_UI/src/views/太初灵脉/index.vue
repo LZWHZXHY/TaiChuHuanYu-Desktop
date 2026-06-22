@@ -165,7 +165,7 @@ import WorkspacePost from './components/WorkspacePost.vue';
 import WorkspaceExcel from './components/WorkspaceExcel.vue';
 import WorkspaceChar from './components/WorkspaceChar.vue';
 import WorkspaceDoc from './components/WorkspaceDoc.vue';
-
+import WorkspaceSchedule from './components/WorkspaceSchedule.vue';
 
 import SpiritToast from '@/components/SpiritToast.vue';
 
@@ -173,7 +173,7 @@ import { useSpiritData } from '../../composables/useSpiritData';
 import { lingmaiApi } from '../../api/lingmai';
 import { wikiApi } from '@/api/Wiki'; 
 
-type NoteType = 'note' | 'post' | 'wiki' | 'char' | 'art' | 'folder' | 'canvas' | 'map' | 'excel' | 'blog' | 'doc';
+type NoteType = 'note' | 'post' | 'wiki' | 'char' | 'art' | 'folder' | 'canvas' | 'map' | 'excel' | 'blog' | 'doc' | 'schedule';
 
 const { 
   notes, currentNoteId, activeNote, isLoading, currentSpaceId,
@@ -206,12 +206,13 @@ const displayFilters = ref<Record<string, boolean>>({
   thought: true,
   folder: true,
   doc: true,
+  schedule:true,
 });
 
 // 🌟 多态组件映射总表
 const workspaceMap: Record<string, any> = {
-  note: WorkspaceNote, wiki: WorkspaceWiki, art: WorkspaceArt, char: WorkspaceChar,
-  folder: WorkspaceNote, canvas: WorkspaceCanvas, map: WorkspaceMap, blog: WorkspaceBlog, post: WorkspacePost, excel: WorkspaceExcel, doc:WorkspaceDoc,
+  note: WorkspaceNote, wiki: WorkspaceWiki, art: WorkspaceArt, char: WorkspaceChar, schedule:WorkspaceSchedule,
+  folder: WorkspaceNote, canvas: WorkspaceCanvas, map: WorkspaceMap, blog: WorkspaceBlog, post: WorkspacePost, excel: WorkspaceExcel, doc:WorkspaceDoc, 
 };
 
 const isSettingsOpen = ref(false); 
@@ -342,7 +343,7 @@ const canPublishDynamic = computed(() => {
   if (!activeNote.value) return false;
 
   // 🌟【核心拦截】：封锁普通的 note（笔记）和 folder（文件夹）形态，使其绝不能发布
-  if (activeNote.value.type === 'note' || activeNote.value.type === 'folder') {
+  if (activeNote.value.type === 'note' || activeNote.value.type === 'folder' || activeNote.value.type === 'schedule' || activeNote.value.type === 'char' ||activeNote.value.type === 'canvas' || activeNote.value.type === 'map') {
     return false;
   }
 

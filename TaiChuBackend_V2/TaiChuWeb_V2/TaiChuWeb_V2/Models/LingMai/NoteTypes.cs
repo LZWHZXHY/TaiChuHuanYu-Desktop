@@ -13,10 +13,11 @@ namespace TaiChuWeb_V2.Models.LingMai
         public const string Wiki = "wiki";         // 世界观设定/百科
         public const string Blog = "blog";
         public const string Community = "community"; // 社区规则、教程、公共知识
-
+        public const string Schedule = "schedule";   // 🌟 新增：日程安排
         public const string Canvas = "canvas";     // 🌟 新增：星图白板
         public const string Map = "map";           // 🌟 新增：世界地图
         public const string Excel = "excel";       // 🌟 新增：数据表格
+        public const string Doc = "doc";
 
         public static bool IsValid(string type)
         {
@@ -24,20 +25,18 @@ namespace TaiChuWeb_V2.Models.LingMai
             {
                 Note or Post or Art or Video or Audio
                 or Event or Character or Wiki or Community
-                or Canvas or Map or Excel => true,  // 🌟 在这里放行新的白板、地图和数据表格类型
+                or Canvas or Map or Excel or Schedule or Doc => true,  // 🌟 在这里放行新的白板、地图和数据表格类型
                 _ => false
             };
         }
 
-        /// <summary>
-        /// 🌟 优化后的规则：百科类和随笔类默认进侧边栏，方便结构化查阅
-        /// </summary>
+        
         public static bool ShouldShowInSidebarByDefault(string type)
         {
             return type switch
             {
                 // 🌟 让白板、地图和数据表格创建后默认出现在侧边栏中
-                Note or Wiki or Character or Community or Art or Blog or Post or Canvas or Map or Excel => true,
+                Note or Wiki or Character or Community or Art or Blog or Post or Canvas or Map or Excel or Schedule or Doc => true,
                 _ => false
             };
         }

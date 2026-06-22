@@ -230,6 +230,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
             if (project == null) return NotFound();
 
             _context.Projects.Remove(project);
+
             await _context.SaveChangesAsync();
             return Ok("项目已从灵脉中抹除");
         }

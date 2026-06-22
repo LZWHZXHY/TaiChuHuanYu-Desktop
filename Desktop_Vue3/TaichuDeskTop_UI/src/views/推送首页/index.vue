@@ -1,26 +1,30 @@
 <template>
   <article class="doc-body">
     <div class="content-layout">
+      <!-- 左侧内容 -->
       <section class="main-content">
         <p class="lead-text">
-          欢迎进入<strong>太初寰宇</strong> 。
+          欢迎进入<strong>太初寰宇</strong> 
         </p>
         <div class="info-block">
           <p>这里是太初寰宇的首页，你可以在这里进行每日签到，也可以获得最新的相关资讯和信息</p>
         </div>
         
         <LatestNews />
-
         <feedback />
-
-
         <updateLog />
-
-
       </section>
 
+      <!-- 右侧边栏 -->
       <aside class="side-widgets">
+        <!-- 1. 签到卡片 -->
         <SignCard />
+        
+        <!-- 2. 数据看板 -->
+        <DataPanel class="side-data-panel" />
+
+        <!-- 3. 🌟 财政公开看板 -->
+        <FinancePanel />
       </aside>
     </div>
   </article>
@@ -31,14 +35,12 @@ import SignCard from '../../components/SignCard.vue'
 import feedback from './components/feedback.vue';
 import LatestNews from './components/LatestNews.vue';
 import updateLog from './components/updateLog.vue';
-
-
-
-
+import DataPanel from './components/DataPanel.vue'; 
+// 🌟 引入财政报告组件
+import FinancePanel from './components/FinancePanel.vue'; 
 </script>
 
 <style scoped>
-/* PC 端双栏布局 */
 .content-layout {
   display: flex;
   gap: 40px;
@@ -46,12 +48,15 @@ import updateLog from './components/updateLog.vue';
 }
 
 .main-content {
-  flex: 1; /* 占据剩余空间 */
+  flex: 1;
 }
 
 .side-widgets {
-  width: 400px; /* PC 端固定一个精致的宽度 */
+  width: 400px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px; /* 🌟 完美的组件纵向间距，三个卡片天然对齐 */
 }
 
 .doc-body {
@@ -59,18 +64,13 @@ import updateLog from './components/updateLog.vue';
   color: #24292f;
 }
 
-
 @media (max-width: 1024px) {
   .content-layout {
     flex-direction: column;
     gap: 20px;
   }
-  
-  .side-widgets {
-    width: 100%; 
-  }
+  .side-widgets { width: 100%; }
 }
-
 
 .lead-text { font-size: 1.25rem; line-height: 1.6; margin-bottom: 24px; }
 .info-block {

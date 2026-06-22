@@ -14,6 +14,7 @@ export type NoteType =
   | 'canvas'    // 星图白板
   | 'map'       // 世界地图
   | 'excel'
+  | 'schedule'
   | 'doc';
 
 // 2. 统一管理每种类型的显示文本和元数据
@@ -22,6 +23,11 @@ export const NOTE_TYPE_CONFIG: Record<NoteType, { label: string; desc: string; i
     label: '长文随笔',
     desc: '深度思考，长篇沉浸式 Markdown 文章',
     icon: '📝'
+  },
+  schedule:{
+    label: '日历看板',
+    desc: '',
+    icon: ''
   },
   blog: { // 🌟 核心修复：补全 blog 节点的显示配置
     label: '深度博客',

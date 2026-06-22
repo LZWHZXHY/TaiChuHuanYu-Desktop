@@ -683,52 +683,86 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         var currentOutlinkIds = new HashSet<Guid>();
 
                         // ========================================================================
-                        // 🌟 2. 核心分流逻辑：判断是结构化文档，还是非结构化白板
+                        // 🌟 【修复核心】：判断是走大 JSON 路线，还是走高级块级覆盖清洗路线
                         // ========================================================================
-                        bool isCanvasOrMap = note.Type == NoteTypes.Canvas || note.Type == NoteTypes.Map;
+                        bool isCanvasOrMap = note.Type == "canvas" || note.Type == "map";
+                        bool isSchedule = note.Type == "schedule"; // 🚀 识别新加的独立日程空间形态
 
                         if (isCanvasOrMap)
                         {
-                            // 🚀 路线 A：白板/地图 -> 走 JSON 降维打击路线（彻底解决超时问题）
-                            // 🚀 路线 A：降维打击，白板直接存大 JSON
-                            // 🌟 新增：强制使用小驼峰命名策略，匹配前端习惯
+                            // 路线 A：白板/地图 -> 维持原有的 JSON 降维打击存储（不污染 blocks 实体表）
                             var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-
                             string blocksJson = dto.Blocks != null && dto.Blocks.Any()
                                 ? JsonSerializer.Serialize(dto.Blocks, jsonOptions)
                                 : "[]";
-                            note.BlocksData = blocksJson; // 存入专门的新字段
+                            note.BlocksData = blocksJson;
 
-                            // 极速提取双链：直接用正则扫描超大 JSON 字符串
+                            // 极速解析双链
                             if (blocksJson.Length > 2)
                             {
                                 var matches = Regex.Matches(blocksJson, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
                                 foreach (Match match in matches)
                                 {
                                     if (Guid.TryParse(match.Value, out Guid linkedId) && linkedId != dto.NoteId)
-                                    {
                                         currentOutlinkIds.Add(linkedId);
-                                    }
                                 }
                             }
 
-                            // 防御性清理：如果这个白板以前不小心在 Blocks 表里存了数据，顺手清理掉，避免产生垃圾数据
+                            // 清理残余
                             var obsoleteBlocks = await _context.Blocks.Where(b => b.OwnerId == dto.NoteId.ToString()).ToListAsync();
-                            if (obsoleteBlocks.Any())
+                            if (obsoleteBlocks.Any()) _context.Blocks.RemoveRange(obsoleteBlocks);
+                        }
+                        else if (isSchedule)
+                        {
+                            // 🚀 路线 C：对于高自由度的 Schedule，采用高速「物理抹除 + 干净落库」策略
+                            // 完美终结极其脆弱的 EF Core 追踪失效导致的 Duplicate entry 报错！
+
+                            // 1. 不管三七二十一，用最简单、最快的方式，抹除当前 noteId 关联的不管任何 ownerType 的老积木块
+                            var noteIdStr = dto.NoteId.ToString();
+                            var oldBlocks = await _context.Blocks.Where(b => b.OwnerId == noteIdStr).ToListAsync();
+                            if (oldBlocks.Any())
                             {
-                                _context.Blocks.RemoveRange(obsoleteBlocks);
+                                _context.Blocks.RemoveRange(oldBlocks);
+                            }
+
+                            // 2. 将前端传过来的最新干净卡片和状态列直接用 AddRange 灌入
+                            if (dto.Blocks != null && dto.Blocks.Any())
+                            {
+                                foreach (var (b, index) in dto.Blocks.Select((item, i) => (item, i)))
+                                {
+                                    _context.Blocks.Add(new Block
+                                    {
+                                        Id = b.Id,
+                                        OwnerId = noteIdStr,
+                                        OwnerType = "schedule", // 锁定一致性，防止归属混乱
+                                        Type = b.Type,
+                                        Data = b.Data ?? string.Empty,
+                                        SortOrder = b.SortOrder ?? index,
+                                        UpdatedAt = DateTime.UtcNow
+                                    });
+
+                                    // 顺手同步解析日程/看板卡片中包含的双链
+                                    if (!string.IsNullOrWhiteSpace(b.Data))
+                                    {
+                                        var matches = Regex.Matches(b.Data, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+                                        foreach (Match match in matches)
+                                        {
+                                            if (Guid.TryParse(match.Value, out Guid linkedId) && linkedId != dto.NoteId)
+                                                currentOutlinkIds.Add(linkedId);
+                                        }
+                                    }
+                                }
                             }
                         }
                         else
                         {
-                            // 🛣️ 路线 B：普通笔记/Wiki -> 走你原来的 Blocks 表增量 UPSERT 路线（保留块级排版能力）
+                            // 🛣️ 路线 B：原汁原味的普通流式笔记随笔（文本级排版），维持增量比较
                             var existingBlocks = await _context.Blocks
                                 .Where(b => b.OwnerId == dto.NoteId.ToString() && b.OwnerType == note.Type)
                                 .ToDictionaryAsync(b => b.Id);
 
                             if (dto.Blocks != null)
                             {
-                                // 遍历前端传来的块，带上索引 i 提供兜底 SortOrder
                                 foreach (var (b, index) in dto.Blocks.Select((item, i) => (item, i)))
                                 {
                                     if (existingBlocks.TryGetValue(b.Id, out var dbBlock))
@@ -742,7 +776,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                         if (dbBlock.Type != b.Type) { dbBlock.Type = b.Type; isChanged = true; }
 
                                         if (isChanged) dbBlock.UpdatedAt = DateTime.UtcNow;
-
                                         existingBlocks.Remove(b.Id);
                                     }
                                     else
@@ -751,7 +784,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                         {
                                             Id = b.Id,
                                             OwnerId = dto.NoteId.ToString(),
-                                            OwnerType = note.Type, // 继承宿主Type，命中复合索引
+                                            OwnerType = note.Type,
                                             Type = b.Type,
                                             Data = b.Data ?? string.Empty,
                                             SortOrder = b.SortOrder ?? index,
@@ -759,22 +792,18 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                         });
                                     }
 
-                                    // 提取单个块的双链 GUID
                                     if (!string.IsNullOrWhiteSpace(b.Data))
                                     {
                                         var matches = Regex.Matches(b.Data, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
                                         foreach (Match match in matches)
                                         {
                                             if (Guid.TryParse(match.Value, out Guid linkedId) && linkedId != dto.NoteId)
-                                            {
                                                 currentOutlinkIds.Add(linkedId);
-                                            }
                                         }
                                     }
                                 }
                             }
 
-                            // 清理前端已删除的旧区块
                             if (existingBlocks.Any())
                             {
                                 _context.Blocks.RemoveRange(existingBlocks.Values);
@@ -782,84 +811,54 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         }
 
                         // ========================================================================
-                        // 3. 增量更新 NoteLinks 表 (双链) - 公共逻辑，无需修改
+                        // 3. 增量更新 NoteLinks 表 (双链) 与标签系统 (维持原有稳定逻辑不变)
                         // ========================================================================
                         var existingLinks = await _context.NoteLinks
-                            .Where(nl => nl.SourceNoteId == dto.NoteId)
+                            .Where(nl => nl.SourceNoteId == note.Id)
                             .ToListAsync();
 
                         var existingTargetIds = existingLinks.Select(nl => nl.TargetNoteId).ToHashSet();
-
                         var linksToRemove = existingLinks.Where(nl => !currentOutlinkIds.Contains(nl.TargetNoteId)).ToList();
                         if (linksToRemove.Any()) _context.NoteLinks.RemoveRange(linksToRemove);
 
                         var targetIdsToAdd = currentOutlinkIds.Where(id => !existingTargetIds.Contains(id)).ToList();
                         if (targetIdsToAdd.Any())
                         {
-                            var validTargetIds = await _context.Notes
-                                .Where(n => targetIdsToAdd.Contains(n.Id))
-                                .Select(n => n.Id)
-                                .ToListAsync();
-
+                            var validTargetIds = await _context.Notes.Where(n => targetIdsToAdd.Contains(n.Id)).Select(n => n.Id).ToListAsync();
                             foreach (var targetId in validTargetIds)
                             {
                                 _context.NoteLinks.Add(new NoteLink
                                 {
                                     Id = Guid.NewGuid(),
-                                    SourceNoteId = dto.NoteId,
+                                    SourceNoteId = note.Id,
                                     TargetNoteId = targetId,
                                     Excerpt = dto.Title ?? note.Title
                                 });
                             }
                         }
 
-                        // ========================================================================
-                        // 4. 同步标签系统 - 公共逻辑，无需修改
-                        // ========================================================================
                         if (dto.Tags != null)
                         {
                             note.Tags = dto.Tags.Any() ? JsonSerializer.Serialize(dto.Tags) : null;
-
-                            var oldTags = await _context.TagAssignments
-                                .Where(ta => ta.EntityId == dto.NoteId.ToString() && ta.EntityType == "Note")
-                                .ToListAsync();
+                            var oldTags = await _context.TagAssignments.Where(ta => ta.EntityId == note.Id.ToString() && ta.EntityType == "Note").ToListAsync();
                             _context.TagAssignments.RemoveRange(oldTags);
 
                             if (dto.Tags.Any())
                             {
                                 var cleanTags = dto.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).ToList();
                                 var normalizedTags = cleanTags.Select(t => t.ToLower()).ToList();
-
-                                var existingDbTags = await _context.Tags
-                                    .Where(t => t.SpaceId == note.SpaceId && normalizedTags.Contains(t.NormalizedName))
-                                    .ToDictionaryAsync(t => t.NormalizedName);
+                                var existingDbTags = await _context.Tags.Where(t => t.SpaceId == note.SpaceId && normalizedTags.Contains(t.NormalizedName)).ToDictionaryAsync(t => t.NormalizedName);
 
                                 foreach (var cleanName in cleanTags)
                                 {
                                     var normalizedName = cleanName.ToLower();
-
                                     if (!existingDbTags.TryGetValue(normalizedName, out var tag))
                                     {
-                                        tag = new Tag
-                                        {
-                                            Id = Guid.NewGuid(),
-                                            SpaceId = note.SpaceId,
-                                            Name = cleanName,
-                                            NormalizedName = normalizedName,
-                                            CreatedAt = DateTime.UtcNow
-                                        };
+                                        tag = new Tag { Id = Guid.NewGuid(), SpaceId = note.SpaceId, Name = cleanName, NormalizedName = normalizedName, CreatedAt = DateTime.UtcNow };
                                         _context.Tags.Add(tag);
                                         existingDbTags[normalizedName] = tag;
                                     }
-
-                                    _context.TagAssignments.Add(new TagAssignment
-                                    {
-                                        Id = Guid.NewGuid(),
-                                        TagId = tag.Id,
-                                        EntityId = note.Id.ToString(),
-                                        EntityType = "Note",
-                                        CreatedAt = DateTime.UtcNow
-                                    });
+                                    _context.TagAssignments.Add(new TagAssignment { Id = Guid.NewGuid(), TagId = tag.Id, EntityId = note.Id.ToString(), EntityType = "Note", CreatedAt = DateTime.UtcNow });
                                 }
                             }
                         }
@@ -891,6 +890,19 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 return StatusCode(500, $"灵脉同步异常: {ex.Message}");
             }
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
