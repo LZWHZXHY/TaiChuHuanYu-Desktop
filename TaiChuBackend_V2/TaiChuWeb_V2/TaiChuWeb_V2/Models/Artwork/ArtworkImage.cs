@@ -5,7 +5,7 @@ namespace TaiChuWeb_V2.Models.Artwork
 {
     public class ArtworkImage
     {
-        [Key]
+        [Key] 
         public int Id { get; set; }
 
         [Required]
