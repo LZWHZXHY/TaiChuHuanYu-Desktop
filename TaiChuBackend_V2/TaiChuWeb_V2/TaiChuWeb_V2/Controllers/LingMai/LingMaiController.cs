@@ -45,7 +45,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
 
 
-        // 在 LingMaiController.cs 中添加
         [HttpPatch("notes/{id}/meta")]
         public async Task<IActionResult> UpdateNoteMeta(Guid id, [FromBody] System.Text.Json.JsonElement updates)
         {
@@ -75,10 +74,28 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 note.IsPrivate = privateProp.GetBoolean();
             }
 
-            // 更新类型（如从 art 转为 wiki）
+            // 🌟【核心修复点】：更新类型并同步迁移底层 Blocks 数据的 OwnerType
             if (updates.TryGetProperty("type", out var typeProp))
             {
-                note.Type = typeProp.GetString() ?? note.Type;
+                var newType = typeProp.GetString();
+                if (!string.IsNullOrEmpty(newType) && note.Type != newType)
+                {
+                    string oldType = note.Type; // 记录旧的类型 (例如 "note")
+
+                    // 找到所有旧形态名下的 Blocks
+                    var relatedBlocks = await _context.Blocks
+                        .Where(b => b.OwnerId == id.ToString() && b.OwnerType == oldType)
+                        .ToListAsync();
+
+                    // 批量将它们的从属标识迁移到新形态下 (例如改为 "doc")
+                    foreach (var block in relatedBlocks)
+                    {
+                        block.OwnerType = newType;
+                    }
+
+                    // 更新笔记主体的类型
+                    note.Type = newType;
+                }
             }
 
             note.UpdatedAt = DateTime.UtcNow;

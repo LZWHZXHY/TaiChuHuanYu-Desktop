@@ -9,6 +9,6 @@ namespace TaiChuWeb_V2.Services.Publish
         string SupportType { get; }
 
 
-        Task<IActionResult> ExecutePublishAsync(Guid noteId, string userId, int? categoryId);
+        Task<IActionResult> ExecutePublishAsync(Guid noteId, string userId, int? categoryId, string? projectId = null);
     }
 }

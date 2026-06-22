@@ -34,6 +34,7 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddScoped<ILingMaiPublishHandler, DocPublishHandler>();
 builder.Services.AddScoped<ILingMaiPublishHandler, PostPublishHandler>();
 builder.Services.AddScoped<ILingMaiPublishHandler, BlogPublishHandler>();
 builder.Services.AddScoped<ILingMaiPublishHandler, ArtPublishHandler>();

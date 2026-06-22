@@ -190,7 +190,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
 
             // 🔒 权限检查
             var role = await GetUserRole(projectId);
-            if (role != 0) return Forbid("只有项目所有者可以修改设置");
+            if (role != 0) return StatusCode(StatusCodes.Status403Forbidden, new { message = "只有项目所有者可以修改设置" });
 
             // 更新字段
             if (dto.Name != null) project.Name = dto.Name;
@@ -235,8 +235,47 @@ namespace TaiChuWeb_V2.Controllers.Projects
         }
 
 
+        // 🌟 新增：获取指定项目下的所有公开/协作归档文档大纲
+        [HttpGet("{projectId}/documents")]
+        public async Task<IActionResult> GetProjectDocuments(string projectId)
+        {
+            // 1. 安全拦截：如果用户不是该项目的成员，无权查看项目内部文档长卷
+            if (!await IsMember(projectId))
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "您尚未加入该协作位面，无法窥探项目长卷" });
+            }
 
-                
+            // 2. 核心联动查询：
+            // 从 ProjectDocuments 关联表出发，通过 NoteId 去把原始的 Notes 表联动查出来
+            var documents = await _context.ProjectDocuments
+                .Where(pd => pd.ProjectId == projectId)
+                .Join(
+                    _context.Notes,
+                    pd => pd.NoteId,
+                    n => n.Id.ToString(),
+                    (pd, n) => new { pd, n }
+                )
+                // 🌟 进一步联查 Users 表，把当年 Pin 这篇文档的共建者用户名顺手捞出来
+                .Join(
+                    _context.Users,
+                    combined => combined.pd.PinnedByUserId,
+                    u => u.Id.ToString(),
+                    (combined, u) => new { combined.pd, combined.n, PinnedByUserName = u.Username }
+                )
+                .OrderByDescending(x => x.pd.PinnedAt) // 按归档时间倒序排列
+                .Select(x => new
+                {
+                    id = x.n.Id,                      // 文档草稿的真实 NoteId，供前端右侧沉浸阅读器去读 Blocks
+                    title = string.IsNullOrWhiteSpace(x.n.Title) ? "未命名项目长卷" : x.n.Title,
+                    type = x.n.Type,
+                    pinnedAt = x.pd.PinnedAt,          // 归档同步时间
+                    pinnedByUserName = x.PinnedByUserName // 🌟 完美的贡献者昵称，映射前端的 doc.pinnedByUserName
+                })
+                .ToListAsync();
+
+            return Ok(documents);
+        }
+
 
         #endregion
 

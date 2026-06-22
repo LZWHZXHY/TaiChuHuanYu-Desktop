@@ -28,6 +28,10 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             _publishHandlers = handlers.ToDictionary(h => h.SupportType, h => h);
         }
 
+
+
+
+
         [HttpPost("notes/{id:guid}/publish")]
         public async Task<IActionResult> PublishNote([FromRoute] Guid id, [FromBody] PublishRequest req)
         {
@@ -38,13 +42,15 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 return BadRequest(new { message = "普通随笔碎片属于私密草稿，无法直接发布" });
             }
 
-            // 🌟 纯粹的多态派发：前端发布面板传来什么 type (例如 "post" 或 "blog")，大厅直接交由对应的 Handler 处理
+            // 🌟 纯粹的多态派发：前端发布面板传来什么 type (例如 "doc")，大厅直接交由对应的 Handler 处理
             if (!_publishHandlers.TryGetValue(req.type, out var handler))
             {
                 return BadRequest(new { message = $"暂未编织该多态碎片形态 [{req.type}] 的分流大厅逻辑" });
             }
 
-            return await handler.ExecutePublishAsync(id, CurrentUserId, req.categoryId);
+            // 🌟【核心修复点】：补上第四个参数 req.projectId！
+            // 只有这样，前端传过来的项目 GUID 才能真正抵达 DocPublishHandler 内部，破除 400 校验拦截！
+            return await handler.ExecutePublishAsync(id, CurrentUserId, req.categoryId, req.projectId);
         }
 
         #region --- 1. 取消发布 ---

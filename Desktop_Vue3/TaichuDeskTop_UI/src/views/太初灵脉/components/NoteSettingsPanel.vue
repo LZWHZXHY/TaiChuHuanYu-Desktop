@@ -114,7 +114,8 @@ const availableTypes = [
   { value: 'art', label: '艺术 (Art)' },
   { value: 'canvas', label: '星图白板 (Canvas)' },
   { value: 'map', label: '世界地图 (Map)' },
-  { value: 'excel', label: '表格 (Excel)' }
+  { value: 'excel', label: '表格 (Excel)' },
+  { value: 'doc', label: '项目文档(doc)' }
 ];
 
 const currentSpace = ref<any>(null);

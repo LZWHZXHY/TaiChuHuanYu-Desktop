@@ -5,5 +5,7 @@
         public string type { get; set; } = "note";
         public int? categoryId { get; set; }
         public List<string>? tags { get; set; }
+
+        public string? projectId { get; set; } // 🌟 这一行是关键！必须要有
     }
 }

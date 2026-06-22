@@ -164,6 +164,8 @@ import WorkspaceBlog from './components/WorkspaceBlog.vue';
 import WorkspacePost from './components/WorkspacePost.vue';
 import WorkspaceExcel from './components/WorkspaceExcel.vue';
 import WorkspaceChar from './components/WorkspaceChar.vue';
+import WorkspaceDoc from './components/WorkspaceDoc.vue';
+
 
 import SpiritToast from '@/components/SpiritToast.vue';
 
@@ -171,7 +173,7 @@ import { useSpiritData } from '../../composables/useSpiritData';
 import { lingmaiApi } from '../../api/lingmai';
 import { wikiApi } from '@/api/Wiki'; 
 
-type NoteType = 'note' | 'post' | 'wiki' | 'char' | 'art' | 'folder' | 'canvas' | 'map' | 'excel' | 'blog';
+type NoteType = 'note' | 'post' | 'wiki' | 'char' | 'art' | 'folder' | 'canvas' | 'map' | 'excel' | 'blog' | 'doc';
 
 const { 
   notes, currentNoteId, activeNote, isLoading, currentSpaceId,
@@ -202,13 +204,14 @@ const displayFilters = ref<Record<string, boolean>>({
   map: true,
   excel: true,
   thought: true,
-  folder: true
+  folder: true,
+  doc: true,
 });
 
 // 🌟 多态组件映射总表
 const workspaceMap: Record<string, any> = {
   note: WorkspaceNote, wiki: WorkspaceWiki, art: WorkspaceArt, char: WorkspaceChar,
-  folder: WorkspaceNote, canvas: WorkspaceCanvas, map: WorkspaceMap, blog: WorkspaceBlog, post: WorkspacePost, excel: WorkspaceExcel,
+  folder: WorkspaceNote, canvas: WorkspaceCanvas, map: WorkspaceMap, blog: WorkspaceBlog, post: WorkspacePost, excel: WorkspaceExcel, doc:WorkspaceDoc,
 };
 
 const isSettingsOpen = ref(false); 

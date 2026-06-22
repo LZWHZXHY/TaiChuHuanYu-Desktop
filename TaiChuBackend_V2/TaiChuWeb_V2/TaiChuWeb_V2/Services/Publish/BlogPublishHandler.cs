@@ -18,7 +18,7 @@ namespace TaiChuWeb_V2.Services.Publish
             _context = context;
         }
 
-        public async Task<IActionResult> ExecutePublishAsync(Guid noteId, string userId, int? categoryId)
+        public async Task<IActionResult> ExecutePublishAsync(Guid noteId, string userId, int? categoryId, string? projectId = null)
         {
             // 使用数据库执行策略，确保高并发下的弹性容错
             return await _context.Database.CreateExecutionStrategy().ExecuteAsync<IActionResult>(async () =>

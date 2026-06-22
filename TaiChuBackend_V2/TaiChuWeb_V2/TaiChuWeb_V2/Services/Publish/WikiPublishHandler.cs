@@ -17,7 +17,7 @@ namespace TaiChuWeb_V2.Services.Publish
             _context = context;
         }
 
-        public async Task<IActionResult> ExecutePublishAsync(Guid noteId, string userId, int? categoryId)
+        public async Task<IActionResult> ExecutePublishAsync(Guid noteId, string userId, int? categoryId, string? projectId = null)
         {
             // 基础校验
             if (!Guid.TryParse(userId, out var userGuid))

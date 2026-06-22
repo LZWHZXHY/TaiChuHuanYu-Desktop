@@ -13,7 +13,8 @@ export type NoteType =
   | 'audio'     // 太初之音
   | 'canvas'    // 星图白板
   | 'map'       // 世界地图
-  | 'excel';
+  | 'excel'
+  | 'doc';
 
 // 2. 统一管理每种类型的显示文本和元数据
 export const NOTE_TYPE_CONFIG: Record<NoteType, { label: string; desc: string; icon: string }> = {
@@ -76,5 +77,10 @@ export const NOTE_TYPE_CONFIG: Record<NoteType, { label: string; desc: string; i
     label: 'Excel表格',
     desc: '测试版excel表格',
     icon: '📊' // 顺手帮你补个小图标
+  },
+  doc:{
+    label: '协作文档',
+    desc: '多人协作文档',
+    icon: '' 
   },
 };
