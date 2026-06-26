@@ -56,16 +56,12 @@ import { EditorContent, useEditor } from '@tiptap/vue-3'
 import EditorBubbleMenu from './SpiritTextComponents/EditorBubbleMenu.vue' 
 import { spiritExtensions, spiritColors, slashCommands } from '../utils/editorConfig'
 import { useSpiritData } from '../composables/useSpiritData'
-import { useCos } from '../composables/useCos'
+import { useEditorImageUpload} from '@/composables/useEditorImageUpload.ts'
 
-// 🌟 向外广播内容变化的常规 Vue 信号事件
+
 const emit = defineEmits(['change'])
-
-// 1. 接入数据大脑
 const { notes, currentNoteId, updateNoteContent, selectNote } = useSpiritData()
 
-// 🌟 引入 progress 并重命名为 cosProgress，方便在模板中无缝绑定进度
-const { uploadFile, progress: cosProgress } = useCos()
 
 const targetNote = notes.value.find(n => n.id === currentNoteId.value);
 const initialContent = targetNote?.content || { type: 'doc', content: [] };
@@ -79,8 +75,9 @@ const showSlashMenu = ref(false)
 const showLinkSelector = ref(false)
 const menuPos = ref({ top: 0, left: 0 })
 
-// 🔒 核心状态锁：拦截异步上传期间的高频自动云端同步
-const isUploadingImage = ref(false)
+
+const { cosProgress, isUploadingImage, handleImageProcess } = useEditorImageUpload(currentNoteId, updateNoteContent, emit)  //提炼后的图片上传功能 已模块化
+
 
 const menuStyle = computed(() => ({
   top: `${menuPos.value.top}px`,
@@ -98,93 +95,7 @@ watch(showSlashMenu, (visible) => {
   }
 })
 
-/**
- * 🌟 核心图片处理：COS 上传 + 节点插入
- */
-const handleImageProcess = async (view: any, file: File, pos?: number) => {
-  if (!file.type.startsWith('image/')) return;
-  
-  // 提前生成一个独一无二的占位 ID，用于等下精准替换节点
-  const placeholderId = `spirit_img_loading_${Date.now()}`;
-  
-  try {
-    // 1. 锁死自动同步：防止异步上传空窗期内，其他 DOM 节点扰动触发高频 SaveChanges
-    isUploadingImage.value = true;
 
-    // 🌟 极致体验优化：先在光标处插入一个带有极简优雅动画的假图节点作为“占位骨架屏”
-    const { schema } = view.state;
-    const placeholderNode = schema.nodes.image.create({
-      src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"/>', // 空白骨架兜底
-      align: 'center',
-      width: '100%',
-      alt: placeholderId // 用 alt 属性作为一个暂时的影子暗号
-    });
-
-    let tr = pos ? view.state.tr.insert(pos, placeholderNode) : view.state.tr.replaceSelectionWith(placeholderNode);
-    view.dispatch(tr);
-
-    // 2. 扔给 useCos 开始异步向北京地域的 Bucket 传输
-    const result = await uploadFile(file, 'lingmai');
-    
-    // 3. 异步传完，拿到真实 https://img.bianyuzhou.com 链接后，去文档里精准捕获刚刚那个暗号并替换它
-    view.state.doc.descendants((node: any, nodePos: number) => {
-      if (node.type.name === 'image' && node.attrs.alt === placeholderId) {
-        const realImageNode = schema.nodes.image.create({
-          src: result.url,
-          align: 'center',
-          width: '100%',
-          caption: '' // 清空题注占位
-        });
-        
-        // 执行就地解构与无缝替换
-        const replaceTr = view.state.tr.replaceWith(nodePos, nodePos + node.nodeSize, realImageNode);
-        view.dispatch(replaceTr);
-        return false;
-      }
-    });
-
-    // 4. 解除状态锁：此时 Tiptap 的 DOM 已经彻底稳定
-    isUploadingImage.value = false;
-
-    // 5. 单次确定性后置同步：打包包含新插入图片在内的整篇内容，仅向后端发送唯一一次保存请求
-    const finalJson = editor.value?.getJSON();
-    if (finalJson) {
-      updateNoteContent(currentNoteId.value, finalJson);
-      lastSyncedJson = JSON.stringify(finalJson);
-      
-      // 🌟 图片上传完毕后，除了 Vue 层的广播事件外，同样向外派发可跨多级 DOM 的冒泡暗号事件
-      // 🌟 修复：直接使用局部变量 editor（100% 安全，彻底消除编译报错）
-      editor.value?.view.dom.dispatchEvent(new CustomEvent('change-content', {
-        bubbles: true,
-        detail: finalJson
-      }));
-
-      emit('change', finalJson);
-    }
-
-  } catch (err) {
-    // 6. 异常容错清理：若上传失败，必须把刚刚的假占位暗号节点在文档里彻底抹去
-    view.state.doc.descendants((node: any, nodePos: number) => {
-      if (node.type.name === 'image' && node.attrs.alt === placeholderId) {
-        const deleteTr = view.state.tr.delete(nodePos, nodePos + node.nodeSize);
-        view.dispatch(deleteTr);
-        return false;
-      }
-    });
-    
-    isUploadingImage.value = false;
-    console.error('灵脉图片处理失败:', err);
-  }
-};
-
-// 响应并处理从 editorConfig 发送过来的自定义事件信号
-const handleSlashImageInsert = (e: Event) => {
-  const customEvent = e as CustomEvent;
-  if (editor.value && customEvent.detail) {
-    const { file, pos } = customEvent.detail;
-    handleImageProcess(editor.value.view, file, pos);
-  }
-};
 
 // 🌟 核心键盘劫持处理器（在捕获阶段拦截上下键与回车）
 const handleKeyDown = (e: KeyboardEvent) => {
@@ -225,6 +136,9 @@ const scrollActiveItemIntoView = () => {
   }
 }
 
+
+
+
 // --- 🌟 编辑器核心配置 ---
 const editor = useEditor({
   extensions: spiritExtensions,
@@ -235,7 +149,7 @@ const editor = useEditor({
       if (!moved && event.dataTransfer?.files?.length) {
         const file = event.dataTransfer.files[0];
         const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
-        handleImageProcess(view, file, coordinates?.pos);
+        handleImageProcess(editor, view, file, coordinates?.pos);
         return true; 
       }
       return false;
@@ -248,7 +162,7 @@ const editor = useEditor({
           if (item.type.startsWith('image/')) {
             const file = item.getAsFile();
             if (file) {
-              handleImageProcess(view, file);
+              handleImageProcess(editor, view, file);
               return true;
             }
           }
@@ -259,10 +173,7 @@ const editor = useEditor({
   },
   onUpdate: ({ editor }) => {
     if (!isInitialized.value) return;
-
-    // 🔒 拦截逻辑：若图片处于异步上传中，强行切断自动防抖同步，保护后端 EF 实体跟踪不发生位移
     if (isUploadingImage.value) return;
-
     const currentJson = editor.getJSON();
     const currentJsonStr = JSON.stringify(currentJson);
     
@@ -342,20 +253,34 @@ const closeMenus = (e: MouseEvent) => {
   }
 }
 
+const handleSlashImageInsert = (e: Event) => {
+  const customEvent = e as CustomEvent;
+  if (editor.value && customEvent.detail) {
+    const { file, pos } = customEvent.detail;
+    
+    handleImageProcess(editor, editor.value.view, file, pos);
+  }
+};
+
+
 onMounted(() => {
   window.addEventListener('mousedown', closeMenus);
   document.addEventListener('click', handleLinkNavigation, { capture: true });
   document.addEventListener('keydown', handleKeyDown, true); // 在捕获阶段拦截键盘按键
-
   if (editor.value && editor.value.view) {
-      editor.value.view.dom.addEventListener('spirit-insert-image', handleSlashImageInsert);
-    }
+    editor.value.view.dom.addEventListener('spirit-insert-image', handleSlashImageInsert);
+  }
+  
 });
 
 onUnmounted(() => {
   window.removeEventListener('mousedown', closeMenus);
   document.removeEventListener('click', handleLinkNavigation, { capture: true });
   document.removeEventListener('keydown', handleKeyDown, true);
+
+  if (editor.value && editor.value.view) {
+    editor.value.view.dom.removeEventListener('spirit-insert-image', handleSlashImageInsert);
+  }
 });
 
 defineExpose({ 
