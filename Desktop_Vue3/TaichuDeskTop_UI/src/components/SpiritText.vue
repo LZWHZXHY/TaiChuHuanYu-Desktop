@@ -15,23 +15,6 @@
     />
 
     <editor-content :editor="editor" class="spirit-typography-engine" />
-
-    <transition name="menu-pop">
-      <div v-if="showSlashMenu" class="spirit-floating-menu" :style="menuStyle">
-        <div class="menu-header">灵脉指令</div>
-        <div 
-          v-for="(cmd, index) in slashCommands" 
-          :key="cmd.label" 
-          :class="['menu-item', { 'is-active': index === activeCommandIndex }]" 
-          @click="runSlashCommand(cmd)"
-          @mouseenter="activeCommandIndex = index"
-        >
-          <div class="item-icon">{{ cmd.icon }}</div>
-          <div class="item-text">{{ cmd.label }}</div>
-        </div>
-      </div>
-    </transition>
-
     <transition name="menu-pop">
       <div v-if="showLinkSelector" class="spirit-floating-menu" :style="menuStyle">
         <div class="menu-header">关联灵脉碎片...</div>
@@ -57,7 +40,7 @@ import EditorBubbleMenu from './SpiritTextComponents/EditorBubbleMenu.vue'
 import { spiritExtensions, spiritColors, slashCommands } from '../utils/editorConfig'
 import { useSpiritData } from '../composables/useSpiritData'
 import { useEditorImageUpload} from '@/composables/useEditorImageUpload.ts'
-
+import { SlashMenuExtension } from '@/composables/slashExtension.ts'
 
 const emit = defineEmits(['change'])
 const { notes, currentNoteId, updateNoteContent, selectNote } = useSpiritData()
@@ -70,11 +53,9 @@ const initialContent = targetNote?.content || { type: 'doc', content: [] };
 const isInitialized = ref(true) // 数据肯定是有的，直接就是 true
 let lastSyncedJson = JSON.stringify(initialContent) // 初始防抖对比值
 
-const activeCommandIndex = ref(0)
-const showSlashMenu = ref(false)
+
 const showLinkSelector = ref(false)
 const menuPos = ref({ top: 0, left: 0 })
-
 
 const { cosProgress, isUploadingImage, handleImageProcess } = useEditorImageUpload(currentNoteId, updateNoteContent, emit)  //提炼后的图片上传功能 已模块化
 
@@ -88,63 +69,17 @@ const availableNotes = computed(() => {
   return notes.value.filter(n => n.id !== currentNoteId.value)
 })
 
-// 监听斜杠菜单开启，自动将高亮索引归零
-watch(showSlashMenu, (visible) => {
-  if (visible) {
-    activeCommandIndex.value = 0
-  }
-})
-
-
-
-// 🌟 核心键盘劫持处理器（在捕获阶段拦截上下键与回车）
-const handleKeyDown = (e: KeyboardEvent) => {
-  if (!showSlashMenu.value) return
-
-  if (e.key === 'ArrowDown') {
-    e.preventDefault()
-    e.stopPropagation()
-    activeCommandIndex.value = (activeCommandIndex.value + 1) % slashCommands.length
-    scrollActiveItemIntoView()
-  } 
-  else if (e.key === 'ArrowUp') {
-    e.preventDefault()
-    e.stopPropagation()
-    activeCommandIndex.value = (activeCommandIndex.value - 1 + slashCommands.length) % slashCommands.length
-    scrollActiveItemIntoView()
-  } 
-  else if (e.key === 'Enter') {
-    e.preventDefault()
-    e.stopPropagation()
-    const targetCmd = slashCommands[activeCommandIndex.value]
-    if (targetCmd) {
-      runSlashCommand(targetCmd)
-    }
-  } 
-  else if (e.key === 'Escape') {
-    showSlashMenu.value = false
-  }
-}
-
-// 自动随按键滚动菜单可视区域
-const scrollActiveItemIntoView = () => {
-  const menuEl = document.querySelector('.spirit-floating-menu')
-  if (!menuEl) return
-  const activeItem = menuEl.querySelectorAll('.menu-item')[activeCommandIndex.value] as HTMLElement
-  if (activeItem) {
-    activeItem.scrollIntoView({ block: 'nearest' })
-  }
-}
-
-
 
 
 // --- 🌟 编辑器核心配置 ---
 const editor = useEditor({
-  extensions: spiritExtensions,
+  extensions: [
+    ...spiritExtensions, 
+    SlashMenuExtension 
+  ],
   content: initialContent, 
   editorProps: {
-    // 拦截拖拽
+    // 拦截拖拽 (保持不变)
     handleDrop: (view, event, slice, moved) => {
       if (!moved && event.dataTransfer?.files?.length) {
         const file = event.dataTransfer.files[0];
@@ -154,7 +89,7 @@ const editor = useEditor({
       }
       return false;
     },
-    // 拦截粘贴
+    // 拦截粘贴 (保持不变)
     handlePaste: (view, event) => {
       const items = event.clipboardData?.items;
       if (items) {
@@ -174,6 +109,7 @@ const editor = useEditor({
   onUpdate: ({ editor }) => {
     if (!isInitialized.value) return;
     if (isUploadingImage.value) return;
+
     const currentJson = editor.getJSON();
     const currentJsonStr = JSON.stringify(currentJson);
     
@@ -188,19 +124,15 @@ const editor = useEditor({
         const coords = view.coordsAtPos($from.pos);
         
         menuPos.value = { top: coords.bottom + 10, left: coords.left };
-        showSlashMenu.value = textBefore.endsWith('/');
         showLinkSelector.value = textBefore.endsWith('[[');
       } catch (e) {
-        showSlashMenu.value = false;
         showLinkSelector.value = false;
       }
     } else {
-      showSlashMenu.value = false;
       showLinkSelector.value = false;
     }
 
-    // 🌟【最核心改动点】：打字导致内容发生演变更新时，向对应的原生富文本真实 DOM 节点触发一个自定义原生事件信号。
-    // 设置 bubbles: true 开启 HTML 标准冒泡。这样类似 WorkspaceBlog.vue 的特态外层卡片就能无感、安全地精准捞取编辑器最新的快照结构了
+    // 🌟 原生事件广播 (保持不变)
     editor.view.dom.dispatchEvent(new CustomEvent('change-content', {
       bubbles: true, 
       detail: currentJson
@@ -209,7 +141,6 @@ const editor = useEditor({
     updateNoteContent(currentNoteId.value, currentJson);
     lastSyncedJson = currentJsonStr; 
     
-    // 将最新的数据抛给外部，供 index.vue 进行多态类型校验
     emit('change', currentJson);
   }
 })
@@ -225,12 +156,6 @@ const handleLinkNavigation = (e: MouseEvent) => {
     if (noteId) selectNote(noteId);
   }
 };
-
-const runSlashCommand = (cmd: any) => {
-  if (!editor.value) return
-  cmd.command(editor.value)
-  showSlashMenu.value = false
-}
 
 const insertBiLink = (note: any) => {
   if (!editor.value) return
@@ -248,7 +173,6 @@ const insertBiLink = (note: any) => {
 
 const closeMenus = (e: MouseEvent) => {
   if (!(e.target as HTMLElement).closest('.spirit-floating-menu')) {
-    showSlashMenu.value = false
     showLinkSelector.value = false
   }
 }
@@ -266,7 +190,7 @@ const handleSlashImageInsert = (e: Event) => {
 onMounted(() => {
   window.addEventListener('mousedown', closeMenus);
   document.addEventListener('click', handleLinkNavigation, { capture: true });
-  document.addEventListener('keydown', handleKeyDown, true); // 在捕获阶段拦截键盘按键
+ 
   if (editor.value && editor.value.view) {
     editor.value.view.dom.addEventListener('spirit-insert-image', handleSlashImageInsert);
   }
@@ -276,11 +200,9 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('mousedown', closeMenus);
   document.removeEventListener('click', handleLinkNavigation, { capture: true });
-  document.removeEventListener('keydown', handleKeyDown, true);
 
-  if (editor.value && editor.value.view) {
-    editor.value.view.dom.removeEventListener('spirit-insert-image', handleSlashImageInsert);
-  }
+
+ 
 });
 
 defineExpose({ 
