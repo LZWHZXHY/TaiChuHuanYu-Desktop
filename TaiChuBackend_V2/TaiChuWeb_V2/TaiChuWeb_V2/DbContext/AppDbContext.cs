@@ -12,6 +12,8 @@ using TaiChuWeb_V2.Models.Event;
 using TaiChuWeb_V2.Models.Feedback;
 using TaiChuWeb_V2.Models.News;
 using TaiChuWeb_V2.Models.Financial;
+using TaiChuWeb_V2.Models.Activity;
+
 
 namespace TaiChuWeb_V2.DbContext
 {
@@ -70,6 +72,15 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<ProjectCategory> ProjectCategories { get; set; }
         public DbSet<ProjectDocument> ProjectDocuments { get; set; }
         public DbSet<ProjectApplication> ProjectApplications { get; set; }
+
+
+        public DbSet<Activity> Activities { get; set; }
+        public DbSet<Member> Members { get; set; }
+        public DbSet<Record> Records { get; set; }
+        public DbSet<Post> Posts { get; set; }
+        public DbSet<Reply> Replies { get; set; }
+
+        public DbSet<ActivityType> ActivityTypes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -247,6 +258,46 @@ namespace TaiChuWeb_V2.DbContext
                     .HasForeignKey(c => c.ArtworkId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
+
+
+
+            // ---- 活动模块配置 ----
+            // 1. Member 复合唯一约束 (一个用户在一个活动中只能有一条记录)
+            modelBuilder.Entity<Member>()
+                .HasIndex(m => new { m.ActivityId, m.UserId })
+                .IsUnique();
+
+            // 2. Record 复合唯一约束 (一个成员同一天只能有一条记录)
+            modelBuilder.Entity<Record>()
+                .HasIndex(r => new { r.MemberId, r.Day })
+                .IsUnique();
+
+            // 3. 级联删除：活动删除时自动删除成员和帖子
+            modelBuilder.Entity<Member>()
+                .HasOne(m => m.Activity)
+                .WithMany(a => a.Members)
+                .HasForeignKey(m => m.ActivityId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Post>()
+                .HasOne(p => p.Activity)
+                .WithMany(a => a.Posts)
+                .HasForeignKey(p => p.ActivityId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // 4. Record 级联删除 (成员删除时自动删除记录)
+            modelBuilder.Entity<Record>()
+                .HasOne(r => r.Member)
+                .WithMany()
+                .HasForeignKey(r => r.MemberId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // 5. Reply 级联删除 (帖子删除时自动删除回复)
+            modelBuilder.Entity<Reply>()
+                .HasOne(r => r.Post)
+                .WithMany(p => p.Replies)
+                .HasForeignKey(r => r.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

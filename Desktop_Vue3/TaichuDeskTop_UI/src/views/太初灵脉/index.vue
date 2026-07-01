@@ -36,7 +36,7 @@
           @toggle-sidebar="isSidebarOpen = true"
           @open-graph="isGraphViewOpen = true"
           @open-settings="isSettingsOpen = true"
-          @import-wiki="handleImportWiki"
+          @import-wiki="showImportWikiModal = true"
           @exit-wiki="exitWikiMode"
         />
 
@@ -57,35 +57,17 @@
           @save="handleSave"
         />
 
-        <div class="editor-scroll-body">
-          <div v-if="isContentLoading" class="content-loading-state">
-            <div class="mini-spinner"></div>
-            <p>正在感应灵脉碎片...</p>
-          </div>
-
-          <template v-else-if="displayNote">
-            <component 
-              :is="CurrentWorkspaceComponent"
-              :title="displayNote.title"
-              :readonly="isWikiMode"
-              :has-image="hasArtImage"
-              :extra-data="displayNote?.extraData" 
-              :note-id="currentNoteId" 
-              :blocks="displayNote?.blocks || workspaceBlocks" 
-              @update:title="handleUpdateTitle"
-              @change="handleWorkspaceChange"
-              @open-sub-drawer="handleOpenQuickEditor" 
-            >
-              <template #editor>
-                <SpiritEditor 
-                  ref="editorRef" 
-                  :key="isWikiMode ? displayNote.id : currentNoteId" 
-                  @change="handleEditorAutoSync"
-                />
-              </template>
-            </component>
-          </template>
-        </div>
+        <MainWorkspace 
+          :is-content-loading="isContentLoading"
+          :display-note="displayNote"
+          :is-wiki-mode="isWikiMode"
+          :has-art-image="hasArtImage"
+          :workspace-blocks="workspaceBlocks"
+          @update:title="handleUpdateTitle"
+          @change="handleWorkspaceChange"
+          @open-sub-drawer="handleOpenQuickEditor"
+          @editor-auto-sync="handleEditorAutoSync"
+        />
       </main>
 
       <RightSidePanel 
@@ -97,81 +79,49 @@
         @change="triggerDebouncedSync"
       />
 
-      <transition name="drawer-slide">
-        <aside v-if="isQuickEditorOpen" class="quick-editor-drawer">
-          <header class="quick-drawer-header">
-            <h4>沉浸编辑 <span class="sub-id">#{{ quickEditorNoteId.substring(0,6) }}</span></h4>
-            <button class="close-drawer-btn" @click="isQuickEditorOpen = false">✕</button>
-          </header>
-          <div class="quick-drawer-body">
-            <div v-if="isQuickEditorLoading" class="content-loading-state">
-              <div class="mini-spinner"></div>
-              <p>抽取本体中...</p>
-            </div>
-            <SpiritEditor
-              v-else
-              ref="quickEditorRef"
-              :key="quickEditorNoteId"
-              @change="handleQuickEditorChange"
-            />
-          </div>
-        </aside>
-      </transition>
+      <QuickEditorDrawer 
+        v-model="isQuickEditorOpen"
+        :note-id="quickEditorNoteId"
+        :note-meta="quickEditorNoteMeta"
+        :is-loading="isQuickEditorLoading"
+      />
     </div>
 
     <HistoryPanel v-model="isHistoryOpen" :note-id="currentNoteId" @rollback="onRollback" @manual-save="handleManualSave" />
     <PublishModal 
       v-model="showPublishModal" 
       :note-id="currentNoteId" 
-      :note-type="activeNote?.type || 'note'"  :space-name="activeSpaceName" 
+      :note-type="activeNote?.type || 'note'"  
+      :space-name="activeSpaceName" 
       @success="onPublishSuccess" 
     />
-
-    <transition name="fade">
-      <div v-if="showImportWikiModal" class="loading-overlay" @click.self="showImportWikiModal = false">
-        <div class="spirit-modal-content pop-enter-active">
-          <h3 class="modal-title">🌌 接入百科宇宙</h3>
-          <input v-model="importWikiId" type="text" class="spirit-id-input" placeholder="请输入 Wiki ID..." @keyup.enter="confirmImportWiki" autofocus />
-          <div class="modal-actions">
-            <button class="cancel-btn" @click="showImportWikiModal = false">取消</button>
-            <button class="save-btn" @click="confirmImportWiki" :disabled="!importWikiId.trim()">开始感应</button>
-          </div>
-        </div>
-      </div>
-    </transition>
+    
+    <WikiImportModal 
+      v-model="showImportWikiModal" 
+      @confirm="confirmImportWiki" 
+    />
 
     <SpiritToast ref="toastRef" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch} from 'vue';
 import SidebarIndex from './components/SidebarIndex.vue';
 import RightSidePanel from './components/RightSidePanel.vue';
-import SpiritEditor from '../../components/SpiritText.vue'; 
 import HistoryPanel from './components/HistoryPanel.vue';
 import GraphView from './components/GraphView.vue';
 import PublishModal from './components/PublishModal.vue';
 import NoteSettingsPanel from './components/NoteSettingsPanel.vue';
 import TopBar from './components/TopBar.vue'; 
-
-import WorkspaceNote from './components/WorkspaceNote.vue';
-import WorkspaceWiki from './components/WorkspaceWiki.vue';
-import WorkspaceArt from './components/WorkspaceArt.vue';
-import WorkspaceCanvas from './components/WorkspaceCanvas.vue';
-import WorkspaceMap from './components/WorkspaceMap.vue';
-import WorkspaceBlog from './components/WorkspaceBlog.vue';
-import WorkspacePost from './components/WorkspacePost.vue';
-import WorkspaceExcel from './components/WorkspaceExcel.vue';
-import WorkspaceChar from './components/WorkspaceChar.vue';
-import WorkspaceDoc from './components/WorkspaceDoc.vue';
-import WorkspaceSchedule from './components/WorkspaceSchedule.vue';
-
+import QuickEditorDrawer from './components/QuickEditorDrawer.vue';
+import WikiImportModal from './components/WikiImportModal.vue';
 import SpiritToast from '@/components/SpiritToast.vue';
-
+import MainWorkspace from './components/MainWorkspace.vue';
 import { useSpiritData } from '../../composables/useSpiritData';
 import { lingmaiApi } from '../../api/lingmai';
 import { wikiApi } from '@/api/Wiki'; 
+import { checkHasImage, getTextLength } from '@/utils/editorHelpers';
 
 type NoteType = 'note' | 'post' | 'wiki' | 'char' | 'art' | 'folder' | 'canvas' | 'map' | 'excel' | 'blog' | 'doc' | 'schedule';
 
@@ -209,14 +159,6 @@ const displayFilters = ref<Record<string, boolean>>({
   schedule:true,
 });
 
-// 🌟 多态组件映射总表
-const workspaceMap: Record<string, any> = {
-  note: WorkspaceNote, wiki: WorkspaceWiki, art: WorkspaceArt, char: WorkspaceChar, schedule:WorkspaceSchedule,
-  folder: WorkspaceNote, canvas: WorkspaceCanvas, map: WorkspaceMap, blog: WorkspaceBlog, post: WorkspacePost, excel: WorkspaceExcel, doc:WorkspaceDoc, 
-};
-
-
-
 
 const isSettingsOpen = ref(false); 
 const currentEditorJson = ref<any>(null);
@@ -225,15 +167,6 @@ const currentWikiProperties = ref<any[]>([]);
 let syncDebounceTimer: any = null;
 const workspaceBlocks = ref<any[]>([]);
 
-const isQuickEditorOpen = ref(false);
-const quickEditorNoteId = ref('');
-const quickEditorNoteMeta = ref<any>({}); 
-const isQuickEditorLoading = ref(false);
-const quickEditorRef = ref();
-let quickSyncTimer: any = null;
-
-// 🌟 补全缺失项 1：计算属性 CurrentWorkspaceComponent，供模板多态挂载
-const CurrentWorkspaceComponent = computed(() => workspaceMap[displayNote.value?.type || 'note'] || WorkspaceNote);
 
 // 🌟 补全缺失项 2：计算属性 displayNote，处理百科（Wiki）模式与常规形态的数据切换流
 const displayNote = computed<any>(() => isWikiMode.value && wikiEditData.value ? { ...(wikiEditData.value as any), type: 'wiki' } : activeNote.value);
@@ -242,71 +175,35 @@ const displayNote = computed<any>(() => isWikiMode.value && wikiEditData.value ?
 const currentUserId = ref('current_user_id'); 
 const isWikiAuthor = computed(() => (wikiEditData.value as any)?.authorId === currentUserId.value);
 
+// ✅ 替换成这段极简代码：
+const isQuickEditorOpen = ref(false);
+const quickEditorNoteId = ref('');
+const quickEditorNoteMeta = ref<any>({}); 
+const isQuickEditorLoading = ref(false);
+
 const handleOpenQuickEditor = async (targetId: string) => {
   isQuickEditorLoading.value = true;
   try {
     const targetNote: any = await lingmaiApi.getNote(targetId); 
-    if (targetNote.type === 'canvas' || targetNote.type === 'folder' || targetNote.type === 'map') {
+    // 如果是画板、文件夹、地图，直接在主视图打开，不弹抽屉
+    if (['canvas', 'folder', 'map'].includes(targetNote.type)) {
        isQuickEditorOpen.value = false;
        selectNote(targetId, true); 
        return;
     }
-
+    // 正常笔记，只负责把数据喂给抽屉，剩下的让抽屉自己去解析和渲染！
     quickEditorNoteId.value = targetId;
-    isQuickEditorOpen.value = true;
     quickEditorNoteMeta.value = targetNote || {}; 
-    
-    setTimeout(() => {
-      if (quickEditorRef.value && quickEditorRef.value.editor) {
-        let contentToSet = { type: 'doc', content: [{ type: 'paragraph' }] };
-        if (targetNote.blocks && targetNote.blocks.length > 0) {
-           const parsedBlocks = targetNote.blocks.map((b: any) => {
-             try { return JSON.parse(b.data); } catch { return null; }
-           }).filter((b: any) => b && b.type !== 'canvas-node' && b.type !== 'canvas-edge');
-
-           if (parsedBlocks.length > 0) {
-             contentToSet.content = parsedBlocks;
-           }
-        }
-        quickEditorRef.value.editor.commands.setContent(contentToSet);
-      }
-      isQuickEditorLoading.value = false;
-    }, 100);
+    isQuickEditorOpen.value = true;
   } catch (e) {
     console.error("抽取数据失败", e);
+    toastRef.value?.show("抽取本体失败");
+  } finally {
     isQuickEditorLoading.value = false;
   }
 };
 
-const handleQuickEditorChange = (json: any) => {
-  if (quickSyncTimer) clearTimeout(quickSyncTimer);
-  quickSyncTimer = setTimeout(async () => {
-     if (!quickEditorNoteId.value) return;
-     let finalBlocks: any[] = [];
-     if (json && json.content) {
-        finalBlocks = json.content.map((b: any, i: number) => ({
-          id: b.attrs?.id || Math.random().toString(36).substring(2, 11),
-          ownerId: quickEditorNoteId.value,
-          ownerType: quickEditorNoteMeta.value?.type || 'note',
-          type: b.type,
-          sortOrder: i,
-          data: JSON.stringify(b)
-        }));
-     }
-     try {
-        const syncPayload = {
-            noteId: quickEditorNoteId.value,
-            title: quickEditorNoteMeta.value?.title || '',
-            extraData: quickEditorNoteMeta.value?.extraData || '[]',
-            tags: quickEditorNoteMeta.value?.tags || [],
-            blocks: finalBlocks
-        };
-        await lingmaiApi.updateNoteContent(quickEditorNoteId.value, syncPayload as any); 
-     } catch(e) {
-        console.error("抽屉同步失败", e);
-     }
-  }, 2000);
-};
+
 
 // 🌟 高内聚组件契约达成：主控接收全量积木链快照，不做多余的过滤、拆分或重刷
 const handleWorkspaceChange = (payload: any) => {
@@ -321,22 +218,7 @@ const handleWorkspaceChange = (payload: any) => {
 
 const handleEditorChange = (json: any) => { currentEditorJson.value = json; };
 
-const checkHasImage = (node: any): boolean => {
-  if (!node) return false;
-  if (node.type === 'image') return true;
-  if (node.content && Array.isArray(node.content)) return node.content.some(checkHasImage);
-  return false;
-};
 
-const getTextLength = (node: any): number => {
-  if (!node) return 0;
-  let len = 0;
-  if (node.text) len += node.text.length;
-  if (node.content && Array.isArray(node.content)) {
-    node.content.forEach((child: any) => len += getTextLength(child));
-  }
-  return len;
-};
 
 const hasArtImage = computed(() => checkHasImage(currentEditorJson.value || displayNote.value?.content));
 const currentTextLength = computed(() => getTextLength(currentEditorJson.value || displayNote.value?.content));
@@ -558,38 +440,71 @@ onUnmounted(() => { window.removeEventListener('resize', checkScreen); if (syncD
 </script>
 
 <style scoped>
-.spirit-link-app { display: flex; width: 100%; height: 94vh; background: #ffffff; overflow: hidden; position: relative; }
-.sidebar-layer { width: 280px; flex-shrink: 0; transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); z-index: 2000; border-right: 1px solid #f2f2f2; }
-.editor-workspace-layout { display: flex; flex: 1; width: 100%; height: 100%; overflow: hidden; position: relative; }
-.spirit-main-editor { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #fafafa; }
-.editor-scroll-body { flex: 1; overflow-y: auto; padding: 0; position: relative; }
-.quick-editor-drawer { position: absolute; top: 16px; right: 16px; bottom: 16px; width: 480px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(24px) saturate(180%); border-radius: 20px; box-shadow: -10px 0 40px rgba(0,0,0,0.08), 0 0 1px rgba(0,0,0,0.2); display: flex; flex-direction: column; z-index: 1000; overflow: hidden; }
-.quick-drawer-header { padding: 18px 24px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.05); }
-.quick-drawer-header h4 { margin: 0; font-size: 15px; color: #1d1d1f; font-weight: 700; }
-.sub-id { color: #86868b; font-weight: 500; font-size: 12px; margin-left: 8px; background: #f2f2f7; padding: 2px 6px; border-radius: 6px; }
-.close-drawer-btn { background: #f2f2f7; border: none; width: 28px; height: 28px; border-radius: 50%; font-size: 14px; cursor: pointer; color: #1d1d1f; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
-.close-drawer-btn:hover { background: #e5e5ea; transform: scale(1.05); }
-.quick-drawer-body { flex: 1; overflow-y: auto; padding: 24px; }
-.drawer-slide-enter-active, .drawer-slide-leave-active { transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s; }
-.drawer-slide-enter-from, .drawer-slide-leave-to { transform: translateX(120%); opacity: 0; }
-.loading-overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+/* ========================================== */
+/* 1. 全局基础骨架 (Layout Skeleton)          */
+/* ========================================== */
+.spirit-link-app { 
+  display: flex; 
+  width: 100%; 
+  height: 94vh; 
+  background: #ffffff; 
+  overflow: hidden; 
+  position: relative; 
+}
+.editor-workspace-layout { 
+  display: flex; 
+  flex: 1; 
+  width: 100%; 
+  height: 100%; 
+  overflow: hidden; 
+  position: relative; 
+}
+.spirit-main-editor { 
+  flex: 1; 
+  display: flex; 
+  flex-direction: column; 
+  min-width: 0; 
+  background: #fafafa; 
+}
+
+/* ========================================== */
+/* 2. 全局加载与图谱遮罩 (Global Overlays)     */
+/* ========================================== */
+.loading-overlay { 
+  position: fixed; 
+  inset: 0; 
+  background: rgba(255, 255, 255, 0.9); 
+  backdrop-filter: blur(10px); 
+  z-index: 9999; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+}
 .spirit-loading-content { text-align: center; color: #86868b; }
-.spirit-spinner { width: 32px; height: 32px; border: 2px solid #f3f3f3; border-top: 2px solid #0066cc; border-radius: 50%; margin: 0 auto 16px; animation: spin 1s linear infinite; }
-.content-loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 200px; color: #86868b; gap: 12px; font-size: 13px; }
-.mini-spinner { width: 24px; height: 24px; border: 2px solid #f2f2f7; border-top-color: #0066cc; border-radius: 50%; animation: spin 0.8s linear infinite; }
-.mobile-overlay { position: absolute; inset: 0; background: rgba(255,255,255,0.7); backdrop-filter: blur(4px); z-index: 1999; }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@media (max-width: 1024px) { .editor-workspace-layout { flex-direction: column; } .sidebar-layer { position: absolute; top: 0; left: 0; bottom: 0; transform: translateX(-100%); background: #ffffff; box-shadow: 20px 0 50px rgba(0,0,0,0.05); } .sidebar-layer.open { transform: translateX(0); } .editor-scroll-body { padding: 20px; } }
+.spirit-spinner { 
+  width: 32px; 
+  height: 32px; 
+  border: 2px solid #f3f3f3; 
+  border-top: 2px solid #0066cc; 
+  border-radius: 50%; 
+  margin: 0 auto 16px; 
+  animation: spin 1s linear infinite; 
+}
+
+/* ========================================== */
+/* 3. 全局通用动画 (Global Animations)         */
+/* ========================================== */
+@keyframes spin { 
+  from { transform: rotate(0deg); } 
+  to { transform: rotate(360deg); } 
+}
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
-.pop-enter-active { animation: pop 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes pop { 0% { transform: scale(0.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-.spirit-modal-content { background: #ffffff; width: 90%; max-width: 400px; padding: 30px; border-radius: 16px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1); text-align: center; position: relative; z-index: 10000; }
-.modal-title { font-size: 1.2rem; font-weight: 600; color: #1d1d1f; margin: 0 0 8px; }
-.modal-desc { font-size: 13px; color: #86868b; margin-bottom: 24px; }
-.spirit-id-input { width: 100%; padding: 12px 16px; border: 1px solid #d2d2d7; border-radius: 10px; font-size: 14px; margin-bottom: 24px; outline: none; transition: all 0.2s; box-sizing: border-box; }
-.spirit-id-input:focus { border-color: #0066cc; box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1); }
-.modal-actions { display: flex; justify-content: flex-end; gap: 12px; }
-.cancel-btn { background: #f5f5f7; border: none; padding: 8px 20px; border-radius: 40px; color: #1d1d1f; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.2s; }
-.cancel-btn:hover { background: #e5e5ea; }
+
+/* ========================================== */
+/* 4. 移动端宏观布局 (Mobile Layout)           */
+/* ========================================== */
+@media (max-width: 1024px) { 
+  .editor-workspace-layout { flex-direction: column; } 
+}
 </style>

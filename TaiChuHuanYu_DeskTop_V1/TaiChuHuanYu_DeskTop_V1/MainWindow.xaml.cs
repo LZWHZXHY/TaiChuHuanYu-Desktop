@@ -49,8 +49,8 @@ namespace TaiChuHuanYu_DeskTop_V1
                 }
             };
 
-            //MainWebView.Source = new Uri("http://localhost:5173");
-            MainWebView.Source = new Uri("https://bianyuzhou.com");
+            MainWebView.Source = new Uri("http://localhost:5173");
+            //MainWebView.Source = new Uri("https://bianyuzhou.com");
 
             // 2. 导航完成时的逻辑（核心修改）
             MainWebView.CoreWebView2.NavigationCompleted += async (s, e) =>

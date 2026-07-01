@@ -20,16 +20,17 @@
         <span class="index-label">索引 / Index</span>
       </div>
 
-      <div class="menu-list">
-        <div 
-          v-for="item in menuItems" 
-          :key="item.name"
-          :class="['menu-item', { active: activeName === item.name }]"
-          @click="handleSelect(item)"
-        >
-          <span class="name">{{ item.name }}</span>
-        </div>
-      </div>
+     <div class="menu-list">
+  <div 
+    v-for="item in filteredMenuItems" 
+    :key="item.name"
+    :class="['menu-item', { active: activeName === item.name }]"
+    @click="handleSelect(item)"
+  >
+    <span class="name">{{ item.name }}</span>
+    <span v-if="['太初灵脉'].includes(item.name)" style="margin-left:auto; opacity:0.5;">↗</span>
+  </div>
+</div>
     </nav>
 
     <Transition name="fade">
@@ -40,6 +41,11 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+
+const hiddenItems = [''];
+const filteredMenuItems = computed(() => {
+  return props.menuItems.filter(item => !hiddenItems.includes(item.name));
+});
 
 const props = defineProps<{
   menuItems: any[],
@@ -77,12 +83,37 @@ const handleAuthClick = () => {
 }
 
 const handleSelect = (item: any) => {
-  emit('navigate', item)
+  // 1. 定义哪些插件需要以“新标签页”打开
+  const newTabPlugins = ['太初灵脉']; 
+
+  if (newTabPlugins.includes(item.name)) {
+    // 2. 构造正确的完整路径 (以/#/开头)
+    // 确保 url 格式正确，处理掉可能出现的双斜杠
+    const cleanPath = item.url.startsWith('/') ? item.url : `/${item.url}`;
+    const fullUrl = `${window.location.origin}/#${cleanPath}`;
+
+    // 3. 使用 window.open 打开新标签页
+    const win = window.open(fullUrl, '_blank');
+    if (win) {
+      win.focus();
+    } else {
+      // 如果被拦截，降级为当前页面跳转
+      console.warn("弹窗被拦截，正在尝试页面内跳转...");
+      emit('navigate', item);
+    }
+  } else {
+    // 4. 普通分区走原有逻辑
+    emit('navigate', item);
+  }
+
   // 移动端点击后自动关闭
   if (window.innerWidth <= 768) {
-    isExpanded.value = false
+    isExpanded.value = false;
   }
 }
+
+
+
 </script>
 
 <style scoped>

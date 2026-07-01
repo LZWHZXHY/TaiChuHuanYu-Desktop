@@ -29,6 +29,8 @@ const visiblePlugins = computed(() => {
   });
 })
 
+
+
 const fetchPlugins = async () => {
   try {
     // 🌟 修复点：只保留一个泛型参数，代表返回的是 Plugin 数组

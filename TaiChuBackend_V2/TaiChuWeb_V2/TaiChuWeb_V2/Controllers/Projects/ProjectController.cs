@@ -100,17 +100,17 @@ namespace TaiChuWeb_V2.Controllers.Projects
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            // 🌟 1. 改为去查询当前登录用户的 Stats 数据
+            // 🌟 1. 查询当前登录用户的 Stats 数据
             var userStats = await _context.UserStats
                 .FirstOrDefaultAsync(s => s.UserId == Guid.Parse(CurrentUserId));
 
             if (userStats == null) return Unauthorized("未寻得您的太初数据，无法校验额度");
 
-            // 🌟 2. 动态统计当前用户已经创建的、且没有被封存（Status != 3）的项目数量
+            // 🌟 2. 动态统计活跃项目数量
             var activeProjectCount = await _context.ProjectMembers
                 .CountAsync(m => m.UserId == CurrentUserId && m.RoleId == 0 && m.Project.Status != 3);
 
-            // 🌟 3. 基于 UserStats 中的最大额度进行拦截
+            // 🌟 3. 拦截
             if (activeProjectCount >= userStats.MaxProjectCount)
             {
                 return StatusCode(StatusCodes.Status403Forbidden, new
@@ -119,7 +119,11 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 });
             }
 
-            // --- 4. 允许创建 (以下为您原有的创建逻辑) ---
+            // 🌟 为了在返回值里带上正确的 OwnerName，我们查一下当前用户的名字
+            var currentUser = await _context.Users.FindAsync(Guid.Parse(CurrentUserId));
+            var ownerName = currentUser?.Username ?? "未知创造者";
+
+            // --- 4. 创建项目 ---
             var project = new Project
             {
                 Id = Guid.NewGuid().ToString(),
@@ -130,7 +134,8 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 CreatedAt = DateTime.UtcNow,
                 StartTime = dto.StartTime,
                 EndTime = dto.EndTime,
-                Status = 1
+                Status = 1,
+                OwnerId = Guid.Parse(CurrentUserId) // 绑定所有者 ID
             };
 
             _context.Projects.Add(project);
@@ -144,7 +149,25 @@ namespace TaiChuWeb_V2.Controllers.Projects
             });
 
             await _context.SaveChangesAsync();
-            return Ok(project);
+
+            // 🌟 完美对齐前端的数据结构
+            return Ok(new
+            {
+                project.Id,
+                project.Name,
+                project.Description,
+                project.IsPublic,
+                project.JoinPolicy,
+                project.Status,
+                project.StartTime,
+                project.EndTime,
+                project.CreatedAt,
+
+                // 👇 补全这三个字段，前端拿到数据后直接 push 进列表就能完美显示！
+                ownerId = project.OwnerId,
+                ownerName = ownerName,
+                memberCount = 1
+            });
         }
 
         #endregion

@@ -19,6 +19,7 @@ const router = createRouter({
       component: () => import('../views/个人中心/index.vue'),
       props: true // 这样可以通过 props 直接获取 url 里的 id
     },
+    
     {
       path: '/Project/project/:id',
       name: 'ProjectDetail',
@@ -31,6 +32,29 @@ const router = createRouter({
     component: () => import('../views/灵脉百科/components/WikiDetail.vue'), // 详情页组件路径
     props: true // 允许将 id 直接作为 props 传给组件
     },
+      // 添加到你的 router/index.ts 的 routes 数组中
+    {
+      path: '/activity',
+      component: () => import('@/views/活动中心/index.vue'),
+      children: [
+        { 
+          path: '', 
+          component: () => import('@/views/活动中心/活动中心组件/ActivityHome.vue') 
+        },
+        { 
+          path: 'detail/:id', 
+          component: () => import('@/views/活动中心/活动中心组件/ActivityDetail.vue') 
+        },
+        { 
+          path: 'create', 
+          component: () => import('@/views/活动中心/活动中心组件/CreateActivity.vue') 
+        },
+        {
+          path: 'my',
+          component: () => import('@/views/活动中心/活动中心组件/MyActivities.vue')
+        }
+      ]
+    }
   ]
 })
 

@@ -111,12 +111,10 @@ const availableTypes = [
   { value: 'schedule', label: '计划表 (schedule)'},
   { value: 'post', label: '简语 (Post)' }, 
   { value: 'wiki', label: '词条 (Wiki)' }, 
-  { value: 'char', label: '角色 (Char)' }, 
   { value: 'art', label: '艺术 (Art)' },
   { value: 'canvas', label: '星图白板 (Canvas)' },
   { value: 'map', label: '世界地图 (Map)' },
-  { value: 'excel', label: '表格 (Excel)' },
-  { value: 'doc', label: '项目文档(doc)' }
+  { value: 'excel', label: '表格 (Excel)' }
 ];
 
 const currentSpace = ref<any>(null);

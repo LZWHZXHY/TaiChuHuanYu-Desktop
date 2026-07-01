@@ -34,44 +34,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import { ref, onMounted, onUnmounted, computed} from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import EditorBubbleMenu from './SpiritTextComponents/EditorBubbleMenu.vue' 
-import { spiritExtensions, spiritColors, slashCommands } from '../utils/editorConfig'
+import { spiritExtensions, spiritColors} from '../utils/editorConfig'
 import { useSpiritData } from '../composables/useSpiritData'
 import { useEditorImageUpload} from '@/composables/useEditorImageUpload.ts'
 import { SlashMenuExtension } from '@/composables/slashExtension.ts'
 
 const emit = defineEmits(['change'])
 const { notes, currentNoteId, updateNoteContent, selectNote } = useSpiritData()
-
-
 const targetNote = notes.value.find(n => n.id === currentNoteId.value);
 const initialContent = targetNote?.content || { type: 'doc', content: [] };
-
-// --- 状态控制 ---
 const isInitialized = ref(true) // 数据肯定是有的，直接就是 true
 let lastSyncedJson = JSON.stringify(initialContent) // 初始防抖对比值
-
-
 const showLinkSelector = ref(false)
 const menuPos = ref({ top: 0, left: 0 })
-
 const { cosProgress, isUploadingImage, handleImageProcess } = useEditorImageUpload(currentNoteId, updateNoteContent, emit)  //提炼后的图片上传功能 已模块化
-
-
-const menuStyle = computed(() => ({
-  top: `${menuPos.value.top}px`,
-  left: `${menuPos.value.left}px`
-}))
-
+const menuStyle = computed(() => ({top: `${menuPos.value.top}px`, left: `${menuPos.value.left}px` }))
 const availableNotes = computed(() => {
   return notes.value.filter(n => n.id !== currentNoteId.value)
 })
 
-
-
-// --- 🌟 编辑器核心配置 ---
 const editor = useEditor({
   extensions: [
     ...spiritExtensions, 
@@ -79,7 +63,6 @@ const editor = useEditor({
   ],
   content: initialContent, 
   editorProps: {
-    // 拦截拖拽 (保持不变)
     handleDrop: (view, event, slice, moved) => {
       if (!moved && event.dataTransfer?.files?.length) {
         const file = event.dataTransfer.files[0];
@@ -89,7 +72,6 @@ const editor = useEditor({
       }
       return false;
     },
-    // 拦截粘贴 (保持不变)
     handlePaste: (view, event) => {
       const items = event.clipboardData?.items;
       if (items) {
@@ -145,7 +127,7 @@ const editor = useEditor({
   }
 })
 
-// --- 交互逻辑 ---
+
 const handleLinkNavigation = (e: MouseEvent) => {
   const target = e.target as HTMLElement;
   const node = target.closest('[data-spirit-id]');
@@ -186,7 +168,6 @@ const handleSlashImageInsert = (e: Event) => {
   }
 };
 
-
 onMounted(() => {
   window.addEventListener('mousedown', closeMenus);
   document.addEventListener('click', handleLinkNavigation, { capture: true });
@@ -194,15 +175,11 @@ onMounted(() => {
   if (editor.value && editor.value.view) {
     editor.value.view.dom.addEventListener('spirit-insert-image', handleSlashImageInsert);
   }
-  
 });
 
 onUnmounted(() => {
   window.removeEventListener('mousedown', closeMenus);
   document.removeEventListener('click', handleLinkNavigation, { capture: true });
-
-
- 
 });
 
 defineExpose({ 

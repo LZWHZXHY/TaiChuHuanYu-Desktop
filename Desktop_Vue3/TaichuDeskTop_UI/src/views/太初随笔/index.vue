@@ -27,11 +27,7 @@
           </button>
         </div>
       </div>
-      <div class="nav-right">
-        <button class="lingmai-link" @click="goToLingMai">
-          进入灵脉空间 <span class="arrow">→</span>
-        </button>
-      </div>
+      
     </header>
 
     <main class="curated-view">

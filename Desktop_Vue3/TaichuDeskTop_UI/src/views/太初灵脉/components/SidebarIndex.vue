@@ -51,11 +51,7 @@
           <div v-if="isCreateMenuOpen" class="create-dropdown" @click.stop>
             <div class="create-opt" @click="handleCreateWithType('note')">笔记 (Note)</div>
             <div class="create-opt" @click="handleCreateWithType('schedule')">日历看板 (Schedule)</div>
-            <div class="create-opt" @click="handleCreateWithType('doc')">协作文档 (doc)</div>
-            <div class="create-opt" @click="handleCreateWithType('post')">简语 (Post)</div>
-            <div class="create-opt" @click="handleCreateWithType('blog')">随笔 (Blog)</div>
             <div class="create-opt" @click="handleCreateWithType('wiki')">词条 (Wiki)</div>
-            <div class="create-opt" @click="handleCreateWithType('char')">角色 (Char)</div>
             <div class="create-opt" @click="handleCreateWithType('art')">画廊 (Art)</div>
             <div class="create-opt" @click="handleCreateWithType('canvas')">星图白板 (Canvas)</div>
             <div class="create-opt" @click="handleCreateWithType('map')">世界地图 (Map)</div>

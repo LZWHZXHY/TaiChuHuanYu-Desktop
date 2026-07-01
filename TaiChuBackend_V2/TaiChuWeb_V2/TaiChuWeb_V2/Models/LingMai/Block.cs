@@ -1,8 +1,8 @@
-﻿using System;
+﻿using Microsoft.EntityFrameworkCore; // 🌟 引入用于配置复合索引
+using NanoidDotNet;
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore; // 🌟 引入用于配置复合索引
-
 namespace TaiChuWeb_V2.Models.LingMai
 {
     [Table("blocks")]
@@ -12,7 +12,7 @@ namespace TaiChuWeb_V2.Models.LingMai
     {
         [Key]
         [MaxLength(128)] // 使用 NanoID (21位)，比 GUID 更短，前端生成快
-        public string Id { get; set; } = string.Empty;
+        public string Id { get; set; } = Nanoid.Generate(size: 21);
 
         /// <summary>
         /// 🌟 多态指针：可以是 NoteId、WikiArticleId、ArtworkId 等
