@@ -9,6 +9,41 @@ const router = createRouter({
       component: () => import('../views/推送首页/index.vue')
     },
     {
+      path: '/lingmai',
+      component: () => import('@/views/太初灵脉/SpiritLayout.vue'), // 新 Layout，包含 SidebarIndex 和 TopBar
+      meta: { requiresAuth: true },
+      children: [
+        {
+    path: '',
+    redirect: '/lingmai/note'  // ✅ 使用绝对路径
+  },
+    {
+      path: 'note/:id?',
+      name: 'SpiritNote',
+      component: () => import('@/views/太初灵脉/components/NoteEditorView.vue'),
+      props: true
+    },
+        {
+          path: 'graph', // 全屏图谱
+          name: 'SpiritGraph',
+          component: () => import('@/views/太初灵脉/components/GraphView.vue'),
+          props: true
+        },
+        {
+          path: 'settings/:id', // 笔记设置（可保留为弹窗，但路由驱动更稳）
+          name: 'SpiritSettings',
+          component: () => import('@/views/太初灵脉/components/NoteSettingsPanel.vue'),
+          props: true
+        },
+        {
+          path: 'wiki/:id', // 百科编辑专属路由
+          name: 'WikiEdit',
+          component: () => import('@/views/太初灵脉/components/WorkspaceWiki.vue'),
+          props: true
+        }
+      ]
+    },
+    {
       path: '/LoginRegister', 
       name: '身份认证',
       component: () => import('../views/身份认证/index.vue') 

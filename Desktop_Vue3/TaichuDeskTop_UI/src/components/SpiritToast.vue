@@ -1,12 +1,13 @@
 <template>
   <div class="spirit-toast-container">
     <transition-group name="toast-slide" tag="div" class="toast-list">
-      <div 
-        v-for="toast in toasts" 
-        :key="toast.id" 
+      <div
+        v-for="toast in toasts"
+        :key="toast.id"
         class="spirit-toast"
+        :class="toast.type ? `toast-${toast.type}` : ''"
       >
-        <div class="toast-icon">✨</div>
+        <div class="toast-icon">{{ toast.icon || '✨' }}</div>
         <div class="toast-content">
           <span class="toast-message">{{ toast.message }}</span>
         </div>
@@ -16,41 +17,53 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, shallowRef } from 'vue';
 
-interface Toast {
+interface ToastItem {
   id: string;
   message: string;
+  icon?: string;
+  type?: 'success' | 'error' | 'info';
 }
 
-const toasts = ref<Toast[]>([]);
+const toasts = ref<ToastItem[]>([]);
 
-// 暴露给外部调用的触发方法
-const show = (message: string = '作品已固化至灵脉', duration: number = 3000) => {
+/**
+ * 显示一个 Toast 提示
+ * @param message 提示文本
+ * @param duration 显示时长（毫秒），默认 3000
+ * @param icon 自定义图标，默认 '✨'
+ * @param type 可选类型，用于样式差异化
+ */
+const show = (
+  message: string = '作品已固化至灵脉',
+  duration: number = 3000,
+  icon: string = '✨',
+  type?: 'success' | 'error' | 'info'
+) => {
   const id = `toast_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  
-  toasts.value.push({ id, message });
+  const toast: ToastItem = { id, message, icon, type };
+  toasts.value.push(toast);
 
-  // 定时自动移除
   setTimeout(() => {
-    const index = toasts.value.findIndex(t => t.id === id);
+    const index = toasts.value.findIndex((t) => t.id === id);
     if (index !== -1) {
       toasts.value.splice(index, 1);
     }
   }, duration);
 };
 
-// 将 show 方法暴露给父组件引用
+// 暴露给父组件
 defineExpose({ show });
 </script>
 
 <style scoped>
 .spirit-toast-container {
   position: fixed;
-  bottom: 32px; /* 放在右下角角落 */
+  bottom: 32px;
   right: 32px;
-  z-index: 10000; /* 确保在最顶层 */
-  pointer-events: none; /* 防止遮挡用户的鼠标操作 */
+  z-index: 10000;
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -70,12 +83,27 @@ defineExpose({ show });
   backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(0, 0, 0, 0.05);
   padding: 12px 20px;
-  border-radius: 100px; /* 极致圆角，契合 Apple 风格 */
+  border-radius: 100px;
   box-shadow: 0 10px 40px rgba(0, 102, 204, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
   color: #1d1d1f;
   font-size: 14px;
   font-weight: 600;
-  pointer-events: auto; /* 恢复自身元素的鼠标交互 */
+  pointer-events: auto;
+  transition: all 0.2s;
+}
+
+/* 可选：不同颜色的类型提示 */
+.toast-success .toast-icon {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.toast-error .toast-icon {
+  background: #ffebee;
+  color: #c62828;
+}
+.toast-info .toast-icon {
+  background: #e3f2fd;
+  color: #0d47a1;
 }
 
 .toast-icon {
@@ -88,6 +116,7 @@ defineExpose({ show });
   border-radius: 50%;
   font-size: 14px;
   color: #0066cc;
+  flex-shrink: 0;
 }
 
 .toast-message {
@@ -110,7 +139,6 @@ defineExpose({ show });
   transform: translateY(-20px) scale(0.9);
 }
 
-/* 确保移除元素时其他元素能平滑移动补位 */
 .toast-slide-leave-active {
   position: absolute;
 }
