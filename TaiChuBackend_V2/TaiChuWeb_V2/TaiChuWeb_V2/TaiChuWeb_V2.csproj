@@ -11,12 +11,15 @@
 		<PackageReference Include="MailKit" Version="4.16.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+		<PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
 		<PackageReference Include="Nanoid" Version="3.1.0" />
 		<PackageReference Include="Scalar.AspNetCore" Version="2.0.0" />
 
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="9.0.0" />
 		<PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
+		<PackageReference Include="System.Drawing.Common" Version="10.0.9" />
+		<PackageReference Include="Tencent.QCloud.Cos.Sdk" Version="5.4.51" />
 		<PackageReference Include="TencentCloudSDK.Sts" Version="3.0.1301" />
 	</ItemGroup>
 

@@ -5,6 +5,8 @@ using Scalar.AspNetCore; // 如果这行报错，说明还没执行 dotnet add p
 using System.Text;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Filters;
+using TaiChuWeb_V2.Services;
+using TaiChuWeb_V2.Services.Cos;
 using TaiChuWeb_V2.Services.Email;
 using TaiChuWeb_V2.Services.LingMai;
 using TaiChuWeb_V2.Services.Publish;
@@ -34,6 +36,9 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddSingleton<CosService>();
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<WatermarkService>();
 builder.Services.AddScoped<ILingMaiPublishHandler, DocPublishHandler>();
 builder.Services.AddScoped<ILingMaiPublishHandler, PostPublishHandler>();
 builder.Services.AddScoped<ILingMaiPublishHandler, BlogPublishHandler>();

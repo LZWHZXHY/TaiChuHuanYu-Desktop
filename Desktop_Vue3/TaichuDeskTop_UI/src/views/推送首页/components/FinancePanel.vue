@@ -51,7 +51,7 @@
                   <div class="chart-box">
                     <span class="chart-sub-title">INCOME_DIST // 收入来源分布</span>
                     <div class="echart-holder">
-                      <div :ref="el => mountIncomeChart(el as HTMLDivElement)" class="echart-instance"></div>
+                      <div ref="incomeChartEl" class="echart-instance"></div>
                     </div>
                   </div>
 
@@ -59,7 +59,7 @@
                   <div class="chart-box">
                     <span class="chart-sub-title">EXPENSE_DIST // 商户开销支出分布</span>
                     <div class="echart-holder">
-                      <div :ref="el => mountShouKuanChart(el as HTMLDivElement)" class="echart-instance"></div>
+                      <div ref="shouKuanChartEl" class="echart-instance"></div>
                     </div>
                   </div>
                   
@@ -67,7 +67,7 @@
                   <div class="chart-box">
                     <span class="chart-sub-title">MEMBER_CONTRIB // 共建者出资比例</span>
                     <div class="echart-holder">
-                      <div :ref="el => mountZhiChuChart(el as HTMLDivElement)" class="echart-instance"></div>
+                      <div ref="zhiChuChartEl" class="echart-instance"></div>
                     </div>
                   </div>
                 </div>
@@ -76,7 +76,7 @@
                 <div class="chart-box trend-panel-box">
                   <span class="chart-sub-title">ANNUAL_TREND // 历史年度总开销趋势走向</span>
                   <div class="echart-holder line-holder">
-                    <div :ref="el => mountTrendChart(el as HTMLDivElement)" class="echart-instance"></div>
+                    <div ref="trendChartEl" class="echart-instance"></div>
                   </div>
                 </div>
               </section>
@@ -117,9 +117,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onBeforeUnmount, shallowRef, markRaw } from 'vue';
-import * as echarts from 'echarts'; 
-import request from '@/utils/request'; 
+import { ref, computed, onBeforeUnmount, nextTick, watch, shallowRef } from 'vue';
+import * as echarts from 'echarts';
+import request from '@/utils/request';
 
 interface FinancialDto {
   index: number;
@@ -128,14 +128,20 @@ interface FinancialDto {
   date: string;
   shouKuan: string;
   amount: number;
-  payReceive: number; 
+  payReceive: number;
 }
 
 const isOpen = ref(false);
 const loading = ref(false);
 const financeLogs = ref<FinancialDto[]>([]);
 
-// 4个图表实例的纯净受控包装
+// 图表容器元素引用
+const incomeChartEl = ref<HTMLDivElement | null>(null);
+const shouKuanChartEl = ref<HTMLDivElement | null>(null);
+const zhiChuChartEl = ref<HTMLDivElement | null>(null);
+const trendChartEl = ref<HTMLDivElement | null>(null);
+
+// 图表实例
 const incomeInstance = shallowRef<echarts.ECharts | null>(null);
 const shouKuanInstance = shallowRef<echarts.ECharts | null>(null);
 const zhiChuInstance = shallowRef<echarts.ECharts | null>(null);
@@ -162,39 +168,30 @@ const monthlyIncome = computed(() => {
 });
 
 /* ==========================================
-   🌟 精准清洗层：三图数据完美映射归集
+   图表数据清洗
    ========================================== */
-
-// 1. 🌟 新增：清洗并累加所有收入来源分布式数据 (payReceive === 0)
 const incomeChartData = computed(() => {
   const map: Record<string, number> = {};
   financeLogs.value.forEach(log => {
     if (log.payReceive === 0) {
-      // 提取哪个项目赚了钱（比如游戏投资返还、赞助款项目、商户退款等）
       let name = (log.zhiChuXiangMu || '社区共建赞助').replace(/[\r\n\s]+/g, '').trim();
-      // 如果项目描述太长，截取前 8 个字符作为归集键名防止字样重叠
       if (name.length > 8) name = name.substring(0, 8) + '...';
       map[name] = (map[name] || 0) + log.amount;
     }
   });
-  return Object.keys(map).map(k => ({ name: k, value: Math.round(map[k]) })).sort((a,b) => b.value - a.value);
+  return Object.keys(map).map(k => ({ name: k, value: Math.round(map[k]) })).sort((a, b) => b.value - a.value);
 });
 
-// 2. 归集商户支出分布 (payReceive === 1)
 const shouKuanChartData = computed(() => {
   const map: Record<string, number> = {};
   financeLogs.value.forEach(log => {
     if (log.payReceive === 1) {
       let name = (log.shouKuan || '其他开销').replace(/[\r\n\s]+/g, '').trim();
-      if (name.includes('[')) name = name.split('[')[0]; 
+      if (name.includes('[')) name = name.split('[')[0];
       map[name] = (map[name] || 0) + log.amount;
     }
   });
-
-  const sorted = Object.keys(map)
-    .map(k => ({ name: k, value: Math.round(map[k]) }))
-    .sort((a, b) => b.value - a.value);
-
+  const sorted = Object.keys(map).map(k => ({ name: k, value: Math.round(map[k]) })).sort((a, b) => b.value - a.value);
   if (sorted.length <= 3) return sorted;
   const finalData = sorted.slice(0, 3);
   const otherSum = sorted.slice(3).reduce((acc, c) => acc + c.value, 0);
@@ -202,7 +199,6 @@ const shouKuanChartData = computed(() => {
   return finalData;
 });
 
-// 3. 归集共建者出资比例
 const zhiChuChartData = computed(() => {
   const map: Record<string, number> = {};
   financeLogs.value.forEach(log => {
@@ -214,7 +210,6 @@ const zhiChuChartData = computed(() => {
   return Object.keys(map).map(k => ({ name: k, value: Math.round(map[k]) })).sort((a, b) => b.value - a.value);
 });
 
-// 4. 趋势数据
 const trendChartData = computed(() => {
   const map: Record<string, number> = {};
   financeLogs.value.forEach(log => {
@@ -228,217 +223,192 @@ const trendChartData = computed(() => {
 });
 
 /* ==========================================
-   🌟 ECharts 三饼图联动秒级挂载函数式矩阵
+   ECharts 渲染函数（核心修复：只更新数据，不重新创建实例）
    ========================================== */
 
-// 图表一（全新新增）：收入来源分布式环形饼图
-const mountIncomeChart = (el: HTMLDivElement | null) => {
-  if (!el) return;
-  if (incomeInstance.value) incomeInstance.value.dispose();
-  
-  incomeInstance.value = echarts.init(el);
-  const option = markRaw({
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: 'rgba(255,255,255,0.98)',
-      borderColor: colorBlack,
-      borderWidth: 1.5,
-      textStyle: { fontFamily: fontMono, color: colorBlack, fontSize: 10 },
-      formatter: '{b}: ￥{c} ({d}%)'
-    },
-    legend: {
-      orient: 'horizontal',
-      bottom: '0%',
-      left: 'center',
-      icon: 'circle',
-      itemWidth: 6,
-      itemHeight: 6,
-      textStyle: { fontFamily: fontMono, fontSize: 8.5, color: colorBlack },
-      formatter: (name: string) => {
-        const target = incomeChartData.value.find(d => d.name === name);
-        return `${name} ￥${target ? target.value : 0}`;
-      }
-    },
-    series: [{
-      type: 'pie',
-      radius: ['50%', '76%'],
-      center: ['50%', '42%'], // 圆心向上微调，给底部的横向 Legend 腾出绝佳空间
-      avoidLabelOverlap: false,
-      itemStyle: { borderColor: '#fff', borderWidth: 1.5 },
-      label: { show: false },
-      color: ['#2da44e', '#54b677', '#8cd1a4', '#b6e5cd'], // 炫酷的生态丰收全绿色阶
-      data: incomeChartData.value.length ? incomeChartData.value : [{ name: '暂无项目收入', value: 0 }]
-    }]
-  });
-  incomeInstance.value.setOption(option as any);
-  setTimeout(() => incomeInstance.value?.resize(), 60);
+// 通用图表更新函数
+const updateChart = (instance: echarts.ECharts | null, option: any) => {
+  if (!instance) return;
+  instance.setOption(option, true); // notMerge = true 完全替换
+  instance.resize();
 };
 
-// 图表二：商户支出分布图
-const mountShouKuanChart = (el: HTMLDivElement | null) => {
-  if (!el || shouKuanChartData.value.length === 0) return;
-  if (shouKuanInstance.value) shouKuanInstance.value.dispose();
+// 生成图表配置
+const getPieOption = (data: any[], colors: string[]) => ({
+  tooltip: {
+    trigger: 'item',
+    backgroundColor: 'rgba(255,255,255,0.98)',
+    borderColor: colorBlack,
+    borderWidth: 1.5,
+    textStyle: { fontFamily: fontMono, color: colorBlack, fontSize: 10 },
+    formatter: '{b}: ￥{c} ({d}%)'
+  },
+  legend: {
+    orient: 'horizontal',
+    bottom: '0%',
+    left: 'center',
+    icon: 'circle',
+    itemWidth: 6,
+    itemHeight: 6,
+    textStyle: { fontFamily: fontMono, fontSize: 8.5, color: colorBlack },
+    formatter: (name: string) => {
+      const target = data.find(d => d.name === name);
+      return `${name} ￥${target ? target.value : 0}`;
+    }
+  },
+  series: [{
+    type: 'pie',
+    radius: ['50%', '76%'],
+    center: ['50%', '42%'],
+    avoidLabelOverlap: false,
+    itemStyle: { borderColor: '#fff', borderWidth: 1.5 },
+    label: { show: false },
+    color: colors,
+    data: data.length ? data : [{ name: '暂无数据', value: 0 }]
+  }]
+});
 
-  shouKuanInstance.value = echarts.init(el);
-  const option = markRaw({
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: 'rgba(255,255,255,0.98)',
-      borderColor: colorBlack,
-      borderWidth: 1.5,
-      textStyle: { fontFamily: fontMono, color: colorBlack, fontSize: 10 },
-      formatter: '{b}: ￥{c} ({d}%)'
+const getTrendOption = (years: string[], values: number[]) => ({
+  tooltip: {
+    trigger: 'axis',
+    backgroundColor: '#fff',
+    borderColor: colorBlack,
+    borderWidth: 1.5,
+    textStyle: { fontFamily: fontMono, fontSize: 10 },
+    axisPointer: { type: 'line', lineStyle: { color: colorBlack, type: 'dashed' } }
+  },
+  grid: { left: '2%', right: '3%', bottom: '8%', top: '22%', containLabel: true },
+  xAxis: {
+    type: 'category',
+    data: years,
+    axisLine: { lineStyle: { color: '#eaecef' } },
+    axisTick: { show: false },
+    axisLabel: { fontFamily: fontMono, color: '#6e7781', fontSize: 9.5 }
+  },
+  yAxis: {
+    type: 'value',
+    splitLine: { lineStyle: { color: '#f6f8fa', type: 'dashed' } },
+    axisLabel: { fontFamily: fontMono, color: '#8c959f', fontSize: 9.5 }
+  },
+  series: [{
+    name: '年度总支出',
+    type: 'line',
+    smooth: 0.12,
+    data: values,
+    itemStyle: { color: colorBlack },
+    lineStyle: { width: 1.8, color: colorBlack },
+    symbol: 'circle',
+    symbolSize: 6,
+    areaStyle: {
+      color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+        { offset: 0, color: 'rgba(31, 35, 40, 0.12)' },
+        { offset: 1, color: 'rgba(31, 35, 40, 0.01)' }
+      ])
     },
-    legend: {
-      orient: 'horizontal',
-      bottom: '0%',
-      left: 'center',
-      icon: 'circle',
-      itemWidth: 6,
-      itemHeight: 6,
-      textStyle: { fontFamily: fontMono, fontSize: 8.5, color: colorBlack },
-      formatter: (name: string) => {
-        const target = shouKuanChartData.value.find(d => d.name === name);
-        const displayName = name.length > 5 ? name.substring(0, 5) + '..' : name;
-        return `${displayName} ￥${target ? target.value : 0}`;
-      }
-    },
-    series: [{
-      type: 'pie',
-      radius: ['50%', '76%'],
-      center: ['50%', '42%'],
-      avoidLabelOverlap: false,
-      itemStyle: { borderColor: '#fff', borderWidth: 2 },
-      label: { show: false },
-      color: ['#1f2328', '#57606a', '#8c959f', '#cbd5e1'],
-      data: shouKuanChartData.value
-    }]
+    label: {
+      show: true,
+      position: 'top',
+      fontFamily: fontMono,
+      fontSize: 9.5,
+      fontWeight: 'bold',
+      color: colorBlack,
+      formatter: '￥{c}',
+      distance: 10
+    }
+  }]
+});
+
+// 挂载所有图表（在数据加载后调用）
+const mountAllCharts = () => {
+  // 清理旧实例
+  [incomeInstance, shouKuanInstance, zhiChuInstance, trendInstance].forEach(inst => {
+    if (inst.value) {
+      inst.value.dispose();
+      inst.value = null;
+    }
   });
-  shouKuanInstance.value.setOption(option as any);
-  setTimeout(() => shouKuanInstance.value?.resize(), 60);
+
+  // 重新初始化
+  if (incomeChartEl.value) {
+    incomeInstance.value = echarts.init(incomeChartEl.value);
+    incomeInstance.value.setOption(getPieOption(incomeChartData.value, ['#2da44e', '#54b677', '#8cd1a4', '#b6e5cd']));
+    incomeInstance.value.resize();
+  }
+  if (shouKuanChartEl.value) {
+    shouKuanInstance.value = echarts.init(shouKuanChartEl.value);
+    shouKuanInstance.value.setOption(getPieOption(shouKuanChartData.value, ['#1f2328', '#57606a', '#8c959f', '#cbd5e1']));
+    shouKuanInstance.value.resize();
+  }
+  if (zhiChuChartEl.value) {
+    zhiChuInstance.value = echarts.init(zhiChuChartEl.value);
+    zhiChuInstance.value.setOption(getPieOption(zhiChuChartData.value, ['#1f2328', '#e68a2e', '#8c959f', '#cbd5e1']));
+    zhiChuInstance.value.resize();
+  }
+  if (trendChartEl.value && trendChartData.value.years.length > 0) {
+    trendInstance.value = echarts.init(trendChartEl.value);
+    trendInstance.value.setOption(getTrendOption(trendChartData.value.years, trendChartData.value.values));
+    trendInstance.value.resize();
+  }
 };
 
-// 图表三：共建人出资饼图
-const mountZhiChuChart = (el: HTMLDivElement | null) => {
-  if (!el || zhiChuChartData.value.length === 0) return;
-  if (zhiChuInstance.value) zhiChuInstance.value.dispose();
+// 图表更新监听（数据变化时更新，但不重新创建实例）
+watch(incomeChartData, () => {
+  if (incomeInstance.value) {
+    incomeInstance.value.setOption(getPieOption(incomeChartData.value, ['#2da44e', '#54b677', '#8cd1a4', '#b6e5cd']), true);
+    incomeInstance.value.resize();
+  }
+}, { deep: true });
 
-  zhiChuInstance.value = echarts.init(el);
-  const option = markRaw({
-    tooltip: {
-      trigger: 'item',
-      backgroundColor: 'rgba(255,255,255,0.98)',
-      borderColor: colorBlack,
-      borderWidth: 1.5,
-      textStyle: { fontFamily: fontMono, color: colorBlack, fontSize: 10 },
-      formatter: '{b}: ￥{c} ({d}%)'
-    },
-    legend: {
-      orient: 'horizontal',
-      bottom: '0%',
-      left: 'center',
-      icon: 'circle',
-      itemWidth: 6,
-      itemHeight: 6,
-      textStyle: { fontFamily: fontMono, fontSize: 8.5, color: colorBlack },
-      formatter: (name: string) => {
-        const target = zhiChuChartData.value.find(d => d.name === name);
-        return `${name} ￥${target ? target.value : 0}`;
-      }
-    },
-    series: [{
-      type: 'pie',
-      radius: ['50%', '76%'],
-      center: ['50%', '42%'],
-      avoidLabelOverlap: false,
-      itemStyle: { borderColor: '#fff', borderWidth: 2 },
-      label: { show: false },
-      color: ['#1f2328', '#e68a2e', '#8c959f', '#cbd5e1'],
-      data: zhiChuChartData.value
-    }]
-  });
-  zhiChuInstance.value.setOption(option as any);
-  setTimeout(() => zhiChuInstance.value?.resize(), 60);
-};
+watch(shouKuanChartData, () => {
+  if (shouKuanInstance.value) {
+    shouKuanInstance.value.setOption(getPieOption(shouKuanChartData.value, ['#1f2328', '#57606a', '#8c959f', '#cbd5e1']), true);
+    shouKuanInstance.value.resize();
+  }
+}, { deep: true });
 
-// 图表四：历史趋势走向图
-const mountTrendChart = (el: HTMLDivElement | null) => {
-  if (!el || trendChartData.value.years.length === 0) return;
-  if (trendInstance.value) trendInstance.value.dispose();
+watch(zhiChuChartData, () => {
+  if (zhiChuInstance.value) {
+    zhiChuInstance.value.setOption(getPieOption(zhiChuChartData.value, ['#1f2328', '#e68a2e', '#8c959f', '#cbd5e1']), true);
+    zhiChuInstance.value.resize();
+  }
+}, { deep: true });
 
-  trendInstance.value = echarts.init(el);
-  const option = markRaw({
-    tooltip: {
-      trigger: 'axis',
-      backgroundColor: '#fff',
-      borderColor: colorBlack,
-      borderWidth: 1.5,
-      textStyle: { fontFamily: fontMono, fontSize: 10 },
-      axisPointer: { type: 'line', lineStyle: { color: colorBlack, type: 'dashed' } }
-    },
-    grid: { left: '2%', right: '3%', bottom: '8%', top: '22%', containLabel: true },
-    xAxis: {
-      type: 'category',
-      data: trendChartData.value.years,
-      axisLine: { lineStyle: { color: '#eaecef' } },
-      axisTick: { show: false },
-      axisLabel: { fontFamily: fontMono, color: '#6e7781', fontSize: 9.5 }
-    },
-    yAxis: {
-      type: 'value',
-      splitLine: { lineStyle: { color: '#f6f8fa', type: 'dashed' } },
-      axisLabel: { fontFamily: fontMono, color: '#8c959f', fontSize: 9.5 }
-    },
-    series: [{
-      name: '年度总支出',
-      type: 'line',
-      smooth: 0.12,
-      data: trendChartData.value.values,
-      itemStyle: { color: colorBlack },
-      lineStyle: { width: 1.8, color: colorBlack },
-      symbol: 'circle',
-      symbolSize: 6,
-      areaStyle: {
-        color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: 'rgba(31, 35, 40, 0.12)' },
-          { offset: 1, color: 'rgba(31, 35, 40, 0.01)' }
-        ])
-      },
-      label: {
-        show: true,
-        position: 'top',
-        fontFamily: fontMono,
-        fontSize: 9.5,
-        fontWeight: 'bold',
-        color: colorBlack,
-        formatter: '￥{c}',
-        distance: 10 
-      }
-    }]
-  });
-  trendInstance.value.setOption(option as any);
-  setTimeout(() => trendInstance.value?.resize(), 60);
-};
+watch(trendChartData, () => {
+  if (trendInstance.value && trendChartData.value.years.length > 0) {
+    trendInstance.value.setOption(getTrendOption(trendChartData.value.years, trendChartData.value.values), true);
+    trendInstance.value.resize();
+  }
+}, { deep: true });
 
+// 窗口大小变化
 const handleResize = () => {
-  incomeInstance.value?.resize();
-  shouKuanInstance.value?.resize();
-  zhiChuInstance.value?.resize();
-  trendInstance.value?.resize();
+  [incomeInstance, shouKuanInstance, zhiChuInstance, trendInstance].forEach(inst => {
+    inst.value?.resize();
+  });
 };
 
+// 清理
 const destroyCharts = () => {
-  if (incomeInstance.value) { incomeInstance.value.dispose(); incomeInstance.value = null; }
-  if (shouKuanInstance.value) { shouKuanInstance.value.dispose(); shouKuanInstance.value = null; }
-  if (zhiChuInstance.value) { zhiChuInstance.value.dispose(); zhiChuInstance.value = null; }
-  if (trendInstance.value) { trendInstance.value.dispose(); trendInstance.value = null; }
+  [incomeInstance, shouKuanInstance, zhiChuInstance, trendInstance].forEach(inst => {
+    if (inst.value) {
+      inst.value.dispose();
+      inst.value = null;
+    }
+  });
 };
 
+// 数据加载
 const fetchFinanceData = async () => {
   loading.value = true;
   try {
     const data = await request.get<FinancialDto[]>('/financial/report');
     financeLogs.value = data || [];
+    // 等待 DOM 更新
+    await nextTick();
+    // 延迟一帧确保容器已渲染
+    requestAnimationFrame(() => {
+      mountAllCharts();
+    });
   } catch (error) {
     console.error('组件层捕获财务流失败:', error);
   } finally {
@@ -446,17 +416,25 @@ const fetchFinanceData = async () => {
   }
 };
 
+// 打开弹窗
 const openModal = () => {
   isOpen.value = true;
   document.body.style.overflow = 'hidden';
   window.addEventListener('resize', handleResize);
-  fetchFinanceData();
+  // 重置数据
+  financeLogs.value = [];
+  // 等待弹窗渲染完成后加载数据
+  nextTick(() => {
+    fetchFinanceData();
+  });
 };
 
+// 关闭弹窗
 const closeModal = () => {
   isOpen.value = false;
   document.body.style.overflow = '';
   window.removeEventListener('resize', handleResize);
+  destroyCharts();
 };
 
 const formatDate = (dateStr: string) => {
@@ -465,7 +443,10 @@ const formatDate = (dateStr: string) => {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
 };
 
-onBeforeUnmount(destroyCharts);
+onBeforeUnmount(() => {
+  destroyCharts();
+  window.removeEventListener('resize', handleResize);
+});
 </script>
 
 <style scoped>

@@ -9,7 +9,32 @@ namespace TaiChuWeb_V2.Models.Artwork
         [Key]
         public int Id { get; set; }
 
- 
+
+        // ========== 水印类型 ==========
+        [MaxLength(10)]
+        public string WatermarkType { get; set; } = "text"; // text | image | both
+
+
+        // ---------- 文字水印 ----------
+        public bool WatermarkEnabled { get; set; } = true;
+        [MaxLength(100)]
+        public string? WatermarkText { get; set; }
+        [MaxLength(30)]
+        public string? WatermarkPosition { get; set; } = "bottom-right";
+        public int WatermarkFontSize { get; set; } = 14;
+        public double WatermarkOpacity { get; set; } = 0.6;
+        [MaxLength(20)]
+        public string? WatermarkColor { get; set; } = "#ffffff";
+        public int WatermarkRotation { get; set; } = 0;
+
+        [MaxLength(500)]
+        public string? WatermarkImageUrl { get; set; }
+        public int WatermarkImageWidth { get; set; } = 120;
+        public int WatermarkImageHeight { get; set; } = 120;
+        public double WatermarkImageScale { get; set; } = 0.3;
+        public double WatermarkImageOpacity { get; set; } = 0.6;
+
+
         public Guid? OriginalNoteId { get; set; }
 
         [Required]

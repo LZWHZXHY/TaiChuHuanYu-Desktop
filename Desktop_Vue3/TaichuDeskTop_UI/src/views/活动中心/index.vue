@@ -20,9 +20,9 @@
         </router-link>
       </nav>
       <div class="user-profile">
-        <div class="avatar">JC</div>
+        <div class="avatar">螣蛇</div>
         <div class="user-info">
-          <p class="name">Junjie Chen</p>
+          <p class="name">螣蛇</p>
           <p class="role">开发者 · 活跃</p>
         </div>
       </div>

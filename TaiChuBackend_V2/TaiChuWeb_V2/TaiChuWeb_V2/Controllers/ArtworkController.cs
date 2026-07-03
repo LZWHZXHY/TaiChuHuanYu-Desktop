@@ -65,7 +65,7 @@ namespace TaiChuWeb_V2.Controllers
 
 
         [HttpGet("{id}")]
-        public async Task<ActionResult> GetArtworkDetail(int id)
+        public async Task<ActionResult<ArtworkDetailDto>> GetArtworkDetail(int id)
         {
             var artwork = await _context.Artworks
                 .Include(a => a.Uploader)
@@ -78,24 +78,41 @@ namespace TaiChuWeb_V2.Controllers
                 return NotFound(new { message = "作品跑丢了~" });
             }
 
-            return Ok(new
+            var dto = new ArtworkDetailDto
             {
-                artwork.Id,
-                artwork.Title,
-                artwork.Description,
-                artwork.UploadAt,
-                Author = new
+                Id = artwork.Id,
+                Title = artwork.Title,
+                Description = artwork.Description,
+                UploadAt = artwork.UploadAt,
+                Author = new AuthorDto
                 {
-                    artwork.Uploader.Username,
-                    artwork.Uploader.Profile?.Avatar,
-                    artwork.Uploader.Profile?.Bio
+                    Username = artwork.Uploader.Username,
+                    Avatar = artwork.Uploader.Profile?.Avatar,
+                    Bio = artwork.Uploader.Profile?.Bio
                 },
-                // 返回该作品下所有的图片 URL
-                images = artwork.Images.Select(img => new {
-                    url = img.ImageUrl,
-                    caption = img.Caption // 🌟 将数据库里的 Caption 传给前端
-                }).ToList()
-            });
+                Images = artwork.Images.Select(img => new ArtworkImageDto
+                {
+                    Url = img.ImageUrl,
+                    Caption = img.Caption
+                }).ToList(),
+
+                // ========== 水印配置 ==========
+                WatermarkType = artwork.WatermarkType ?? "text",
+                WatermarkEnabled = artwork.WatermarkEnabled,
+                WatermarkText = artwork.WatermarkText ?? "",
+                WatermarkPosition = artwork.WatermarkPosition ?? "bottom-right",
+                WatermarkFontSize = artwork.WatermarkFontSize,
+                WatermarkOpacity = artwork.WatermarkOpacity,
+                WatermarkColor = artwork.WatermarkColor ?? "#ffffff",
+                WatermarkRotation = artwork.WatermarkRotation,
+                WatermarkImageUrl = artwork.WatermarkImageUrl,
+                WatermarkImageWidth = artwork.WatermarkImageWidth,
+                WatermarkImageHeight = artwork.WatermarkImageHeight,
+                WatermarkImageScale = artwork.WatermarkImageScale,
+                WatermarkImageOpacity = artwork.WatermarkImageOpacity
+            };
+
+            return Ok(dto);
         }
     }
 }
