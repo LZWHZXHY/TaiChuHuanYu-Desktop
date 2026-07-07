@@ -489,12 +489,18 @@ const removeTag = (tag: string) => {
   form.value.tags = form.value.tags.filter(t => t !== tag);
 };
 
-const getCardTags = (tagsStr: string) => {
-  try {
-    return JSON.parse(tagsStr || '[]');
-  } catch {
-    return [];
+const getCardTags = (tags: any) => {
+  // 如果已经是数组，直接返回
+  if (Array.isArray(tags)) return tags;
+  // 如果是字符串，尝试解析 JSON
+  if (typeof tags === 'string') {
+    try {
+      return JSON.parse(tags);
+    } catch {
+      return [];
+    }
   }
+  return [];
 };
 
 // ===== 重置表单 =====
@@ -574,7 +580,7 @@ const handleSave = async () => {
     attributes: form.value.attributes,
     description: form.value.description.trim(),
     content: contentStr,
-    tags: JSON.stringify(form.value.tags),
+    tags: form.value.tags,  
     relations: form.value.relations,
     timelineEvents: form.value.timelineEvents,
     embeddedCards: form.value.embeddedCards,
