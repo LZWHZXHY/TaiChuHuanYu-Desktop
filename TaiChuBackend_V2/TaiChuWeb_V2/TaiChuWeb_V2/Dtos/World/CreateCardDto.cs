@@ -30,6 +30,9 @@ namespace TaiChuWeb_V2.Dtos.World
         public List<Guid> EmbeddedCards { get; set; } = new();
 
         public string? Content { get; set; }  // 兼容旧数据
+
+        public string? CoverImage { get; set; }
+
     }
 
     public class AttributeDto

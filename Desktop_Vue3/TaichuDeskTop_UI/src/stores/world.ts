@@ -48,6 +48,7 @@ export interface WorldCard {
   updatedAt: string;
   relatedIds?: string[];
   relations?: WorldRelation[];
+  coverImage?:string;
 }
 
 export const useWorldStore = defineStore('world', () => {
@@ -88,7 +89,6 @@ export const useWorldStore = defineStore('world', () => {
     loading.value = true;
     try {
       const res = await worldApi.getProjects();
-      // 后端返回字段是大写开头（Id, CreatedAt），需要映射
       projects.value = res.data.map((p: any) => ({
         id: p.id || p.Id,
         name: p.name || p.Name,
@@ -155,7 +155,6 @@ export const useWorldStore = defineStore('world', () => {
       const res = await worldApi.getCards(projectId);
       cards.value = res.data.map((c: any) => mapCard(c));
       
-      // 获取关联
       const relationsRes = await worldApi.getProjectRelations(projectId);
       allRelations.value = relationsRes.data.map((r: any) => ({
         id: r.id || r.Id,
@@ -165,13 +164,11 @@ export const useWorldStore = defineStore('world', () => {
         createdAt: r.createdAt || r.CreatedAt,
       }));
       
-      // 挂载关联到卡片
       cards.value = cards.value.map(card => {
         const relations = allRelations.value.filter(r => r.sourceCardId === card.id);
         return { ...card, relations };
       });
 
-      // 查找当前项目
       const found = projects.value.find(p => p.id === projectId) 
                  || publicProjects.value.find(p => p.id === projectId);
       currentProject.value = found || null;
@@ -199,15 +196,20 @@ export const useWorldStore = defineStore('world', () => {
     return newCard;
   }
 
+  // ===== 修改：需要从卡片列表获取 projectId =====
   async function updateCard(cardId: string, payload: any) {
+    // 获取卡片所在的 projectId
+    const existingCard = cards.value.find(c => c.id === cardId);
+    if (!existingCard) throw new Error('卡片不存在，无法更新');
+
     const { relations, ...cardPayload } = payload;
-    const res = await worldApi.updateCard(cardId, cardPayload);
+    const res = await worldApi.updateCard(existingCard.projectId, cardId, cardPayload);
     const updatedCard = mapCard(res.data);
     
     if (relations !== undefined) {
       const oldRelations = allRelations.value.filter(r => r.sourceCardId === cardId);
       for (const rel of oldRelations) {
-        await worldApi.removeRelation(rel.id);
+        await worldApi.removeRelation(cardId, rel.id);
       }
       for (const rel of relations) {
         await worldApi.addRelation(cardId, rel.targetCardId, rel.relationType);
@@ -226,21 +228,32 @@ export const useWorldStore = defineStore('world', () => {
     return updatedCard;
   }
 
+  // ===== 修改：需要从卡片列表获取 projectId =====
   async function deleteCard(cardId: string) {
+    const existingCard = cards.value.find(c => c.id === cardId);
+    if (!existingCard) throw new Error('卡片不存在，无法删除');
+
     const rels = allRelations.value.filter(r => r.sourceCardId === cardId || r.targetCardId === cardId);
     for (const rel of rels) {
-      await worldApi.removeRelation(rel.id);
+      // 判断当前卡片是源还是目标，以便正确调用删除 API
+      if (rel.sourceCardId === cardId) {
+        await worldApi.removeRelation(cardId, rel.id);
+      } else {
+        // 如果当前卡片是目标卡片，需要从源卡片的角度删除
+        await worldApi.removeRelation(rel.sourceCardId, rel.id);
+      }
     }
-    await worldApi.deleteCard(cardId);
+    await worldApi.deleteCard(existingCard.projectId, cardId);
     cards.value = cards.value.filter(c => c.id !== cardId);
     allRelations.value = allRelations.value.filter(r => r.sourceCardId !== cardId && r.targetCardId !== cardId);
     if (currentCard.value?.id === cardId) currentCard.value = null;
   }
 
-  async function fetchCardDetail(cardId: string) {
+  // ===== 修改：接受 projectId 和 cardId 两个参数 =====
+  async function fetchCardDetail(projectId: string, cardId: string) {
     loading.value = true;
     try {
-      const res = await worldApi.getCard(cardId);
+      const res = await worldApi.getCard(projectId, cardId);
       const card = mapCard(res.data);
       
       const relationsRes = await worldApi.getCardRelations(cardId);
@@ -270,6 +283,7 @@ export const useWorldStore = defineStore('world', () => {
   }
 
   // ---------- 关联管理 ----------
+  // ===== 修改：参数顺序与 worldApi 一致 =====
   async function addRelation(sourceCardId: string, targetCardId: string, relationType: string) {
     const res = await worldApi.addRelation(sourceCardId, targetCardId, relationType);
     const newRelation = {
@@ -288,8 +302,9 @@ export const useWorldStore = defineStore('world', () => {
     return newRelation;
   }
 
-  async function removeRelation(relationId: string) {
-    await worldApi.removeRelation(relationId);
+  // ===== 修改：需要 cardId 和 relationId =====
+  async function removeRelation(cardId: string, relationId: string) {
+    await worldApi.removeRelation(cardId, relationId);
     allRelations.value = allRelations.value.filter(r => r.id !== relationId);
     for (const card of cards.value) {
       if (card.relations) {
@@ -322,6 +337,7 @@ export const useWorldStore = defineStore('world', () => {
       createdAt: c.createdAt || c.CreatedAt,
       updatedAt: c.updatedAt || c.UpdatedAt,
       relations: [],
+      coverImage: c.coverImage || c.CoverImage || '',
     };
   }
 

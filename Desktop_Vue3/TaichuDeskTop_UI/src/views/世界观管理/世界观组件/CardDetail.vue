@@ -257,7 +257,8 @@ const formatDate = (dateStr: string) => {
 const loadData = async () => {
   loading.value = true;
   try {
-    const data = await store.fetchCardDetail(cardId);
+    // 传入 projectId 和 cardId
+    const data = await store.fetchCardDetail(projectId, cardId);
     card.value = data;
   } catch (error) {
     console.error('加载卡片失败:', error);
@@ -266,6 +267,8 @@ const loadData = async () => {
     loading.value = false;
   }
 };
+
+
 
 const goBack = () => {
   router.push(`/world/project/${projectId}`);

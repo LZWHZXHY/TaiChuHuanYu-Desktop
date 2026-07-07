@@ -23,5 +23,8 @@
         public List<Guid>? EmbeddedCards { get; set; }
 
         public string? Content { get; set; }
+
+        public string? CoverImage { get; set; }
+
     }
 }

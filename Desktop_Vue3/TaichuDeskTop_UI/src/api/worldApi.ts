@@ -1,9 +1,5 @@
 // src/api/worldApi.ts
-import request from '@/utils/request';  // 使用你项目中的 request 实例
-
-// ============================================================
-// ========== API 对象 ==========================================
-// ============================================================
+import request from '@/utils/request';
 
 export const worldApi = {
   // ---------- 卡片类型 ----------
@@ -19,7 +15,6 @@ export const worldApi = {
   },
 
   getPublicProjects: async () => {
-    // 后端暂未实现公开项目列表，先获取所有项目然后前端过滤
     const data = await request.get('/world/projects');
     const publicProjects = data.filter((p: any) => p.isPublic);
     return { data: publicProjects };
@@ -40,7 +35,7 @@ export const worldApi = {
     return { data: null };
   },
 
-  // ---------- 卡片 ----------
+  // ---------- 卡片（需要 projectId） ----------
   getCards: async (projectId: string, type?: string) => {
     const url = type
       ? `/world/projects/${projectId}/cards?type=${type}`
@@ -54,39 +49,37 @@ export const worldApi = {
     return { data };
   },
 
-  updateCard: async (cardId: string, payload: any) => {
-    // 后端 PUT 需要 projectId，这里先获取卡片信息
-    const card = await request.get(`/world/cards/${cardId}`);
-    const data = await request.put(`/world/projects/${card.projectId}/cards/${cardId}`, payload);
+  // 修改：增加 projectId 参数
+  getCard: async (projectId: string, cardId: string) => {
+    const data = await request.get(`/world/projects/${projectId}/cards/${cardId}`);
     return { data };
   },
 
-  deleteCard: async (cardId: string) => {
-    const card = await request.get(`/world/cards/${cardId}`);
-    await request.delete(`/world/projects/${card.projectId}/cards/${cardId}`);
+  // 修改：增加 projectId 参数
+  updateCard: async (projectId: string, cardId: string, payload: any) => {
+    const data = await request.put(`/world/projects/${projectId}/cards/${cardId}`, payload);
+    return { data };
+  },
+
+  // 修改：增加 projectId 参数
+  deleteCard: async (projectId: string, cardId: string) => {
+    await request.delete(`/world/projects/${projectId}/cards/${cardId}`);
     return { data: null };
   },
 
-  getCard: async (cardId: string) => {
-    const data = await request.get(`/world/cards/${cardId}`);
-    return { data };
-  },
-
   // ---------- 关联管理 ----------
-  addRelation: async (sourceCardId: string, targetCardId: string, relationType: string) => {
-    const data = await request.post(`/world/cards/${sourceCardId}/relations`, {
+  // 增加 cardId 参数，因为后端需要从 URL 获取
+  addRelation: async (cardId: string, targetCardId: string, relationType: string) => {
+    const data = await request.post(`/world/cards/${cardId}/relations`, {
       targetCardId,
       relationType,
     });
     return { data };
   },
 
-  removeRelation: async (relationId: string) => {
-    // 先获取关联信息，获取 sourceCardId
-    const relations = await request.get(`/world/cards/relations/${relationId}`);
-    // 或者直接调用删除，如果后端支持 DELETE /api/world/relations/{relationId}
-    // 这里假设后端支持直接删除
-    await request.delete(`/world/relations/${relationId}`);
+  // 删除关联需要 cardId 和 relationId
+  removeRelation: async (cardId: string, relationId: string) => {
+    await request.delete(`/world/cards/${cardId}/relations/${relationId}`);
     return { data: null };
   },
 
@@ -96,8 +89,6 @@ export const worldApi = {
   },
 
   getProjectRelations: async (projectId: string) => {
-    // 后端暂未实现获取项目所有关联的接口
-    // 目前只能通过遍历卡片获取
     const cards = await request.get(`/world/projects/${projectId}/cards`);
     let allRelations: any[] = [];
     for (const card of cards) {

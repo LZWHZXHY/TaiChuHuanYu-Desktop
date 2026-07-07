@@ -15,6 +15,32 @@
             <input v-model="form.title" placeholder="给卡片起个名字" maxlength="100" />
           </div>
 
+          <!-- ===== 封面图 ===== -->
+          <div class="field">
+            <label>封面图</label>
+            <div class="cover-upload">
+              <div v-if="form.coverImage" class="cover-preview">
+                <img :src="form.coverImage" alt="封面图" />
+                <button class="remove-cover" @click="form.coverImage = ''">×</button>
+              </div>
+              <div v-else class="cover-upload-area" @click="triggerFileInput">
+                <span class="upload-icon">📷</span>
+                <span class="upload-text">点击上传封面图</span>
+                <span class="upload-hint">支持 JPG, PNG, WEBP</span>
+              </div>
+              <input
+                ref="fileInput"
+                type="file"
+                accept="image/*"
+                style="display: none"
+                @change="handleFileUpload"
+              />
+              <div v-if="uploadingCover" class="upload-progress">
+                <el-progress :percentage="uploadProgress" />
+              </div>
+            </div>
+          </div>
+
           <!-- ===== 类型选择（从后端获取） ===== -->
           <div class="field">
             <label>类型</label>
@@ -224,6 +250,7 @@
 import { ref, watch, computed, nextTick, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useWorldStore } from '../../../stores/world';
+import { useCos } from '@/composables/useCos';
 import { v4 as uuidv4 } from 'uuid';
 
 const props = defineProps<{
@@ -245,9 +272,14 @@ const saving = ref(false);
 const tagInput = ref('');
 const aliasInput = ref('');
 
+// ===== COS 上传 =====
+const fileInput = ref<HTMLInputElement | null>(null);
+const uploadingCover = ref(false);
+const uploadProgress = ref(0);
+const { uploadFile } = useCos();
+
 // ===== 卡片类型：从 store 获取 =====
 const cardTypeOptions = computed(() => {
-  // 如果 store 中已有数据，直接使用
   if (store.cardTypes && store.cardTypes.length > 0) {
     return store.cardTypes.map((t: any) => ({
       value: t.id || t.value,
@@ -255,7 +287,6 @@ const cardTypeOptions = computed(() => {
       icon: t.icon || '📄',
     }));
   }
-  // 降级方案：硬编码默认类型（与后端种子数据一致）
   return [
     { value: 'character', label: '角色', icon: '🧙' },
     { value: 'location', label: '地点', icon: '📍' },
@@ -289,6 +320,7 @@ const form = ref({
   title: '',
   type: 'character',
   subType: '',
+  coverImage: '',  // 👈 新增封面图
   aliases: [] as string[],
   attributes: [] as { key: string; value: string }[],
   description: '',
@@ -301,7 +333,6 @@ const form = ref({
 });
 
 const isEdit = computed(() => !!props.cardData);
-const selectedParentType = computed(() => cardTypeOptions.value.find(t => t.value === form.value.type));
 
 // ===== 选择类型 =====
 const selectType = (type: any) => {
@@ -313,11 +344,6 @@ const selectType = (type: any) => {
 const getCardTitle = (cardId: string) => {
   const card = store.cards.find(c => c.id === cardId);
   return card?.title || '已删除的卡片';
-};
-
-const getCardType = (cardId: string) => {
-  const card = store.cards.find(c => c.id === cardId);
-  return card?.type || 'unknown';
 };
 
 const getTypeLabel = (type: string) => {
@@ -490,9 +516,7 @@ const removeTag = (tag: string) => {
 };
 
 const getCardTags = (tags: any) => {
-  // 如果已经是数组，直接返回
   if (Array.isArray(tags)) return tags;
-  // 如果是字符串，尝试解析 JSON
   if (typeof tags === 'string') {
     try {
       return JSON.parse(tags);
@@ -509,6 +533,7 @@ const resetForm = () => {
     title: '',
     type: 'character',
     subType: '',
+    coverImage: '',
     aliases: [],
     attributes: [],
     description: '',
@@ -538,6 +563,7 @@ const loadCardData = () => {
       title: props.cardData.title || '',
       type: props.cardData.type || 'character',
       subType: props.cardData.subType || '',
+      coverImage: props.cardData.coverImage || '',
       aliases: props.cardData.aliases || [],
       attributes: props.cardData.attributes || [],
       description: props.cardData.description || '',
@@ -552,6 +578,42 @@ const loadCardData = () => {
     resetForm();
   }
   searchCards('');
+};
+
+// ===== 封面图上传 =====
+const triggerFileInput = () => {
+  fileInput.value?.click();
+};
+
+const handleFileUpload = async (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('请上传图片文件');
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.warning('图片大小不能超过 5MB');
+    return;
+  }
+
+  uploadingCover.value = true;
+  uploadProgress.value = 0;
+
+  try {
+    const result = await uploadFile(file, 'world/covers');
+    form.value.coverImage = result.url;
+    ElMessage.success('封面图上传成功');
+  } catch (error) {
+    console.error('上传失败:', error);
+    ElMessage.error('上传失败，请重试');
+  } finally {
+    uploadingCover.value = false;
+    uploadProgress.value = 0;
+    input.value = '';
+  }
 };
 
 // ===== 保存 =====
@@ -576,11 +638,12 @@ const handleSave = async () => {
     title: form.value.title.trim(),
     type: form.value.type,
     subType: form.value.subType || '',
+    coverImage: form.value.coverImage || '',
     aliases: form.value.aliases,
     attributes: form.value.attributes,
     description: form.value.description.trim(),
     content: contentStr,
-    tags: form.value.tags,  
+    tags: form.value.tags,
     relations: form.value.relations,
     timelineEvents: form.value.timelineEvents,
     embeddedCards: form.value.embeddedCards,
@@ -665,6 +728,7 @@ onMounted(() => {
   }) as EventListener);
 });
 </script>
+
 
 
 <style scoped>
@@ -1441,5 +1505,91 @@ onMounted(() => {
 .fade-leave-to .dialog {
   transform: scale(0.95);
   opacity: 0;
+}
+/* ===== 封面图上传 ===== */
+.cover-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cover-upload-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 120px;
+  border: 2px dashed #d1d5db;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fafbfc;
+  padding: 16px;
+}
+
+.cover-upload-area:hover {
+  border-color: #4f46e5;
+  background: #f8f9fc;
+}
+
+.upload-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.upload-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.upload-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 4px;
+}
+
+.cover-preview {
+  position: relative;
+  width: 100%;
+  max-height: 240px;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.cover-preview img {
+  width: 100%;
+  height: auto;
+  max-height: 240px;
+  object-fit: cover;
+  display: block;
+}
+
+.remove-cover {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.remove-cover:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.upload-progress {
+  margin-top: 8px;
 }
 </style>
