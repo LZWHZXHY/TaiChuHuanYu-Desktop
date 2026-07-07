@@ -13,7 +13,7 @@ using TaiChuWeb_V2.Models.Feedback;
 using TaiChuWeb_V2.Models.News;
 using TaiChuWeb_V2.Models.Financial;
 using TaiChuWeb_V2.Models.Activity;
-
+using TaiChuWeb_V2.Models.World;
 
 namespace TaiChuWeb_V2.DbContext
 {
@@ -80,11 +80,103 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<Post> Posts { get; set; }
         public DbSet<Reply> Replies { get; set; }
 
+        public DbSet<WorldProject> WorldProjects { get; set; }
+        public DbSet<WorldCard> WorldCards { get; set; }
+        public DbSet<WorldRelation> WorldRelations { get; set; }
+
+        public DbSet<CardType> CardTypes { get; set; }
+
+
+
+
+
+
+
+
         public DbSet<ActivityType> ActivityTypes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+
+            // 👇 世界模块配置
+            modelBuilder.Entity<WorldProject>()
+                .HasIndex(p => p.OwnerId);
+
+            modelBuilder.Entity<WorldCard>()
+                .HasIndex(c => c.ProjectId);
+
+            modelBuilder.Entity<WorldCard>()
+                .HasIndex(c => c.Type);
+
+            modelBuilder.Entity<WorldRelation>()
+                .HasIndex(r => r.SourceCardId);
+
+            modelBuilder.Entity<WorldRelation>()
+                .HasIndex(r => r.TargetCardId);
+
+            // JSON 字段默认值
+            modelBuilder.Entity<WorldCard>()
+                .Property(c => c.Aliases)
+                .HasDefaultValue("[]");
+
+            modelBuilder.Entity<WorldCard>()
+                .Property(c => c.Attributes)
+                .HasDefaultValue("[]");
+
+            modelBuilder.Entity<WorldCard>()
+                .Property(c => c.ContentBlocks)
+                .HasDefaultValue("[]");
+
+            modelBuilder.Entity<WorldCard>()
+                .Property(c => c.TimelineEvents)
+                .HasDefaultValue("[]");
+
+            modelBuilder.Entity<WorldCard>()
+                .Property(c => c.Tags)
+                .HasDefaultValue("[]");
+
+            modelBuilder.Entity<WorldCard>()
+                .Property(c => c.EmbeddedCards)
+                .HasDefaultValue("[]");
+
+
+            modelBuilder.Entity<WorldCard>()
+.HasMany(c => c.OutRelations)
+.WithOne(r => r.SourceCard)
+.HasForeignKey(r => r.SourceCardId)
+.OnDelete(DeleteBehavior.Restrict);
+
+            // 2. InRelations：WorldCard 作为目标（TargetCard）
+            modelBuilder.Entity<WorldCard>()
+                .HasMany(c => c.InRelations)
+                .WithOne(r => r.TargetCard)
+                .HasForeignKey(r => r.TargetCardId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<CardType>(entity =>
+            {
+                entity.HasKey(t => t.Id);
+                entity.HasIndex(t => t.IsActive);
+                entity.HasIndex(t => t.SortOrder);
+            });
+
+            // ===== 卡片类型种子数据 =====
+            modelBuilder.Entity<CardType>().HasData(
+                new CardType { Id = "character", Label = "角色", Icon = "🧙", SortOrder = 1, IsSystem = true, CreatedAt = DateTime.UtcNow },
+                new CardType { Id = "location", Label = "地点", Icon = "📍", SortOrder = 2, IsSystem = true, CreatedAt = DateTime.UtcNow },
+                new CardType { Id = "item", Label = "物品", Icon = "⚔️", SortOrder = 3, IsSystem = true, CreatedAt = DateTime.UtcNow },
+                new CardType { Id = "event", Label = "事件", Icon = "📖", SortOrder = 4, IsSystem = true, CreatedAt = DateTime.UtcNow },
+                new CardType { Id = "ecology", Label = "生态", Icon = "🌿", SortOrder = 5, IsSystem = true, CreatedAt = DateTime.UtcNow },
+                new CardType { Id = "faction", Label = "派系", Icon = "🏛️", SortOrder = 6, IsSystem = true, CreatedAt = DateTime.UtcNow },
+                new CardType { Id = "species", Label = "物种", Icon = "🐉", SortOrder = 7, IsSystem = true, CreatedAt = DateTime.UtcNow },
+                new CardType { Id = "lore", Label = "背景设定", Icon = "📜", SortOrder = 8, IsSystem = true, CreatedAt = DateTime.UtcNow }
+            );
+
+
+
+
 
             modelBuilder.Entity<ProjectMember>()
             .HasKey(pm => new { pm.ProjectId, pm.UserId }); // 联合主键

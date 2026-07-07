@@ -8,6 +8,8 @@ import './assets/styles/base.css';
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 
+
+
 const app = createApp(App)
 const pinia = createPinia() // 创建实例
 

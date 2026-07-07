@@ -11,6 +11,7 @@ using TaiChuWeb_V2.Services.Email;
 using TaiChuWeb_V2.Services.LingMai;
 using TaiChuWeb_V2.Services.Publish;
 using TaiChuWeb_V2.Services.Trade;
+using TaiChuWeb_V2.Services.World;
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. 获取连接字符串
@@ -35,7 +36,9 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
     });
 });
-
+builder.Services.AddScoped<IWorldRelationService, WorldRelationService>();
+builder.Services.AddScoped<IWorldCardService, WorldCardService>();
+builder.Services.AddScoped<IWorldProjectService, WorldProjectService>();
 builder.Services.AddSingleton<CosService>();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<WatermarkService>();
