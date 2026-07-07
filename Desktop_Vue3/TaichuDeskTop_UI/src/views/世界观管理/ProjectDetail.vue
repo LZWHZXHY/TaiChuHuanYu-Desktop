@@ -90,7 +90,12 @@
           :style="{ animationDelay: `${index * 30}ms` }"
           @click="openCardDetail(card)"
         >
-          <div class="card-type-icon">{{ getTypeIcon(card.type) }}</div>
+          <!-- 封面图 / 占位 -->
+          <div class="card-cover-wrapper">
+            <img v-if="card.coverImage" :src="card.coverImage" :alt="card.title" />
+            <span v-else class="card-cover-placeholder">{{ getTypeLabel(card.type) }}</span>
+          </div>
+
           <div class="card-body">
             <div class="card-top">
               <h4>{{ card.title }}</h4>
@@ -175,6 +180,7 @@ const TYPE_LABELS: Record<string, string> = {
   lore: '背景设定',
 };
 
+// 保留用于其他地方，但不在界面中显示 emoji
 const TYPE_ICONS: Record<string, string> = {
   character: '🧙',
   location: '📍',
@@ -204,14 +210,14 @@ const cards = computed(() => store.cards);
 
 const tabs = [
   { label: '全部', value: 'all', icon: '📚' },
-  { label: '角色', value: 'character', icon: '🧙' },
-  { label: '地点', value: 'location', icon: '📍' },
-  { label: '物品', value: 'item', icon: '⚔️' },
-  { label: '事件', value: 'event', icon: '📖' },
-  { label: '生态', value: 'ecology', icon: '🌿' },
-  { label: '派系', value: 'faction', icon: '🏛️' },
-  { label: '物种', value: 'species', icon: '🐉' },
-  { label: '背景设定', value: 'lore', icon: '📜' },
+  { label: '角色', value: 'character', icon: '角色' },
+  { label: '地点', value: 'location', icon: '地点' },
+  { label: '物品', value: 'item', icon: '物品' },
+  { label: '事件', value: 'event', icon: '事件' },
+  { label: '生态', value: 'ecology', icon: '生态' },
+  { label: '派系', value: 'faction', icon: '派系' },
+  { label: '物种', value: 'species', icon: '物种' },
+  { label: '背景设定', value: 'lore', icon: '背景' },
 ];
 
 const filteredCards = computed(() => {
@@ -224,7 +230,6 @@ const getCountByType = (type: string) => {
   return cards.value.filter(c => c.type === type).length;
 };
 
-const getTypeIcon = (type: string) => TYPE_ICONS[type] || '📄';
 const getTypeLabel = (type: string) => TYPE_LABELS[type] || type;
 
 const getCardPreview = (content: string) => {
@@ -279,26 +284,14 @@ const openCardDetail = (card: any) => {
   router.push(`/world/project/${projectId}/card/${card.id}`);
 };
 
-// ===== 新建卡片 =====
 const openCreateDialog = () => {
-  console.log('🚀 点击新建卡片按钮');
   editingCard.value = null;
   showCardDialog.value = true;
-  console.log('📌 showCardDialog 设置为：', showCardDialog.value);
-  nextTick(() => {
-    console.log('📌 强制更新后 showCardDialog:', showCardDialog.value);
-  });
 };
 
-// ===== 编辑卡片 =====
 const editCard = (card: any) => {
-  console.log('✏️ 编辑卡片：', card);
   editingCard.value = card;
   showCardDialog.value = true;
-  console.log('📌 showCardDialog 设置为：', showCardDialog.value);
-  nextTick(() => {
-    console.log('📌 强制更新后 showCardDialog:', showCardDialog.value);
-  });
 };
 
 const handleDeleteCard = async (cardId: string) => {
@@ -319,7 +312,6 @@ const handleDeleteCard = async (cardId: string) => {
 };
 
 const onCardSaved = () => {
-  console.log('✅ 卡片保存成功，关闭弹窗并刷新');
   showCardDialog.value = false;
   editingCard.value = null;
   loadData();
@@ -327,7 +319,6 @@ const onCardSaved = () => {
 };
 
 const onCardDeleted = () => {
-  console.log('🗑️ 卡片删除成功，关闭弹窗并刷新');
   showCardDialog.value = false;
   editingCard.value = null;
   loadData();
@@ -339,7 +330,6 @@ const onCardInserted = () => {
 };
 
 watch(showCardDialog, (val) => {
-  console.log('🔄 showCardDialog 变化:', val);
   if (!val) {
     editingCard.value = null;
   }
@@ -568,13 +558,13 @@ onMounted(() => loadData());
 
 .card-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 16px;
 }
 .card-item {
   background: white;
   border-radius: 16px;
-  padding: 18px 20px;
+  padding: 16px 18px;
   border: 1px solid #f1f3f5;
   display: flex;
   gap: 14px;
@@ -593,13 +583,38 @@ onMounted(() => loadData());
 .card-item:active {
   transform: scale(0.98);
 }
-.card-type-icon {
-  font-size: 28px;
+
+/* ===== 封面图缩略图 ===== */
+.card-cover-wrapper {
   flex-shrink: 0;
-  width: 40px;
-  text-align: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f1f3f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin-top: 2px;
 }
+.card-cover-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.card-cover-placeholder {
+  font-size: 13px;
+  font-weight: 600;
+  color: #4f46e5;
+  background: #eef2ff;
+  padding: 4px 10px;
+  border-radius: 8px;
+  text-align: center;
+  line-height: 1.3;
+  max-width: 64px;
+  word-break: break-all;
+}
+
 .card-body {
   flex: 1;
   min-width: 0;
@@ -750,5 +765,6 @@ onMounted(() => loadData());
   .view-toggle { width: 100%; }
   .view-tab { flex: 1; justify-content: center; }
   .graph-view { min-height: 350px; }
+  .card-cover-wrapper { width: 56px; height: 56px; }
 }
 </style>

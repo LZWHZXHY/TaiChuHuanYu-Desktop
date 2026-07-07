@@ -74,6 +74,7 @@ namespace TaiChuWeb_V2.Services.World
                 Title = dto.Title,
                 Type = dto.Type,
                 SubType = dto.SubType,
+                CoverImage = dto.CoverImage,
                 Aliases = JsonSerializer.Serialize(dto.Aliases ?? new List<string>()),
                 Attributes = JsonSerializer.Serialize(dto.Attributes ?? new List<AttributeDto>()),
                 Description = dto.Description,
@@ -97,6 +98,9 @@ namespace TaiChuWeb_V2.Services.World
             var card = await _context.WorldCards
                 .Include(c => c.Project)
                 .FirstOrDefaultAsync(c => c.Id == cardId);
+
+            if (dto.CoverImage != null)
+                card.CoverImage = dto.CoverImage;
 
             if (card == null)
                 return null;
@@ -213,6 +217,7 @@ namespace TaiChuWeb_V2.Services.World
                 Title = card.Title,
                 Type = card.Type,
                 SubType = card.SubType,
+                CoverImage = card.CoverImage,
                 Aliases = JsonSerializer.Deserialize<List<string>>(card.Aliases ?? "[]") ?? new(),
                 Attributes = JsonSerializer.Deserialize<List<AttributeDto>>(card.Attributes ?? "[]") ?? new(),
                 Description = card.Description,

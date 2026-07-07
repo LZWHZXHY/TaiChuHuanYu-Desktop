@@ -1,5 +1,4 @@
 <template>
-  <!-- 移除了 Teleport，改为直接渲染 div -->
   <Transition name="fade">
     <div v-if="visible" class="dialog-overlay" @click.self="close">
       <div class="dialog card-editor-dialog">
@@ -52,7 +51,7 @@
                 :class="{ active: form.type === type.value }"
                 @click="selectType(type)"
               >
-                <span class="type-icon">{{ type.icon || '📄' }}</span>
+                <!-- 移除 icon，只显示文字 -->
                 <span class="type-name">{{ type.label }}</span>
               </div>
             </div>
@@ -112,12 +111,11 @@
                   class="insert-btn"
                   @click="openInsertPicker(type.value)"
                 >
-                  {{ type.icon || '📄' }} {{ type.label }}
+                  {{ type.label }}
                 </button>
               </div>
             </div>
 
-            <!-- 已插入的内容块 -->
             <div v-if="form.contentBlocks.length > 0" class="blocks-list">
               <div
                 v-for="(block, idx) in form.contentBlocks"
@@ -125,10 +123,9 @@
                 class="block-item"
               >
                 <div class="block-preview">
-                  <span class="block-icon">{{ getTypeIcon(block.cardType) }}</span>
+                  <span class="block-type-label">{{ getTypeLabel(block.cardType) }}</span>
                   <div class="block-info">
                     <span class="block-title">{{ getCardTitle(block.cardId) }}</span>
-                    <span class="block-type">{{ getTypeLabel(block.cardType) }}</span>
                     <span class="block-desc">{{ getBlockPreview(block.cardId) }}</span>
                   </div>
                 </div>
@@ -229,9 +226,8 @@
           class="picker-item"
           @click="insertBlock(card)"
         >
-          <span class="picker-icon">{{ getTypeIcon(card.type) }}</span>
+          <span class="picker-type-label">{{ getTypeLabel(card.type) }}</span>
           <span class="picker-title">{{ card.title }}</span>
-          <span class="picker-type">{{ getTypeLabel(card.type) }}</span>
         </div>
         <div v-if="pickerResults.length === 0 && !pickerLoading" class="picker-empty">
           没有找到 {{ pickerTypeLabel }} 卡片
@@ -259,8 +255,6 @@ const props = defineProps<{
   cardData?: any | null;
 }>();
 
-console.log('🔵 CardEditor 组件初始化，visible:', props.visible);
-
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void;
   (e: 'saved'): void;
@@ -272,34 +266,41 @@ const saving = ref(false);
 const tagInput = ref('');
 const aliasInput = ref('');
 
-// ===== COS 上传 =====
 const fileInput = ref<HTMLInputElement | null>(null);
 const uploadingCover = ref(false);
 const uploadProgress = ref(0);
 const { uploadFile } = useCos();
 
-// ===== 卡片类型：从 store 获取 =====
+const TYPE_LABELS: Record<string, string> = {
+  character: '角色',
+  location: '地点',
+  item: '物品',
+  event: '事件',
+  ecology: '生态',
+  faction: '派系',
+  species: '物种',
+  lore: '背景设定',
+};
+
 const cardTypeOptions = computed(() => {
   if (store.cardTypes && store.cardTypes.length > 0) {
     return store.cardTypes.map((t: any) => ({
       value: t.id || t.value,
       label: t.label,
-      icon: t.icon || '📄',
     }));
   }
   return [
-    { value: 'character', label: '角色', icon: '🧙' },
-    { value: 'location', label: '地点', icon: '📍' },
-    { value: 'item', label: '物品', icon: '⚔️' },
-    { value: 'event', label: '事件', icon: '📖' },
-    { value: 'ecology', label: '生态', icon: '🌿' },
-    { value: 'faction', label: '派系', icon: '🏛️' },
-    { value: 'species', label: '物种', icon: '🐉' },
-    { value: 'lore', label: '背景设定', icon: '📜' },
+    { value: 'character', label: '角色' },
+    { value: 'location', label: '地点' },
+    { value: 'item', label: '物品' },
+    { value: 'event', label: '事件' },
+    { value: 'ecology', label: '生态' },
+    { value: 'faction', label: '派系' },
+    { value: 'species', label: '物种' },
+    { value: 'lore', label: '背景设定' },
   ];
 });
 
-// ===== 插入选择器 =====
 const showInsertPicker = ref(false);
 const pickerType = ref('');
 const pickerSearch = ref('');
@@ -311,16 +312,14 @@ const pickerTypeLabel = computed(() => {
   return found?.label || pickerType.value;
 });
 
-// ===== 关联卡片 =====
 const newRelation = ref({ targetId: '', relationType: '' });
 const searchResults = ref<any[]>([]);
 
-// ===== 表单 =====
 const form = ref({
   title: '',
   type: 'character',
   subType: '',
-  coverImage: '',  // 👈 新增封面图
+  coverImage: '',
   aliases: [] as string[],
   attributes: [] as { key: string; value: string }[],
   description: '',
@@ -334,13 +333,11 @@ const form = ref({
 
 const isEdit = computed(() => !!props.cardData);
 
-// ===== 选择类型 =====
 const selectType = (type: any) => {
   form.value.type = type.value;
   form.value.subType = '';
 };
 
-// ===== 卡片标题和类型辅助 =====
 const getCardTitle = (cardId: string) => {
   const card = store.cards.find(c => c.id === cardId);
   return card?.title || '已删除的卡片';
@@ -351,12 +348,6 @@ const getTypeLabel = (type: string) => {
   return found?.label || type;
 };
 
-const getTypeIcon = (type: string) => {
-  const found = cardTypeOptions.value.find(t => t.value === type);
-  return found?.icon || '📄';
-};
-
-// ===== 获取被嵌入卡片的预览内容 =====
 const getBlockPreview = (cardId: string) => {
   const card = store.cards.find(c => c.id === cardId);
   if (!card) return '已删除的卡片';
@@ -369,7 +360,6 @@ const getBlockPreview = (cardId: string) => {
   }
 };
 
-// ===== 搜索卡片 =====
 const searchCards = (query: string) => {
   const cards = store.cards;
   if (!query) {
@@ -382,7 +372,6 @@ const searchCards = (query: string) => {
     .slice(0, 10);
 };
 
-// ===== 关联 =====
 const addRelation = () => {
   if (!newRelation.value.targetId) {
     ElMessage.warning('请选择要关联的卡片');
@@ -411,7 +400,6 @@ const removeRelation = (idx: number) => {
   form.value.relations.splice(idx, 1);
 };
 
-// ===== 内容块插入 =====
 const openInsertPicker = (type: string) => {
   pickerType.value = type;
   pickerSearch.value = '';
@@ -456,7 +444,6 @@ const createAndInsert = async () => {
   }));
 };
 
-// 监听插入选择器搜索
 watch(pickerSearch, (query) => {
   if (!showInsertPicker.value) return;
   const cards = store.cards.filter(c => c.type === pickerType.value && c.id !== props.cardData?.id);
@@ -470,7 +457,6 @@ watch(pickerSearch, (query) => {
     .slice(0, 20);
 });
 
-// ===== 别名 =====
 const addAlias = () => {
   const text = aliasInput.value.trim();
   if (!text) return;
@@ -486,7 +472,6 @@ const removeAlias = (alias: string) => {
   form.value.aliases = form.value.aliases.filter(a => a !== alias);
 };
 
-// ===== 属性 =====
 const addAttribute = () => {
   form.value.attributes.push({ key: '', value: '' });
 };
@@ -495,7 +480,6 @@ const removeAttribute = (idx: number) => {
   form.value.attributes.splice(idx, 1);
 };
 
-// ===== 标签 =====
 const addTag = () => {
   const text = tagInput.value.trim();
   if (!text) return;
@@ -527,7 +511,6 @@ const getCardTags = (tags: any) => {
   return [];
 };
 
-// ===== 重置表单 =====
 const resetForm = () => {
   form.value = {
     title: '',
@@ -550,9 +533,7 @@ const resetForm = () => {
   searchResults.value = [];
 };
 
-// ===== 加载编辑数据 =====
 const loadCardData = () => {
-  console.log('📦 loadCardData 被调用，cardData:', props.cardData);
   if (props.cardData) {
     const tags = getCardTags(props.cardData.tags);
     const relations = (props.cardData.relations || []).map((r: any) => ({
@@ -580,7 +561,6 @@ const loadCardData = () => {
   searchCards('');
 };
 
-// ===== 封面图上传 =====
 const triggerFileInput = () => {
   fileInput.value?.click();
 };
@@ -616,7 +596,6 @@ const handleFileUpload = async (e: Event) => {
   }
 };
 
-// ===== 保存 =====
 const handleSave = async () => {
   if (!form.value.title.trim()) {
     ElMessage.warning('请输入卡片标题');
@@ -668,7 +647,6 @@ const handleSave = async () => {
   }
 };
 
-// ===== 删除 =====
 const handleDelete = async () => {
   try {
     await ElMessageBox.confirm('确定要删除这张卡片吗？此操作不可恢复。', '确认删除', {
@@ -689,17 +667,13 @@ const handleDelete = async () => {
 };
 
 const close = () => {
-  console.log('❌ CardEditor close 被调用');
   emit('update:visible', false);
 };
 
-// ===== 监听 visible 变化 =====
 watch(
   () => props.visible,
   (val) => {
-    console.log('🟢 CardEditor visible 变化:', val);
     if (val) {
-      console.log('📦 加载卡片数据，cardData:', props.cardData);
       loadCardData();
     }
   }
@@ -709,13 +683,11 @@ watch(
   () => props.cardData,
   () => {
     if (props.visible) {
-      console.log('📦 cardData 变化，重新加载');
       loadCardData();
     }
   }
 );
 
-// ===== 监听创建卡片事件 =====
 onMounted(() => {
   window.addEventListener('create-card-with-type', ((e: CustomEvent) => {
     const type = e.detail?.type;
@@ -728,8 +700,6 @@ onMounted(() => {
   }) as EventListener);
 });
 </script>
-
-
 
 <style scoped>
 .dialog-overlay {
@@ -822,10 +792,9 @@ onMounted(() => {
   color: #94a3b8;
 }
 
-/* ===== 类型选择 ===== */
 .type-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
   gap: 8px;
 }
 .type-card {
@@ -849,57 +818,12 @@ onMounted(() => {
   background: #eef2ff;
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
-.type-icon {
-  font-size: 24px;
-  margin-bottom: 2px;
-}
 .type-name {
   font-weight: 500;
-  font-size: 12px;
+  font-size: 13px;
   color: #0f172a;
 }
-.type-sub {
-  font-size: 9px;
-  color: #94a3b8;
-  margin-top: 1px;
-}
-.sub-type-select {
-  margin-top: 6px;
-  padding: 8px 12px;
-  background: #f8f9fc;
-  border-radius: 10px;
-}
-.sub-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #64748b;
-  display: block;
-  margin-bottom: 4px;
-}
-.sub-type-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.sub-type-btn {
-  padding: 3px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: white;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.sub-type-btn:hover {
-  background: #f1f5f9;
-}
-.sub-type-btn.active {
-  border-color: #4f46e5;
-  background: #eef2ff;
-  color: #4f46e5;
-}
 
-/* ===== 标签 ===== */
 .tag-input {
   display: flex;
   gap: 6px;
@@ -951,7 +875,6 @@ onMounted(() => {
   color: #ef4444;
 }
 
-/* ===== 属性 ===== */
 .attribute-list {
   display: flex;
   flex-direction: column;
@@ -1016,81 +939,6 @@ onMounted(() => {
   color: #4f46e5;
 }
 
-/* ===== 时间线 ===== */
-.timeline-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.timeline-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.tl-date {
-  flex: 1;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 13px;
-  background: #fafbfc;
-}
-.tl-date:focus {
-  outline: none;
-  border-color: #4f46e5;
-}
-.tl-title {
-  flex: 1.5;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 13px;
-  background: #fafbfc;
-}
-.tl-title:focus {
-  outline: none;
-  border-color: #4f46e5;
-}
-.tl-desc {
-  flex: 2;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 13px;
-  background: #fafbfc;
-}
-.tl-desc:focus {
-  outline: none;
-  border-color: #4f46e5;
-}
-.remove-tl {
-  background: none;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  font-size: 18px;
-  padding: 0 4px;
-}
-.remove-tl:hover {
-  color: #ef4444;
-}
-.add-tl-btn {
-  padding: 4px 14px;
-  border: 1px dashed #d1d5db;
-  border-radius: 8px;
-  background: transparent;
-  color: #64748b;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
-  align-self: flex-start;
-}
-.add-tl-btn:hover {
-  border-color: #4f46e5;
-  color: #4f46e5;
-}
-
-/* ===== 关联 ===== */
 .relation-list {
   display: flex;
   flex-direction: column;
@@ -1180,7 +1028,6 @@ onMounted(() => {
   transform: scale(0.97);
 }
 
-/* ===== 底部按钮 ===== */
 .dialog-footer {
   display: flex;
   justify-content: space-between;
@@ -1241,36 +1088,6 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-/* ===== 描述区 ===== */
-.description-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.insert-card-btn {
-  padding: 4px 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: white;
-  color: #4f46e5;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.insert-card-btn:hover {
-  background: #eef2ff;
-  border-color: #4f46e5;
-}
-.hint-code {
-  background: #f1f3f5;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-family: monospace;
-  font-size: 12px;
-  color: #4f46e5;
-}
-
-/* ===== 内容块 ===== */
 .blocks-header {
   display: flex;
   justify-content: space-between;
@@ -1320,8 +1137,13 @@ onMounted(() => {
   flex: 1;
   min-width: 0;
 }
-.block-icon {
-  font-size: 20px;
+.block-type-label {
+  font-size: 11px;
+  color: #4f46e5;
+  background: #eef2ff;
+  padding: 1px 10px;
+  border-radius: 10px;
+  font-weight: 500;
   flex-shrink: 0;
 }
 .block-info {
@@ -1333,10 +1155,6 @@ onMounted(() => {
 .block-title {
   font-weight: 500;
   color: #0f172a;
-}
-.block-type {
-  font-size: 12px;
-  color: #94a3b8;
 }
 .block-desc {
   font-size: 12px;
@@ -1366,7 +1184,6 @@ onMounted(() => {
   border-radius: 10px;
 }
 
-/* ===== 卡片引用选择器 ===== */
 .picker-overlay {
   position: fixed;
   inset: 0;
@@ -1436,23 +1253,18 @@ onMounted(() => {
 .picker-item:hover {
   background: #f1f5f9;
 }
-.picker-icon {
-  font-size: 20px;
+.picker-type-label {
+  font-size: 11px;
+  color: #4f46e5;
+  background: #eef2ff;
+  padding: 1px 10px;
+  border-radius: 10px;
+  font-weight: 500;
+  flex-shrink: 0;
 }
 .picker-title {
   font-weight: 500;
   flex: 1;
-}
-.picker-type {
-  font-size: 13px;
-  color: #94a3b8;
-}
-.picker-sub {
-  font-size: 12px;
-  color: #94a3b8;
-  background: #f1f3f5;
-  padding: 0 8px;
-  border-radius: 10px;
 }
 .picker-empty {
   padding: 30px;
@@ -1488,7 +1300,6 @@ onMounted(() => {
   background: #4338ca;
 }
 
-/* ===== 过渡动画 ===== */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.25s ease;
@@ -1506,13 +1317,12 @@ onMounted(() => {
   transform: scale(0.95);
   opacity: 0;
 }
-/* ===== 封面图上传 ===== */
+
 .cover-upload {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-
 .cover-upload-area {
   display: flex;
   flex-direction: column;
@@ -1527,29 +1337,24 @@ onMounted(() => {
   background: #fafbfc;
   padding: 16px;
 }
-
 .cover-upload-area:hover {
   border-color: #4f46e5;
   background: #f8f9fc;
 }
-
 .upload-icon {
   font-size: 32px;
   margin-bottom: 8px;
 }
-
 .upload-text {
   font-size: 14px;
   font-weight: 500;
   color: #374151;
 }
-
 .upload-hint {
   font-size: 12px;
   color: #94a3b8;
   margin-top: 4px;
 }
-
 .cover-preview {
   position: relative;
   width: 100%;
@@ -1558,7 +1363,6 @@ onMounted(() => {
   border-radius: 12px;
   border: 1px solid #e2e8f0;
 }
-
 .cover-preview img {
   width: 100%;
   height: auto;
@@ -1566,7 +1370,6 @@ onMounted(() => {
   object-fit: cover;
   display: block;
 }
-
 .remove-cover {
   position: absolute;
   top: 8px;
@@ -1584,11 +1387,9 @@ onMounted(() => {
   justify-content: center;
   transition: background 0.2s;
 }
-
 .remove-cover:hover {
   background: rgba(0, 0, 0, 0.8);
 }
-
 .upload-progress {
   margin-top: 8px;
 }

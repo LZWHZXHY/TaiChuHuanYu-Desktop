@@ -14,10 +14,11 @@ namespace TaiChuWeb_V2.Controllers.World
     public class WorldRelationsController : ControllerBase
     {
         private readonly IWorldRelationService _relationService;
-
-        public WorldRelationsController(IWorldRelationService relationService)
+        private readonly IWorldProjectService _projectService;
+        public WorldRelationsController(IWorldRelationService relationService, IWorldProjectService projectService)
         {
             _relationService = relationService;
+            _projectService = projectService;  // 👈 新增
         }
 
         /// <summary>
@@ -80,6 +81,19 @@ namespace TaiChuWeb_V2.Controllers.World
                 throw new UnauthorizedAccessException("用户未认证");
 
             return Guid.Parse(userIdClaim);
+        }
+
+        [HttpGet("/api/world/projects/{projectId}/relations")]
+        public async Task<IActionResult> GetProjectRelations(Guid projectId)
+        {
+            var userId = GetCurrentUserId();
+            // 验证用户权限
+            var project = await _projectService.GetProjectByIdAsync(projectId, userId);
+            if (project == null)
+                return NotFound();
+
+            var relations = await _relationService.GetRelationsForProjectAsync(projectId);
+            return Ok(relations);
         }
     }
 }

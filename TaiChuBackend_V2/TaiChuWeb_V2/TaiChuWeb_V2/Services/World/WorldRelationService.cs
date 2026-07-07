@@ -98,6 +98,23 @@ namespace TaiChuWeb_V2.Services.World
             return dtos;
         }
 
+
+        public async Task<IEnumerable<RelationDto>> GetRelationsForProjectAsync(Guid projectId)
+        {
+            var relations = await _context.WorldRelations
+                .Include(r => r.SourceCard)
+                .Include(r => r.TargetCard)
+                .Where(r => r.SourceCard.ProjectId == projectId || r.TargetCard.ProjectId == projectId)
+                .ToListAsync();
+
+            var dtos = new List<RelationDto>();
+            foreach (var rel in relations)
+            {
+                dtos.Add(await MapToRelationDto(rel));
+            }
+            return dtos;
+        }
+
         // ===== 私有方法 =====
 
         private async Task<RelationDto> MapToRelationDto(WorldRelation relation)

@@ -7,5 +7,7 @@ namespace TaiChuWeb_V2.Services.World
         Task<RelationDto> CreateRelationAsync(Guid sourceCardId, Guid userId, CreateRelationDto dto);
         Task<bool> DeleteRelationAsync(Guid relationId, Guid userId);
         Task<IEnumerable<RelationDto>> GetRelationsForCardAsync(Guid cardId, Guid userId);
+
+        Task<IEnumerable<RelationDto>> GetRelationsForProjectAsync(Guid projectId);
     }
 }

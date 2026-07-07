@@ -17,7 +17,7 @@
           :class="{ active: libraryFilter === type.value }"
           @click="libraryFilter = type.value"
         >
-          {{ type.icon }} {{ type.label }}
+          {{ type.label }}
         </button>
       </div>
       <div class="library-list">
@@ -28,7 +28,7 @@
           :class="{ inserted: insertedIds.includes(card.id) }"
           @click="toggleCard(card.id)"
         >
-          <span class="lib-icon">{{ getTypeIcon(card.type) }}</span>
+          <span class="lib-type-label">{{ getTypeLabel(card.type) }}</span>
           <span class="lib-title">{{ card.title }}</span>
           <span v-if="insertedIds.includes(card.id)" class="lib-badge">✓</span>
         </div>
@@ -61,7 +61,7 @@
           :class="{ active: graphFilter === type.value }"
           @click="graphFilter = type.value"
         >
-          {{ type.icon }} {{ type.label }}
+          {{ type.label }}
         </button>
       </div>
 
@@ -71,7 +71,7 @@
       <!-- 节点详情浮窗 -->
       <div v-if="selectedNode" class="node-popup" :style="popupStyle">
         <div class="popup-header">
-          <span class="popup-icon">{{ getTypeIcon(selectedNode.type) }}</span>
+          <span class="popup-type-label">{{ getTypeLabel(selectedNode.type) }}</span>
           <span class="popup-title">{{ selectedNode.title }}</span>
           <button class="popup-close" @click="selectedNode = null">×</button>
         </div>
@@ -130,16 +130,27 @@ const emit = defineEmits<{ (e: 'cardInserted'): void }>();
 const store = useWorldStore();
 
 // ===== 筛选类型 =====
+const TYPE_LABELS: Record<string, string> = {
+  character: '角色',
+  location: '地点',
+  item: '物品',
+  event: '事件',
+  ecology: '生态',
+  faction: '派系',
+  species: '物种',
+  lore: '背景设定',
+};
+
 const filterTypes = [
-  { value: 'all', label: '全部', icon: '📚' },
-  { value: 'character', label: '角色', icon: '🧙' },
-  { value: 'location', label: '地点', icon: '📍' },
-  { value: 'item', label: '物品', icon: '⚔️' },
-  { value: 'event', label: '事件', icon: '📖' },
-  { value: 'ecology', label: '生态', icon: '🌿' },
-  { value: 'faction', label: '派系', icon: '🏛️' },
-  { value: 'species', label: '物种', icon: '🐉' },
-  { value: 'lore', label: '背景', icon: '📜' },
+  { value: 'all', label: '全部' },
+  { value: 'character', label: '角色' },
+  { value: 'location', label: '地点' },
+  { value: 'item', label: '物品' },
+  { value: 'event', label: '事件' },
+  { value: 'ecology', label: '生态' },
+  { value: 'faction', label: '派系' },
+  { value: 'species', label: '物种' },
+  { value: 'lore', label: '背景' },
 ];
 
 // ===== 状态 =====
@@ -150,13 +161,11 @@ const popupStyle = ref({});
 const physicsEnabled = ref(true);
 const dragStartNode = ref<string | null>(null);
 
-// 卡片库
 const searchQuery = ref('');
 const libraryFilter = ref('all');
 const graphFilter = ref('all');
 const insertedIds = ref<string[]>([]);
 
-// 关系对话框
 const showRelationDialog = ref(false);
 const creatingRelation = ref(false);
 const relationSource = ref<any>(null);
@@ -167,7 +176,8 @@ const relationForm = ref({ relationType: '' });
 const allCards = computed(() => store.cards);
 const allRelations = computed(() => store.allRelations);
 
-// 卡片库筛选
+const getTypeLabel = (type: string) => TYPE_LABELS[type] || type;
+
 const filteredLibraryCards = computed(() => {
   let list = allCards.value;
   if (libraryFilter.value !== 'all') {
@@ -180,16 +190,14 @@ const filteredLibraryCards = computed(() => {
   return list;
 });
 
-// 图谱显示的节点（仅已插入的卡片）
 const displayedNodes = computed(() => {
   let cards = allCards.value.filter(c => insertedIds.value.includes(c.id));
-  // 应用图谱类型筛选
   if (graphFilter.value !== 'all') {
     cards = cards.filter(c => c.type === graphFilter.value);
   }
   return cards.map(card => ({
     id: card.id,
-    label: card.title,
+    label: `${getTypeLabel(card.type)} ${card.title}`,
     type: card.type,
     content: card.content,
     tags: card.tags,
@@ -200,13 +208,11 @@ const displayedNodes = computed(() => {
   }));
 });
 
-// 图谱显示的边
 const displayedEdges = computed(() => {
   let edges = allRelations.value.filter(rel => 
     insertedIds.value.includes(rel.sourceCardId) && 
     insertedIds.value.includes(rel.targetCardId)
   );
-  // 如果图谱有类型筛选，只显示两端都在筛选类型中的边（保持一致性）
   if (graphFilter.value !== 'all') {
     const filteredCardIds = allCards.value
       .filter(c => c.type === graphFilter.value)
@@ -228,7 +234,6 @@ const displayedEdges = computed(() => {
   }));
 });
 
-// ===== 辅助方法 =====
 const getTypeColor = (type: string) => {
   const map: Record<string, string> = {
     character: '#4f46e5',
@@ -241,20 +246,6 @@ const getTypeColor = (type: string) => {
     lore: '#6366f1',
   };
   return map[type] || '#64748b';
-};
-
-const getTypeIcon = (type: string) => {
-  const map: Record<string, string> = {
-    character: '🧙',
-    location: '📍',
-    item: '⚔️',
-    event: '📖',
-    ecology: '🌿',
-    faction: '🏛️',
-    species: '🐉',
-    lore: '📜',
-  };
-  return map[type] || '📄';
 };
 
 const getNodePreview = (node: any) => {
@@ -327,7 +318,6 @@ const initNetwork = () => {
 
   network = new Network(networkContainer.value, data, options);
 
-  // 单击节点
   network.on('click', (params) => {
     if (params.nodes.length > 0) {
       const nodeId = params.nodes[0];
@@ -348,7 +338,6 @@ const initNetwork = () => {
     }
   });
 
-  // 拖拽关联
   network.on('dragStart', (params) => {
     if (params.nodes.length > 0) dragStartNode.value = params.nodes[0];
   });
@@ -372,7 +361,6 @@ const initNetwork = () => {
   });
 };
 
-// ===== 重置 =====
 const resetGraph = () => {
   if (network) network.fit({ animation: true });
 };
@@ -382,7 +370,6 @@ const togglePhysics = () => {
   if (network) network.setOptions({ physics: { enabled: physicsEnabled.value } });
 };
 
-// ===== 刷新图谱 =====
 const refreshNetwork = () => {
   if (network) {
     network.setData({
@@ -393,7 +380,6 @@ const refreshNetwork = () => {
   }
 };
 
-// ===== 建立关系 =====
 const handleCreateRelation = async () => {
   if (!relationForm.value.relationType.trim()) {
     ElMessage.warning('请输入关系描述');
@@ -420,7 +406,6 @@ const handleCreateRelation = async () => {
   }
 };
 
-// ===== 编辑卡片 =====
 const editCardFromGraph = (card: any) => {
   selectedNode.value = null;
   window.dispatchEvent(new CustomEvent('edit-card', { detail: { cardId: card.id } }));
@@ -432,7 +417,6 @@ const openCardDetail = (cardId: string) => {
   selectedNode.value = null;
 };
 
-// ===== 监听事件 =====
 onMounted(() => {
   window.addEventListener('edit-card', ((e: CustomEvent) => {
     const cardId = e.detail?.cardId;
@@ -462,7 +446,6 @@ defineExpose({ refresh: refreshNetwork });
   height: 600px;
 }
 
-/* ===== 卡片库 ===== */
 .card-library {
   flex: 0 0 260px;
   background: white;
@@ -553,8 +536,14 @@ defineExpose({ refresh: refreshNetwork });
   background: #eef2ff;
   border-left: 3px solid #4f46e5;
 }
-.lib-icon {
-  font-size: 16px;
+.lib-type-label {
+  font-size: 11px;
+  color: #4f46e5;
+  background: #eef2ff;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+  flex-shrink: 0;
 }
 .lib-title {
   flex: 1;
@@ -570,7 +559,6 @@ defineExpose({ refresh: refreshNetwork });
   font-size: 14px;
 }
 
-/* ===== 图谱区域 ===== */
 .graph-area {
   flex: 1;
   background: white;
@@ -666,7 +654,6 @@ defineExpose({ refresh: refreshNetwork });
   cursor: pointer;
 }
 
-/* ===== 节点浮窗 ===== */
 .node-popup {
   position: absolute;
   background: white;
@@ -686,8 +673,20 @@ defineExpose({ refresh: refreshNetwork });
   gap: 8px;
   margin-bottom: 8px;
 }
-.popup-icon { font-size: 22px; }
-.popup-title { font-weight: 600; font-size: 15px; color: #0f172a; flex: 1; }
+.popup-type-label {
+  font-size: 11px;
+  color: #4f46e5;
+  background: #eef2ff;
+  padding: 1px 10px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.popup-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: #0f172a;
+  flex: 1;
+}
 .popup-close {
   background: none;
   border: none;
@@ -724,7 +723,6 @@ defineExpose({ refresh: refreshNetwork });
 .popup-btn.secondary { background: #f1f5f9; color: #475569; }
 .popup-btn.secondary:hover { background: #e2e8f0; }
 
-/* ===== 对话框 ===== */
 .dialog-overlay {
   position: fixed;
   inset: 0;
@@ -813,7 +811,6 @@ defineExpose({ refresh: refreshNetwork });
 .btn-primary:hover:not(:disabled) { background: #4338ca; }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* ===== 响应式 ===== */
 @media (max-width: 820px) {
   .relation-graph-wrapper { flex-direction: column; height: auto; }
   .card-library { flex: none; height: 200px; }

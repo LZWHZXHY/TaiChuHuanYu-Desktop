@@ -13,6 +13,10 @@ namespace TaiChuWeb_V2.Models.World
         [Column(TypeName = "char(36)")]
         public Guid ProjectId { get; set; }
 
+        [Column(TypeName = "longtext")]
+        public string? CoverImage { get; set; }  // 👈 新增
+
+
         [Required]
         [MaxLength(200)]
         public string Title { get; set; } = string.Empty;

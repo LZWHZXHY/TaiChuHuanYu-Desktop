@@ -14,7 +14,7 @@
       <div class="card-header">
         <div class="header-left">
           <div class="title-row">
-            <span class="card-icon">{{ getTypeIcon(card.type) }}</span>
+            <!-- 移除 card-icon -->
             <h1>{{ card.title }}</h1>
             <span class="type-badge">{{ getTypeLabel(card.type) }}</span>
             <span v-if="card.subType" class="subtype-badge">{{ card.subType }}</span>
@@ -41,6 +41,11 @@
             </svg>
           </button>
         </div>
+      </div>
+
+      <!-- ===== 封面图 ===== -->
+      <div v-if="card.coverImage" class="cover-banner">
+        <img :src="card.coverImage" :alt="card.title" />
       </div>
 
       <!-- ===== 别名 ===== -->
@@ -110,7 +115,7 @@
                 class="relation-card"
                 @click="goToCard(rel.targetCardId)"
               >
-                <span class="rel-icon">{{ getTypeIcon(getCardType(rel.targetCardId)) }}</span>
+                <span class="rel-type-label">{{ getTypeLabel(getCardType(rel.targetCardId)) }}</span>
                 <span class="rel-title">{{ getCardTitle(rel.targetCardId) }}</span>
                 <span class="rel-type">「{{ rel.relationType }}」</span>
               </div>
@@ -125,7 +130,7 @@
                 class="relation-card"
                 @click="goToCard(rel.sourceCardId)"
               >
-                <span class="rel-icon">{{ getTypeIcon(getCardType(rel.sourceCardId)) }}</span>
+                <span class="rel-type-label">{{ getTypeLabel(getCardType(rel.sourceCardId)) }}</span>
                 <span class="rel-title">{{ getCardTitle(rel.sourceCardId) }}</span>
                 <span class="rel-type">「{{ rel.relationType }}」</span>
               </div>
@@ -170,6 +175,7 @@ const TYPE_LABELS: Record<string, string> = {
   lore: '背景设定',
 };
 
+// 保留 TYPE_ICONS 供其他地方使用（如需要），但不再用于显示
 const TYPE_ICONS: Record<string, string> = {
   character: '🧙',
   location: '📍',
@@ -207,16 +213,15 @@ const cardTags = computed(() => {
   }
 });
 
-// ===== 渲染描述，替换 {CARD:uuid} 为可点击标签 =====
+// ===== 渲染描述，替换 {CARD:uuid} 为可点击标签（纯文字，无 emoji） =====
 const renderedDescription = computed(() => {
   const desc = card.value?.description || '';
   if (!desc) return '';
-  // 替换占位符
   return desc.replace(/\{CARD:([^}]+)\}/g, (_match: string, id: string) => {
     const targetCard = store.cards.find(c => c.id === id);
     if (targetCard) {
-      const icon = TYPE_ICONS[targetCard.type] || '📄';
-      return `<span class="embedded-card" data-card-id="${id}">${icon} ${targetCard.title}</span>`;
+      const label = TYPE_LABELS[targetCard.type] || '卡片';
+      return `<span class="embedded-card" data-card-id="${id}">${label} ${targetCard.title}</span>`;
     }
     return `<span class="embedded-card broken">⚠️ 已删除的卡片</span>`;
   });
@@ -257,7 +262,6 @@ const formatDate = (dateStr: string) => {
 const loadData = async () => {
   loading.value = true;
   try {
-    // 传入 projectId 和 cardId
     const data = await store.fetchCardDetail(projectId, cardId);
     card.value = data;
   } catch (error) {
@@ -267,8 +271,6 @@ const loadData = async () => {
     loading.value = false;
   }
 };
-
-
 
 const goBack = () => {
   router.push(`/world/project/${projectId}`);
@@ -303,7 +305,6 @@ const handleDelete = async () => {
 
 onMounted(() => {
   loadData();
-  // 监听嵌入式卡片点击事件
   document.addEventListener('click', handleEmbeddedClick);
 });
 </script>
@@ -342,10 +343,10 @@ onMounted(() => {
   justify-content: space-between;
   align-items: flex-start;
   background: white;
-  border-radius: 20px;
-  padding: 28px 32px;
-  margin-bottom: 24px;
+  border-radius: 20px 20px 0 0;
+  padding: 28px 32px 20px 32px;
   border: 1px solid #f1f3f5;
+  border-bottom: none;
   flex-wrap: wrap;
   gap: 16px;
 }
@@ -357,9 +358,6 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-}
-.card-icon {
-  font-size: 32px;
 }
 .title-row h1 {
   margin: 0;
@@ -430,6 +428,23 @@ onMounted(() => {
   border-color: #fecaca;
 }
 
+/* ===== 封面图横幅 ===== */
+.cover-banner {
+  background: white;
+  border-radius: 0 0 20px 20px;
+  border: 1px solid #f1f3f5;
+  border-top: none;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.cover-banner img {
+  width: 100%;
+  height: auto;
+  max-height: 320px;
+  object-fit: cover;
+  display: block;
+}
+
 /* ===== 通用区块 ===== */
 .section {
   background: white;
@@ -479,7 +494,7 @@ onMounted(() => {
   border-bottom: 1px solid #f1f3f5;
 }
 
-/* ===== 描述（嵌入式卡片引用样式） ===== */
+/* ===== 描述 ===== */
 .description-body {
   font-size: 15px;
   color: #1e293b;
@@ -604,8 +619,13 @@ onMounted(() => {
   border-color: #4f46e5;
   transform: translateY(-1px);
 }
-.rel-icon {
-  font-size: 16px;
+.rel-type-label {
+  font-size: 12px;
+  color: #4f46e5;
+  background: #eef2ff;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-weight: 500;
 }
 .rel-title {
   font-weight: 500;
