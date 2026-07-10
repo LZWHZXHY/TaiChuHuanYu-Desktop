@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>太初知识库</title>
+    <link rel="stylesheet" href="./style.css">
+    <script src="./libs/marked.min.js"></script>
+    <script type="module" src="./js/app.js"></script>
+</head>
+<body>
+    <div class="app-header">
+        <h1>📁 太初知识库</h1>
+        <span class="status" id="statusBar">就绪</span>
+    </div>
+
+    <div class="main-layout">
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <div id="fileTree"></div>
+            <div class="sidebar-toolbar">
+                <button class="primary" id="btnNewNote">📄 新建笔记</button>
+                <button id="btnNewFolder">📁 新建文件夹</button>
+                <button id="btnRefresh">🔄 刷新</button>
+                <button id="btnExpandAll">📂 展开全部</button>
+            </div>
+        </div>
+
+        <!-- 主内容 -->
+        <div class="content-area">
+            <div class="file-name" id="fileName">请选择文件</div>
+            <div class="editor-toolbar">
+                <button id="btnEditMode" class="primary">✏️ 编辑</button>
+                <button id="btnSaveContent" class="save-btn" style="display:none;">💾 保存</button>
+                <button id="btnCancelEdit" class="cancel-btn" style="display:none;">↩️ 取消</button>
+                <span class="status" id="editStatus">预览模式</span>
+            </div>
+            <div id="fileContent">
+                <div class="placeholder">📂 从左侧选择文件，内容将在此显示</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

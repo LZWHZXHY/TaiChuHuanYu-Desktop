@@ -447,16 +447,74 @@ provide('currentDisplayNote', currentDisplayNote);
 provide('currentBlocks', currentBlocks);
 provide('isContentLoading', isContentLoading);
 provide('reloadNote', loadNote); // 可选，供子组件手动触发
+
+
+let timer: ReturnType<typeof setTimeout> | null = null;
 // 生命周期
 onMounted(async () => {
+
+  // --- 挂载文件系统变更监听器 ---
+  (window as any).onFileChange = (type: string, path: string) => {
+    console.log(`[桌面端同步] 检测到文件变更: ${type} @ ${path}`);
+
+    if (timer) clearTimeout(timer);
+
+    timer = setTimeout(async () => {
+      console.log('执行同步更新...');
+      
+      try {
+        // --- 🌟 核心修改开始：针对新建文件的拦截入库 ---
+        // 只有当事件类型是 'CREATED' 并且文件是 .md 时，才主动向数据库发请求建档
+        if (type === 'CREATED' && path.toLowerCase().endsWith('.md')) {
+           
+           // 1. 从路径中提取文件名 (去掉反斜杠和 .md)
+           // 把诸如 E:\...\TaiChuVault\10_Notes\我的新测试文件.md 提纯为 "我的新测试文件"
+           const fullFileName = path.split('\\').pop() || '';
+           const fileName = fullFileName.replace(/\.md$/i, '') || '本地新文件';
+           
+           console.log(`准备入库新本地文件: [${fileName}] 到空间 [${currentSpaceId.value}]`);
+           
+           // 2. 调用 lingmaiApi.createNote (因为你的 useSpiritData 里可能有封装的 createNewNote，但由于参数不好配，直接调 API 最稳)
+           // 传入当前选中的空间 ID，这样这个文件就会归属到你当前的位面下
+           await lingmaiApi.createNote({
+               title: fileName,
+               spaceId: currentSpaceId.value,
+               type: 'note', 
+               folderId: null // 默认放在根目录，如果你想放进特定文件夹再另行处理
+           });
+           
+           showToast(`已捕获本地文件: ${fileName}`);
+        }
+        // --- 🌟 核心修改结束 ---
+
+        // 不管是新建还是修改，最后都要刷新侧边栏列表
+        await fetchAllNotes();
+        
+      } catch (error) {
+         console.error('文件自动入库/刷新失败:', error);
+         showToast(`文件同步出现异常`);
+      }
+      
+    }, 500); // 延迟 500ms，等待物理文件稳定
+  };
+
+
+
+
   checkScreen();
   window.addEventListener('resize', checkScreen);
-  await initSpaces();
-  await fetchAllNotes();
-  // 如果 URL 中有 id，会自动触发 NoteEditorView 的 watch 加载
+  try {
+    await initSpaces();
+    await fetchAllNotes();
+  } catch (e) {
+    console.error('初始化失败', e);
+  }
+
+  
 });
 
 onUnmounted(() => {
+  if (timer) clearTimeout(timer);
   window.removeEventListener('resize', checkScreen);
   if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
 });

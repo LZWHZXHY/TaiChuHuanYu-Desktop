@@ -9,6 +9,49 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Resources\LocalFileBrowser.html" />
+    <None Remove="Resources\LocalFileBrowser\index.html" />
+    <None Remove="Resources\LocalFileBrowser\js\api.js" />
+    <None Remove="Resources\LocalFileBrowser\js\app.js" />
+    <None Remove="Resources\LocalFileBrowser\js\backlinks.js" />
+    <None Remove="Resources\LocalFileBrowser\js\editor.js" />
+    <None Remove="Resources\LocalFileBrowser\js\links.js" />
+    <None Remove="Resources\LocalFileBrowser\js\tree.js" />
+    <None Remove="Resources\LocalFileBrowser\libs\marked.min.js" />
+    <None Remove="Resources\LocalFileBrowser\style.css" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Resources\LocalFileBrowser\index.html">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\LocalFileBrowser\js\api.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\LocalFileBrowser\js\app.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\LocalFileBrowser\js\backlinks.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\LocalFileBrowser\js\editor.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\LocalFileBrowser\js\links.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\LocalFileBrowser\js\tree.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\LocalFileBrowser\libs\marked.min.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Resources\LocalFileBrowser\style.css">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3912.50" />
   </ItemGroup>
 
