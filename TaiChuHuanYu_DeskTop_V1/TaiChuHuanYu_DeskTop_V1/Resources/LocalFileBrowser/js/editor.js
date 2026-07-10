@@ -1,5 +1,4 @@
-// editor.js - 编辑器模块
-import { saveFileContent, getFileContent, insertImage } from './api.js';
+import { saveFileContent, getFileContent, insertImage, postMessage } from './api.js';
 
 let currentFile = null;
 let currentContent = '';
@@ -8,12 +7,12 @@ let isEditMode = false;
 
 let fileNameEl, contentDiv, statusEl, editBtn, saveBtn, cancelBtn;
 
-// ========== 自动补全（[[）相关 ==========
+// ========== 自动补全相关 ==========
 let mdFileList = [];
 let autocompleteActive = false;
 let autocompletePopup = null;
 
-// ========== 命令面板（/）相关 ==========
+// ========== 命令面板相关 ==========
 let commandActive = false;
 let commandPopup = null;
 const commandList = [
@@ -64,7 +63,6 @@ function initPopups() {
         document.body.appendChild(popup);
         commandPopup = popup;
     }
-    // 点击外部关闭
     document.addEventListener('click', function(e) {
         if (autocompletePopup && !autocompletePopup.contains(e.target) && e.target !== document.activeElement) {
             closeAutocomplete();
@@ -161,7 +159,7 @@ function closeAutocomplete() {
     autocompleteActive = false;
 }
 
-// ========== 命令面板（/） ==========
+// ========== 命令面板 ==========
 function isAtCommand(textarea, pos) {
     const before = textarea.value.substring(0, pos);
     if (before.length === 0) return false;
@@ -170,7 +168,6 @@ function isAtCommand(textarea, pos) {
 
 function showCommand(textarea) {
     commandFiltered = commandList;
-    commandSelectedIndex = -1;
     const popup = commandPopup;
     const rect = textarea.getBoundingClientRect();
     const cursorPos = getCaretCoordinates(textarea, textarea.selectionStart);
@@ -194,7 +191,6 @@ function showCommand(textarea) {
             const cmd = commandFiltered[idx];
             if (cmd) {
                 closeCommand();
-                // 移除输入的 '/'
                 const textarea = document.getElementById('editArea');
                 if (textarea) {
                     const start = textarea.selectionStart;
@@ -218,7 +214,7 @@ function closeCommand() {
     commandActive = false;
 }
 
-// ========== 插入图片（核心逻辑） ==========
+// ========== 插入图片 ==========
 function handleInsertImage() {
     if (!currentFile) {
         alert('请先打开一个文档再插入图片');
@@ -277,8 +273,6 @@ export function displayFileContent(content, path) {
     }
 
     const ext = path ? path.split('.').pop().toLowerCase() : '';
-    console.log(`[displayFileContent] 路径: ${path}, 扩展名: ${ext}`);
-
     if (ext === 'md') {
         try {
             if (typeof marked === 'undefined') {
@@ -286,28 +280,64 @@ export function displayFileContent(content, path) {
                 contentDiv.innerHTML = `<pre>${content}</pre>`;
                 return;
             }
+
+            // 创建自定义渲染器
             const renderer = new marked.Renderer();
-            // ----- 手动构造图片标签 -----
-            renderer.image = function(href, title, text) {
-                if (typeof href !== 'string' || href === '') {
-                    return `<img src="" alt="${text || ''}" />`;
-                }
-                let finalHref = href;
-                if (!href.startsWith('http://') && !href.startsWith('https://')) {
-                    let cleanHref = href.replace(/^\.?\//, '');
-                    let currentDir = currentFile ? currentFile.substring(0, currentFile.lastIndexOf('/') + 1) : '';
-                    finalHref = 'https://vault.local/' + currentDir + cleanHref;
-                }
-                let img = `<img src="${finalHref}" alt="${text || ''}"`;
-                if (title) img += ` title="${title}"`;
-                img += ' />';
-                return img;
-            };
-            // --------------------------
+
+            // 重写 image 方法
+            renderer.image = function(...args) {
+    let href, title, text;
+    // 判断第一个参数类型：对象（v15+）还是字符串（旧版）
+    if (args[0] && typeof args[0] === 'object') {
+        const token = args[0];
+        href = token.href || '';
+        title = token.title || '';
+        text = token.text || '';
+    } else {
+        // 旧版签名 (href, title, text)
+        href = args[0] || '';
+        title = args[1] || '';
+        text = args[2] || '';
+    }
+
+    if (typeof href !== 'string' || href === '') {
+        return `<img src="" alt="${text || ''}" />`;
+    }
+
+    let finalHref = href;
+    if (!href.startsWith('http://') && !href.startsWith('https://')) {
+        // 去掉开头的 ./ 或 /
+        let cleanHref = href.replace(/^\.?\//, '');
+        let currentDir = currentFile ? currentFile.substring(0, currentFile.lastIndexOf('/') + 1) : '';
+        finalHref = 'https://vault.local/' + currentDir + cleanHref;
+    }
+
+    // 加时间戳避免缓存
+    const cacheBuster = `?t=${Date.now()}`;
+    return `<img src="${finalHref}${cacheBuster}" alt="${text || ''}" ${title ? `title="${title}"` : ''} />`;
+};
+
+            // 使用自定义渲染器解析
             let html = marked.parse(content, { renderer });
+
+            // 处理 [[...]] 链接
+            html = html.replace(/\[\[([^\]]+)\]\]/g, (match, p1) => {
+                let parts = p1.split('|');
+                let linkPath = parts[0].trim();
+                let displayName = parts.length > 1 ? parts[1].trim() : linkPath;
+                if (!linkPath.endsWith('.md')) linkPath += '.md';
+                return `<span class="wikilink" data-path="${linkPath}">${displayName}</span>`;
+            });
+
             contentDiv.innerHTML = html;
-            const event = new CustomEvent('content-rendered', { detail: { content, path } });
-            document.dispatchEvent(event);
+
+            // 绑定 wikilink 点击事件
+            contentDiv.querySelectorAll('.wikilink').forEach(el => {
+                el.addEventListener('click', function() {
+                    postMessage('OPEN_LINK', { path: this.dataset.path });
+                });
+            });
+
         } catch (e) {
             console.error('[displayFileContent] Markdown 渲染失败:', e);
             contentDiv.innerHTML = `<pre>${content}</pre>`;
@@ -398,30 +428,26 @@ export function onImageInserted(imagePath, insertedText) {
     }
 }
 
-// ========== 编辑器监听器（补全 + 命令） ==========
+// ========== 编辑器监听器 ==========
 function setupEditorListeners(textarea) {
     textarea.addEventListener('input', function(e) {
         const pos = this.selectionStart;
-        // 检测 [[
         if (isAtTrigger(this, pos)) {
             const keyword = getSearchKeyword(this, pos);
             showAutocomplete(keyword, this);
             closeCommand();
             return;
         }
-        // 检测 /
         if (isAtCommand(this, pos)) {
             showCommand(this);
             closeAutocomplete();
             return;
         }
-        // 如果都不是，关闭所有弹窗
         closeAutocomplete();
         closeCommand();
     });
 
     textarea.addEventListener('keydown', function(e) {
-        // 处理自动补全键盘事件
         if (autocompleteActive) {
             const popup = autocompletePopup;
             const items = popup.querySelectorAll('li');
@@ -454,7 +480,6 @@ function setupEditorListeners(textarea) {
             return;
         }
 
-        // 处理命令面板键盘事件
         if (commandActive) {
             const popup = commandPopup;
             const items = popup.querySelectorAll('li');
@@ -482,7 +507,6 @@ function setupEditorListeners(textarea) {
                     const cmd = commandFiltered[idx];
                     if (cmd) {
                         closeCommand();
-                        // 移除输入的 '/'
                         const start = textarea.selectionStart;
                         const before = textarea.value.substring(0, start - 1);
                         const after = textarea.value.substring(start);

@@ -1,7 +1,8 @@
-import { postMessage, getFileList, createNote, createFolder } from './api.js';
+import { postMessage, getFileList, createNote, createFolder, getBacklinks } from './api.js';
 import { initTree, renderTree, expandAll, refreshTree, loadFileContent } from './tree.js';
-import { processContentAndLinks, renderBacklinks } from './links.js';
+import { renderBacklinks } from './links.js';
 import { initEditor, displayFileContent, onSaveComplete, setMdFileList, onImageInserted } from './editor.js';
+
 // 初始化各模块
 initTree('fileTree');
 initEditor('fileName', 'fileContent', 'editStatus', 'btnEditMode', 'btnSaveContent', 'btnCancelEdit');
@@ -13,14 +14,14 @@ window.chrome.webview.addEventListener('message', function(e) {
     switch (data.cmd) {
         case 'FILE_LIST':
             renderTree(data.files);
-            // 更新自动补全数据源
             setMdFileList(data.files);
             setTimeout(expandAll, 50);
             document.getElementById('statusBar').textContent = `共 ${(data.files || []).length} 个文件`;
             break;
         case 'FILE_CONTENT':
             displayFileContent(data.content, data.path);
-            processContentAndLinks(data.content, data.path);
+            // 请求反向链接
+            getBacklinks(data.path);
             document.getElementById('statusBar').textContent = `已加载: ${data.path}`;
             break;
         case 'BACKLINKS':
@@ -41,8 +42,8 @@ window.chrome.webview.addEventListener('message', function(e) {
         case 'IMAGE_INSERTED':
             onImageInserted(data.path, data.insertedText);
             document.getElementById('statusBar').textContent = `图片已插入: ${data.path}`;
-            getFileList(); // 刷新文件列表以显示新图片
-            break;    
+            getFileList();
+            break;
         case 'ERROR':
             alert('错误: ' + data.message);
             document.getElementById('statusBar').textContent = '错误';
@@ -50,20 +51,6 @@ window.chrome.webview.addEventListener('message', function(e) {
         default:
             console.log('未知命令:', data.cmd);
     }
-});
-
-// 处理 content-updated 事件（由 links 模块发出）
-document.addEventListener('content-updated', function(e) {
-    const { html, path } = e.detail;
-    const contentDiv = document.getElementById('fileContent');
-    contentDiv.innerHTML = html;
-    // 绑定 wikilink 点击事件
-    contentDiv.querySelectorAll('.wikilink').forEach(el => {
-        el.addEventListener('click', function() {
-            const linkPath = this.dataset.path;
-            postMessage('OPEN_LINK', { path: linkPath });
-        });
-    });
 });
 
 // 绑定按钮事件
