@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@antv/g2plot": "^2.4.35",
+    "@microsoft/signalr": "^10.0.0",
     "@tiptap/extension-color": "^3.22.5",
     "@tiptap/extension-highlight": "^3.22.5",
     "@tiptap/extension-image": "^3.22.5",
