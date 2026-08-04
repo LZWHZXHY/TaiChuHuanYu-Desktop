@@ -176,4 +176,69 @@ onMounted(async ()=> {
     max-width: 100%; /* 手机端必须占满 */
   }
 }
+
+
+</style>
+
+
+<!-- App.vue -->
+<style>
+/* ===== 全局设计系统变量 ===== */
+:root {
+  /* 宣纸白、沉底灰、徽墨、烟灰、远山灰线、朱砂红 */
+  --bg-main: #F4F1EA;
+  --bg-sub: #ECE8E0;
+  --text-primary: #2C2A29;
+  --text-secondary: #7A7571;
+  --border-line: #D8D2C7;
+  --accent-color: #9E2A2B;
+  --font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif;
+
+  --paper-bg: var(--bg-main);
+  --paper-card: #FCFAF7;
+  --paper-sub: var(--bg-sub);
+  --ink-black: var(--text-primary);
+  --ink-gray: var(--text-secondary);
+  --line-raw: var(--border-line);
+  --cinnabar: var(--accent-color);
+}
+
+/* ===== 全局墨划风格按钮 ===== */
+.btn-line {
+  display: inline-block;
+  background: none;
+  border: 1px solid var(--line-raw);
+  color: var(--ink-black);
+  padding: 6px 18px;
+  font-family: var(--font-family);
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  line-height: 1.5;
+}
+
+.btn-line:hover {
+  border-color: var(--cinnabar);
+  color: var(--cinnabar);
+}
+
+.btn-line.active {
+  border-color: var(--cinnabar);
+  background: rgba(158, 42, 43, 0.05);
+  color: var(--cinnabar);
+}
+
+/* 主要按钮（深色边框） */
+.btn-line.btn-primary {
+  border-color: var(--ink-black);
+  padding: 8px 24px;
+}
+
+.btn-line.btn-primary:hover {
+  border-color: var(--cinnabar);
+  color: var(--cinnabar);
+  background: rgba(158, 42, 43, 0.03);
+}
 </style>

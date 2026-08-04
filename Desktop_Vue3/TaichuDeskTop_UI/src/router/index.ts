@@ -108,7 +108,17 @@ const router = createRouter({
       component: () => import('../views/灵脉百科/components/WikiDetail.vue'),
       props: true
     },
-
+    {
+      path: '/ocs',   // 路由路径不变（用户访问的URL）
+      children: [
+        // ✅ 导入路径改为大写 S
+        { path: '', component: () => import('@/views/柴圈板块/OCs/index.vue') },
+        { path: ':id', component: () => import('@/views/柴圈板块/OCs/detail.vue') },
+        { path: 'create', component: () => import('@/views/柴圈板块/OCs/create.vue') },
+        { path: 'edit/:id', component: () => import('@/views/柴圈板块/OCs/edit.vue') },
+        { path: 'my', component: () => import('@/views/柴圈板块/OCs/my.vue') },
+      ]
+    },
     // ==========================================
     // ===== 活动中心（多分区架构） =====
     // ==========================================

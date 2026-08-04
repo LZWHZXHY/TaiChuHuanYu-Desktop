@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '../../stores/user' 
 import { useCos } from '../../composables/useCos'
 import request from '../../utils/request'
@@ -11,30 +11,53 @@ const { uploadFile, isUploading } = useCos()
 const fileInput = ref<HTMLInputElement | null>(null)
 const defaultAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
 
-/**
- * 核心逻辑修改：基于后端平方根公式计算经验条进度
- * 公式: Level = floor(sqrt(Exp / 100))
- */
+// 经验条计算（无改动）
 const expPercentage = computed(() => {
   const exp = userStore.userInfo?.experience || 0
   if (exp <= 0) return 0
-
-  // 计算当前等级
   const currentLevel = Math.floor(Math.sqrt(exp / 100))
-  
-  // 当前等级所需的起始经验: Level^2 * 100
   const currentLevelStartExp = Math.pow(currentLevel, 2) * 100
-  // 下一等级所需的起始经验: (Level + 1)^2 * 100
   const nextLevelStartExp = Math.pow(currentLevel + 1, 2) * 100
-  
-  // 在当前等级区间内的进度
   const progressInLevel = exp - currentLevelStartExp
   const levelExpRange = nextLevelStartExp - currentLevelStartExp
-  
   const percentage = (progressInLevel / levelExpRange) * 100
   return Math.min(Math.max(percentage, 0), 100)
 })
 
+// ---------- 强制刷新：完全替换 userInfo ----------
+// ---------- 强制刷新：完全替换 userInfo ----------
+const fetchFullProfile = async () => {
+  console.log('🔄 开始获取完整资料...')
+  try {
+    const res = await request.get('/User/me')
+    console.log('✅ 请求成功，原始响应:', res)
+
+    // 🌟 关键修复：res 本身就是用户数据，不需要再取 res.data
+    const userData = res
+    console.log('📦 解析后的用户数据:', userData)
+
+    if (userData && userData.username) {
+      // 完全替换，确保响应式
+      userStore.userInfo = userData
+      localStorage.setItem('userInfo', JSON.stringify(userData))
+      console.log('💾 已更新 store 和 localStorage')
+    } else {
+      console.warn('⚠️ 响应数据无效:', userData)
+    }
+  } catch (error) {
+    console.error('❌ 请求失败:', error)
+  }
+}
+
+// ---------- 页面加载 ----------
+onMounted(() => {
+  console.log('🚀 个人页面已挂载')
+  // 不管有没有数据，都强制刷新一次（保证最新）
+  // 如果你希望减少请求，可以加条件，但为了调试我们先强制拉取
+  fetchFullProfile()
+})
+
+// ---------- 头像上传 ----------
 const triggerUpload = () => {
   if (isUploading.value) return
   fileInput.value?.click()
@@ -44,22 +67,17 @@ const handleFileChange = async (e: Event) => {
   const target = e.target as HTMLInputElement
   const file = target.files?.[0]
   if (!file) return
-
   if (!file.type.startsWith('image/')) {
     alert('请选择有效的图片文件')
     return
   }
-
   try {
     const result = await uploadFile(file, 'avatars')
     const newAvatarUrl = result.url
-
-    await request.patch('/User/update-profile', { 
-      avatar: newAvatarUrl 
-    })
-
+    await request.patch('/User/update-profile', { avatar: newAvatarUrl })
     if (userStore.userInfo) {
       userStore.userInfo.avatar = newAvatarUrl
+      localStorage.setItem('userInfo', JSON.stringify(userStore.userInfo))
     }
   } catch (error: any) {
     console.error('头像处理失败:', error)
@@ -69,6 +87,7 @@ const handleFileChange = async (e: Event) => {
   }
 }
 
+// ---------- 退出登录 ----------
 const handleLogout = () => {
   localStorage.removeItem('token')
   window.location.reload()
@@ -79,6 +98,8 @@ const handleEditProfile = () => {
 }
 </script>
 
+<!-- template 和 style 完全保持你原来的，一个字符不改 -->
+<!-- 为了完整，我将它们也列出来，但你直接复制上面的 script 部分加上你原来的 template/style 也可以 -->
 <template>
   <article class="user-center" v-if="userStore.userInfo">
     <div class="content-layout">
@@ -148,6 +169,12 @@ const handleEditProfile = () => {
     载入灵脉数据中...
   </div>
 </template>
+
+<style scoped>
+/* 你的样式完全不变，这里省略，实际复制时保留 */
+</style>
+
+
 
 <style scoped>
 .user-center { width: 100%; color: #24292f; }
