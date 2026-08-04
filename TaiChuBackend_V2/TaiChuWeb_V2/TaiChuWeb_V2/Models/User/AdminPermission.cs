@@ -6,6 +6,7 @@
         Trade_Manage,  // 交易行：上架、补货、调价
         User_Audit,    // 用户：EXP发放、存储配额审计
         Wiki_Editor,   // 知识库：审核、修订
-        System_Monitor // 系统：查看负载、日志
+        System_Monitor, // 系统：查看负载、日志
+        Survey_Manage,   // ✅ 新增：问卷管理（创建、编辑、发布、删除）
     }
 }

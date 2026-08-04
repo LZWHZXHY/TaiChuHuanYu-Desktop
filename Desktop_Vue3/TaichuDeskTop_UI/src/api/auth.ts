@@ -12,29 +12,28 @@ export interface Plugin {
 
 
 export interface UserInfo {
-
   id: string;
   // --- 基础字段 ---
   username: string;
   email: string;
   createdAt: string;
   avatar?: string;
-  gender: string; // 确保这里是 string
+  gender: string;
   age?: number;
-  // --- 档案字段 (新补齐) ---
+  // --- 档案字段 ---
   address?: string;
-  birthday?:string;
+  birthday?: string;
   bio?: string;
   mood?: string;
-  socialLinks?: string; // 存储 JSON 字符串
+  socialLinks?: string;
   
-// --- 补上这两行，解决报错 ---
-  phoneNumber?: string;   // 联系电话
-  extraConfig?: string;   // 额外配置信息
+  // --- 补上这两行 ---
+  phoneNumber?: string;
+  extraConfig?: string;
 
   // --- 核心修复：补上这两行 ---
-  zodiac?: string;         // 星座
-  chineseZodiac?: string;  // 生肖
+  zodiac?: string;
+  chineseZodiac?: string;
 
   // --- 数值字段 ---
   level: number;
@@ -42,6 +41,9 @@ export interface UserInfo {
   points: number;
   maxSignStreak: number;
   title?: string;
+
+  // ✅ 新增：权限列表
+  permissions?: string[];  // 如 ["Survey_Manage", "Wiki_Editor"]
 }
 
 interface LoginResponse {

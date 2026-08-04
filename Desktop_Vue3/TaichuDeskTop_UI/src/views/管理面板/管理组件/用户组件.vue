@@ -218,7 +218,8 @@ const PERMISSION_MAP: Record<string, string> = {
   Trade_Manage: '交易行管理员',
   User_Audit: '用户审计师',
   Wiki_Editor: '维基知识库审核员',
-  System_Monitor: '系统负载监控员'
+  System_Monitor: '系统负载监控员',
+  Survey_Manage: '问卷管理员'  // ✅ 新增
 };
 
 const loading = ref(false);

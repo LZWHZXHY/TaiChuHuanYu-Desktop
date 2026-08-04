@@ -6,7 +6,7 @@ using TaiChuWeb_V2.Dtos.LoginRegister;
 using TaiChuWeb_V2.Models.LingMai;
 using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.Services.Email; // 确保引用了接口命名空间
-
+using TaiChuWeb_V2.Models.User;  // 用于 UserPermission 和 AdminPermission
 
 
 
@@ -169,14 +169,29 @@ namespace TaiChuWeb_V2.Controllers
                 return Unauthorized(new { message = "昵称或邮箱地址不匹配，接入失败" });
             }
 
-            // 5. 登录成功逻辑保持不变
+            // ✅ 5. 获取用户权限列表
+            var permissions = await _context.UserPermissions
+                .Where(p => p.UserId == user.Id)
+                .Select(p => p.Permission.ToString())  // 枚举转字符串
+                .ToListAsync();
+
+            // 6. 生成 JWT Token
             var token = _jwtService.GenerateToken(user);
 
+            // 7. 返回用户信息 + 权限列表
             return Ok(new
             {
                 token = token,
-                username = user.Username,
-                avatar = user.Profile?.Avatar ?? "default_avatar.png",
+                user = new
+                {
+                    id = user.Id,
+                    username = user.Username,
+                    email = user.Email,
+                    avatar = user.Profile?.Avatar ?? "default_avatar.png",
+                    level = user.Stats?.Level ?? 1,
+                    // ✅ 核心：返回权限列表
+                    permissions = permissions  // 如 ["Survey_Manage", "Wiki_Editor"]
+                },
                 message = "欢迎回归太初寰宇"
             });
         }

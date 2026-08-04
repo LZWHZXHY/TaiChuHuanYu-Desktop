@@ -26,7 +26,8 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { authApi } from '../../api/auth' 
+import { authApi } from '../../api/auth'
+import { useUserStore } from '@/stores/user'  // ✅ 新增：导入 userStore
 
 const emit = defineEmits(['login-success', 'switch'])
 
@@ -34,6 +35,9 @@ const emit = defineEmits(['login-success', 'switch'])
 const form = ref({ identifier: '', password: '' })
 const isSubmitting = ref(false)
 const errorMsg = ref('')
+
+// ✅ 获取 userStore 实例
+const userStore = useUserStore()
 
 const submit = async () => {
   if (!form.value.identifier || !form.value.password) {
@@ -47,13 +51,22 @@ const submit = async () => {
   try {
     const res = await authApi.login(form.value)
     
-    // 存储 Token 和 用户名
+    // ✅ 1. 存储 Token
     localStorage.setItem('token', res.token)
+    
+    // ✅ 2. 存储完整的用户信息（包含 permissions）
+    localStorage.setItem('userInfo', JSON.stringify(res.user))
+    
+    // ✅ 3. 存储用户名（方便其他地方使用）
     if (res.user?.username) localStorage.setItem('username', res.user.username)
     
+    // ✅ 4. 更新 userStore
+    userStore.setUser(res.user ?? null)
+    
+    // ✅ 5. 触发成功事件
     emit('login-success', res.token)
     
-
+    // ✅ 6. 跳转
     window.location.href = '/'
   } catch (err: any) {
     console.error(err)
@@ -63,6 +76,8 @@ const submit = async () => {
   }
 }
 </script>
+
+
 
 <style scoped>
 .input-group { margin-bottom: 20px; }

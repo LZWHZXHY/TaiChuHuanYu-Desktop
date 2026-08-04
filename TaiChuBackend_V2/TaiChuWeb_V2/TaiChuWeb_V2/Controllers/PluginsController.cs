@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Models.Plugin;
-using TaiChuWeb_V2.Models.User; // 确保引入了 AdminPermission 所在的命名空间
+using TaiChuWeb_V2.Models.User;
 
 namespace TaiChuWeb_V2.Controllers
 {
@@ -44,7 +44,10 @@ namespace TaiChuWeb_V2.Controllers
 
             var allPlugins = await query.ToListAsync();
 
-            // 4. 🌟 核心过滤：根据身份和权限剔除无权查看的菜单
+            // ✅ 判断是否是 SuperAdmin
+            var isSuperAdmin = userPermissions.Contains(AdminPermission.SuperAdmin);
+
+            // 4. 核心过滤：根据身份和权限剔除无权查看的菜单
             var filteredPlugins = allPlugins.Where(p =>
             {
                 // 如果该项不需要登录，直接显示
@@ -53,11 +56,11 @@ namespace TaiChuWeb_V2.Controllers
                 // 如果需要登录但未登录，直接剔除
                 if (!isAuthenticated) return false;
 
-                // 🌟 特殊处理：管理面板 (假设 ID 为 99 或 URL 包含 /admin)
-                if (p.Url.StartsWith("/admin"))
+                // ✅ 特殊处理：管理面板 (URL 包含 /admin)
+                if (p.Url.StartsWith("/admin") || p.Name == "管理面板")
                 {
-                    // 只有数据库中有权限记录的用户（任何一种管理员）才能看见“管理面板”入口
-                    return userPermissions.Any();
+                    // ✅ 只有 SuperAdmin 才能看见管理面板
+                    return isSuperAdmin;
                 }
 
                 // 其他需要登录的项（如个人中心、交易行）

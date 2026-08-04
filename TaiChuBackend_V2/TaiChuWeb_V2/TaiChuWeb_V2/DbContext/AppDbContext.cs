@@ -14,6 +14,9 @@ using TaiChuWeb_V2.Models.News;
 using TaiChuWeb_V2.Models.Financial;
 using TaiChuWeb_V2.Models.Activity;
 using TaiChuWeb_V2.Models.World;
+using TaiChuWeb_V2.Models.Survey;
+
+
 
 namespace TaiChuWeb_V2.DbContext
 {
@@ -22,6 +25,18 @@ namespace TaiChuWeb_V2.DbContext
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
+
+
+
+        // ===== 问卷系统 =====
+        public DbSet<Survey> Surveys { get; set; }
+        public DbSet<Question> Questions { get; set; }
+        public DbSet<QuestionOption> QuestionOptions { get; set; }
+        public DbSet<SurveySubmission> SurveySubmissions { get; set; }
+        public DbSet<Answer> Answers { get; set; }
+
+
+
         public DbSet<Event> Events { get; set; }
 
         public DbSet<Financial> Financials { get; set; }
@@ -390,6 +405,90 @@ namespace TaiChuWeb_V2.DbContext
                 .WithMany(p => p.Replies)
                 .HasForeignKey(r => r.PostId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+
+
+            // ===== 问卷系统配置 =====
+
+            // Survey 索引
+            modelBuilder.Entity<Survey>(entity =>
+            {
+                entity.ToTable("surveys");
+                entity.HasIndex(s => s.Status);
+                entity.HasIndex(s => new { s.StartTime, s.EndTime });
+                entity.HasIndex(s => s.CreatedBy);
+            });
+
+            // Question 索引
+            modelBuilder.Entity<Question>(entity =>
+            {
+                entity.ToTable("questions");
+                entity.HasIndex(q => q.SurveyId);
+                entity.HasIndex(q => new { q.SurveyId, q.SortOrder });
+            });
+
+            // QuestionOption 索引
+            modelBuilder.Entity<QuestionOption>(entity =>
+            {
+                entity.ToTable("question_options");
+                entity.HasIndex(o => o.QuestionId);
+                entity.HasIndex(o => new { o.QuestionId, o.SortOrder });
+            });
+
+            // SurveySubmission 索引和唯一约束
+            modelBuilder.Entity<SurveySubmission>(entity =>
+            {
+                entity.ToTable("survey_submissions");
+                entity.HasIndex(s => s.SurveyId);
+                entity.HasIndex(s => s.UserId);
+                entity.HasIndex(s => s.SubmittedAt);
+
+                // 同一用户对同一问卷只能提交一次（匿名用户通过 UserId=NULL + Identifier 控制）
+                entity.HasIndex(s => new { s.SurveyId, s.UserId })
+                    .IsUnique()
+                    .HasDatabaseName("IX_SurveySubmission_Survey_User");
+            });
+
+            // Answer 索引
+            modelBuilder.Entity<Answer>(entity =>
+            {
+                entity.ToTable("answers");
+                entity.HasIndex(a => a.SubmissionId);
+                entity.HasIndex(a => a.QuestionId);
+            });
+
+            // ===== 级联删除设置 =====
+            // Survey → Question：删除问卷时级联删除题目
+            modelBuilder.Entity<Question>()
+                .HasOne(q => q.Survey)
+                .WithMany(s => s.Questions)
+                .HasForeignKey(q => q.SurveyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Question → QuestionOption：删除题目时级联删除选项
+            modelBuilder.Entity<QuestionOption>()
+                .HasOne(o => o.Question)
+                .WithMany(q => q.Options)
+                .HasForeignKey(o => o.QuestionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Survey → SurveySubmission：删除问卷时级联删除提交记录
+            modelBuilder.Entity<SurveySubmission>()
+                .HasOne(s => s.Survey)
+                .WithMany(s => s.Submissions)
+                .HasForeignKey(s => s.SurveyId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // SurveySubmission → Answer：删除提交记录时级联删除答案
+            modelBuilder.Entity<Answer>()
+                .HasOne(a => a.Submission)
+                .WithMany(s => s.Answers)
+                .HasForeignKey(a => a.SubmissionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+
+
+
         }
     }
 }
