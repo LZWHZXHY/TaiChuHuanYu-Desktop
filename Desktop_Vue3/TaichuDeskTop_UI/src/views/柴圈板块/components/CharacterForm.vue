@@ -1,125 +1,114 @@
 <template>
   <form class="character-form" @submit.prevent="handleSubmit">
-    <!-- 基本信息 -->
+    <!-- ===== 基本信息 ===== -->
     <div class="form-section">
       <h3 class="section-label">基本信息</h3>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>角色名称 <span class="required">*</span></label>
-          <input v-model="form.name" placeholder="给角色取名" required />
-        </div>
-        <div class="form-group">
-          <label>绰号/别名</label>
-          <input v-model="form.nickname" placeholder="其他称呼" />
-        </div>
+      <div class="form-group">
+        <label>角色标题 <span class="required">*</span></label>
+        <input v-model="form.title" placeholder="给角色取个名字" required />
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>性别</label>
-          <select v-model="form.gender">
-            <option value="男">男</option>
-            <option value="女">女</option>
-            <option value="未知">未知</option>
-            <option value="其他">其他</option>
+      <div class="form-group">
+        <label>一句话简介</label>
+        <input v-model="form.description" placeholder="简短介绍这个角色" />
+      </div>
+
+      <div class="form-group">
+        <label>封面图</label>
+        <div class="upload-area">
+          <div v-if="form.coverUrl" class="upload-preview">
+            <img :src="form.coverUrl" alt="封面图" />
+            <button type="button" class="remove-image" @click="form.coverUrl = ''">×</button>
+          </div>
+          <div v-else class="upload-placeholder" @click="uploadCover">
+            <span>📷 点击上传封面图</span>
+            <span class="hint">建议尺寸：400×400 以上</span>
+          </div>
+          <div v-if="uploadingCover" class="uploading-status">上传中... {{ coverProgress }}%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 自定义属性 ===== -->
+    <div class="form-section">
+      <div class="section-header-inline">
+        <h3 class="section-label">角色属性</h3>
+        <button type="button" class="btn-line btn-sm" @click="addAttribute">＋ 添加属性</button>
+      </div>
+      <p class="hint">自由定义角色的各项属性，支持短文本（如：性别、年龄）和长文本（如：家族历史、背景故事）</p>
+
+      <div
+        v-for="(attr, index) in form.attributes"
+        :key="index"
+        class="attr-row"
+      >
+        <div class="attr-key">
+          <input v-model="attr.key" placeholder="属性名（如：性别、家族历史）" />
+        </div>
+
+        <div class="attr-type">
+          <select v-model="attr.type">
+            <option value="short">短文本</option>
+            <option value="long">长文本</option>
           </select>
         </div>
-        <div class="form-group">
-          <label>年龄</label>
-          <input v-model.number="form.age" type="number" placeholder="0" min="0" />
+
+        <div class="attr-value">
+          <input
+            v-if="attr.type === 'short'"
+            v-model="attr.value"
+            placeholder="属性值（短文本）"
+          />
+          <textarea
+            v-else
+            v-model="attr.value"
+            rows="4"
+            placeholder="详细内容（长文本）"
+          />
         </div>
+
+        <button type="button" class="btn-remove" @click="removeAttribute(index)">×</button>
       </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>身高</label>
-          <input v-model="form.height" placeholder="如：180cm" />
-        </div>
-        <div class="form-group">
-          <label>体重</label>
-          <input v-model="form.weight" placeholder="如：70kg" />
-        </div>
+      <div v-if="!form.attributes.length" class="empty-hint">
+        还没有属性，点击「添加属性」开始定义
       </div>
     </div>
 
-    <!-- 外观与性格 -->
+    <!-- ===== 图库 ===== -->
     <div class="form-section">
-      <h3 class="section-label">外观与性格</h3>
-
-      <div class="form-group">
-        <label>外貌描述 <span class="required">*</span></label>
-        <textarea v-model="form.appearance" rows="3" placeholder="描述角色的外貌特征..." required></textarea>
+      <div class="section-header-inline">
+        <h3 class="section-label">图库</h3>
+        <button type="button" class="btn-line btn-sm" @click="uploadGalleryImage">＋ 上传图片</button>
       </div>
+      <p class="hint">角色的其他展示图片</p>
 
-      <div class="form-group">
-        <label>服装</label>
-        <textarea v-model="form.outfit" rows="2" placeholder="角色的穿着打扮..."></textarea>
-      </div>
-
-      <div class="form-group">
-        <label>性格特征 <span class="required">*</span></label>
-        <textarea v-model="form.personality" rows="3" placeholder="角色的性格特点..." required></textarea>
-      </div>
-
-      <div class="form-group">
-        <label>背景故事 <span class="required">*</span></label>
-        <textarea v-model="form.background" rows="4" placeholder="角色的身世背景..." required></textarea>
-      </div>
-
-      <div class="form-group">
-        <label>能力/技能</label>
-        <textarea v-model="form.abilities" rows="2" placeholder="特殊能力或技能..."></textarea>
-      </div>
-    </div>
-
-    <!-- 标签与图集 -->
-    <div class="form-section">
-      <h3 class="section-label">标签与图集</h3>
-
-      <div class="form-group">
-        <label>标签</label>
-        <div class="tag-input">
-          <input
-            v-model="tagInput"
-            placeholder="输入标签，按回车添加"
-            @keydown.enter.prevent="addTag"
-          />
-          <button type="button" class="add-btn" @click="addTag">+</button>
-        </div>
-        <div class="tag-list">
-          <span v-for="tag in form.tags" :key="tag" class="tag-item">
-            #{{ tag }}
-            <button type="button" class="remove-tag" @click="removeTag(tag)">×</button>
-          </span>
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label>头像图 URL</label>
-        <input v-model="form.avatar" placeholder="输入图片链接" />
-      </div>
-
-      <div class="form-group">
-        <label>图集</label>
-        <div class="tag-input">
-          <input
-            v-model="galleryInput"
-            placeholder="输入图片链接"
-            @keydown.enter.prevent="addGallery"
-          />
-          <button type="button" class="add-btn" @click="addGallery">+</button>
-        </div>
-        <div class="gallery-preview">
-          <div v-for="(img, idx) in form.gallery" :key="idx" class="gallery-item">
-            <img :src="img" alt="图集" />
-            <button type="button" class="remove-gallery" @click="removeGallery(idx)">×</button>
+      <div class="gallery-grid-form">
+        <div
+          v-for="(img, index) in form.images"
+          :key="index"
+          class="gallery-item-form"
+        >
+          <img :src="img.url" :alt="img.alt || '图库图片'" />
+          <div class="gallery-item-overlay">
+            <input v-model="img.alt" placeholder="描述（可选）" class="gallery-alt-input" />
+            <button type="button" class="btn-remove-small" @click="removeImage(index)">×</button>
           </div>
         </div>
+
+        <div v-if="uploadingGallery" class="gallery-uploading">
+          <div class="spinner-small"></div>
+          <span>上传中... {{ galleryProgress }}%</span>
+        </div>
+      </div>
+
+      <div v-if="!form.images.length && !uploadingGallery" class="empty-hint">
+        还没有图库图片，点击「上传图片」添加
       </div>
     </div>
 
-    <!-- 发布设置 -->
+    <!-- ===== 发布设置 ===== -->
     <div class="form-section">
       <h3 class="section-label">发布设置</h3>
 
@@ -132,10 +121,10 @@
       </div>
     </div>
 
-    <!-- 按钮 -->
+    <!-- ===== 按钮 ===== -->
     <div class="form-actions">
       <button type="button" class="btn-line" @click="router.back()">取消</button>
-      <button type="submit" class="btn-line btn-submit" :disabled="loading">
+      <button type="submit" class="btn-line btn-submit" :disabled="loading || uploadingCover || uploadingGallery">
         {{ loading ? '保存中...' : '保存角色' }}
       </button>
     </div>
@@ -145,101 +134,218 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import type { StickmanCharacter, CreateStickmanDto } from '../stickman'
+import { useCos } from '@/composables/useCos'
+
+// ===== 类型定义 =====
+interface AttributeInput {
+  key: string
+  value: string
+  type: 'short' | 'long'
+}
+
+interface ImageInput {
+  url: string
+  alt: string
+}
+
+interface FormData {
+  title: string
+  description: string
+  coverUrl: string
+  status: 'draft' | 'published'
+  attributes: AttributeInput[]
+  images: ImageInput[]
+}
+
+interface InitialData {
+  id?: string
+  title: string
+  description?: string
+  coverUrl?: string
+  status: 'draft' | 'published'
+  attributes?: {
+    id?: string
+    key: string
+    value: string
+    sortOrder: number
+    type: 'short' | 'long'
+  }[]
+  images?: { id?: string; url: string; alt?: string; sortOrder: number }[]
+}
 
 const props = defineProps<{
-  initialData?: StickmanCharacter
+  initialData?: InitialData
 }>()
 
 const emit = defineEmits<{
-  submit: [data: CreateStickmanDto]
+  submit: [data: any]
 }>()
 
 const router = useRouter()
 const loading = ref(false)
-const tagInput = ref('')
-const galleryInput = ref('')
+const { uploadFile } = useCos()
 
-const form = reactive<CreateStickmanDto & { id?: string }>({
-  name: '',
-  nickname: '',
-  gender: '未知',
-  age: undefined,
-  height: '',
-  weight: '',
-  appearance: '',
-  outfit: '',
-  personality: '',
-  background: '',
-  abilities: '',
-  tags: [],
-  avatar: '',
-  gallery: [],
-  status: 'published',
+// ===== 上传状态 =====
+const uploadingCover = ref(false)
+const coverProgress = ref(0)
+const uploadingGallery = ref(false)
+const galleryProgress = ref(0)
+
+const form = reactive<FormData>({
+  title: '',
+  description: '',
+  coverUrl: '',
+  status: 'draft',
+  attributes: [],
+  images: [],
 })
 
 onMounted(() => {
   if (props.initialData) {
-    Object.assign(form, {
-      id: props.initialData.id,
-      name: props.initialData.name,
-      nickname: props.initialData.nickname || '',
-      gender: props.initialData.gender,
-      age: props.initialData.age,
-      height: props.initialData.height || '',
-      weight: props.initialData.weight || '',
-      appearance: props.initialData.appearance,
-      outfit: props.initialData.outfit || '',
-      personality: props.initialData.personality,
-      background: props.initialData.background,
-      abilities: props.initialData.abilities || '',
-      tags: [...props.initialData.tags],
-      avatar: props.initialData.avatar || '',
-      gallery: [...props.initialData.gallery],
-      status: props.initialData.status === 'draft' ? 'draft' : 'published',
-    })
+    form.title = props.initialData.title || ''
+    form.description = props.initialData.description || ''
+    form.coverUrl = props.initialData.coverUrl || ''
+    form.status = props.initialData.status || 'draft'
+
+    if (props.initialData.attributes?.length) {
+      form.attributes = props.initialData.attributes.map(a => ({
+        key: a.key,
+        value: a.value || '',
+        type: a.type || 'short'
+      }))
+    }
+
+    if (props.initialData.images?.length) {
+      form.images = props.initialData.images.map(i => ({
+        url: i.url,
+        alt: i.alt || '',
+      }))
+    }
   }
 })
 
-function addTag() {
-  const val = tagInput.value.trim()
-  if (val && !form.tags.includes(val)) {
-    form.tags.push(val)
-    tagInput.value = ''
+// ===== 上传封面图 =====
+async function uploadCover() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  
+  input.onchange = async (e: Event) => {
+    const target = e.target as HTMLInputElement
+    const file = target.files?.[0]
+    if (!file) return
+
+    uploadingCover.value = true
+    coverProgress.value = 0
+
+    try {
+      const result = await uploadFile(file, 'stickman/cover')
+      form.coverUrl = result.url
+    } catch (error) {
+      console.error('封面上传失败:', error)
+      alert('封面上传失败，请重试')
+    } finally {
+      uploadingCover.value = false
+      coverProgress.value = 0
+      target.value = ''
+    }
   }
+
+  input.click()
 }
 
-function removeTag(tag: string) {
-  form.tags = form.tags.filter(t => t !== tag)
-}
+// ===== 上传图库图片 =====
+async function uploadGalleryImage() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = 'image/*'
+  input.multiple = true
 
-function addGallery() {
-  const val = galleryInput.value.trim()
-  if (val && !form.gallery.includes(val)) {
-    form.gallery.push(val)
-    galleryInput.value = ''
+  input.onchange = async (e: Event) => {
+    const target = e.target as HTMLInputElement
+    const files = target.files
+    if (!files || files.length === 0) return
+
+    uploadingGallery.value = true
+    galleryProgress.value = 0
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
+        const result = await uploadFile(file, 'stickman/gallery')
+        form.images.push({
+          url: result.url,
+          alt: ''
+        })
+        galleryProgress.value = Math.round(((i + 1) / files.length) * 100)
+      }
+    } catch (error) {
+      console.error('图库上传失败:', error)
+      alert('部分图片上传失败，请重试')
+    } finally {
+      uploadingGallery.value = false
+      galleryProgress.value = 0
+      target.value = ''
+    }
   }
+
+  input.click()
 }
 
-function removeGallery(idx: number) {
-  form.gallery.splice(idx, 1)
+// ===== 操作函数 =====
+function addAttribute() {
+  form.attributes.push({ key: '', value: '', type: 'short' })
+}
+
+function removeAttribute(index: number) {
+  form.attributes.splice(index, 1)
+}
+
+function removeImage(index: number) {
+  form.images.splice(index, 1)
 }
 
 function handleSubmit() {
-  if (!form.name.trim()) return alert('请输入角色名称')
-  if (!form.appearance.trim()) return alert('请输入外貌描述')
-  if (!form.personality.trim()) return alert('请输入性格特征')
-  if (!form.background.trim()) return alert('请输入背景故事')
+  if (!form.title.trim()) {
+    alert('请输入角色标题')
+    return
+  }
 
-  emit('submit', {
-    ...form,
-    nickname: form.nickname || undefined,
-    height: form.height || undefined,
-    weight: form.weight || undefined,
-    outfit: form.outfit || undefined,
-    abilities: form.abilities || undefined,
-    avatar: form.avatar || undefined,
-  })
+  // 检查重复 Key
+  const keys = form.attributes.map(a => a.key.trim()).filter(k => k)
+  const duplicateKeys = keys.filter((k, i) => keys.indexOf(k) !== i)
+  if (duplicateKeys.length) {
+    alert(`属性名重复：${duplicateKeys.join('、')}，请修改后重试`)
+    return
+  }
+
+  const validAttributes = form.attributes
+    .filter(a => a.key.trim() && a.value !== undefined)
+    .map((a, index) => ({
+      key: a.key.trim(),
+      value: a.value || '',
+      sortOrder: index,
+      type: a.type || 'short'
+    }))
+
+  const validImages = form.images
+    .filter(i => i.url.trim())
+    .map((i, index) => ({
+      url: i.url.trim(),
+      alt: i.alt || '',
+      sortOrder: index,
+    }))
+
+  const submitData = {
+    title: form.title.trim(),
+    description: form.description.trim() || undefined,
+    coverUrl: form.coverUrl.trim() || undefined,
+    status: form.status,
+    attributes: validAttributes.length ? validAttributes : undefined,
+    images: validImages.length ? validImages : undefined,
+  }
+
+  emit('submit', submitData)
 }
 </script>
 
@@ -260,18 +366,56 @@ function handleSubmit() {
   padding-bottom: 0;
 }
 
+.section-header-inline {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
 .section-label {
   font-size: 16px;
   font-weight: 400;
   letter-spacing: 0.2em;
-  margin: 0 0 18px 0;
+  margin: 0;
   color: var(--ink-black);
 }
 
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+.hint {
+  font-size: 12px;
+  color: var(--ink-light);
+  letter-spacing: 0.1em;
+  margin: 4px 0 16px 0;
+}
+
+.empty-hint {
+  font-size: 13px;
+  color: var(--ink-light);
+  letter-spacing: 0.1em;
+  padding: 16px 0 8px 0;
+  text-align: center;
+}
+
+.btn-sm {
+  padding: 4px 14px;
+  font-size: 12px;
+}
+
+.btn-line {
+  background: none;
+  border: 1px solid var(--line-raw);
+  color: var(--ink-black);
+  padding: 6px 16px;
+  font-family: var(--font-family);
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-line:hover {
+  border-color: var(--cinnabar);
+  color: var(--cinnabar);
 }
 
 .form-group {
@@ -316,89 +460,42 @@ function handleSubmit() {
   min-height: 60px;
 }
 
-.tag-input {
+/* ===== 上传区域 ===== */
+.upload-area {
+  border: 1px dashed var(--line-raw);
+  padding: 16px;
+  border-radius: 4px;
+  background: var(--paper-sub);
+  min-height: 120px;
   display: flex;
-  gap: 8px;
-}
-
-.tag-input input {
-  flex: 1;
-}
-
-.add-btn {
-  padding: 8px 16px;
-  border: 1px solid var(--line-raw);
-  background: var(--paper-card);
-  color: var(--ink-black);
-  font-size: 18px;
-  cursor: pointer;
-  transition: border-color 0.3s;
-}
-
-.add-btn:hover {
-  border-color: var(--ink-black);
-}
-
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.tag-item {
-  display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 2px 10px 2px 14px;
-  border: 1px solid var(--line-raw);
-  font-size: 12px;
-  color: var(--ink-gray);
-  letter-spacing: 0.1em;
+  justify-content: center;
 }
 
-.remove-tag {
-  background: none;
-  border: none;
-  color: var(--ink-light);
-  cursor: pointer;
-  font-size: 16px;
-  padding: 0 2px;
-}
-
-.remove-tag:hover {
-  color: var(--cinnabar);
-}
-
-.gallery-preview {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 8px;
-}
-
-.gallery-item {
+.upload-preview {
   position: relative;
-  width: 72px;
-  height: 72px;
-  border: 1px solid var(--line-raw);
-  overflow: hidden;
-}
-
-.gallery-item img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  max-width: 200px;
 }
 
-.remove-gallery {
+.upload-preview img {
+  width: 100%;
+  aspect-ratio: 1/1;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--line-raw);
+}
+
+.upload-preview .remove-image {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 20px;
-  height: 20px;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   border: none;
-  background: rgba(44, 42, 41, 0.75);
+  background: rgba(44, 42, 41, 0.8);
   color: #fff;
   cursor: pointer;
   font-size: 14px;
@@ -407,10 +504,202 @@ function handleSubmit() {
   justify-content: center;
 }
 
-.remove-gallery:hover {
+.upload-preview .remove-image:hover {
   background: var(--cinnabar);
 }
 
+.upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: var(--ink-gray);
+  padding: 16px;
+}
+
+.upload-placeholder:hover {
+  color: var(--ink-black);
+}
+
+.upload-placeholder .hint {
+  font-size: 12px;
+  color: var(--ink-light);
+  margin: 0;
+}
+
+.uploading-status {
+  font-size: 13px;
+  color: var(--ink-gray);
+  letter-spacing: 0.1em;
+  margin-top: 8px;
+}
+
+/* ===== 属性行 ===== */
+.attr-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr 2fr auto;
+  gap: 10px;
+  align-items: start;
+  margin-bottom: 8px;
+  padding: 4px 0;
+}
+
+.attr-key input,
+.attr-type select,
+.attr-value input,
+.attr-value textarea {
+  width: 100%;
+  padding: 6px 12px;
+  border: 1px solid var(--line-raw);
+  background: var(--paper-card);
+  color: var(--ink-black);
+  font-family: var(--font-family);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.attr-key input:focus,
+.attr-type select:focus,
+.attr-value input:focus,
+.attr-value textarea:focus {
+  border-color: var(--ink-black);
+}
+
+.attr-value textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.attr-type select {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%237A7571' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.btn-remove {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line-raw);
+  background: transparent;
+  color: var(--ink-light);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.btn-remove:hover {
+  border-color: var(--cinnabar);
+  color: var(--cinnabar);
+}
+
+/* ===== 图库网格 ===== */
+.gallery-grid-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.gallery-item-form {
+  position: relative;
+  border: 1px solid var(--line-raw);
+  overflow: hidden;
+  aspect-ratio: 1/1;
+  background: var(--paper-sub);
+}
+
+.gallery-item-form img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.gallery-item-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 6px 8px;
+  background: rgba(44, 42, 41, 0.7);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.gallery-alt-input {
+  flex: 1;
+  padding: 2px 6px;
+  border: none;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-size: 11px;
+  outline: none;
+  font-family: var(--font-family);
+}
+
+.gallery-alt-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-remove-small {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(231, 76, 60, 0.8);
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-remove-small:hover {
+  background: var(--cinnabar);
+}
+
+.gallery-uploading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  border: 1px dashed var(--line-raw);
+  background: var(--paper-sub);
+  border-radius: 4px;
+  color: var(--ink-gray);
+  font-size: 13px;
+}
+
+.spinner-small {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--line-raw);
+  border-top-color: var(--ink-black);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ===== 按钮区 ===== */
 .form-actions {
   display: flex;
   gap: 12px;
@@ -435,13 +724,38 @@ function handleSubmit() {
   cursor: not-allowed;
 }
 
-@media (max-width: 600px) {
-  .form-row {
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  .attr-row {
     grid-template-columns: 1fr;
+    gap: 6px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--line-raw);
+  }
+
+  .attr-row:last-child {
+    border-bottom: none;
+  }
+
+  .gallery-grid-form {
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+  }
+
+  .btn-remove {
+    width: 100%;
+    height: 32px;
+    margin-top: 0;
   }
 
   .form-actions {
     flex-direction: column-reverse;
+  }
+
+  .section-header-inline {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
 }
 </style>

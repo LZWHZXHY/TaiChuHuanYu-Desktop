@@ -6,7 +6,7 @@
       <ul class="nav-links">
         <li class="nav-item active">首页总览</li>
         <li class="nav-item" @click="goTo('/ocs')">OC画阁</li>
-        <li class="nav-item" @click="goTo('/activities')">合演大作</li>
+        <li class="nav-item" @click="goTo('/joint')">合演大作</li>
         <li class="nav-item" @click="goTo('/battles')">擂台约战</li>
       </ul>
       <div class="nav-controls">

@@ -2,9 +2,9 @@
   <div class="oc-card" @click="emit('click', character.id)">
     <div class="oc-canvas-box">
       <img
-        v-if="character.avatar"
-        :src="character.avatar"
-        :alt="character.name"
+        v-if="character.coverUrl"
+        :src="character.coverUrl"
+        :alt="character.title"
         class="oc-avatar"
       />
       <svg
@@ -27,27 +27,37 @@
       <span v-if="character.status === 'draft'" class="badge-draft">草稿</span>
     </div>
 
-    <div class="oc-name">{{ character.name }}</div>
+    <div class="oc-name">{{ character.title }}</div>
     <div class="oc-meta">
       <span>作者：{{ character.authorName }}</span>
-      <span v-if="character.tags.length" style="color: var(--accent-color);">
-        {{ character.tags[0] }}
+      <span v-if="firstTag" style="color: var(--accent-color);">
+        {{ firstTag }}
       </span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { StickmanCharacter } from '../stickman'
 
-defineProps<{
+const props = defineProps<{
   character: StickmanCharacter
 }>()
 
 const emit = defineEmits<{
   click: [id: string]
 }>()
+
+// 从 attributes 中提取第一个标签作为展示
+const firstTag = computed(() => {
+  if (!props.character.attributes?.length) return null
+  const tagAttr = props.character.attributes.find(a => a.key === '标签')
+  return tagAttr?.value || null
+})
 </script>
+
+
 
 <style scoped>
 .oc-card {

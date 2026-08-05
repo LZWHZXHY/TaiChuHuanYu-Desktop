@@ -1,16 +1,16 @@
 <template>
-  <div class="ocs-page">
+  <div class="joint-page">
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
         <button class="back-btn" @click="goHome">← 返回</button>
         <div>
-          <h1 class="page-title">OC 画阁</h1>
-          <p class="page-subtitle">共收录 {{ total }} 位火柴人角色</p>
+          <h1 class="page-title">联合活动</h1>
+          <p class="page-subtitle">共收录 {{ total }} 场联合</p>
         </div>
       </div>
-      <router-link to="/ocs/create" class="btn-line btn-primary">
-        ＋ 投稿新 OC
+      <router-link to="/joint/create" class="btn-line btn-primary">
+        ＋ 发起联合
       </router-link>
     </div>
 
@@ -20,19 +20,31 @@
         <input
           v-model="keyword"
           type="text"
-          placeholder="搜索角色名称..."
+          placeholder="搜索联合名称..."
           @input="onSearch"
         />
       </div>
-      <div class="filter-tabs">
-        <button
-          v-for="tab in tabs"
-          :key="tab.value"
-          :class="['btn-line', { active: currentTab === tab.value }]"
-          @click="switchTab(tab.value)"
-        >
-          {{ tab.label }}
-        </button>
+      <div class="filter-group">
+        <div class="filter-tabs">
+          <button
+            v-for="tab in statusTabs"
+            :key="tab.value"
+            :class="['btn-line', { active: currentStatus === tab.value }]"
+            @click="switchStatus(tab.value)"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+        <div class="filter-tabs">
+          <button
+            v-for="tab in typeTabs"
+            :key="tab.value"
+            :class="['btn-line', { active: currentType === tab.value }]"
+            @click="switchType(tab.value)"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
       </div>
     </div>
 
@@ -46,17 +58,17 @@
     </div>
 
     <!-- 空状态 -->
-    <div v-else-if="!characters.length" class="empty-state">
-      <p>暂无 OC 角色</p>
-      <router-link to="/ocs/create" class="empty-link">创建第一个角色</router-link>
+    <div v-else-if="!activities.length" class="empty-state">
+      <p>暂无联合活动</p>
+      <router-link to="/joint/create" class="empty-link">发起第一个联合</router-link>
     </div>
 
-    <!-- 角色网格 -->
-    <div v-else class="oc-grid">
-      <CharacterCard
-        v-for="char in characters"
-        :key="char.id"
-        :character="char"
+    <!-- 活动网格 -->
+    <div v-else class="joint-grid">
+      <JointCard
+        v-for="item in activities"
+        :key="item.id"
+        :activity="item"
         @click="goDetail"
       />
     </div>
@@ -78,34 +90,50 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useStickmanStore } from '../stickman_store'
-import CharacterCard from '../components/CharacterCard.vue'
+import { useJointStore } from './joint_store'
+import JointCard from './components/JointCard.vue'
+import type { JointStatus, JointType } from './joint'
 
 const router = useRouter()
-const store = useStickmanStore()
+const store = useJointStore()
 
-const characters = computed(() => store.characters)
+const activities = computed(() => store.activities)
 const loading = computed(() => store.loading)
 const total = computed(() => store.total)
 
 const keyword = ref('')
-const currentTab = ref('latest')
+const currentStatus = ref<JointStatus | 'all'>('all')
+const currentType = ref<JointType | 'all'>('all')
 const currentPage = ref(1)
 const pageSize = 12
 
-const tabs = [
-  { label: '最新', value: 'latest' },
-  { label: '热门', value: 'hot' },
-  { label: '最多收藏', value: 'favorites' },
-]
+const statusTabs = [
+  { label: '全部', value: 'all' },
+  { label: '报名中', value: 'open' },
+  { label: '已截止', value: 'closed' },
+  { label: '已结束', value: 'ended' },
+  { label: '已封禁', value: 'banned' },
+  { label: '暴毙', value: 'abandoned' },
+] as const  // ← 添加 as const
+
+const typeTabs = [
+  { label: '全部', value: 'all' },
+  { label: '联合', value: 'joint' },
+  { label: '接力', value: 'relay' },
+  { label: '企划', value: 'project' },
+  { label: '自由', value: 'free' },
+  { label: '其他', value: 'other' },
+] as const  // ← 添加 as const
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize))
 
-function fetchData() {
-  store.fetchList({
+async function fetchData() {
+  await store.fetchList({
     page: currentPage.value,
     pageSize,
     keyword: keyword.value || undefined,
+    status: currentStatus.value === 'all' ? undefined : currentStatus.value,
+    type: currentType.value === 'all' ? undefined : currentType.value,
   })
 }
 
@@ -114,8 +142,14 @@ function onSearch() {
   fetchData()
 }
 
-function switchTab(tab: string) {
-  currentTab.value = tab
+function switchStatus(status: JointStatus | 'all') {
+  currentStatus.value = status
+  currentPage.value = 1
+  fetchData()
+}
+
+function switchType(type: JointType | 'all') {
+  currentType.value = type
   currentPage.value = 1
   fetchData()
 }
@@ -127,24 +161,18 @@ function goPage(page: number) {
 }
 
 function goDetail(id: string) {
-  router.push(`/ocs/${id}`)
+  router.push(`/joint/${id}`)
 }
 
-// ===== 返回柴圈首页 =====
 function goHome() {
-  router.push('/Chai')
+  router.push('/')
 }
-
-watch(currentTab, () => {
-  currentPage.value = 1
-  fetchData()
-})
 
 onMounted(fetchData)
 </script>
 
 <style scoped>
-.ocs-page {
+.joint-page {
   max-width: 1280px;
   margin: 0 auto;
   padding: 32px 24px 60px;
@@ -207,17 +235,14 @@ onMounted(fetchData)
 /* ===== 筛选栏 ===== */
 .filter-bar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 28px;
 }
 
 .search-box {
   position: relative;
-  flex: 1;
-  max-width: 300px;
+  max-width: 340px;
 }
 
 .search-box input {
@@ -241,20 +266,28 @@ onMounted(fetchData)
   color: var(--ink-light);
 }
 
+.filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+
 .filter-tabs {
   display: flex;
   gap: 4px;
+  flex-wrap: wrap;
 }
 
 .filter-tabs .btn-line {
-  padding: 6px 18px;
-  font-size: 13px;
+  padding: 4px 14px;
+  font-size: 12px;
 }
 
-/* ===== 角色网格 ===== */
-.oc-grid {
+/* ===== 活动网格 ===== */
+.joint-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
   margin-bottom: 40px;
 }
@@ -262,7 +295,7 @@ onMounted(fetchData)
 /* ===== 加载骨架 ===== */
 .loading-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 20px;
 }
 
@@ -274,7 +307,7 @@ onMounted(fetchData)
 
 .skeleton-image {
   width: 100%;
-  height: 140px;
+  height: 120px;
   background: var(--paper-sub);
   margin-bottom: 12px;
 }
@@ -360,7 +393,7 @@ onMounted(fetchData)
 
 /* ===== 响应式 ===== */
 @media (max-width: 768px) {
-  .ocs-page {
+  .joint-page {
     padding: 20px 16px 40px;
   }
 
@@ -374,7 +407,7 @@ onMounted(fetchData)
     flex-wrap: wrap;
   }
 
-  .filter-bar {
+  .filter-group {
     flex-direction: column;
     align-items: stretch;
   }
@@ -383,24 +416,23 @@ onMounted(fetchData)
     max-width: 100%;
   }
 
-  .oc-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  .joint-grid {
+    grid-template-columns: 1fr 1fr;
     gap: 14px;
   }
 
   .loading-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: 1fr 1fr;
   }
 }
 
 @media (max-width: 480px) {
-  .oc-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+  .joint-grid {
+    grid-template-columns: 1fr;
   }
 
   .loading-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .skeleton-image {

@@ -50,4 +50,23 @@ namespace TaiChuWeb_V2.Models.User
         [ForeignKey("UserId")] // 明确外键关系
         public virtual User User { get; set; } = null!;
     }
+
+
+    public class UserExpLog
+    {
+        [Key]  // ✅ 明确主键
+        public long Id { get; set; }
+
+        public Guid UserId { get; set; }  // 谁变了
+
+        public int Change { get; set; }   // 变化量（+50 或 -50）
+
+        [MaxLength(200)]  // ✅ 建议加上长度限制
+        public string Reason { get; set; } // 为什么变
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow; // 什么时候变的
+
+        [ForeignKey("UserId")]
+        public virtual User User { get; set; } // ✅ 建议加上导航属性
+    }
 }

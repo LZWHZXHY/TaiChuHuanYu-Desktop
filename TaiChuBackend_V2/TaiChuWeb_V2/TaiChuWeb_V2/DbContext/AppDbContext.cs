@@ -1,21 +1,23 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using TaiChuWeb_V2.Models.Activity;
 using TaiChuWeb_V2.Models.Artwork;
+using TaiChuWeb_V2.Models.Event;
+using TaiChuWeb_V2.Models.Feedback;
+using TaiChuWeb_V2.Models.Financial;
+using TaiChuWeb_V2.Models.Game;
 using TaiChuWeb_V2.Models.Interact;
 using TaiChuWeb_V2.Models.LingMai;
+using TaiChuWeb_V2.Models.News;
 using TaiChuWeb_V2.Models.Plugin;
 using TaiChuWeb_V2.Models.Project;
+using TaiChuWeb_V2.Models.Survey;
+using TaiChuWeb_V2.Models.System;
 using TaiChuWeb_V2.Models.Tag;
 using TaiChuWeb_V2.Models.Trade;
 using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.Models.Wiki;
-using TaiChuWeb_V2.Models.Event;
-using TaiChuWeb_V2.Models.Feedback;
-using TaiChuWeb_V2.Models.News;
-using TaiChuWeb_V2.Models.Financial;
-using TaiChuWeb_V2.Models.Activity;
 using TaiChuWeb_V2.Models.World;
-using TaiChuWeb_V2.Models.Survey;
-
+using TaiChuWeb_V2.Models.ChaiCommunity;  // 新增
 
 
 namespace TaiChuWeb_V2.DbContext
@@ -26,8 +28,27 @@ namespace TaiChuWeb_V2.DbContext
         {
         }
 
+        // ===== 柴圈社区 - OC 系统 =====
+        public DbSet<StickmanCharacter> StickmanCharacters { get; set; }
+        public DbSet<StickmanAttribute> StickmanAttributes { get; set; }
+        public DbSet<StickmanImage> StickmanImages { get; set; }
 
 
+
+        public DbSet<UserExpLog> UserExpLogs { get; set; }
+
+
+
+        public DbSet<Game> Games { get; set; }
+        public DbSet<GameQuestionnaire> GameQuestionnaires { get; set; }
+        public DbSet<GameQuestion> GameQuestions { get; set; }
+        public DbSet<GameOption> GameOptions { get; set; }
+        public DbSet<GameResult> GameResults { get; set; }
+        public DbSet<GameSession> GameSessions { get; set; }
+
+
+
+        public DbSet<SystemConfig> SystemConfigs { get; set; }
         // ===== 问卷系统 =====
         public DbSet<Survey> Surveys { get; set; }
         public DbSet<Question> Questions { get; set; }
@@ -487,7 +508,108 @@ namespace TaiChuWeb_V2.DbContext
                 .OnDelete(DeleteBehavior.Cascade);
 
 
+            // ===== 柴圈社区 - OC 系统配置 =====
 
+            // 1. StickmanCharacter 配置
+            modelBuilder.Entity<StickmanCharacter>(entity =>
+            {
+                entity.ToTable("stickman_characters");
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.AuthorName)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.CoverUrl)
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.Status)
+                    .HasMaxLength(20)
+                    .HasDefaultValue("draft");
+
+                // ✅ 移除默认值，只保留必需性
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired();  // 在代码中手动赋值
+
+                entity.Property(e => e.UpdatedAt)
+                    .IsRequired(false);  // 允许为空，在代码中手动赋值
+
+                // 索引
+                entity.HasIndex(e => e.AuthorId)
+                    .HasDatabaseName("IX_StickmanCharacters_AuthorId");
+
+                entity.HasIndex(e => e.Status)
+                    .HasDatabaseName("IX_StickmanCharacters_Status");
+
+                entity.HasIndex(e => e.CreatedAt)
+                    .HasDatabaseName("IX_StickmanCharacters_CreatedAt");
+
+                // 外键
+                entity.HasOne(e => e.Author)
+                    .WithMany()
+                    .HasForeignKey(e => e.AuthorId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // 2. StickmanAttribute 配置
+            modelBuilder.Entity<StickmanAttribute>(entity =>
+            {
+                entity.ToTable("stickman_attributes");
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Key)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                // ✅ 移除默认值
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired();
+
+                entity.HasIndex(e => e.CharacterId)
+                    .HasDatabaseName("IX_StickmanAttributes_CharacterId");
+
+                entity.HasIndex(e => new { e.CharacterId, e.Key })
+                    .IsUnique()
+                    .HasDatabaseName("UK_StickmanAttributes_Character_Key");
+
+                entity.HasOne(e => e.Character)
+                    .WithMany(c => c.Attributes)
+                    .HasForeignKey(e => e.CharacterId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // 3. StickmanImage 配置
+            modelBuilder.Entity<StickmanImage>(entity =>
+            {
+                entity.ToTable("stickman_images");
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Url)
+                    .IsRequired()
+                    .HasMaxLength(500);
+
+                entity.Property(e => e.Alt)
+                    .HasMaxLength(200);
+
+                // ✅ 移除默认值
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired();
+
+                entity.HasIndex(e => e.CharacterId)
+                    .HasDatabaseName("IX_StickmanImages_CharacterId");
+
+                entity.HasOne(e => e.Character)
+                    .WithMany(c => c.Images)
+                    .HasForeignKey(e => e.CharacterId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
         }
     }

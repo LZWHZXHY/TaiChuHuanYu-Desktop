@@ -58,6 +58,11 @@ builder.Services.AddScoped<TradeService>();
 builder.Services.AddScoped<LingMaiService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<JwtService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<SystemConfigService>();
+
+
+
 
 builder.Services.AddControllers(options => {
     options.Filters.Add<GlobalExceptionFilter>();
