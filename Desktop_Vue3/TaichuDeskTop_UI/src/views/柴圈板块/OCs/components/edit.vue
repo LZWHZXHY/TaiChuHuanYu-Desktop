@@ -2,7 +2,7 @@
   <div class="edit-page">
     <div class="page-header">
       <h1 class="page-title">✎ 编辑 OC</h1>
-      <p class="page-subtitle">修改「{{ character?.name || '角色' }}」的设定</p>
+      <p class="page-subtitle">修改「{{ character?.title || '角色' }}」的设定</p>
     </div>
 
     <div v-if="loading" class="loading-state">加载中...</div>
@@ -21,8 +21,8 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useStickmanStore } from '../stickman_store'
-import CharacterForm from '../components/CharacterForm.vue'
+import { useStickmanStore } from '../stickman_store.ts'
+import CharacterForm from '../../components/CharacterForm.vue'
 
 const router = useRouter()
 const route = useRoute()

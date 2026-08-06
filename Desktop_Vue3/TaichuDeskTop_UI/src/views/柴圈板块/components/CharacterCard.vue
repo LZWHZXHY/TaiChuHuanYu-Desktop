@@ -34,12 +34,19 @@
         {{ firstTag }}
       </span>
     </div>
+
+    <!-- ⭐ 新增：战绩统计 -->
+    <div class="battle-stats">
+      <span class="stat-win">🏆 {{ character.battleWins || 0 }}</span>
+      <span class="stat-lose">💔 {{ character.battleLosses || 0 }}</span>
+      <span class="stat-draw">🤝 {{ character.battleDraws || 0 }}</span>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { StickmanCharacter } from '../stickman'
+import type { StickmanCharacter } from '../OCs/stickman'
 
 const props = defineProps<{
   character: StickmanCharacter
@@ -49,15 +56,12 @@ const emit = defineEmits<{
   click: [id: string]
 }>()
 
-// 从 attributes 中提取第一个标签作为展示
 const firstTag = computed(() => {
   if (!props.character.attributes?.length) return null
   const tagAttr = props.character.attributes.find(a => a.key === '标签')
   return tagAttr?.value || null
 })
 </script>
-
-
 
 <style scoped>
 .oc-card {
@@ -122,7 +126,23 @@ const firstTag = computed(() => {
   display: flex;
   justify-content: space-between;
   letter-spacing: 0.1em;
+  margin-bottom: 8px;
 }
+
+/* ⭐ 战绩统计 */
+.battle-stats {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  font-size: 12px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-line);
+  font-weight: 500;
+}
+
+.stat-win { color: #4CAF50; }
+.stat-lose { color: #F44336; }
+.stat-draw { color: #FF9800; }
 
 /* ===== 响应式 ===== */
 @media (max-width: 768px) {
@@ -142,6 +162,11 @@ const firstTag = computed(() => {
 
   .oc-meta {
     font-size: 11px;
+  }
+
+  .battle-stats {
+    font-size: 11px;
+    gap: 8px;
   }
 }
 </style>

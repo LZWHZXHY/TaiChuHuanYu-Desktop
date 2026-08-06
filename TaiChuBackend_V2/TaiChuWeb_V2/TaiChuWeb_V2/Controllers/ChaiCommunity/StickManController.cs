@@ -21,7 +21,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
         }
 
         // ============================================================
-        // 1. 获取列表（公开）- 只显示已发布的 OC
+        // 1. 获取列表（公开）- 只显示已发布的 OC，返回简略 DTO
         // ============================================================
         [HttpGet]
         [AllowAnonymous]
@@ -34,20 +34,16 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             if (page < 1) page = 1;
             if (pageSize < 1 || pageSize > 50) pageSize = 12;
 
-            // ✅ 只查询已发布的 OC
+            // ✅ 不需要 Include，因为使用 Select 投影
             var query = _context.StickmanCharacters
-                .Include(c => c.Attributes)
-                .Include(c => c.Images)
                 .Where(c => c.Status == "published");
 
-            // 关键词搜索
             if (!string.IsNullOrEmpty(keyword))
             {
                 query = query.Where(c => c.Title.Contains(keyword) ||
                                          (c.Description != null && c.Description.Contains(keyword)));
             }
 
-            // 排序
             query = sort switch
             {
                 "hot" => query.OrderByDescending(c => c.Views),
@@ -56,36 +52,24 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
 
             var total = await query.CountAsync();
 
+            // ✅ 使用 StickmanBriefDto，不包含 Attributes 和 Images
             var items = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(c => new StickmanCharacterDto
+                .Select(c => new StickmanBriefDto
                 {
                     Id = c.Id,
                     Title = c.Title,
-                    Description = c.Description,
                     CoverUrl = c.CoverUrl,
                     AuthorName = c.AuthorName,
                     AuthorId = c.AuthorId,
-                    Views = c.Views,
                     Status = c.Status,
+                    IsBattleEnabled = c.IsBattleEnabled,
                     CreatedAt = c.CreatedAt,
-                    UpdatedAt = c.UpdatedAt,
-                    Attributes = c.Attributes!.Select(a => new StickmanAttributeDto
-                    {
-                        Id = a.Id,
-                        Key = a.Key,
-                        Value = a.Value,
-                        SortOrder = a.SortOrder,
-                        Type = a.Type  // ← 添加这一行
-                    }).ToList(),
-                    Images = c.Images!.Select(i => new StickmanImageDto
-                    {
-                        Id = i.Id,
-                        Url = i.Url,
-                        Alt = i.Alt,
-                        SortOrder = i.SortOrder
-                    }).ToList()
+                    // ⭐ 新增
+                    BattleWins = c.BattleWins,
+                    BattleLosses = c.BattleLosses,
+                    BattleDraws = c.BattleDraws
                 })
                 .ToListAsync();
 
@@ -99,7 +83,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
         }
 
         // ============================================================
-        // 2. 获取详情 - 草稿只有作者本人可见
+        // 2. 获取详情 - 返回完整 DTO（含 Attributes 和 Images）
         // ============================================================
         [HttpGet("{id}")]
         [AllowAnonymous]
@@ -113,7 +97,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             if (character == null)
                 return NotFound(new { message = "OC 角色不存在" });
 
-            // ✅ 如果是草稿，检查当前用户是否是作者
+            // 草稿只有作者本人可见
             if (character.Status == "draft")
             {
                 var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -123,7 +107,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 }
             }
 
-            // 浏览量增加（只有 published 才增加）
+            // 浏览量+1
             if (character.Status == "published")
             {
                 character.Views += 1;
@@ -142,13 +126,18 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 Status = character.Status,
                 CreatedAt = character.CreatedAt,
                 UpdatedAt = character.UpdatedAt,
+                IsBattleEnabled = character.IsBattleEnabled,
+                // ⭐ 新增
+                BattleWins = character.BattleWins,
+                BattleLosses = character.BattleLosses,
+                BattleDraws = character.BattleDraws,
                 Attributes = character.Attributes?.Select(a => new StickmanAttributeDto
                 {
                     Id = a.Id,
                     Key = a.Key,
                     Value = a.Value,
                     SortOrder = a.SortOrder,
-                    Type = a.Type  // ← 添加这一行
+                    Type = a.Type
                 }).ToList() ?? new List<StickmanAttributeDto>(),
                 Images = character.Images?.Select(i => new StickmanImageDto
                 {
@@ -184,6 +173,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 AuthorName = username,
                 Views = 0,
                 Status = request.Status ?? "draft",
+                IsBattleEnabled = request.IsBattleEnabled,
                 CreatedAt = DateTime.UtcNow,
                 Attributes = request.Attributes?.Select(a => new StickmanAttribute
                 {
@@ -191,7 +181,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                     Key = a.Key,
                     Value = a.Value,
                     SortOrder = a.SortOrder,
-                    Type = a.Type ?? "short",  // ✅ 新增
+                    Type = a.Type ?? "short",
                     CreatedAt = DateTime.UtcNow
                 }).ToList() ?? new List<StickmanAttribute>(),
                 Images = request.Images?.Select(i => new StickmanImage
@@ -219,13 +209,18 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 Status = character.Status,
                 CreatedAt = character.CreatedAt,
                 UpdatedAt = character.UpdatedAt,
+                IsBattleEnabled = character.IsBattleEnabled,
+                // ⭐ 新增（刚创建都是0）
+                BattleWins = character.BattleWins,
+                BattleLosses = character.BattleLosses,
+                BattleDraws = character.BattleDraws,
                 Attributes = character.Attributes.Select(a => new StickmanAttributeDto
                 {
                     Id = a.Id,
                     Key = a.Key,
                     Value = a.Value,
                     SortOrder = a.SortOrder,
-                    Type = a.Type  // ✅ 返回时也带上 Type
+                    Type = a.Type
                 }).ToList(),
                 Images = character.Images.Select(i => new StickmanImageDto
                 {
@@ -239,6 +234,9 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             return CreatedAtAction(nameof(GetDetail), new { id = character.Id }, dto);
         }
 
+        // ============================================================
+        // 4. 更新 OC 角色
+        // ============================================================
         [HttpPut("{id}")]
         public async Task<ActionResult<StickmanCharacterDto>> Update(Guid id, [FromBody] UpdateStickmanRequest request)
         {
@@ -266,6 +264,8 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                     character.CoverUrl = request.CoverUrl;
                 if (!string.IsNullOrEmpty(request.Status))
                     character.Status = request.Status;
+                if (request.IsBattleEnabled.HasValue)
+                    character.IsBattleEnabled = request.IsBattleEnabled.Value;
 
                 character.UpdatedAt = DateTime.UtcNow;
 
@@ -291,7 +291,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                             Key = attr.Key.Trim(),
                             Value = attr.Value?.Trim(),
                             SortOrder = attr.SortOrder != 0 ? attr.SortOrder : index,
-                            Type = attr.Type ?? "short",  // ✅ 新增
+                            Type = attr.Type ?? "short",
                             CreatedAt = DateTime.UtcNow
                         };
                         _context.StickmanAttributes.Add(newAttr);
@@ -345,13 +345,18 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                     Status = updated.Status,
                     CreatedAt = updated.CreatedAt,
                     UpdatedAt = updated.UpdatedAt,
+                    IsBattleEnabled = updated.IsBattleEnabled,
+                    // ⭐ 新增
+                    BattleWins = updated.BattleWins,
+                    BattleLosses = updated.BattleLosses,
+                    BattleDraws = updated.BattleDraws,
                     Attributes = updated.Attributes?.Select(a => new StickmanAttributeDto
                     {
                         Id = a.Id,
                         Key = a.Key,
                         Value = a.Value,
                         SortOrder = a.SortOrder,
-                        Type = a.Type  // ✅ 返回时带 Type
+                        Type = a.Type
                     }).ToList() ?? new List<StickmanAttributeDto>(),
                     Images = updated.Images?.Select(i => new StickmanImageDto
                     {
@@ -374,18 +379,6 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 });
             }
         }
-
-
-
-
-
-
-
-
-
-
-
-
 
         // ============================================================
         // 5. 删除 OC 角色
@@ -413,10 +406,10 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
         }
 
         // ============================================================
-        // 6. 获取我的 OC 列表（包含草稿）
+        // 6. 获取我的 OC 列表（包含草稿，返回简略 DTO）
         // ============================================================
         [HttpGet("my")]
-        public async Task<ActionResult<List<StickmanCharacterDto>>> GetMyCharacters(
+        public async Task<ActionResult<List<StickmanBriefDto>>> GetMyCharacters(
             [FromQuery] string? status = null)
         {
             var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -424,8 +417,6 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 return Unauthorized(new { message = "用户未登录" });
 
             var query = _context.StickmanCharacters
-                .Include(c => c.Attributes)
-                .Include(c => c.Images)
                 .Where(c => c.AuthorId == userId);
 
             if (!string.IsNullOrEmpty(status) && status != "all")
@@ -433,37 +424,25 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 query = query.Where(c => c.Status == status);
             }
 
+            // ✅ 返回简略 DTO，不含 Attributes 和 Images
             var items = await query
-                .OrderByDescending(c => c.CreatedAt)
-                .Select(c => new StickmanCharacterDto
-                {
-                    Id = c.Id,
-                    Title = c.Title,
-                    Description = c.Description,
-                    CoverUrl = c.CoverUrl,
-                    AuthorName = c.AuthorName,
-                    AuthorId = c.AuthorId,
-                    Views = c.Views,
-                    Status = c.Status,
-                    CreatedAt = c.CreatedAt,
-                    UpdatedAt = c.UpdatedAt,
-                    Attributes = c.Attributes!.Select(a => new StickmanAttributeDto
-                    {
-                        Id = a.Id,
-                        Key = a.Key,
-                        Value = a.Value,
-                        SortOrder = a.SortOrder,
-                        Type = a.Type  // ← 添加这一行
-                    }).ToList(),
-                    Images = c.Images!.Select(i => new StickmanImageDto
-                    {
-                        Id = i.Id,
-                        Url = i.Url,
-                        Alt = i.Alt,
-                        SortOrder = i.SortOrder
-                    }).ToList()
-                })
-                .ToListAsync();
+    .OrderByDescending(c => c.CreatedAt)
+    .Select(c => new StickmanBriefDto
+    {
+        Id = c.Id,
+        Title = c.Title,
+        CoverUrl = c.CoverUrl,
+        AuthorName = c.AuthorName,
+        AuthorId = c.AuthorId,
+        Status = c.Status,
+        IsBattleEnabled = c.IsBattleEnabled,
+        CreatedAt = c.CreatedAt,
+        // ⭐ 新增
+        BattleWins = c.BattleWins,
+        BattleLosses = c.BattleLosses,
+        BattleDraws = c.BattleDraws
+    })
+    .ToListAsync();
 
             return Ok(items);
         }

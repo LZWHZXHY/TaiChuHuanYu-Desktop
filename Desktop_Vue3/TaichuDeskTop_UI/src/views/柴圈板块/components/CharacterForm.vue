@@ -119,6 +119,17 @@
           <option value="published">直接发布</option>
         </select>
       </div>
+
+      <div class="form-group">
+        <label>允许参与约战</label>
+        <div class="toggle-wrapper">
+          <input type="checkbox" v-model="form.isBattleEnabled" id="battleToggle" />
+          <label for="battleToggle" class="toggle-label">
+            {{ form.isBattleEnabled ? '✅ 允许' : '❌ 禁止' }}
+          </label>
+          <span class="toggle-hint">开启后，此角色可在约战系统中被选用</span>
+        </div>
+      </div>
     </div>
 
     <!-- ===== 按钮 ===== -->
@@ -153,6 +164,7 @@ interface FormData {
   description: string
   coverUrl: string
   status: 'draft' | 'published'
+  isBattleEnabled: boolean          // 新增
   attributes: AttributeInput[]
   images: ImageInput[]
 }
@@ -162,15 +174,21 @@ interface InitialData {
   title: string
   description?: string
   coverUrl?: string
-  status: 'draft' | 'published'
+  status: 'draft' | 'published' | 'archived'   // 增加 'archived'
+  isBattleEnabled?: boolean
   attributes?: {
     id?: string
     key: string
-    value: string
+    value?: string          // 改为可选
     sortOrder: number
     type: 'short' | 'long'
   }[]
-  images?: { id?: string; url: string; alt?: string; sortOrder: number }[]
+  images?: { 
+    id?: string
+    url: string
+    alt?: string
+    sortOrder: number 
+  }[]
 }
 
 const props = defineProps<{
@@ -196,6 +214,7 @@ const form = reactive<FormData>({
   description: '',
   coverUrl: '',
   status: 'draft',
+  isBattleEnabled: true,   // 默认开启
   attributes: [],
   images: [],
 })
@@ -205,7 +224,9 @@ onMounted(() => {
     form.title = props.initialData.title || ''
     form.description = props.initialData.description || ''
     form.coverUrl = props.initialData.coverUrl || ''
-    form.status = props.initialData.status || 'draft'
+    form.status = props.initialData.status === 'archived' ? 'draft' : (props.initialData.status || 'draft')
+    // 如果状态是 archived，强制变为 draft（或保留，但 select 无 archived 选项，所以设为 draft）
+    form.isBattleEnabled = props.initialData.isBattleEnabled ?? true
 
     if (props.initialData.attributes?.length) {
       form.attributes = props.initialData.attributes.map(a => ({
@@ -341,6 +362,7 @@ function handleSubmit() {
     description: form.description.trim() || undefined,
     coverUrl: form.coverUrl.trim() || undefined,
     status: form.status,
+    isBattleEnabled: form.isBattleEnabled,   // 提交
     attributes: validAttributes.length ? validAttributes : undefined,
     images: validImages.length ? validImages : undefined,
   }
@@ -350,6 +372,7 @@ function handleSubmit() {
 </script>
 
 <style scoped>
+/* 原有样式保留，只新增 toggle 相关样式 */
 .character-form {
   display: flex;
   flex-direction: column;
@@ -697,6 +720,33 @@ function handleSubmit() {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* ===== 新增：开关样式 ===== */
+.toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.toggle-wrapper input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: var(--cinnabar);
+}
+
+.toggle-label {
+  font-size: 14px;
+  color: var(--ink-black);
+  cursor: pointer;
+}
+
+.toggle-hint {
+  font-size: 12px;
+  color: var(--ink-light);
+  letter-spacing: 0.05em;
 }
 
 /* ===== 按钮区 ===== */

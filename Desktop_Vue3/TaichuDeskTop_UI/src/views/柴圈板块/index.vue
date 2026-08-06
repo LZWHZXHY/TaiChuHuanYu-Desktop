@@ -51,57 +51,78 @@
           </div>
         </section>
 
-        <!-- 板块2：约战系统 -->
+        <!-- ===== 板块2：约战榜 ===== -->
         <section class="battle-section">
           <div class="section-header">
-            <h2 class="section-title">擂台拆招 · 约战榜</h2>
-            <button class="btn-line" @click="goTo('/battles/create')">+ 下达战书</button>
-          </div>
-          <div class="battle-list">
-            <div class="battle-item">
-              <div class="battle-versus">
-                <span class="fighter">【残月剑·影】</span>
-                <span class="vs-sign">与</span>
-                <span class="fighter">【断水流】</span>
-              </div>
-              <span class="battle-info">限时 30 秒 · 帧数不限</span>
-              <span class="tag-status active">拆招中</span>
+            <h2 class="section-title">TCV · 太初论战</h2>
+            <div class="section-header-right">
+              <router-link to="/battles" class="section-more">
+                共 {{ battleTotal }} 场 · 全部战书 ＞
+              </router-link>
+              <button class="btn-line btn-sm" @click="goTo('/battles/create')">+ 下战书</button>
             </div>
-            <div class="battle-item">
-              <div class="battle-versus">
-                <span class="fighter">【赤拳·狂徒】</span>
-                <span class="vs-sign">与</span>
-                <span class="fighter">【虚空法者】</span>
-              </div>
-              <span class="battle-info">传统 24 帧 · 兵刃限制</span>
-              <span class="tag-status">待应战</span>
-            </div>
-          </div>
-        </section>
-
-        <!-- 板块3：联合活动（改为真实数据） -->
-        <section>
-          <div class="section-header">
-            <h2 class="section-title">大型联合大作 · 招募</h2>
-            <router-link to="/joint" class="section-more">
-              共 {{ jointTotal }} 场 · 查看全部 ＞
-            </router-link>
           </div>
 
           <!-- 加载中 -->
-          <div v-if="jointLoading" class="joint-skeleton">
-            <div class="skeleton-card">
-              <div class="skeleton-line"></div>
-              <div class="skeleton-line short"></div>
-            </div>
-            <div class="skeleton-card">
+          <div v-if="battleLoading" class="battle-skeleton">
+            <div v-for="i in 3" :key="i" class="skeleton-battle-item">
               <div class="skeleton-line"></div>
               <div class="skeleton-line short"></div>
             </div>
           </div>
 
           <!-- 空状态 -->
-          <div v-else-if="!jointList.length" class="empty-state">
+          <div v-else-if="!sortedBattleList.length" class="empty-state">
+            <p>暂无约战</p>
+            <router-link to="/battles/create" class="empty-link">下达第一封战书</router-link>
+          </div>
+
+          <!-- 约战列表 -->
+          <div v-else class="battle-list">
+            <div
+              v-for="item in sortedBattleList.slice(0, 3)"
+              :key="item.id"
+              class="battle-item"
+              @click="goTo(`/battles/${item.id}`)"
+            >
+              <div class="battle-versus">
+                <span class="fighter">{{ item.challengerName }}</span>
+                <span class="vs-sign">⚔</span>
+                <span class="fighter">{{ item.opponentName || '待应战' }}</span>
+              </div>
+              <div class="battle-middle">
+                <span class="battle-title">{{ item.title }}</span>
+                <span class="battle-type">{{ item.battleType || '自定义' }}</span>
+              </div>
+              <span class="battle-status" :class="item.status">
+                {{ statusMap[item.status] || item.status }}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== 板块3：联合活动 ===== -->
+        <section>
+          <div class="section-header">
+            <h2 class="section-title">大型联合大作 · 招募</h2>
+            <div class="section-header-right">
+              <router-link to="/joint" class="section-more">
+                共 {{ jointTotal }} 场 · 查看全部 ＞
+              </router-link>
+              <button class="btn-line btn-sm" @click="goTo('/joint/create')">+ 发起联合</button>
+            </div>
+          </div>
+
+          <!-- 加载中 -->
+          <div v-if="jointLoading" class="joint-skeleton">
+            <div v-for="i in 3" :key="i" class="skeleton-card">
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+          </div>
+
+          <!-- 空状态 -->
+          <div v-else-if="!sortedJointList.length" class="empty-state">
             <p>暂无联合活动</p>
             <router-link to="/joint/create" class="empty-link">发起第一个联合</router-link>
           </div>
@@ -109,20 +130,39 @@
           <!-- 联合列表 -->
           <div v-else class="joint-home-list">
             <div
-              v-for="item in jointList.slice(0, 3)"
+              v-for="item in sortedJointList.slice(0, 3)"
               :key="item.id"
               class="joint-home-item"
               @click="goTo(`/joint/${item.id}`)"
             >
+              <div class="joint-home-cover">
+                <img
+                  v-if="item.coverUrl"
+                  :src="item.coverUrl"
+                  :alt="item.title"
+                  loading="lazy"
+                />
+                <div v-else class="joint-home-cover-placeholder">📋</div>
+              </div>
               <div class="joint-home-info">
                 <h3 class="joint-home-title">{{ item.title }}</h3>
-                <p class="joint-home-desc">{{ truncateText(item.description, 60) }}</p>
+                <p class="joint-home-desc">{{ truncateText(item.description, 50) }}</p>
                 <div class="joint-home-meta">
                   <span class="joint-home-type">{{ typeLabel(item.type) }}</span>
                   <span class="joint-home-status" :class="statusClass(item.status)">
                     {{ statusLabel(item.status) }}
                   </span>
-                  <span class="joint-home-count">{{ item.participantCount }} 人参与</span>
+                  <span class="joint-home-count">👥 {{ item.participantCount }} 人</span>
+                </div>
+                <div class="joint-home-time">
+                  <span>📅 {{ formatDate(item.startDate) }}</span>
+                  <span v-if="item.endDate">→ {{ formatDate(item.endDate) }}</span>
+                  <span v-if="item.endDate && !isExpired(item.endDate)" class="joint-home-remain">
+                    {{ getRemainText(item.endDate) }}
+                  </span>
+                  <span v-if="item.endDate && isExpired(item.endDate)" class="joint-home-expired">
+                    已结束
+                  </span>
                 </div>
               </div>
             </div>
@@ -151,7 +191,7 @@
           <div class="stats-data">
             <div>在线柴友：1,280 人</div>
             <div>归档 OC：{{ ocCount || 0 }} 位</div>
-            <div>累计战书：892 份</div>
+            <div>累计约战：{{ battleTotal || 0 }} 场</div>
           </div>
         </div>
       </aside>
@@ -167,13 +207,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useStickmanStore } from './stickman_store'
+import { useStickmanStore } from './OCs/stickman_store.ts'
 import { useJointStore } from './Joint/joint_store'
+import { useBattleStore } from './Battle/battle_Store'
 import CharacterCard from './components/CharacterCard.vue'
 
 const router = useRouter()
 const store = useStickmanStore()
 const jointStore = useJointStore()
+const battleStore = useBattleStore()
 
 const isAged = ref(false)
 
@@ -187,8 +229,60 @@ const jointList = computed(() => jointStore.activities)
 const jointLoading = computed(() => jointStore.loading)
 const jointTotal = computed(() => jointStore.total)
 
+// ===== 约战数据 =====
+const battleList = computed(() => battleStore.myBattles)
+const battleLoading = computed(() => battleStore.myBattlesLoading)
+const battleTotal = computed(() => battleStore.myBattles.length || 0)
+
+// ===== 状态权重 =====
+const battleStatusWeight: Record<string, number> = {
+  open: 1,
+  ongoing: 2,
+  judging: 3,
+  finished: 4,
+  cancelled: 5,
+}
+
+const jointStatusWeight: Record<string, number> = {
+  open: 1,
+  closed: 2,
+  ended: 3,
+  banned: 4,
+  abandoned: 5,
+}
+
+// ===== 排序后的约战列表 =====
+const sortedBattleList = computed(() => {
+  return [...battleList.value]
+    .filter(item => item.status !== 'cancelled')
+    .sort((a, b) => {
+      const weightA = battleStatusWeight[a.status] ?? 99
+      const weightB = battleStatusWeight[b.status] ?? 99
+      return weightA - weightB
+    })
+})
+
+// ===== 排序后的联合列表（数据已经是 open 状态，只做排序） =====
+const sortedJointList = computed(() => {
+  return [...jointList.value]
+    .sort((a, b) => {
+      // 按开始时间排序（最新在前）
+      return new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+    })
+})
+
+// ===== 约战状态映射 =====
+const statusMap: Record<string, string> = {
+  open: '待应战',
+  ongoing: '创作中',
+  judging: '定夺中',
+  finished: '已了结',
+  cancelled: '已罢战',
+}
+
 // ===== 工具函数 =====
 function truncateText(text: string, maxLength: number): string {
+  if (!text) return ''
   if (text.length <= maxLength) return text
   return text.slice(0, maxLength) + '...'
 }
@@ -226,6 +320,30 @@ function typeLabel(type: string): string {
   return map[type] || type
 }
 
+function formatDate(dateStr: string): string {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
+function isExpired(endDate: string): boolean {
+  return new Date(endDate) < new Date()
+}
+
+function getRemainText(endDate: string): string {
+  const now = new Date()
+  const end = new Date(endDate)
+  const diff = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  if (diff <= 0) return '已结束'
+  if (diff === 1) return '剩 1 天'
+  if (diff <= 7) return `剩 ${diff} 天`
+  if (diff <= 30) return `剩 ${Math.floor(diff / 7)} 周`
+  return `剩 ${Math.floor(diff / 30)} 月`
+}
+
 // ===== 导航 =====
 function goTo(path: string) {
   router.push(path)
@@ -257,21 +375,32 @@ function togglePaper() {
   }
 }
 
+// ===== ⭐ 加载数据 =====
+async function loadData() {
+  // OC：取前3条
+  await store.fetchList({ page: 1, pageSize: 3 })
+
+  // 联合活动：只取 status=open 的前3条
+  await jointStore.fetchList({ page: 1, pageSize: 3, status: 'open' })
+
+  // 约战：我的约战
+  await battleStore.fetchMyBattles()
+}
+
 onMounted(() => {
-  store.fetchList({ page: 1, pageSize: 3 })
-  jointStore.fetchList({ page: 1, pageSize: 3 })
+  loadData()
 })
 </script>
 
+
 <style scoped>
 .home {
-  /* 参考样式：宣纸白、沉底灰、徽墨、烟灰、远山灰线、朱砂红 */
-  --bg-main: #F4F1EA;          /* 宣纸白 */
-  --bg-sub: #ECE8E0;           /* 沉底灰 */
-  --text-primary: #2C2A29;     /* 徽墨 */
-  --text-secondary: #7A7571;   /* 烟灰 */
-  --border-line: #D8D2C7;      /* 远山灰线 */
-  --accent-color: #9E2A2B;     /* 朱砂红 */
+  --bg-main: #F4F1EA;
+  --bg-sub: #ECE8E0;
+  --text-primary: #2C2A29;
+  --text-secondary: #7A7571;
+  --border-line: #D8D2C7;
+  --accent-color: #9E2A2B;
   --font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif;
 
   --paper-bg: var(--bg-main);
@@ -281,7 +410,6 @@ onMounted(() => {
   --ink-gray: var(--text-secondary);
   --line-raw: var(--border-line);
   --cinnabar: var(--accent-color);
-  --font-family: var(--font-family);
 
   background-color: var(--paper-bg);
   color: var(--ink-black);
@@ -380,6 +508,11 @@ onMounted(() => {
   color: var(--cinnabar);
 }
 
+.btn-sm {
+  font-size: 12px;
+  padding: 4px 14px;
+}
+
 .section-header {
   display: flex;
   align-items: center;
@@ -387,6 +520,14 @@ onMounted(() => {
   padding-bottom: 12px;
   margin-bottom: 24px;
   border-bottom: 1px solid var(--line-raw);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.section-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .section-title {
@@ -520,7 +661,7 @@ onMounted(() => {
   width: 60%;
 }
 
-/* ====== 约战系统 ====== */
+/* ====== 约战榜 ====== */
 .battle-section {
   margin-bottom: 50px;
 }
@@ -528,12 +669,12 @@ onMounted(() => {
 .battle-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .battle-item {
   border: 1px solid var(--line-raw);
-  padding: 20px;
+  padding: 16px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -541,40 +682,96 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 12px;
   background: var(--paper-card);
+  cursor: pointer;
 }
 
 .battle-item:hover {
   border-color: var(--ink-black);
+  transform: translateX(4px);
 }
 
 .battle-versus {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 .fighter {
-  font-size: 15px;
-  letter-spacing: 0.15em;
+  font-size: 14px;
+  letter-spacing: 0.1em;
   color: var(--ink-black);
 }
 
 .vs-sign {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--cinnabar);
   letter-spacing: 0.2em;
-  padding: 0 10px;
-  border-left: 1px solid var(--line-raw);
-  border-right: 1px solid var(--line-raw);
 }
 
-.battle-info {
-  font-size: 13px;
+.battle-middle {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.battle-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-black);
+  letter-spacing: 0.08em;
+}
+
+.battle-type {
+  font-size: 12px;
+  color: var(--ink-gray);
+  letter-spacing: 0.08em;
+}
+
+.battle-status {
+  font-size: 12px;
+  padding: 2px 12px;
+  border: 1px solid var(--line-raw);
   color: var(--ink-gray);
   letter-spacing: 0.1em;
+  border-radius: 2px;
+  white-space: nowrap;
 }
 
-/* ====== 联合活动（真实数据） ====== */
+.battle-status.open {
+  border-color: #4CAF50;
+  color: #4CAF50;
+}
+.battle-status.ongoing {
+  border-color: #FF9800;
+  color: #FF9800;
+}
+.battle-status.judging {
+  border-color: #FF9800;
+  color: #FF9800;
+}
+.battle-status.finished {
+  border-color: #9E9E9E;
+  color: #9E9E9E;
+}
+.battle-status.cancelled {
+  border-color: #F44336;
+  color: #F44336;
+}
+
+.battle-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeleton-battle-item {
+  padding: 16px 20px;
+  border: 1px solid var(--line-raw);
+  background: var(--paper-card);
+}
+
+/* ====== 联合活动 ====== */
 .joint-home-list {
   display: flex;
   flex-direction: column;
@@ -582,8 +779,10 @@ onMounted(() => {
 }
 
 .joint-home-item {
+  display: flex;
+  gap: 16px;
   border: 1px solid var(--line-raw);
-  padding: 16px 20px;
+  padding: 14px 18px;
   cursor: pointer;
   transition: all 0.3s ease;
   background: var(--paper-card);
@@ -594,20 +793,54 @@ onMounted(() => {
   transform: translateX(4px);
 }
 
+.joint-home-cover {
+  flex-shrink: 0;
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--paper-sub);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.joint-home-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.joint-home-cover-placeholder {
+  font-size: 28px;
+  color: var(--ink-light);
+}
+
+.joint-home-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 .joint-home-title {
   font-size: 16px;
   font-weight: 400;
   letter-spacing: 0.15em;
-  margin: 0 0 6px 0;
+  margin: 0;
   color: var(--ink-black);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .joint-home-desc {
   font-size: 13px;
   color: var(--ink-gray);
   letter-spacing: 0.1em;
-  margin: 0 0 10px 0;
-  line-height: 1.6;
+  margin: 0;
+  line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -616,7 +849,7 @@ onMounted(() => {
 
 .joint-home-meta {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   flex-wrap: wrap;
   font-size: 12px;
   color: var(--ink-gray);
@@ -624,13 +857,15 @@ onMounted(() => {
 }
 
 .joint-home-type {
-  padding: 1px 10px;
+  padding: 0 10px;
   border: 1px solid var(--line-raw);
+  border-radius: 2px;
 }
 
 .joint-home-status {
-  padding: 1px 10px;
+  padding: 0 10px;
   border: 1px solid var(--line-raw);
+  border-radius: 2px;
 }
 
 .status-open {
@@ -656,6 +891,24 @@ onMounted(() => {
 
 .joint-home-count {
   color: var(--ink-light);
+}
+
+.joint-home-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ink-light);
+  letter-spacing: 0.08em;
+  flex-wrap: wrap;
+}
+
+.joint-home-remain {
+  color: #4CAF50;
+}
+
+.joint-home-expired {
+  color: #F44336;
 }
 
 .joint-skeleton {
@@ -811,8 +1064,31 @@ footer {
     flex-wrap: wrap;
   }
 
+  .joint-home-item {
+    flex-direction: column;
+  }
+
+  .joint-home-cover {
+    width: 100%;
+    height: 100px;
+  }
+
   .joint-home-item:hover {
     transform: none;
+  }
+
+  .battle-item:hover {
+    transform: none;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .section-header-right {
+    width: 100%;
+    justify-content: space-between;
   }
 
   footer {

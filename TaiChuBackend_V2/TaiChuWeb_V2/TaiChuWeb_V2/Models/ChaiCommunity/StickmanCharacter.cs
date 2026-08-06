@@ -17,6 +17,15 @@ namespace TaiChuWeb_V2.Models.ChaiCommunity
         [MaxLength(200)]
         public string Title { get; set; } = string.Empty;
 
+
+
+        public int BattleWins { get; set; }
+        public int BattleLosses { get; set; }
+        public int BattleDraws { get; set; }
+
+
+
+
         /// <summary>
         /// 一句话简介
         /// </summary>
@@ -50,6 +59,11 @@ namespace TaiChuWeb_V2.Models.ChaiCommunity
         /// </summary>
         [MaxLength(20)]
         public string Status { get; set; } = "draft";
+
+
+        // ✨ 新增：是否允许参与约战
+        public bool IsBattleEnabled { get; set; } = true;   // 默认开启
+
 
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }

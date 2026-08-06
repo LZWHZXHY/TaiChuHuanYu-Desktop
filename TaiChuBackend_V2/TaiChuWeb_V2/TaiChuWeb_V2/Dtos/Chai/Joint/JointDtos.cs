@@ -1,4 +1,6 @@
-﻿namespace TaiChuWeb_V2.Dtos.Chai.Joint
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace TaiChuWeb_V2.Dtos.Chai.Joint
 {
     // ============================================================
     // 基础 DTO
@@ -37,7 +39,6 @@
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 
-        // ===== 新增字段 =====
         /// <summary>
         /// 来源类型：user / official
         /// </summary>
@@ -47,6 +48,16 @@
         /// 审核状态：pending / approved / rejected（仅用户自建联合）
         /// </summary>
         public string? ApprovalStatus { get; set; }
+
+        /// <summary>
+        /// 活动开始时间
+        /// </summary>
+        public DateTime StartDate { get; set; }
+
+        /// <summary>
+        /// 活动结束时间（可为空，表示活动尚未结束或长期活动）
+        /// </summary>
+        public DateTime? EndDate { get; set; }
 
         public List<JointParticipantDto>? Participants { get; set; }
     }
@@ -69,11 +80,21 @@
         public bool AuditRequired { get; set; } = true;
         public string? CoverUrl { get; set; }
 
-        // ===== 新增字段 =====
         /// <summary>
         /// 来源类型：user / official（默认 user）
         /// </summary>
         public string OrganizerType { get; set; } = "user";
+
+        /// <summary>
+        /// 活动开始时间
+        /// </summary>
+        [Required(ErrorMessage = "请选择活动开始时间")]
+        public DateTime StartDate { get; set; }
+
+        /// <summary>
+        /// 活动结束时间（可为空，表示长期活动）
+        /// </summary>
+        public DateTime? EndDate { get; set; }
     }
 
     // ============================================================
@@ -93,6 +114,16 @@
         public string? Status { get; set; }
         public bool? AuditRequired { get; set; }
         public string? CoverUrl { get; set; }
+
+        /// <summary>
+        /// 活动开始时间
+        /// </summary>
+        public DateTime? StartDate { get; set; }
+
+        /// <summary>
+        /// 活动结束时间
+        /// </summary>
+        public DateTime? EndDate { get; set; }
 
         // 注意：OrganizerType 和 ApprovalStatus 不允许通过更新接口修改
         // 它们由系统管理：OrganizerType 在创建时设定，ApprovalStatus 通过审核接口变更

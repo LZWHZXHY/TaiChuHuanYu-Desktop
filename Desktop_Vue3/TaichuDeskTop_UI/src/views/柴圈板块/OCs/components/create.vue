@@ -13,8 +13,8 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { useStickmanStore } from '../stickman_store'
-import CharacterForm from '../components/CharacterForm.vue'
+import { useStickmanStore } from '../stickman_store.ts'
+import CharacterForm from '../../components/CharacterForm.vue'
 
 const router = useRouter()
 const store = useStickmanStore()

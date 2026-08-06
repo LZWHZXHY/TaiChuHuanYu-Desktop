@@ -45,8 +45,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useStickmanStore } from '../stickman_store'
-import CharacterCard from '../components/CharacterCard.vue'
+import { useStickmanStore } from '../stickman_store.ts'
+import CharacterCard from '../../components/CharacterCard.vue'
 
 const router = useRouter()
 const store = useStickmanStore()

@@ -5,7 +5,7 @@ using System.Security.Claims;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.Chai.Joint;
 using TaiChuWeb_V2.Models.ChaiCommunity.Joint;
-using TaiChuWeb_V2.Models.User; // 引入 AdminPermission
+using TaiChuWeb_V2.Models.User;
 
 namespace TaiChuWeb_V2.Controllers.ChaiCommunity
 {
@@ -32,6 +32,61 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 .ToListAsync();
         }
 
+
+
+
+
+        // ============================================================
+        // 14. 首页专用：获取 open 状态的前 N 个活动（轻量）
+        // ============================================================
+        [HttpGet("home")]
+        [AllowAnonymous]
+        public async Task<ActionResult<List<JointActivityDto>>> GetHomeList(
+            [FromQuery] int count = 3)
+        {
+            var now = DateTime.UtcNow;
+
+            var items = await _context.JointActivities
+                .Where(a => a.Status == "open")
+                .Where(a => !a.EndDate.HasValue || a.EndDate.Value >= now)
+                .OrderByDescending(a => a.CreatedAt)
+                .Take(count)
+                .Select(a => new JointActivityDto
+                {
+                    Id = a.Id,
+                    Title = a.Title,
+                    Description = a.Description,
+                    Requirements = a.Requirements,
+                    Contact = a.Contact,
+                    Type = a.Type,
+                    Status = a.Status,
+                    AuditRequired = a.AuditRequired,
+                    CoverUrl = a.CoverUrl,
+                    OrganizerId = a.OrganizerId,
+                    OrganizerName = a.OrganizerName,
+                    ParticipantCount = a.ParticipantCount,
+                    CreatedAt = a.CreatedAt,
+                    UpdatedAt = a.UpdatedAt,
+                    OrganizerType = a.OrganizerType,
+                    ApprovalStatus = a.ApprovalStatus,
+                    StartDate = a.StartDate,
+                    EndDate = a.EndDate,
+                    // Participants 不需要，首页列表不展示参与者列表
+                    Participants = null
+                })
+                .ToListAsync();
+
+            return Ok(items);
+        }
+
+
+
+
+
+
+        // ============================================================
+        // 1. 获取列表（公开）
+        // ============================================================
         // ============================================================
         // 1. 获取列表（公开）
         // ============================================================
@@ -49,53 +104,67 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
 
             var query = _context.JointActivities.AsQueryable();
 
-            // 关键词搜索
             if (!string.IsNullOrEmpty(keyword))
             {
                 query = query.Where(a => a.Title.Contains(keyword) ||
                                          a.Description.Contains(keyword));
             }
 
-            // 状态筛选
             if (!string.IsNullOrEmpty(status) && status != "all")
             {
                 query = query.Where(a => a.Status == status);
             }
 
-            // 类型筛选
             if (!string.IsNullOrEmpty(type) && type != "all")
             {
                 query = query.Where(a => a.Type == type);
             }
 
-            // 排序：最新优先
-            query = query.OrderByDescending(a => a.CreatedAt);
-
             var total = await query.CountAsync();
 
-            var items = await query
+            // ⭐ 先获取所有数据到内存（用于修正状态和排序）
+            var allItems = await query.ToListAsync();
+
+            var now = DateTime.UtcNow;
+
+            // ⭐ 修正：过期的 open 状态自动变为 ended
+            foreach (var item in allItems)
+            {
+                if (item.Status == "open" && item.EndDate.HasValue && item.EndDate.Value < now)
+                {
+                    item.Status = "ended";
+                }
+            }
+
+            // ⭐ 按状态权重排序（open 最优先，abandoned 最后）
+            var sortedItems = allItems
+                .OrderBy(a => GetStatusWeight(a.Status))
+                .ThenByDescending(a => a.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(a => new JointActivityDto
-                {
-                    Id = a.Id,
-                    Title = a.Title,
-                    Description = a.Description,
-                    Requirements = a.Requirements,
-                    Contact = a.Contact,
-                    Type = a.Type,
-                    Status = a.Status,
-                    AuditRequired = a.AuditRequired,
-                    CoverUrl = a.CoverUrl,
-                    OrganizerId = a.OrganizerId,
-                    OrganizerName = a.OrganizerName,
-                    ParticipantCount = a.ParticipantCount,
-                    CreatedAt = a.CreatedAt,
-                    UpdatedAt = a.UpdatedAt,
-                    OrganizerType = a.OrganizerType,          // 新增
-                    ApprovalStatus = a.ApprovalStatus         // 新增
-                })
-                .ToListAsync();
+                .ToList();
+
+            var items = sortedItems.Select(a => new JointActivityDto
+            {
+                Id = a.Id,
+                Title = a.Title,
+                Description = a.Description,
+                Requirements = a.Requirements,
+                Contact = a.Contact,
+                Type = a.Type,
+                Status = a.Status,
+                AuditRequired = a.AuditRequired,
+                CoverUrl = a.CoverUrl,
+                OrganizerId = a.OrganizerId,
+                OrganizerName = a.OrganizerName,
+                ParticipantCount = a.ParticipantCount,
+                CreatedAt = a.CreatedAt,
+                UpdatedAt = a.UpdatedAt,
+                OrganizerType = a.OrganizerType,
+                ApprovalStatus = a.ApprovalStatus,
+                StartDate = a.StartDate,
+                EndDate = a.EndDate
+            }).ToList();
 
             return Ok(new JointListResponse
             {
@@ -104,6 +173,20 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 Page = page,
                 PageSize = pageSize
             });
+        }
+
+        // ⭐ 辅助方法：状态权重
+        private int GetStatusWeight(string status)
+        {
+            return status switch
+            {
+                "open" => 1,
+                "closed" => 2,
+                "ended" => 3,
+                "banned" => 4,
+                "abandoned" => 5,
+                _ => 99
+            };
         }
 
         // ============================================================
@@ -136,8 +219,11 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 ParticipantCount = activity.ParticipantCount,
                 CreatedAt = activity.CreatedAt,
                 UpdatedAt = activity.UpdatedAt,
-                OrganizerType = activity.OrganizerType,          // 新增
-                ApprovalStatus = activity.ApprovalStatus,         // 新增
+                OrganizerType = activity.OrganizerType,
+                ApprovalStatus = activity.ApprovalStatus,
+                // ===== 新增 =====
+                StartDate = activity.StartDate,
+                EndDate = activity.EndDate,
                 Participants = activity.Participants?.Select(p => new JointParticipantDto
                 {
                     Id = p.Id,
@@ -165,10 +251,15 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             var username = User.FindFirstValue(ClaimTypes.Name) ?? "未知用户";
             var permissions = await GetUserPermissions(userId);
 
-            // 判断是否创建官方联合
             var isOfficial = request.OrganizerType == "official";
             if (isOfficial && !JointPermissionHelper.CanCreateOfficial(permissions))
                 return Forbid();
+
+            // ===== 校验：结束时间必须晚于开始时间 =====
+            if (request.EndDate.HasValue && request.EndDate.Value <= request.StartDate)
+            {
+                return BadRequest(new { message = "结束时间必须晚于开始时间" });
+            }
 
             var activity = new JointActivity
             {
@@ -185,8 +276,11 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 OrganizerName = username,
                 ParticipantCount = 0,
                 CreatedAt = DateTime.UtcNow,
-                OrganizerType = request.OrganizerType ?? "user",  // 新增
-                ApprovalStatus = isOfficial ? "approved" : "pending"  // 官方直接通过，用户需要审核
+                OrganizerType = request.OrganizerType ?? "user",
+                ApprovalStatus = isOfficial ? "approved" : "pending",
+                // ===== 新增 =====
+                StartDate = request.StartDate,
+                EndDate = request.EndDate
             };
 
             _context.JointActivities.Add(activity);
@@ -209,7 +303,10 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 CreatedAt = activity.CreatedAt,
                 UpdatedAt = activity.UpdatedAt,
                 OrganizerType = activity.OrganizerType,
-                ApprovalStatus = activity.ApprovalStatus
+                ApprovalStatus = activity.ApprovalStatus,
+                // ===== 新增 =====
+                StartDate = activity.StartDate,
+                EndDate = activity.EndDate
             };
 
             return CreatedAtAction(nameof(GetDetail), new { id = activity.Id }, dto);
@@ -233,7 +330,6 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
 
             var permissions = await GetUserPermissions(userId);
 
-            // 使用权限助手检查编辑权限
             if (!JointPermissionHelper.CanEdit(activity, userId, permissions))
                 return Forbid();
 
@@ -253,6 +349,28 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 activity.AuditRequired = request.AuditRequired.Value;
             if (request.CoverUrl != null)
                 activity.CoverUrl = request.CoverUrl;
+
+            // ===== 新增：更新日期 =====
+            if (request.StartDate.HasValue)
+            {
+                // 如果同时更新了 EndDate，校验结束时间 > 开始时间
+                var endDate = request.EndDate ?? activity.EndDate;
+                if (endDate.HasValue && endDate.Value <= request.StartDate.Value)
+                {
+                    return BadRequest(new { message = "结束时间必须晚于开始时间" });
+                }
+                activity.StartDate = request.StartDate.Value;
+            }
+            if (request.EndDate.HasValue)
+            {
+                // 校验结束时间 > 当前开始时间
+                var startDate = request.StartDate ?? activity.StartDate;
+                if (request.EndDate.Value <= startDate)
+                {
+                    return BadRequest(new { message = "结束时间必须晚于开始时间" });
+                }
+                activity.EndDate = request.EndDate.Value;
+            }
 
             activity.UpdatedAt = DateTime.UtcNow;
 
@@ -283,7 +401,6 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
 
             var permissions = await GetUserPermissions(userId);
 
-            // 只有 SuperAdmin 可以删除
             if (!JointPermissionHelper.CanDelete(permissions))
                 return Forbid();
 
@@ -312,18 +429,21 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             if (activity == null)
                 return NotFound(new { message = "联合活动不存在" });
 
-            // 检查活动是否可报名（状态为 open 且已审核通过或官方）
             if (activity.Status != "open")
                 return BadRequest(new { message = "活动已截止或已结束" });
 
             if (activity.OrganizerType == "user" && activity.ApprovalStatus != "approved")
                 return BadRequest(new { message = "活动尚未审核通过" });
 
-            // 检查是否已报名
+            // ===== 新增：检查活动是否已开始（不能报名已开始的活动） =====
+            if (activity.StartDate <= DateTime.UtcNow)
+            {
+                return BadRequest(new { message = "活动已开始，无法报名" });
+            }
+
             if (activity.Participants!.Any(p => p.UserId == userId))
                 return BadRequest(new { message = "你已经报名参加了此活动" });
 
-            // 检查是否是举办者（举办者不能报名自己的活动）
             if (activity.OrganizerId == userId)
                 return BadRequest(new { message = "举办者不能报名自己的活动" });
 
@@ -402,7 +522,6 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
 
             var permissions = await GetUserPermissions(userId);
 
-            // 使用权限助手检查审核参与者权限
             if (!JointPermissionHelper.CanAuditParticipants(activity, userId, permissions))
                 return Forbid();
 
@@ -443,7 +562,6 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
 
             var permissions = await GetUserPermissions(userId);
 
-            // 使用权限助手检查踢出权限（与审核参与者权限一致）
             if (!JointPermissionHelper.CanAuditParticipants(activity, userId, permissions))
                 return Forbid();
 
@@ -481,15 +599,13 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
 
             var permissions = await GetUserPermissions(userId);
 
-            // 只有管理员可以审批
             if (!JointPermissionHelper.CanApproveJoint(permissions))
                 return Forbid();
 
-            // 只能审批用户自建且状态为 pending 的活动
             if (activity.OrganizerType != "user" || activity.ApprovalStatus != "pending")
                 return BadRequest(new { message = "该活动无需审批或已审批" });
 
-            activity.ApprovalStatus = request.Status; // "approved" 或 "rejected"
+            activity.ApprovalStatus = request.Status;
             activity.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
@@ -519,11 +635,9 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
 
             var permissions = await GetUserPermissions(userId);
 
-            // 检查封禁权限
             if (!JointPermissionHelper.CanBan(activity, userId, permissions))
                 return Forbid();
 
-            // 切换封禁状态
             activity.Status = activity.Status == "banned" ? "open" : "banned";
             activity.UpdatedAt = DateTime.UtcNow;
 
@@ -573,7 +687,10 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                     CreatedAt = a.CreatedAt,
                     UpdatedAt = a.UpdatedAt,
                     OrganizerType = a.OrganizerType,
-                    ApprovalStatus = a.ApprovalStatus
+                    ApprovalStatus = a.ApprovalStatus,
+                    // ===== 新增 =====
+                    StartDate = a.StartDate,
+                    EndDate = a.EndDate
                 })
                 .ToListAsync();
 
@@ -622,7 +739,10 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                     CreatedAt = a.CreatedAt,
                     UpdatedAt = a.UpdatedAt,
                     OrganizerType = a.OrganizerType,
-                    ApprovalStatus = a.ApprovalStatus
+                    ApprovalStatus = a.ApprovalStatus,
+                    // ===== 新增 =====
+                    StartDate = a.StartDate,
+                    EndDate = a.EndDate
                 })
                 .ToListAsync();
 
@@ -652,6 +772,9 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 UpdatedAt = activity.UpdatedAt,
                 OrganizerType = activity.OrganizerType,
                 ApprovalStatus = activity.ApprovalStatus,
+                // ===== 新增 =====
+                StartDate = activity.StartDate,
+                EndDate = activity.EndDate,
                 Participants = activity.Participants?.Select(p => new JointParticipantDto
                 {
                     Id = p.Id,

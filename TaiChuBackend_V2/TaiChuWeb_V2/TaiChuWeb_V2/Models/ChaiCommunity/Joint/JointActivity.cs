@@ -81,7 +81,23 @@ namespace TaiChuWeb_V2.Models.ChaiCommunity.Joint
         [MaxLength(100)]
         public string OrganizerName { get; set; } = string.Empty;
 
+
         /// <summary>
+        /// 活动开始时间
+        /// </summary>
+        public DateTime StartDate { get; set; }
+
+        /// <summary>
+        /// 活动结束时间（可为空，表示活动尚未结束或长期活动）
+        /// </summary>
+        public DateTime? EndDate { get; set; }
+
+
+
+
+        /// <summary>
+        /// 
+        /// 
         /// 当前参与人数
         /// </summary>
         public int ParticipantCount { get; set; }

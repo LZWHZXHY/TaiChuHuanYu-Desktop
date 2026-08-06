@@ -2,6 +2,7 @@
 using TaiChuWeb_V2.Models.Activity;
 using TaiChuWeb_V2.Models.Artwork;
 using TaiChuWeb_V2.Models.ChaiCommunity;  // 新增
+using TaiChuWeb_V2.Models.ChaiCommunity.Joint; // 引入联合活动模型
 using TaiChuWeb_V2.Models.Event;
 using TaiChuWeb_V2.Models.Feedback;
 using TaiChuWeb_V2.Models.Financial;
@@ -18,7 +19,9 @@ using TaiChuWeb_V2.Models.Trade;
 using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.Models.Wiki;
 using TaiChuWeb_V2.Models.World;
-using TaiChuWeb_V2.Models.ChaiCommunity.Joint; // 引入联合活动模型
+using TaiChuWeb_V2.Models.ChaiCommunity.Battle; // 引入约战模型
+
+
 
 namespace TaiChuWeb_V2.DbContext
 {
@@ -27,6 +30,13 @@ namespace TaiChuWeb_V2.DbContext
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
+
+        // ===== 柴圈社区 - 约战系统 =====
+        public DbSet<Battle> Battles { get; set; }
+        public DbSet<BattleParticipant> BattleParticipants { get; set; }
+        public DbSet<BattleSubmission> BattleSubmissions { get; set; }
+
+
 
         // ===== 柴圈社区 - 联合活动 =====
         public DbSet<JointActivity> JointActivities { get; set; }
@@ -684,6 +694,128 @@ namespace TaiChuWeb_V2.DbContext
                     .HasForeignKey(e => e.ActivityId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
+
+
+            // ===== 柴圈社区 - 约战系统配置 =====
+
+            // ===== 柴圈社区 - 约战系统配置 =====
+
+            // 1. Battle 表配置
+            modelBuilder.Entity<Battle>(entity =>
+            {
+                entity.ToTable("Battles");
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.Status)
+                    .HasMaxLength(20)
+                    .HasDefaultValue("open");
+
+                entity.Property(e => e.JudgmentType)
+                    .HasMaxLength(20)
+                    .HasDefaultValue("vote");
+
+                entity.Property(e => e.BattleConfigJson)
+                    .HasColumnType("json");
+
+                // 索引
+                entity.HasIndex(e => e.Status);
+                entity.HasIndex(e => e.CreatedAt);
+
+                // ⭐ 不再有 ChallengerId / OpponentId 外键
+                // 参与者通过 BattleParticipants 关联
+            });
+
+            // 2. BattleParticipant 表配置
+            modelBuilder.Entity<BattleParticipant>(entity =>
+            {
+                entity.ToTable("BattleParticipants");
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.UserName)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.OcIdsJson)
+                    .HasColumnType("json")
+                    .HasDefaultValue("[]");
+
+                entity.Property(e => e.OcNamesJson)
+                    .HasColumnType("json")
+                    .HasDefaultValue("[]");
+
+                entity.Property(e => e.Status)
+                    .HasMaxLength(20)
+                    .HasDefaultValue("registered");
+
+                entity.Property(e => e.Result)
+                    .HasMaxLength(10);
+
+                // 索引
+                entity.HasIndex(e => e.BattleId);
+                entity.HasIndex(e => e.UserId);
+
+                // 复合唯一索引：同一用户对同一约战只能有一条参与记录
+                entity.HasIndex(e => new { e.BattleId, e.UserId }).IsUnique();
+
+                // 外键
+                entity.HasOne(e => e.Battle)
+                    .WithMany(b => b.Participants)
+                    .HasForeignKey(e => e.BattleId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // 3. BattleSubmission 保持不变
+
+            // 3. BattleSubmission 表配置
+            modelBuilder.Entity<BattleSubmission>(entity =>
+            {
+                entity.ToTable("BattleSubmissions");
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.ContentUrl)
+                    .IsRequired()
+                    .HasMaxLength(1000);
+
+                entity.Property(e => e.ContentType)
+                    .HasMaxLength(20);
+
+                // 索引
+                entity.HasIndex(e => e.BattleId);
+                entity.HasIndex(e => e.ParticipantId);
+
+                // 复合唯一索引：同一参与者对同一约战只能提交一次作品
+                entity.HasIndex(e => new { e.BattleId, e.ParticipantId }).IsUnique();
+
+                // 外键
+                entity.HasOne(e => e.Battle)
+                    .WithMany(b => b.Submissions)
+                    .HasForeignKey(e => e.BattleId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Participant)
+                    .WithMany(p => p.Submissions)
+                    .HasForeignKey(e => e.ParticipantId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+
+
         }
     }
 }

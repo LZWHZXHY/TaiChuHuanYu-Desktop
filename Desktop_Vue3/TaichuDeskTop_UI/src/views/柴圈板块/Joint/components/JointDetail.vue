@@ -22,7 +22,7 @@
             <h1 class="page-title">{{ activity.title }}</h1>
             <div class="page-meta">
               <span class="meta-tag type" :class="activity.type">{{ typeLabel(activity.type) }}</span>
-              <span class="meta-tag status" :class="activity.status">{{ statusLabel(activity.status) }}</span>
+              <span class="meta-tag status" :class="displayStatus">{{ statusLabel(displayStatus) }}</span>
               <span class="meta-tag audit" :class="{ required: activity.auditRequired }">
                 {{ activity.auditRequired ? '需要审核' : '直接加入' }}
               </span>
@@ -36,12 +36,14 @@
               >
                 {{ approvalStatusLabel(activity.approvalStatus) }}
               </span>
+              <!-- ⭐ 如果过期，显示过期标签 -->
+              <span v-if="isExpired" class="meta-tag expired">已过期</span>
             </div>
           </div>
         </div>
         <div class="header-right">
           <router-link
-            v-if="isOrganizer"
+            v-if="isOrganizer && !isExpired"
             :to="`/joint/edit/${activity.id}`"
             class="btn-line"
           >
@@ -91,6 +93,31 @@
             <span class="info-label">参与人数</span>
             <span class="info-value">{{ activity.participantCount }} 人</span>
           </div>
+
+          <!-- ⭐ 开始时间 -->
+          <div class="info-item">
+            <span class="info-label">开始时间</span>
+            <span class="info-value">{{ formatDateTime(activity.startDate) }}</span>
+          </div>
+
+          <!-- ⭐ 结束时间（如果有） -->
+          <div v-if="activity.endDate" class="info-item">
+            <span class="info-label">结束时间</span>
+            <span class="info-value">{{ formatDateTime(activity.endDate) }}</span>
+          </div>
+
+          <!-- ⭐ 如果过期，显示过期提醒 -->
+          <div v-if="isExpired" class="info-item expired-warning">
+            <span class="info-label">⚠️ 状态</span>
+            <span class="info-value expired-text">该活动已结束</span>
+          </div>
+
+          <!-- ⭐ 剩余天数（如果未过期且有结束时间） -->
+          <div v-if="!isExpired && activity.endDate" class="info-item">
+            <span class="info-label">剩余时间</span>
+            <span class="info-value" :class="countdownClass">{{ countdownText }}</span>
+          </div>
+
           <div class="info-item">
             <span class="info-label">创建时间</span>
             <span class="info-value">{{ formatDate(activity.createdAt) }}</span>
@@ -120,10 +147,11 @@
           <button
             v-if="!isParticipant && !isOrganizer"
             class="btn-line btn-join"
-            :disabled="joining || !canJoin"
+            :disabled="joining || !canJoin || isExpired"
             @click="handleJoin"
           >
-            <span v-if="!canJoin && activity.organizerType === 'user' && activity.approvalStatus !== 'approved'">
+            <span v-if="isExpired">活动已结束</span>
+            <span v-else-if="!canJoin && activity.organizerType === 'user' && activity.approvalStatus !== 'approved'">
               审核中，暂不可报名
             </span>
             <span v-else-if="joining">报名中...</span>
@@ -131,7 +159,7 @@
           </button>
 
           <button
-            v-if="isParticipant"
+            v-if="isParticipant && !isExpired"
             class="btn-line btn-cancel"
             :disabled="cancelling"
             @click="handleCancelJoin"
@@ -140,6 +168,7 @@
           </button>
 
           <span v-if="isOrganizer" class="organizer-tip">（你举办的活动）</span>
+          <span v-if="isExpired && !isOrganizer" class="expired-tip">（活动已结束，不可操作）</span>
         </div>
 
         <div v-if="activity.participants?.length" class="participant-list">
@@ -152,7 +181,7 @@
             <span class="participant-status" :class="p.status">
               {{ participantStatusLabel(p.status) }}
             </span>
-            <div v-if="isOrganizer" class="participant-actions-admin">
+            <div v-if="isOrganizer && !isExpired" class="participant-actions-admin">
               <template v-if="p.status === 'pending'">
                 <button
                   class="btn-sm approve"
@@ -191,7 +220,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useJointStore } from '../joint_store'
 import { useUserStore } from '@/stores/user'
-import type { JointActivity, ParticipantStatus } from '../joint'
+import type { JointActivity, ParticipantStatus, JointStatus } from '../joint'
 
 const router = useRouter()
 const route = useRoute()
@@ -203,6 +232,48 @@ const cancelling = ref(false)
 
 const activity = computed(() => store.currentActivity)
 const loading = computed(() => store.loading)
+
+// ===== 判断活动是否已过期 =====
+const isExpired = computed(() => {
+  if (!activity.value?.endDate) return false
+  return new Date(activity.value.endDate) < new Date()
+})
+
+// ===== 实际显示的状态（如果过期则强制显示为 'ended'） =====
+const displayStatus = computed<JointStatus>(() => {
+  if (!activity.value) return 'open'
+  if (isExpired.value && activity.value.status !== 'ended') {
+    return 'ended'
+  }
+  return activity.value.status
+})
+
+// ===== 计算剩余天数 =====
+const daysRemaining = computed(() => {
+  if (!activity.value?.endDate) return 0
+  const now = new Date()
+  const end = new Date(activity.value.endDate)
+  const diff = end.getTime() - now.getTime()
+  return Math.ceil(diff / (1000 * 60 * 60 * 24))
+})
+
+// ===== 倒计时文本 =====
+const countdownText = computed(() => {
+  const days = daysRemaining.value
+  if (days <= 0) return '已结束'
+  if (days === 1) return '剩余 1 天'
+  if (days <= 7) return `剩余 ${days} 天`
+  if (days <= 30) return `剩余 ${Math.floor(days / 7)} 周`
+  return `剩余 ${Math.floor(days / 30)} 月`
+})
+
+// ===== 倒计时样式类 =====
+const countdownClass = computed(() => {
+  const days = daysRemaining.value
+  if (days <= 3) return 'countdown-urgent'
+  if (days <= 7) return 'countdown-warning'
+  return 'countdown-normal'
+})
 
 const isOrganizer = computed(() =>
   activity.value?.organizerId === userStore.userInfo?.id
@@ -317,6 +388,17 @@ function formatDate(dateStr: string): string {
   })
 }
 
+// ===== ⭐ 格式化日期时间（详情页用） =====
+function formatDateTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 function goBack() {
   router.push('/joint')
 }
@@ -325,6 +407,10 @@ async function handleJoin() {
   if (!activity.value) return
   if (!canJoin.value) {
     alert('该活动暂不可报名')
+    return
+  }
+  if (isExpired.value) {
+    alert('该活动已结束，无法报名')
     return
   }
   joining.value = true
@@ -578,6 +664,13 @@ onMounted(async () => {
   color: #795548;
 }
 
+/* ⭐ 过期标签 */
+.meta-tag.expired {
+  border-color: #F44336;
+  color: #F44336;
+  background: #fff5f5;
+}
+
 .meta-tag.audit {
   border-color: var(--line-raw);
   color: var(--ink-gray);
@@ -659,6 +752,36 @@ onMounted(async () => {
   color: var(--ink-black);
   letter-spacing: 0.05em;
   margin-top: 2px;
+}
+
+/* ⭐ 过期警告 */
+.expired-warning {
+  background: #fff5f5;
+  border-left: 3px solid #F44336;
+  padding-left: 12px;
+}
+
+.expired-text {
+  color: #F44336 !important;
+}
+
+/* ⭐ 倒计时样式 */
+.countdown-normal {
+  color: #4CAF50;
+}
+
+.countdown-warning {
+  color: #FF9800;
+}
+
+.countdown-urgent {
+  color: #F44336;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 .detail-right {
@@ -776,6 +899,12 @@ onMounted(async () => {
 .organizer-tip {
   font-size: 13px;
   color: var(--ink-light);
+  letter-spacing: 0.1em;
+}
+
+.expired-tip {
+  font-size: 13px;
+  color: #F44336;
   letter-spacing: 0.1em;
 }
 

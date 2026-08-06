@@ -5,6 +5,22 @@
     // ============================================================
 
     /// <summary>
+    /// 首页联合活动简略 DTO（只包含列表展示所需字段）
+    /// </summary>
+    public class JointActivityHomeDto
+    {
+        public Guid Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? CoverUrl { get; set; }
+        public string Type { get; set; } = "joint";
+        public string Status { get; set; } = "open";
+        public int ParticipantCount { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public string OrganizerName { get; set; } = string.Empty;
+    }
+
+    /// <summary>
     /// 图库图片 DTO
     /// </summary>
     public class StickmanImageDto
@@ -24,7 +40,7 @@
         public string Key { get; set; } = string.Empty;
         public string? Value { get; set; }
         public int SortOrder { get; set; }
-        public string Type { get; set; } = "short";  // ← 新增
+        public string Type { get; set; } = "short";
     }
 
     /// <summary>
@@ -42,6 +58,12 @@
         public string Status { get; set; } = "draft";
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public bool IsBattleEnabled { get; set; } = true;
+
+        // ⭐ 新增：约战战绩统计
+        public int BattleWins { get; set; }
+        public int BattleLosses { get; set; }
+        public int BattleDraws { get; set; }
 
         public List<StickmanAttributeDto>? Attributes { get; set; }
         public List<StickmanImageDto>? Images { get; set; }
@@ -56,8 +78,7 @@
         public string Key { get; set; } = string.Empty;
         public string? Value { get; set; }
         public int SortOrder { get; set; }
-
-        public string Type { get; set; } = "short";  // ← 新增
+        public string Type { get; set; } = "short";
     }
 
     public class CreateStickmanImageRequest
@@ -68,6 +89,27 @@
     }
 
     /// <summary>
+    /// OC 角色简略 DTO（用于列表页，不包含 Attributes 和 Images）
+    /// </summary>
+    public class StickmanBriefDto
+    {
+        public Guid Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? CoverUrl { get; set; }
+        public string AuthorName { get; set; } = string.Empty;
+        public Guid AuthorId { get; set; }
+        public string Status { get; set; } = "draft";
+        public bool IsBattleEnabled { get; set; }
+        public DateTime CreatedAt { get; set; }
+
+        // ⭐ 新增：约战战绩统计（列表页可显示）
+        public int BattleWins { get; set; }
+        public int BattleLosses { get; set; }
+        public int BattleDraws { get; set; }
+    }
+
+
+    /// <summary>
     /// 创建 OC 角色请求
     /// </summary>
     public class CreateStickmanRequest
@@ -76,7 +118,7 @@
         public string? Description { get; set; }
         public string? CoverUrl { get; set; }
         public string Status { get; set; } = "draft";
-
+        public bool IsBattleEnabled { get; set; } = true;
         public List<CreateStickmanAttributeRequest>? Attributes { get; set; }
         public List<CreateStickmanImageRequest>? Images { get; set; }
     }
@@ -91,7 +133,7 @@
         public string Key { get; set; } = string.Empty;
         public string? Value { get; set; }
         public int SortOrder { get; set; }
-        public string Type { get; set; } = "short";  // ← 新增
+        public string Type { get; set; } = "short";
     }
 
     public class UpdateStickmanImageRequest
@@ -111,7 +153,7 @@
         public string? Description { get; set; }
         public string? CoverUrl { get; set; }
         public string? Status { get; set; }
-
+        public bool? IsBattleEnabled { get; set; } = true;
         public List<UpdateStickmanAttributeRequest>? Attributes { get; set; }
         public List<UpdateStickmanImageRequest>? Images { get; set; }
     }
@@ -125,7 +167,7 @@
     /// </summary>
     public class StickmanListResponse
     {
-        public List<StickmanCharacterDto> Items { get; set; } = new();
+        public List<StickmanBriefDto> Items { get; set; } = new();
         public int Total { get; set; }
         public int Page { get; set; }
         public int PageSize { get; set; }

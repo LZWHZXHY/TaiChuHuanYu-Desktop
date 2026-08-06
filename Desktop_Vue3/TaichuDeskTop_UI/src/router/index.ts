@@ -113,10 +113,10 @@ const router = createRouter({
       children: [
         // ✅ 导入路径改为大写 S
         { path: '', component: () => import('@/views/柴圈板块/OCs/index.vue') },
-        { path: ':id', component: () => import('@/views/柴圈板块/OCs/detail.vue') },
-        { path: 'create', component: () => import('@/views/柴圈板块/OCs/create.vue') },
-        { path: 'edit/:id', component: () => import('@/views/柴圈板块/OCs/edit.vue') },
-        { path: 'my', component: () => import('@/views/柴圈板块/OCs/my.vue') },
+        { path: ':id', component: () => import('@/views/柴圈板块/OCs/components/detail.vue') },
+        { path: 'create', component: () => import('@/views/柴圈板块/OCs/components/create.vue') },
+        { path: 'edit/:id', component: () => import('@/views/柴圈板块/OCs/components/edit.vue') },
+        { path: 'my', component: () => import('@/views/柴圈板块/OCs/components/my.vue') },
       ]
     },
     {
@@ -127,6 +127,19 @@ const router = createRouter({
         { path: 'create', component: () => import('@/views/柴圈板块/Joint/components/JointCreate.vue') },
         { path: 'edit/:id', component: () => import('@/views/柴圈板块/Joint/components/JointEdit.vue') },
         { path: 'my', component: () => import('@/views/柴圈板块/Joint/components/MyJoint.vue') },
+      ]
+    },
+
+    // ===== TCV 约战系统 =====
+    {
+      path: '/battles',
+      children: [
+        { path: '', component: () => import('@/views/柴圈板块/Battle/index.vue') },
+        { path: 'create', component: () => import('@/views/柴圈板块/Battle/components/CreateBattle.vue') },
+        // ⭐ 新增：约战详情页
+        { path: ':id', component: () => import('@/views/柴圈板块/Battle/components/BattleDetail.vue') },
+        // ⭐ 新增：我的约战
+        { path: 'my', component: () => import('@/views/柴圈板块/Battle/components/MyBattles.vue') },
       ]
     },
     // ==========================================

@@ -57,6 +57,27 @@
         </div>
       </div>
 
+      <!-- ===== ⭐ 活动时间 ===== -->
+      <div class="form-row">
+        <div class="form-group">
+          <label>开始时间 <span class="required">*</span></label>
+          <input
+            v-model="form.startDate"
+            type="datetime-local"
+            required
+          />
+          <p class="hint">活动开始时间</p>
+        </div>
+        <div class="form-group">
+          <label>结束时间</label>
+          <input
+            v-model="form.endDate"
+            type="datetime-local"
+          />
+          <p class="hint">留空表示长期活动，到期后自动变为「已结束」</p>
+        </div>
+      </div>
+
       <!-- ===== 来源类型（仅管理员可见） ===== -->
       <div v-if="canCreateOfficial" class="form-group">
         <label>活动来源 <span class="required">*</span></label>
@@ -95,7 +116,7 @@
     <!-- ===== 按钮 ===== -->
     <div class="form-actions">
       <button type="button" class="btn-line" @click="emit('cancel')">取消</button>
-      <button type="submit" class="btn-line btn-submit" :disabled="submitting || uploadingCover">
+      <button type="submit" class="btn-line btn-submit" :disabled="submitting || uploadingCover || !isFormValid">
         {{ submitting ? '保存中...' : submitLabel }}
       </button>
     </div>
@@ -141,6 +162,16 @@ const form = reactive({
   contact: '',
   requirements: '',
   organizerType: 'user' as 'user' | 'official',
+  // ✅ 新增：时间字段
+  startDate: '',
+  endDate: '',
+})
+
+// ===== 表单验证 =====
+const isFormValid = computed(() => {
+  return form.title.trim().length > 0 &&
+         form.description.trim().length > 0 &&
+         form.startDate.length > 0
 })
 
 // ===== 监听初始数据变化 =====
@@ -157,10 +188,24 @@ watch(
       form.contact = data.contact || ''
       form.requirements = data.requirements || ''
       form.organizerType = data.organizerType || 'user'
+      // ✅ 新增：时间字段赋值
+      form.startDate = data.startDate ? formatDateTimeLocal(data.startDate) : ''
+      form.endDate = data.endDate ? formatDateTimeLocal(data.endDate) : ''
     }
   },
   { immediate: true }
 )
+
+// ===== 格式化日期时间为 datetime-local 需要的格式 =====
+function formatDateTimeLocal(dateStr: string): string {
+  const d = new Date(dateStr)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
 
 // ===== 上传封面图 =====
 async function uploadCover() {
@@ -202,9 +247,17 @@ function handleSubmit() {
     alert('请输入活动描述')
     return
   }
+  if (!form.startDate) {
+    alert('请选择活动开始时间')
+    return
+  }
 
   // 如果用户没有权限，强制设为 user（防止伪造请求）
   const organizerType = canCreateOfficial.value ? form.organizerType : 'user'
+
+  // ✅ 将 datetime-local 格式转换为 ISO 格式（加秒）
+  const startDate = form.startDate ? form.startDate + ':00' : ''
+  const endDate = form.endDate ? form.endDate + ':00' : undefined
 
   const data = {
     title: form.title.trim(),
@@ -216,6 +269,9 @@ function handleSubmit() {
     contact: form.contact.trim() || undefined,
     requirements: form.requirements.trim() || undefined,
     organizerType: organizerType,
+    // ✅ 新增：时间字段
+    startDate: startDate,
+    endDate: endDate,
   }
 
   emit('submit', data)

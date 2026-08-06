@@ -9,9 +9,14 @@
           <p class="page-subtitle">共收录 {{ total }} 位火柴人角色</p>
         </div>
       </div>
-      <router-link to="/ocs/create" class="btn-line btn-primary">
-        ＋ 投稿新 OC
-      </router-link>
+      <div class="header-actions">
+        <router-link to="/ocs/my" class="btn-link btn-my">
+          📋 我的 OC
+        </router-link>
+        <router-link to="/ocs/create" class="btn-link btn-primary">
+          ＋ 投稿新 OC
+        </router-link>
+      </div>
     </div>
 
     <!-- 搜索与筛选栏 -->
@@ -78,7 +83,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { useStickmanStore } from '../stickman_store'
+import { useStickmanStore } from './stickman_store.ts'
 import CharacterCard from '../components/CharacterCard.vue'
 
 const router = useRouter()
@@ -130,7 +135,6 @@ function goDetail(id: string) {
   router.push(`/ocs/${id}`)
 }
 
-// ===== 返回柴圈首页 =====
 function goHome() {
   router.push('/Chai')
 }
@@ -157,8 +161,10 @@ onMounted(fetchData)
   justify-content: space-between;
   align-items: flex-end;
   padding-bottom: 16px;
-  border-bottom: 1px solid var(--line-raw);
+  border-bottom: 1px solid #d8d2c7;
   margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .header-left {
@@ -167,21 +173,27 @@ onMounted(fetchData)
   gap: 16px;
 }
 
+.header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
 .back-btn {
   background: none;
   border: none;
-  color: var(--ink-gray);
+  color: #7A7571;
   font-size: 14px;
   letter-spacing: 0.15em;
   cursor: pointer;
   padding: 4px 8px 4px 0;
-  font-family: var(--font-family);
+  font-family: inherit;
   transition: color 0.3s;
   white-space: nowrap;
 }
-
 .back-btn:hover {
-  color: var(--ink-black);
+  color: #2C2A29;
 }
 
 .page-title {
@@ -189,19 +201,50 @@ onMounted(fetchData)
   font-weight: 400;
   letter-spacing: 0.25em;
   margin: 0 0 4px 0;
-  color: var(--ink-black);
+  color: #2C2A29;
 }
 
 .page-subtitle {
   font-size: 13px;
-  color: var(--ink-gray);
+  color: #7A7571;
   letter-spacing: 0.15em;
   margin: 0;
 }
 
+.btn-link {
+  display: inline-block;
+  padding: 8px 20px;
+  border: 1px solid #d8d2c7;
+  background: transparent;
+  color: #2C2A29;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  text-decoration: none;
+  border-radius: 2px;
+  transition: all 0.3s;
+  cursor: pointer;
+  text-align: center;
+}
+
+.btn-link:hover {
+  border-color: #9E2A2B;
+  color: #9E2A2B;
+}
+
+.btn-my {
+  border-color: #d8d2c7;
+}
+
 .btn-primary {
-  padding: 8px 24px;
-  border-color: var(--ink-black);
+  background: #2C2A29;
+  color: #F4F1EA;
+  border-color: #2C2A29;
+}
+.btn-primary:hover {
+  background: transparent;
+  color: #2C2A29;
+  border-color: #2C2A29;
 }
 
 /* ===== 筛选栏 ===== */
@@ -223,22 +266,20 @@ onMounted(fetchData)
 .search-box input {
   width: 100%;
   padding: 8px 16px;
-  border: 1px solid var(--line-raw);
-  background: var(--paper-card);
-  color: var(--ink-black);
-  font-family: var(--font-family);
+  border: 1px solid #d8d2c7;
+  background: #FCFAF7;
+  color: #2C2A29;
+  font-family: inherit;
   font-size: 14px;
   letter-spacing: 0.1em;
   outline: none;
   transition: border-color 0.3s;
 }
-
 .search-box input:focus {
-  border-color: var(--ink-black);
+  border-color: #2C2A29;
 }
-
 .search-box input::placeholder {
-  color: var(--ink-light);
+  color: #B5B0AA;
 }
 
 .filter-tabs {
@@ -249,6 +290,21 @@ onMounted(fetchData)
 .filter-tabs .btn-line {
   padding: 6px 18px;
   font-size: 13px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #7A7571;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0.1em;
+  transition: all 0.3s;
+}
+.filter-tabs .btn-line:hover {
+  border-color: #d8d2c7;
+  color: #2C2A29;
+}
+.filter-tabs .btn-line.active {
+  border-color: #2C2A29;
+  color: #2C2A29;
 }
 
 /* ===== 角色网格 ===== */
@@ -265,67 +321,53 @@ onMounted(fetchData)
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 20px;
 }
-
 .skeleton-card {
-  border: 1px solid var(--line-raw);
+  border: 1px solid #d8d2c7;
   padding: 16px;
-  background: var(--paper-card);
+  background: #FCFAF7;
 }
-
 .skeleton-image {
   width: 100%;
   height: 140px;
-  background: var(--paper-sub);
+  background: #ECE8E0;
   margin-bottom: 12px;
 }
-
 .skeleton-line {
   height: 14px;
-  background: var(--paper-sub);
+  background: #ECE8E0;
   margin: 6px 0;
 }
-
 .skeleton-line.short {
   width: 60%;
 }
-
 .shimmer {
   animation: shimmer 1.8s ease-in-out infinite;
 }
-
 @keyframes shimmer {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
 
 /* ===== 空状态 ===== */
 .empty-state {
   padding: 60px 0;
   text-align: center;
-  color: var(--ink-gray);
+  color: #7A7571;
   letter-spacing: 0.15em;
 }
-
 .empty-state p {
   font-size: 15px;
   margin: 0 0 12px 0;
 }
-
 .empty-link {
-  color: var(--cinnabar);
+  color: #9E2A2B;
   text-decoration: none;
-  border-bottom: 1px solid var(--line-raw);
+  border-bottom: 1px solid #d8d2c7;
   padding-bottom: 2px;
   transition: border-color 0.3s;
 }
-
 .empty-link:hover {
-  border-color: var(--cinnabar);
+  border-color: #9E2A2B;
 }
 
 /* ===== 分页 ===== */
@@ -334,28 +376,25 @@ onMounted(fetchData)
   justify-content: center;
   gap: 6px;
   padding-top: 20px;
-  border-top: 1px solid var(--line-raw);
+  border-top: 1px solid #d8d2c7;
 }
-
 .page-btn {
   width: 36px;
   height: 36px;
   border: 1px solid transparent;
   background: transparent;
-  color: var(--ink-gray);
-  font-family: var(--font-family);
+  color: #7A7571;
+  font-family: inherit;
   font-size: 14px;
   cursor: pointer;
   transition: all 0.3s ease;
 }
-
 .page-btn:hover {
-  border-color: var(--line-raw);
+  border-color: #d8d2c7;
 }
-
 .page-btn.active {
-  border-color: var(--ink-black);
-  color: var(--ink-black);
+  border-color: #2C2A29;
+  color: #2C2A29;
 }
 
 /* ===== 响应式 ===== */
@@ -363,31 +402,32 @@ onMounted(fetchData)
   .ocs-page {
     padding: 20px 16px 40px;
   }
-
   .page-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
   }
-
   .header-left {
     flex-wrap: wrap;
   }
-
+  .header-actions {
+    width: 100%;
+  }
+  .header-actions .btn-link {
+    flex: 1;
+    text-align: center;
+  }
   .filter-bar {
     flex-direction: column;
     align-items: stretch;
   }
-
   .search-box {
     max-width: 100%;
   }
-
   .oc-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 14px;
   }
-
   .loading-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
@@ -398,11 +438,9 @@ onMounted(fetchData)
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
   }
-
   .loading-grid {
     grid-template-columns: repeat(2, 1fr);
   }
-
   .skeleton-image {
     height: 100px;
   }

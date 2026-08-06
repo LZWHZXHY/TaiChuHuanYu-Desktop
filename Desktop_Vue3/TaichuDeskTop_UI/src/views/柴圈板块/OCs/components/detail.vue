@@ -68,6 +68,16 @@
           <p class="desc-text">暂无图库图片</p>
         </div>
 
+        <!-- 约战战绩 -->
+        <div class="battle-stats-section">
+          <h4 class="stats-title">⚔️ 约战战绩</h4>
+          <div class="battle-stats">
+            <span class="stat-win">🏆 胜 {{ character.battleWins || 0 }}</span>
+            <span class="stat-lose">💔 负 {{ character.battleLosses || 0 }}</span>
+            <span class="stat-draw">🤝 平 {{ character.battleDraws || 0 }}</span>
+          </div>
+        </div>
+
         <!-- 底部操作 -->
         <div class="detail-actions">
           <div class="action-stats">
@@ -155,6 +165,29 @@ function goBattle() {
 </script>
 
 <style scoped>
+.battle-stats-section {
+  margin: 12px 0;
+  padding: 12px 0;
+  border-top: 1px solid var(--line-raw);
+}
+
+.stats-title {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  margin: 0 0 8px 0;
+  color: var(--ink-gray);
+}
+
+.battle-stats {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+}
+
+.stat-win { color: #4CAF50; font-weight: 500; }
+.stat-lose { color: #F44336; font-weight: 500; }
+.stat-draw { color: #FF9800; font-weight: 500; }
 .detail-page {
   max-width: 1100px;
   margin: 0 auto;

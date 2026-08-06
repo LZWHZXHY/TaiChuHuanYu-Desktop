@@ -18,6 +18,7 @@ export interface StickmanImage {
 }
 
 // ========== 角色类型 ==========
+// ========== 角色类型 ==========
 export interface StickmanCharacter {
   id: string
   title: string
@@ -27,10 +28,15 @@ export interface StickmanCharacter {
   authorName: string
   views: number
   status: 'draft' | 'published' | 'archived'
+  isBattleEnabled?: boolean
   createdAt: string
   updatedAt?: string
   attributes: StickmanAttribute[]
   images: StickmanImage[]
+  // ⭐ 新增：约战战绩
+  battleWins: number
+  battleLosses: number
+  battleDraws: number
 }
 
 // ========== 创建 DTO ==========
