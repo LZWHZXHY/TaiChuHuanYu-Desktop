@@ -8,5 +8,6 @@
         Wiki_Editor,   // 知识库：审核、修订
         System_Monitor, // 系统：查看负载、日志
         Survey_Manage,   // ✅ 新增：问卷管理（创建、编辑、发布、删除）
+        JointManager,   // 太虚绘院部门管理员
     }
 }

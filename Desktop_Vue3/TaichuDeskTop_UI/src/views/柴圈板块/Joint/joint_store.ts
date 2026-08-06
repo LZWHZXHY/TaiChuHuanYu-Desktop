@@ -204,6 +204,24 @@ export const useJointStore = defineStore('joint', () => {
     }
   }
 
+
+  async function approve(activityId: string, status: 'approved' | 'rejected') {
+  try {
+    const res = await jointApi.approve(activityId, status)
+    if (currentActivity.value?.id === activityId) {
+      currentActivity.value = res
+    }
+    const index = activities.value.findIndex(a => a.id === activityId)
+    if (index !== -1) {
+      activities.value[index] = res
+    }
+    return res
+  } catch (error) {
+    console.error('审批失败:', error)
+    throw error
+  }
+}
+
   // ===== 清空当前活动 =====
   function clearCurrent() {
     currentActivity.value = null
@@ -215,6 +233,7 @@ export const useJointStore = defineStore('joint', () => {
     myOrganized,
     myParticipated,
     loading,
+    approve, 
     total,
     fetchList,
     fetchDetail,

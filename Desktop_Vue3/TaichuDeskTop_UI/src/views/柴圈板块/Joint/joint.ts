@@ -33,6 +33,8 @@ export interface JointActivity {
   createdAt: string
   updatedAt?: string
   participants?: JointParticipant[]
+  organizerType: 'user' | 'official'          // ← 新增
+  approvalStatus?: 'pending' | 'approved' | 'rejected'  // ← 新增
 }
 
 export interface CreateJointRequest {
@@ -44,6 +46,7 @@ export interface CreateJointRequest {
   status: JointStatus
   auditRequired: boolean
   coverUrl?: string
+  organizerType?: 'user' | 'official'  
 }
 
 export interface UpdateJointRequest {
@@ -110,4 +113,9 @@ export const jointApi = {
   // ===== 管理员操作 =====
   toggleBan: (id: string) =>
     request.post<JointActivity>(`/Joint/${id}/toggle-ban`),
+
+
+  // ===== 审批用户自建联合（管理员） =====
+approve: (id: string, status: 'approved' | 'rejected') =>
+  request.post<JointActivity>(`/Joint/${id}/approve`, { status }),
 }

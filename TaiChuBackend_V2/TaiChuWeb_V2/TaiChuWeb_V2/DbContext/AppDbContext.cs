@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TaiChuWeb_V2.Models.Activity;
 using TaiChuWeb_V2.Models.Artwork;
+using TaiChuWeb_V2.Models.ChaiCommunity;  // 新增
 using TaiChuWeb_V2.Models.Event;
 using TaiChuWeb_V2.Models.Feedback;
 using TaiChuWeb_V2.Models.Financial;
@@ -17,8 +18,7 @@ using TaiChuWeb_V2.Models.Trade;
 using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.Models.Wiki;
 using TaiChuWeb_V2.Models.World;
-using TaiChuWeb_V2.Models.ChaiCommunity;  // 新增
-
+using TaiChuWeb_V2.Models.ChaiCommunity.Joint; // 引入联合活动模型
 
 namespace TaiChuWeb_V2.DbContext
 {
@@ -27,6 +27,10 @@ namespace TaiChuWeb_V2.DbContext
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
+
+        // ===== 柴圈社区 - 联合活动 =====
+        public DbSet<JointActivity> JointActivities { get; set; }
+        public DbSet<JointParticipant> JointParticipants { get; set; }
 
         // ===== 柴圈社区 - OC 系统 =====
         public DbSet<StickmanCharacter> StickmanCharacters { get; set; }
@@ -610,7 +614,76 @@ namespace TaiChuWeb_V2.DbContext
                     .HasForeignKey(e => e.CharacterId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
+            // ===== 柴圈社区 - 联合活动配置 =====
 
+            modelBuilder.Entity<JointActivity>(entity =>
+            {
+                entity.ToTable("JointActivities");
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.Title)
+                    .IsRequired()
+                    .HasMaxLength(200);
+
+                entity.Property(e => e.Description)
+                    .IsRequired();
+
+                entity.Property(e => e.Type)
+                    .HasMaxLength(20)
+                    .HasDefaultValue("joint");
+
+                entity.Property(e => e.Status)
+                    .HasMaxLength(20)
+                    .HasDefaultValue("open");
+
+                entity.Property(e => e.OrganizerName)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.CreatedAt)
+                    .IsRequired();
+
+                // 索引
+                entity.HasIndex(e => e.Status);
+                entity.HasIndex(e => e.Type);
+                entity.HasIndex(e => e.OrganizerId);
+                entity.HasIndex(e => e.CreatedAt);
+
+                // 外键：OrganizerId → Users
+                entity.HasOne(e => e.Organizer)
+                    .WithMany()
+                    .HasForeignKey(e => e.OrganizerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<JointParticipant>(entity =>
+            {
+                entity.ToTable("JointParticipants");
+
+                entity.HasKey(e => e.Id);
+
+                entity.Property(e => e.UserName)
+                    .IsRequired()
+                    .HasMaxLength(100);
+
+                entity.Property(e => e.Status)
+                    .HasMaxLength(20)
+                    .HasDefaultValue("pending");
+
+                // 索引
+                entity.HasIndex(e => e.ActivityId);
+                entity.HasIndex(e => e.UserId);
+
+                // 复合唯一索引：同一用户对同一活动只能有一条记录
+                entity.HasIndex(e => new { e.ActivityId, e.UserId }).IsUnique();
+
+                // 外键 → JointActivity（级联删除）
+                entity.HasOne(e => e.Activity)
+                    .WithMany(a => a.Participants)
+                    .HasForeignKey(e => e.ActivityId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
         }
     }
 }

@@ -123,10 +123,10 @@ const router = createRouter({
       path: '/joint',
       children: [
         { path: '', component: () => import('@/views/柴圈板块/Joint/index.vue') },
-        { path: ':id', component: () => import('@/views/柴圈板块/Joint/index.vue') },
+        { path: ':id', component: () => import('@/views/柴圈板块/Joint/components/JointDetail.vue') },
         { path: 'create', component: () => import('@/views/柴圈板块/Joint/components/JointCreate.vue') },
-        { path: 'edit/:id', component: () => import('@/views/柴圈板块/Joint/index.vue') },
-        { path: 'my', component: () => import('@/views/柴圈板块/Joint/index.vue') },
+        { path: 'edit/:id', component: () => import('@/views/柴圈板块/Joint/components/JointEdit.vue') },
+        { path: 'my', component: () => import('@/views/柴圈板块/Joint/components/MyJoint.vue') },
       ]
     },
     // ==========================================

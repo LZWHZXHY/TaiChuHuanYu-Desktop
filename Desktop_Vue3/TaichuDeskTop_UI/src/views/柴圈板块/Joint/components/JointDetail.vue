@@ -26,11 +26,20 @@
               <span class="meta-tag audit" :class="{ required: activity.auditRequired }">
                 {{ activity.auditRequired ? '需要审核' : '直接加入' }}
               </span>
+              <span class="meta-tag source" :class="activity.organizerType">
+                {{ activity.organizerType === 'official' ? '太虚绘院官方' : '用户自建' }}
+              </span>
+              <span
+                v-if="activity.organizerType === 'user'"
+                class="meta-tag approval"
+                :class="activity.approvalStatus"
+              >
+                {{ approvalStatusLabel(activity.approvalStatus) }}
+              </span>
             </div>
           </div>
         </div>
         <div class="header-right">
-          <!-- 举办者编辑按钮 -->
           <router-link
             v-if="isOrganizer"
             :to="`/joint/edit/${activity.id}`"
@@ -38,13 +47,26 @@
           >
             ✎ 编辑
           </router-link>
-          <!-- 管理员封禁按钮（预留） -->
+
+          <template v-if="canApprove">
+            <button class="btn-line" @click="handleApprove('approved')">✓ 通过</button>
+            <button class="btn-line danger" @click="handleApprove('rejected')">✕ 拒绝</button>
+          </template>
+
           <button
-            v-if="isAdmin"
+            v-if="canBan"
             class="btn-line danger"
             @click="handleToggleBan"
           >
             {{ activity.status === 'banned' ? '解封' : '封禁' }}
+          </button>
+
+          <button
+            v-if="canDelete"
+            class="btn-line danger"
+            @click="handleDelete"
+          >
+            🗑 删除
           </button>
         </div>
       </div>
@@ -56,40 +78,30 @@
 
       <!-- 详情网格 -->
       <div class="detail-grid">
-        <!-- 左侧：基本信息 -->
         <div class="detail-left">
-          <!-- 举办者 -->
           <div class="info-item">
             <span class="info-label">举办者</span>
             <span class="info-value">{{ activity.organizerName }}</span>
           </div>
-
-          <!-- 群聊号 -->
           <div v-if="activity.contact" class="info-item">
             <span class="info-label">群聊号</span>
             <span class="info-value">{{ activity.contact }}</span>
           </div>
-
-          <!-- 参与人数 -->
           <div class="info-item">
             <span class="info-label">参与人数</span>
             <span class="info-value">{{ activity.participantCount }} 人</span>
           </div>
-
-          <!-- 创建时间 -->
           <div class="info-item">
             <span class="info-label">创建时间</span>
             <span class="info-value">{{ formatDate(activity.createdAt) }}</span>
           </div>
         </div>
 
-        <!-- 右侧：描述 -->
         <div class="detail-right">
           <div class="desc-section">
             <h3 class="desc-title">活动描述</h3>
             <p class="desc-text">{{ activity.description }}</p>
           </div>
-
           <div v-if="activity.requirements" class="desc-section">
             <h3 class="desc-title">参与要求</h3>
             <p class="desc-text">{{ activity.requirements }}</p>
@@ -97,26 +109,27 @@
         </div>
       </div>
 
-      <!-- ===== 参与者列表 ===== -->
+      <!-- 参与者列表 -->
       <div class="participants-section">
         <div class="section-header">
           <h3 class="section-title">参与者</h3>
           <span class="section-count">{{ activity.participantCount }} 人</span>
         </div>
 
-        <!-- 报名按钮 -->
         <div class="participant-actions">
-          <!-- 未报名：显示报名按钮 -->
           <button
             v-if="!isParticipant && !isOrganizer"
             class="btn-line btn-join"
-            :disabled="joining"
+            :disabled="joining || !canJoin"
             @click="handleJoin"
           >
-            {{ joining ? '报名中...' : '报名参与' }}
+            <span v-if="!canJoin && activity.organizerType === 'user' && activity.approvalStatus !== 'approved'">
+              审核中，暂不可报名
+            </span>
+            <span v-else-if="joining">报名中...</span>
+            <span v-else>报名参与</span>
           </button>
 
-          <!-- 已报名：显示取消报名 -->
           <button
             v-if="isParticipant"
             class="btn-line btn-cancel"
@@ -126,11 +139,9 @@
             {{ cancelling ? '取消中...' : '取消报名' }}
           </button>
 
-          <!-- 举办者提示 -->
           <span v-if="isOrganizer" class="organizer-tip">（你举办的活动）</span>
         </div>
 
-        <!-- 参与者列表 -->
         <div v-if="activity.participants?.length" class="participant-list">
           <div
             v-for="p in activity.participants"
@@ -138,31 +149,24 @@
             class="participant-item"
           >
             <span class="participant-name">{{ p.userName }}</span>
-
-            <!-- 审核状态 -->
             <span class="participant-status" :class="p.status">
               {{ participantStatusLabel(p.status) }}
             </span>
-
-            <!-- 举办者操作 -->
             <div v-if="isOrganizer" class="participant-actions-admin">
-              <!-- 待审核：通过/拒绝 -->
               <template v-if="p.status === 'pending'">
                 <button
                   class="btn-sm approve"
-                  @click="handleApprove(p.userId)"
+                  @click="handleAuditParticipant(p.userId, 'approved')"
                 >
                   通过
                 </button>
                 <button
                   class="btn-sm reject"
-                  @click="handleReject(p.userId)"
+                  @click="handleAuditParticipant(p.userId, 'rejected')"
                 >
                   拒绝
                 </button>
               </template>
-
-              <!-- 已通过：可踢出 -->
               <button
                 v-if="p.status === 'approved'"
                 class="btn-sm kick"
@@ -194,11 +198,9 @@ const route = useRoute()
 const store = useJointStore()
 const userStore = useUserStore()
 
-// ===== 状态 =====
 const joining = ref(false)
 const cancelling = ref(false)
 
-// ===== 计算属性 =====
 const activity = computed(() => store.currentActivity)
 const loading = computed(() => store.loading)
 
@@ -206,16 +208,67 @@ const isOrganizer = computed(() =>
   activity.value?.organizerId === userStore.userInfo?.id
 )
 
-const isAdmin = computed(() =>
+const isSuperAdmin = computed(() =>
   userStore.userInfo?.permissions?.includes('SuperAdmin') ?? false
 )
+
+const isJointManager = computed(() =>
+  userStore.userInfo?.permissions?.includes('JointManager') ?? false
+)
+
+const hasAdminPermission = computed(() => isSuperAdmin.value || isJointManager.value)
+
+// ===== 删除权限 =====
+const canDelete = computed(() => {
+  if (!activity.value) return false
+
+  // 官方联合：只有 SuperAdmin 可删除
+  if (activity.value.organizerType === 'official') {
+    return isSuperAdmin.value
+  }
+
+  // 用户自建：作者本人 或 SuperAdmin 可删除
+  if (activity.value.organizerType === 'user') {
+    return isOrganizer.value || isSuperAdmin.value
+  }
+
+  return false
+})
+
+// ===== 封禁权限 =====
+const canBan = computed(() => {
+  if (!activity.value) return false
+  if (activity.value.organizerId === userStore.userInfo?.id) return false
+
+  if (activity.value.organizerType === 'official') {
+    return isSuperAdmin.value
+  }
+
+  return isSuperAdmin.value || isJointManager.value
+})
+
+// ===== 审批权限 =====
+const canApprove = computed(() => {
+  if (!activity.value) return false
+  if (activity.value.organizerType !== 'user') return false
+  if (activity.value.approvalStatus !== 'pending') return false
+  return hasAdminPermission.value
+})
+
+// ===== 报名权限 =====
+const canJoin = computed(() => {
+  if (!activity.value) return false
+  if (activity.value.organizerType === 'user' && activity.value.approvalStatus !== 'approved') {
+    return false
+  }
+  return true
+})
 
 const isParticipant = computed(() => {
   if (!activity.value?.participants) return false
   return activity.value.participants.some(p => p.userId === userStore.userInfo?.id)
 })
 
-// ===== 标签映射 =====
 function statusLabel(status: string): string {
   const map: Record<string, string> = {
     open: '报名中',
@@ -247,6 +300,15 @@ function participantStatusLabel(status: ParticipantStatus): string {
   return map[status] || status
 }
 
+function approvalStatusLabel(status?: string): string {
+  const map: Record<string, string> = {
+    pending: '审核中',
+    approved: '已通过',
+    rejected: '已拒绝',
+  }
+  return status ? map[status] || status : ''
+}
+
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('zh-CN', {
     year: 'numeric',
@@ -255,14 +317,16 @@ function formatDate(dateStr: string): string {
   })
 }
 
-// ===== 返回 =====
 function goBack() {
   router.push('/joint')
 }
 
-// ===== 报名 =====
 async function handleJoin() {
   if (!activity.value) return
+  if (!canJoin.value) {
+    alert('该活动暂不可报名')
+    return
+  }
   joining.value = true
   try {
     await store.join(activity.value.id)
@@ -274,7 +338,6 @@ async function handleJoin() {
   }
 }
 
-// ===== 取消报名 =====
 async function handleCancelJoin() {
   if (!activity.value) return
   if (!confirm('确定要取消报名吗？')) return
@@ -289,23 +352,10 @@ async function handleCancelJoin() {
   }
 }
 
-// ===== 审核参与者（举办者） =====
-async function handleApprove(userId: string) {
+async function handleAuditParticipant(userId: string, status: 'approved' | 'rejected') {
   if (!activity.value) return
   try {
-    await store.auditParticipant(activity.value.id, userId, 'approved')
-    // 刷新详情
-    await store.fetchDetail(activity.value.id)
-  } catch (error) {
-    console.error('审核失败:', error)
-    alert('操作失败，请重试')
-  }
-}
-
-async function handleReject(userId: string) {
-  if (!activity.value) return
-  try {
-    await store.auditParticipant(activity.value.id, userId, 'rejected')
+    await store.auditParticipant(activity.value.id, userId, status)
     await store.fetchDetail(activity.value.id)
   } catch (error) {
     console.error('审核失败:', error)
@@ -325,21 +375,44 @@ async function handleKick(userId: string) {
   }
 }
 
-// ===== 封禁/解封（管理员） =====
+async function handleApprove(status: 'approved' | 'rejected') {
+  if (!activity.value) return
+  const action = status === 'approved' ? '通过' : '拒绝'
+  if (!confirm(`确定要${action}该联合活动吗？`)) return
+  try {
+    await store.approve(activity.value.id, status)
+    await store.fetchDetail(activity.value.id)
+  } catch (error) {
+    console.error('审批失败:', error)
+    alert('操作失败，请重试')
+  }
+}
+
 async function handleToggleBan() {
   if (!activity.value) return
   const action = activity.value.status === 'banned' ? '解封' : '封禁'
   if (!confirm(`确定要${action}该联合活动吗？`)) return
   try {
-    // 调用封禁/解封 API（需要后端实现）
-    // await store.toggleBan(activity.value.id)
-    alert(`${action}功能开发中...`)
+    await store.toggleBan(activity.value.id)
+    await store.fetchDetail(activity.value.id)
   } catch (error) {
     console.error('操作失败:', error)
+    alert('操作失败，请重试')
   }
 }
 
-// ===== 生命周期 =====
+async function handleDelete() {
+  if (!activity.value) return
+  if (!confirm(`确定要永久删除「${activity.value.title}」吗？此操作不可恢复！`)) return
+  try {
+    await store.remove(activity.value.id)
+    router.push('/joint')
+  } catch (error) {
+    console.error('删除失败:', error)
+    alert('删除失败，请重试')
+  }
+}
+
 onMounted(async () => {
   const id = route.params.id as string
   await store.fetchDetail(id)
@@ -347,15 +420,17 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ===== 柴圈板块统一风格 ===== */
 .joint-detail {
   max-width: 1100px;
   margin: 0 auto;
   padding: 32px 24px 60px;
   background: var(--paper-bg);
   min-height: 100vh;
+  color: var(--ink-black);
+  font-family: var(--font-family);
 }
 
-/* ===== 加载状态 ===== */
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -382,7 +457,6 @@ onMounted(async () => {
   }
 }
 
-/* ===== 空状态 ===== */
 .empty-state {
   padding: 80px 0;
   text-align: center;
@@ -401,7 +475,6 @@ onMounted(async () => {
   border-color: var(--cinnabar);
 }
 
-/* ===== 页面头部 ===== */
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -420,6 +493,7 @@ onMounted(async () => {
 .header-right {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .back-btn {
@@ -459,6 +533,7 @@ onMounted(async () => {
   padding: 2px 12px;
   border: 1px solid var(--line-raw);
   letter-spacing: 0.1em;
+  background: var(--paper-card);
 }
 
 .meta-tag.type.joint {
@@ -512,11 +587,33 @@ onMounted(async () => {
   color: var(--cinnabar);
 }
 
-/* ===== 封面图 ===== */
+.meta-tag.source.user {
+  border-color: #6c7a89;
+  color: #6c7a89;
+}
+.meta-tag.source.official {
+  border-color: #9E2A2B;
+  color: #9E2A2B;
+}
+
+.meta-tag.approval.pending {
+  border-color: #FF9800;
+  color: #FF9800;
+}
+.meta-tag.approval.approved {
+  border-color: #4CAF50;
+  color: #4CAF50;
+}
+.meta-tag.approval.rejected {
+  border-color: #F44336;
+  color: #F44336;
+}
+
 .cover-area {
   border: 1px solid var(--line-raw);
   overflow: hidden;
   margin-bottom: 28px;
+  background: var(--paper-sub);
 }
 
 .cover-area img {
@@ -526,7 +623,6 @@ onMounted(async () => {
   display: block;
 }
 
-/* ===== 详情网格 ===== */
 .detail-grid {
   display: grid;
   grid-template-columns: 280px 1fr;
@@ -578,7 +674,6 @@ onMounted(async () => {
 
 .desc-section:last-of-type {
   border-bottom: none;
-  padding-bottom: 0;
 }
 
 .desc-title {
@@ -599,7 +694,6 @@ onMounted(async () => {
   word-break: break-word;
 }
 
-/* ===== 参与者区域 ===== */
 .participants-section {
   border-top: 1px solid var(--line-raw);
   padding-top: 28px;
@@ -639,6 +733,12 @@ onMounted(async () => {
   border-color: var(--cinnabar);
   color: var(--cinnabar);
   padding: 8px 28px;
+  background: none;
+  font-family: var(--font-family);
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
 .btn-join:hover {
@@ -646,10 +746,21 @@ onMounted(async () => {
   color: #fff;
 }
 
+.btn-join:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .btn-cancel {
   border-color: var(--ink-gray);
   color: var(--ink-gray);
   padding: 8px 28px;
+  background: none;
+  font-family: var(--font-family);
+  font-size: 13px;
+  letter-spacing: 0.15em;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
 .btn-cancel:hover {
@@ -657,7 +768,6 @@ onMounted(async () => {
   color: var(--cinnabar);
 }
 
-.btn-join:disabled,
 .btn-cancel:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -669,7 +779,6 @@ onMounted(async () => {
   letter-spacing: 0.1em;
 }
 
-/* ===== 参与者列表 ===== */
 .participant-list {
   display: flex;
   flex-direction: column;
@@ -703,12 +812,10 @@ onMounted(async () => {
   border-color: #FF9800;
   color: #FF9800;
 }
-
 .participant-status.approved {
   border-color: #4CAF50;
   color: #4CAF50;
 }
-
 .participant-status.rejected {
   border-color: #F44336;
   color: #F44336;
@@ -734,7 +841,6 @@ onMounted(async () => {
   border-color: #4CAF50;
   color: #4CAF50;
 }
-
 .btn-sm.approve:hover {
   background: #4CAF50;
   color: #fff;
@@ -744,7 +850,6 @@ onMounted(async () => {
   border-color: #F44336;
   color: #F44336;
 }
-
 .btn-sm.reject:hover {
   background: #F44336;
   color: #fff;
@@ -754,7 +859,6 @@ onMounted(async () => {
   border-color: #FF9800;
   color: #FF9800;
 }
-
 .btn-sm.kick:hover {
   background: #FF9800;
   color: #fff;
@@ -768,7 +872,6 @@ onMounted(async () => {
   letter-spacing: 0.1em;
 }
 
-/* ===== 按钮统一样式 ===== */
 .btn-line {
   background: none;
   border: 1px solid var(--line-raw);
@@ -798,7 +901,6 @@ onMounted(async () => {
   color: #fff;
 }
 
-/* ===== 响应式 ===== */
 @media (max-width: 860px) {
   .detail-grid {
     grid-template-columns: 1fr;
@@ -813,6 +915,10 @@ onMounted(async () => {
 
   .header-left {
     flex-wrap: wrap;
+  }
+
+  .header-right {
+    width: 100%;
   }
 
   .cover-area img {

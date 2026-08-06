@@ -28,7 +28,7 @@
             </router-link>
           </div>
 
-          <div v-if="loading" class="oc-grid">
+          <div v-if="ocLoading" class="oc-grid">
             <div v-for="i in 3" :key="i" class="oc-card skeleton">
               <div class="oc-canvas-box shimmer"></div>
               <div class="skeleton-line"></div>
@@ -79,24 +79,52 @@
           </div>
         </section>
 
-        <!-- 板块3：联合活动 -->
+        <!-- 板块3：联合活动（改为真实数据） -->
         <section>
           <div class="section-header">
             <h2 class="section-title">大型联合大作 · 招募</h2>
-            <a class="section-more">查看往期合演 ＞</a>
+            <router-link to="/joint" class="section-more">
+              共 {{ jointTotal }} 场 · 查看全部 ＞
+            </router-link>
           </div>
-          <div class="collab-card">
-            <h3 class="collab-title">【丙午年大合演】《百柴破阵图》联合动画工程</h3>
-            <p class="collab-desc">
-              本期联合活动由"墨划社"发起，要求参与者接龙完成一段时长不少于 5 秒的极细线条战斗分镜。
-              目前已有 18 位作者交卷。
-            </p>
-            <div class="collab-progress">
-              <div class="collab-progress-fill" style="width: 65%;"></div>
+
+          <!-- 加载中 -->
+          <div v-if="jointLoading" class="joint-skeleton">
+            <div class="skeleton-card">
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line short"></div>
             </div>
-            <div class="collab-footer">
-              <span class="collab-progress-label">工程进度：65%（18/25 棒）</span>
-              <button class="btn-line">参与接龙</button>
+            <div class="skeleton-card">
+              <div class="skeleton-line"></div>
+              <div class="skeleton-line short"></div>
+            </div>
+          </div>
+
+          <!-- 空状态 -->
+          <div v-else-if="!jointList.length" class="empty-state">
+            <p>暂无联合活动</p>
+            <router-link to="/joint/create" class="empty-link">发起第一个联合</router-link>
+          </div>
+
+          <!-- 联合列表 -->
+          <div v-else class="joint-home-list">
+            <div
+              v-for="item in jointList.slice(0, 3)"
+              :key="item.id"
+              class="joint-home-item"
+              @click="goTo(`/joint/${item.id}`)"
+            >
+              <div class="joint-home-info">
+                <h3 class="joint-home-title">{{ item.title }}</h3>
+                <p class="joint-home-desc">{{ truncateText(item.description, 60) }}</p>
+                <div class="joint-home-meta">
+                  <span class="joint-home-type">{{ typeLabel(item.type) }}</span>
+                  <span class="joint-home-status" :class="statusClass(item.status)">
+                    {{ statusLabel(item.status) }}
+                  </span>
+                  <span class="joint-home-count">{{ item.participantCount }} 人参与</span>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -140,22 +168,79 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStickmanStore } from './stickman_store'
+import { useJointStore } from './Joint/joint_store'
 import CharacterCard from './components/CharacterCard.vue'
 
 const router = useRouter()
 const store = useStickmanStore()
+const jointStore = useJointStore()
 
 const isAged = ref(false)
-const loading = computed(() => store.loading)
+
+// ===== OC 数据 =====
+const ocLoading = computed(() => store.loading)
 const latestList = computed(() => store.characters.slice(0, 3))
 const ocCount = computed(() => store.total)
 
+// ===== 联合数据 =====
+const jointList = computed(() => jointStore.activities)
+const jointLoading = computed(() => jointStore.loading)
+const jointTotal = computed(() => jointStore.total)
+
+// ===== 工具函数 =====
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  return text.slice(0, maxLength) + '...'
+}
+
+function statusLabel(status: string): string {
+  const map: Record<string, string> = {
+    open: '报名中',
+    closed: '已截止',
+    ended: '已结束',
+    banned: '已封禁',
+    abandoned: '暴毙',
+  }
+  return map[status] || status
+}
+
+function statusClass(status: string): string {
+  const map: Record<string, string> = {
+    open: 'status-open',
+    closed: 'status-closed',
+    ended: 'status-ended',
+    banned: 'status-banned',
+    abandoned: 'status-abandoned',
+  }
+  return map[status] || ''
+}
+
+function typeLabel(type: string): string {
+  const map: Record<string, string> = {
+    joint: '联合',
+    relay: '接力',
+    project: '企划',
+    free: '自由',
+    other: '其他',
+  }
+  return map[type] || type
+}
+
+// ===== 导航 =====
+function goTo(path: string) {
+  router.push(path)
+}
+
+function goDetail(id: string) {
+  router.push(`/ocs/${id}`)
+}
+
+// ===== 纸张切换 =====
 function togglePaper() {
   isAged.value = !isAged.value
   const root = document.documentElement
 
   if (isAged.value) {
-    // 旧纸效果（古书黄）
     root.style.setProperty('--paper-bg', '#EAE4D6')
     root.style.setProperty('--paper-card', '#F0EBDF')
     root.style.setProperty('--paper-sub', '#E5DFD0')
@@ -163,7 +248,6 @@ function togglePaper() {
     root.style.setProperty('--ink-gray', '#7A7570')
     root.style.setProperty('--line-raw', '#C8BFB3')
   } else {
-    // 新纸效果（生宣白）
     root.style.setProperty('--paper-bg', '#F7F4EE')
     root.style.setProperty('--paper-card', '#FCFAF7')
     root.style.setProperty('--paper-sub', '#F0EBE1')
@@ -173,16 +257,9 @@ function togglePaper() {
   }
 }
 
-function goTo(path: string) {
-  router.push(path)
-}
-
-function goDetail(id: string) {
-  router.push(`/ocs/${id}`)
-}
-
 onMounted(() => {
   store.fetchList({ page: 1, pageSize: 3 })
+  jointStore.fetchList({ page: 1, pageSize: 3 })
 })
 </script>
 
@@ -197,7 +274,6 @@ onMounted(() => {
   --accent-color: #9E2A2B;     /* 朱砂红 */
   --font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif;
 
-  /* 映射到具体元素 */
   --paper-bg: var(--bg-main);
   --paper-card: #FCFAF7;
   --paper-sub: var(--bg-sub);
@@ -418,7 +494,6 @@ onMounted(() => {
   letter-spacing: 0.1em;
 }
 
-/* 骨架屏 */
 .shimmer {
   animation: shimmer 1.8s ease-in-out infinite;
   background: var(--paper-sub);
@@ -499,55 +574,111 @@ onMounted(() => {
   letter-spacing: 0.1em;
 }
 
-/* ====== 联合活动 ====== */
-.collab-card {
-  border: 1px solid var(--line-raw);
-  padding: 24px;
-  margin-bottom: 50px;
-  background: var(--paper-card);
-}
-
-.collab-title {
-  font-size: 18px;
-  letter-spacing: 0.2em;
-  margin-bottom: 10px;
-  font-weight: 400;
-  color: var(--ink-black);
-}
-
-.collab-desc {
-  font-size: 14px;
-  color: var(--ink-gray);
-  line-height: 1.8;
-  letter-spacing: 0.1em;
-  margin-bottom: 20px;
-}
-
-.collab-progress {
-  height: 2px;
-  background: var(--line-raw);
-  width: 100%;
-  margin-bottom: 12px;
-}
-
-.collab-progress-fill {
-  height: 100%;
-  background: var(--cinnabar);
-  transition: width 0.6s ease;
-}
-
-.collab-footer {
+/* ====== 联合活动（真实数据） ====== */
+.joint-home-list {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 12px;
 }
 
-.collab-progress-label {
+.joint-home-item {
+  border: 1px solid var(--line-raw);
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: var(--paper-card);
+}
+
+.joint-home-item:hover {
+  border-color: var(--ink-black);
+  transform: translateX(4px);
+}
+
+.joint-home-title {
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  margin: 0 0 6px 0;
+  color: var(--ink-black);
+}
+
+.joint-home-desc {
+  font-size: 13px;
+  color: var(--ink-gray);
+  letter-spacing: 0.1em;
+  margin: 0 0 10px 0;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.joint-home-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
   font-size: 12px;
   color: var(--ink-gray);
   letter-spacing: 0.1em;
+}
+
+.joint-home-type {
+  padding: 1px 10px;
+  border: 1px solid var(--line-raw);
+}
+
+.joint-home-status {
+  padding: 1px 10px;
+  border: 1px solid var(--line-raw);
+}
+
+.status-open {
+  border-color: #4CAF50;
+  color: #4CAF50;
+}
+.status-closed {
+  border-color: #FF9800;
+  color: #FF9800;
+}
+.status-ended {
+  border-color: #9E9E9E;
+  color: #9E9E9E;
+}
+.status-banned {
+  border-color: #F44336;
+  color: #F44336;
+}
+.status-abandoned {
+  border-color: #795548;
+  color: #795548;
+}
+
+.joint-home-count {
+  color: var(--ink-light);
+}
+
+.joint-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.joint-skeleton .skeleton-card {
+  padding: 16px 20px;
+  border: 1px solid var(--line-raw);
+  background: var(--paper-card);
+}
+
+.joint-skeleton .skeleton-line {
+  height: 14px;
+  background: var(--paper-sub);
+  margin: 4px 0;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+.joint-skeleton .skeleton-line.short {
+  width: 60%;
 }
 
 /* ====== 空状态 ====== */
@@ -680,9 +811,8 @@ footer {
     flex-wrap: wrap;
   }
 
-  .collab-footer {
-    flex-direction: column;
-    align-items: flex-start;
+  .joint-home-item:hover {
+    transform: none;
   }
 
   footer {
@@ -702,6 +832,10 @@ footer {
 
   .section-title {
     font-size: 16px;
+  }
+
+  .joint-home-meta {
+    gap: 8px;
   }
 }
 </style>

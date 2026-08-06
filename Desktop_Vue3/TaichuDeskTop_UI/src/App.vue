@@ -121,7 +121,7 @@ onMounted(async ()=> {
   display: flex; 
   width: 100vw;
   height: 100vh; 
-  background: #ffffff;
+  background: var(--paper-bg);   /* ← 改为使用宣纸白变量 */
   color: #24292f;
   overflow: hidden;
 }

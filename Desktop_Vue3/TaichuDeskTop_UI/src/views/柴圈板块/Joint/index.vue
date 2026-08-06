@@ -165,7 +165,7 @@ function goDetail(id: string) {
 }
 
 function goHome() {
-  router.push('/')
+  router.push('/Chai')
 }
 
 onMounted(fetchData)
@@ -176,7 +176,7 @@ onMounted(fetchData)
   max-width: 1280px;
   margin: 0 auto;
   padding: 32px 24px 60px;
-  background: var(--paper-bg);
+  background: #F4F1EA !important;
 }
 
 /* ===== 页面头部 ===== */
