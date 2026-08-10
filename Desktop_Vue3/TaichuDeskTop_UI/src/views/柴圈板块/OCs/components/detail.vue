@@ -15,7 +15,13 @@
       <!-- ===== 左侧：封面 + 短属性 ===== -->
       <div class="detail-left">
         <div class="avatar-container">
-          <img :src="character.coverUrl || defaultAvatar" :alt="character.title" />
+          <!-- ✅ 使用 el-image 支持懒加载和预览 -->
+          <el-image
+            :src="character.coverUrl || defaultAvatar"
+            :alt="character.title"
+            fit="cover"
+            lazy
+          />
           <span v-if="character.status === 'draft'" class="badge-draft">草稿</span>
         </div>
 
@@ -26,7 +32,7 @@
           </p>
           <p class="char-author">作者：{{ character.authorName }}</p>
 
-          <!-- 短属性网格（只显示短文本属性） -->
+          <!-- 短属性网格 -->
           <div v-if="shortAttributes.length" class="attr-grid">
             <div v-for="attr in shortAttributes" :key="attr.id" class="attr-item">
               <span class="attr-key">{{ attr.key }}</span>
@@ -52,14 +58,49 @@
           </div>
         </div>
 
-        <!-- 图库 -->
+        <!-- ===== 🚀 优化后的图库 ===== -->
         <div v-if="character.images?.length" class="desc-section">
-          <h3 class="desc-title">🖼️ 图库</h3>
+          <div class="gallery-header">
+            <h3 class="desc-title">🖼️ 图库</h3>
+            <span class="gallery-count">{{ character.images.length }} 张</span>
+          </div>
+
+          <!-- 图库网格 -->
           <div class="gallery-grid">
-            <div v-for="(img, idx) in character.images" :key="idx" class="gallery-item">
-              <img :src="img.url" :alt="img.alt || character.title" />
+            <div
+              v-for="(img, idx) in displayImages"
+              :key="idx"
+              class="gallery-item"
+            >
+              <el-image
+                :src="img.url"
+                :alt="img.alt || character.title"
+                fit="cover"
+                lazy
+                :preview-src-list="previewList"
+                :initial-index="idx"
+                @click="openPreview(idx)"
+              />
               <p v-if="img.alt" class="gallery-alt">{{ img.alt }}</p>
             </div>
+          </div>
+
+          <!-- 加载更多按钮 -->
+          <div v-if="character.images.length > initialShowCount" class="gallery-more">
+            <button
+              v-if="!showAllImages"
+              class="btn-more"
+              @click="showAllImages = true"
+            >
+              加载更多 (+{{ character.images.length - displayImages.length }})
+            </button>
+            <button
+              v-else
+              class="btn-more"
+              @click="showAllImages = false"
+            >
+              收起
+            </button>
           </div>
         </div>
 
@@ -91,10 +132,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch} from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useStickmanStore } from '../stickman_store'
 import { useUserStore } from '@/stores/user'
+import { ElImage } from 'element-plus' // 可选，但已全局注册
 
 const router = useRouter()
 const route = useRoute()
@@ -110,15 +152,38 @@ const isOwner = computed(() => {
   const authorId = character.value?.authorId
   const userId = userStore.userInfo?.id
   if (!authorId || !userId) return false
-  // 统一转为字符串比较，避免类型不一致
   return String(authorId) === String(userId)
 })
 
+// ===== 🆕 图库分批加载 =====
+const initialShowCount = 12 // 初始显示数量
+const showAllImages = ref(false)
+
+const displayImages = computed(() => {
+  if (!character.value?.images) return []
+  if (showAllImages.value) {
+    return character.value.images
+  }
+  return character.value.images.slice(0, initialShowCount)
+})
+
+// ===== 🆕 图片预览列表（所有图片 URL） =====
+const previewList = computed(() => {
+  return character.value?.images?.map(img => img.url) || []
+})
+
+// ===== 🆕 打开预览（点击图片触发） =====
+const openPreview = (index: number) => {
+  // 由于 el-image 的 preview-src-list 已经绑定，点击会触发预览
+  // 但我们通过设置 initial-index 来控制从哪张开始
+  // 这里可以不做额外操作
+}
 
 // ===== 返回 OC 画阁列表页 =====
 function goBack() {
   router.push('/ocs')
 }
+
 // ===== 从 attributes 中获取指定 key 的值 =====
 function getAttr(key: string): string | null {
   if (!character.value?.attributes) return null
@@ -126,13 +191,6 @@ function getAttr(key: string): string | null {
   return attr?.value ?? null
 }
 
-// ===== 判断是否为长文本（长度 > 100 或包含换行） =====
-function isLongText(value?: string): boolean {
-  if (!value) return false
-  return value.length > 100 || value.includes('\n')
-}
-
-// ✅ 直接使用后端的 type 字段
 const shortAttributes = computed(() => {
   if (!character.value?.attributes) return []
   const hiddenKeys = ['昵称', '绰号', '标签']
@@ -148,7 +206,7 @@ const longAttributes = computed(() => {
     .filter(a => !hiddenKeys.includes(a.key) && a.type === 'long')
     .sort((a, b) => a.sortOrder - b.sortOrder)
 })
-// ===== 获取标签列表 =====
+
 const tags = computed(() => {
   const tagStr = getAttr('标签')
   if (!tagStr) return []
@@ -172,10 +230,7 @@ function goBattle() {
   router.push(`/battles/create?ocId=${character.value.id}`)
 }
 
-
-
-
-// ===== 调试：打印权限信息 =====
+// ===== 调试权限 =====
 watch(character, (val) => {
   if (val) {
     console.log('🔍 OC 权限检查:', {
@@ -185,18 +240,15 @@ watch(character, (val) => {
     })
   }
 }, { immediate: true })
-
-
-
 </script>
 
 <style scoped>
+/* ===== 原有样式保持不变 ===== */
 .battle-stats-section {
   margin: 12px 0;
   padding: 12px 0;
   border-top: 1px solid var(--line-raw);
 }
-
 .stats-title {
   font-size: 13px;
   font-weight: 400;
@@ -204,16 +256,15 @@ watch(character, (val) => {
   margin: 0 0 8px 0;
   color: var(--ink-gray);
 }
-
 .battle-stats {
   display: flex;
   gap: 16px;
   font-size: 14px;
 }
-
 .stat-win { color: #4CAF50; font-weight: 500; }
 .stat-lose { color: #F44336; font-weight: 500; }
 .stat-draw { color: #FF9800; font-weight: 500; }
+
 .detail-page {
   max-width: 1100px;
   margin: 0 auto;
@@ -221,7 +272,6 @@ watch(character, (val) => {
   background: var(--paper-bg);
   min-height: 100vh;
 }
-
 .back-btn {
   background: none;
   border: none;
@@ -234,11 +284,9 @@ watch(character, (val) => {
   font-family: var(--font-family);
   transition: color 0.3s;
 }
-
 .back-btn:hover {
   color: var(--ink-black);
 }
-
 .loading-state,
 .empty-state {
   padding: 80px 0;
@@ -247,14 +295,12 @@ watch(character, (val) => {
   font-size: 14px;
   letter-spacing: 0.15em;
 }
-
 .empty-link {
   color: var(--cinnabar);
   text-decoration: none;
   border-bottom: 1px solid var(--line-raw);
   padding-bottom: 2px;
 }
-
 .empty-link:hover {
   border-color: var(--cinnabar);
 }
@@ -272,7 +318,6 @@ watch(character, (val) => {
   top: 24px;
   align-self: start;
 }
-
 .avatar-container {
   position: relative;
   border: 1px solid var(--line-raw);
@@ -280,13 +325,15 @@ watch(character, (val) => {
   aspect-ratio: 1/1;
   background: var(--paper-sub);
 }
-
-.avatar-container img {
+.avatar-container :deep(.el-image) {
+  width: 100%;
+  height: 100%;
+}
+.avatar-container :deep(.el-image__inner) {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-
 .badge-draft {
   position: absolute;
   top: 10px;
@@ -297,11 +344,9 @@ watch(character, (val) => {
   background: rgba(44, 42, 41, 0.75);
   letter-spacing: 0.15em;
 }
-
 .info-section {
   margin-top: 20px;
 }
-
 .char-name {
   font-size: 22px;
   font-weight: 400;
@@ -309,22 +354,18 @@ watch(character, (val) => {
   margin: 0 0 2px 0;
   color: var(--ink-black);
 }
-
 .char-nickname {
   color: var(--ink-gray);
   font-style: italic;
   letter-spacing: 0.1em;
   margin: 0 0 4px 0;
 }
-
 .char-author {
   font-size: 13px;
   color: var(--ink-gray);
   letter-spacing: 0.15em;
   margin: 0 0 16px 0;
 }
-
-/* ===== 短属性网格 ===== */
 .attr-grid {
   display: flex;
   flex-direction: column;
@@ -334,7 +375,6 @@ watch(character, (val) => {
   border-bottom: 1px solid var(--line-raw);
   margin-bottom: 14px;
 }
-
 .attr-item {
   display: flex;
   justify-content: space-between;
@@ -342,39 +382,19 @@ watch(character, (val) => {
   letter-spacing: 0.1em;
   padding: 2px 0;
 }
-
 .attr-key {
   color: var(--ink-gray);
 }
-
 .attr-value {
   color: var(--ink-black);
   text-align: right;
   max-width: 60%;
   word-break: break-word;
 }
-
-/* ===== 标签 ===== */
-.tag-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 16px;
-}
-
-.tag-item {
-  font-size: 12px;
-  color: var(--ink-gray);
-  border: 1px solid var(--line-raw);
-  padding: 2px 12px;
-  letter-spacing: 0.1em;
-}
-
 .owner-actions {
   display: flex;
   gap: 12px;
 }
-
 .owner-actions .btn-line {
   padding: 6px 20px;
   font-size: 13px;
@@ -386,16 +406,13 @@ watch(character, (val) => {
   flex-direction: column;
   gap: 28px;
 }
-
 .desc-section {
   border-bottom: 1px solid var(--line-raw);
   padding-bottom: 20px;
 }
-
 .desc-section:last-of-type {
   border-bottom: none;
 }
-
 .desc-title {
   font-size: 15px;
   font-weight: 400;
@@ -403,7 +420,6 @@ watch(character, (val) => {
   margin: 0 0 8px 0;
   color: var(--ink-black);
 }
-
 .desc-text {
   font-size: 14px;
   line-height: 2;
@@ -412,8 +428,6 @@ watch(character, (val) => {
   margin: 0;
   white-space: pre-wrap;
 }
-
-/* ===== 长文本专用样式 ===== */
 .desc-text.long-text {
   font-size: 14px;
   line-height: 1.8;
@@ -426,26 +440,45 @@ watch(character, (val) => {
   word-break: break-word;
 }
 
-/* ===== 图库 ===== */
+/* ===== 🚀 图库优化样式 ===== */
+.gallery-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.gallery-count {
+  font-size: 13px;
+  color: var(--ink-gray);
+  letter-spacing: 0.1em;
+}
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 10px;
   margin-top: 8px;
 }
-
 .gallery-item {
   border: 1px solid var(--line-raw);
   overflow: hidden;
   background: var(--paper-sub);
-}
-
-.gallery-item img {
-  width: 100%;
   aspect-ratio: 1/1;
-  object-fit: cover;
+  cursor: pointer;
+  position: relative;
 }
-
+.gallery-item :deep(.el-image) {
+  width: 100%;
+  height: 100%;
+}
+.gallery-item :deep(.el-image__inner) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+.gallery-item:hover :deep(.el-image__inner) {
+  transform: scale(1.05);
+}
 .gallery-alt {
   font-size: 11px;
   color: var(--ink-light);
@@ -453,6 +486,27 @@ watch(character, (val) => {
   padding: 4px 6px;
   letter-spacing: 0.1em;
   margin: 0;
+}
+.gallery-more {
+  margin-top: 12px;
+  text-align: center;
+}
+.btn-more {
+  padding: 6px 24px;
+  border: 1px solid var(--line-raw);
+  background: var(--paper-card);
+  color: var(--ink-gray);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.1em;
+}
+.btn-more:hover {
+  border-color: var(--cinnabar);
+  color: var(--cinnabar);
+}
+.btn-more:active {
+  transform: scale(0.97);
 }
 
 /* ===== 底部操作 ===== */
@@ -465,7 +519,6 @@ watch(character, (val) => {
   flex-wrap: wrap;
   gap: 16px;
 }
-
 .action-stats {
   display: flex;
   gap: 20px;
@@ -473,7 +526,6 @@ watch(character, (val) => {
   color: var(--ink-gray);
   letter-spacing: 0.1em;
 }
-
 .stat {
   display: flex;
   align-items: center;
@@ -485,47 +537,38 @@ watch(character, (val) => {
   .detail-content {
     grid-template-columns: 1fr;
   }
-
   .detail-left {
     position: static;
     max-width: 320px;
     margin: 0 auto;
   }
-
   .avatar-container {
     max-width: 280px;
     margin: 0 auto;
   }
-
   .info-section {
     margin-top: 16px;
   }
 }
-
 @media (max-width: 480px) {
   .detail-page {
     padding: 16px 12px 40px;
   }
-
   .detail-left {
     max-width: 100%;
   }
-
   .attr-item {
     font-size: 12px;
     flex-wrap: wrap;
   }
-
   .attr-value {
     max-width: 100%;
     text-align: left;
   }
-
   .gallery-grid {
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
     gap: 6px;
   }
-
   .desc-text.long-text {
     padding: 12px 16px;
     font-size: 13px;

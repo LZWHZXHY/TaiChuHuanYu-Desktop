@@ -76,9 +76,9 @@
           <button class="popup-close" @click="selectedNode = null">×</button>
         </div>
         <div class="popup-body">
-          <p class="popup-desc">{{ getNodePreview(selectedNode) }}</p>
+          <p class="popup-desc">{{ getNodePreview(selectedNode.id) }}</p>
           <div class="popup-tags">
-            <span v-for="tag in getNodeTags(selectedNode)" :key="tag" class="popup-tag">#{{ tag }}</span>
+            <span v-for="tag in getNodeTags(selectedNode.id)" :key="tag" class="popup-tag">#{{ tag }}</span>
           </div>
           <div class="popup-actions">
             <button class="popup-btn" @click="openCardDetail(selectedNode.id)">查看</button>
@@ -123,6 +123,7 @@ import { ElMessage } from 'element-plus';
 import { useWorldStore } from '../../../stores/world';
 import { Network } from 'vis-network';
 import { DataSet } from 'vis-data';
+import type { CardSummary, CardDetail } from '@/api/worldApi';
 
 const props = defineProps<{ projectId: string }>();
 const emit = defineEmits<{ (e: 'cardInserted'): void }>();
@@ -142,7 +143,7 @@ const TYPE_LABELS: Record<string, string> = {
   creature: '生物',
   skill: '技能',
   climate: '气候',
-  concept: '设定',  // ✅ 新增
+  concept: '设定',
 };
 
 const filterTypes = [
@@ -158,13 +159,13 @@ const filterTypes = [
   { value: 'creature', label: '生物' },
   { value: 'skill', label: '技能' },
   { value: 'climate', label: '气候' },
-  { value: 'concept', label: '设定' },  // ✅ 新增
+  { value: 'concept', label: '设定' },
 ];
 
 // ===== 状态 =====
 const networkContainer = ref<HTMLElement | null>(null);
 let network: Network | null = null;
-const selectedNode = ref<any>(null);
+const selectedNode = ref<CardSummary | null>(null);
 const popupStyle = ref({});
 const physicsEnabled = ref(true);
 const dragStartNode = ref<string | null>(null);
@@ -176,8 +177,8 @@ const insertedIds = ref<string[]>([]);
 
 const showRelationDialog = ref(false);
 const creatingRelation = ref(false);
-const relationSource = ref<any>(null);
-const relationTarget = ref<any>(null);
+const relationSource = ref<CardSummary | null>(null);
+const relationTarget = ref<CardSummary | null>(null);
 const relationForm = ref({ relationType: '' });
 
 // ===== 数据 =====
@@ -198,6 +199,7 @@ const filteredLibraryCards = computed(() => {
   return list;
 });
 
+// ===== ✅ 修改：displayedNodes 只使用 CardSummary 存在的字段 =====
 const displayedNodes = computed(() => {
   let cards = allCards.value.filter(c => insertedIds.value.includes(c.id));
   if (graphFilter.value !== 'all') {
@@ -207,8 +209,7 @@ const displayedNodes = computed(() => {
     id: card.id,
     label: `${getTypeLabel(card.type)} ${card.title}`,
     type: card.type,
-    content: card.content,
-    tags: card.tags,
+    // ✅ 移除 content 和 tags（不在 CardSummary 中）
     color: getTypeColor(card.type),
     shape: 'box',
     font: { color: '#ffffff', face: 'sans-serif' },
@@ -252,25 +253,46 @@ const getTypeColor = (type: string) => {
     faction: '#8b5cf6',
     species: '#f59e0b',
     lore: '#6366f1',
+    concept: '#8b5cf6',
   };
   return map[type] || '#64748b';
 };
 
-const getNodePreview = (node: any) => {
-  try {
-    const data = JSON.parse(node.content || '{}');
-    return data.description || data.summary || '';
-  } catch {
+// ===== ✅ 修改：从 store 的详情缓存获取预览内容 =====
+const getNodePreview = (cardId: string): string => {
+  // 优先从详情缓存获取
+  const detail = store.getCardDetailById(cardId);
+  if (detail) {
+    if (detail.description) return detail.description;
+    try {
+      const data = JSON.parse(detail.content || '{}');
+      return data.description || data.summary || '';
+    } catch {
+      return '';
+    }
+  }
+  
+  // 回退：从列表数据获取（CardSummary 没有 description）
+  const summary = store.getCardById(cardId);
+  if (summary) {
+    // 尝试从 content 解析（但 CardSummary 没有 content）
     return '';
   }
+  return '';
 };
 
-const getNodeTags = (node: any) => {
-  try {
-    return JSON.parse(node.tags || '[]');
-  } catch {
-    return [];
+// ===== ✅ 修改：从 store 的详情缓存获取标签 =====
+const getNodeTags = (cardId: string): string[] => {
+  const detail = store.getCardDetailById(cardId);
+  if (detail) {
+    if (Array.isArray(detail.tags)) return detail.tags;
+    try {
+      return JSON.parse(detail.tags as any || '[]');
+    } catch {
+      return [];
+    }
   }
+  return [];
 };
 
 // ===== 卡片插入/移除 =====
@@ -396,8 +418,8 @@ const handleCreateRelation = async () => {
   creatingRelation.value = true;
   try {
     await store.addRelation(
-      relationSource.value.id,
-      relationTarget.value.id,
+      relationSource.value!.id,
+      relationTarget.value!.id,
       relationForm.value.relationType.trim()
     );
     ElMessage.success('关联已建立');
@@ -414,7 +436,7 @@ const handleCreateRelation = async () => {
   }
 };
 
-const editCardFromGraph = (card: any) => {
+const editCardFromGraph = (card: CardSummary) => {
   selectedNode.value = null;
   window.dispatchEvent(new CustomEvent('edit-card', { detail: { cardId: card.id } }));
 };
@@ -448,6 +470,7 @@ defineExpose({ refresh: refreshNetwork });
 </script>
 
 <style scoped>
+/* ===== 样式保持不变 ===== */
 .relation-graph-wrapper {
   display: flex;
   gap: 16px;

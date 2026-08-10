@@ -26,7 +26,7 @@
         <img :src="card.coverImage" :alt="card.title" />
       </div>
 
-      <!-- ===== 🆕 图库 ===== -->
+      <!-- 图库 -->
       <div v-if="card.galleryImages && card.galleryImages.length" class="section gallery-section">
         <div class="gallery-grid">
           <div
@@ -50,12 +50,12 @@
         </div>
       </div>
 
-      <!-- ===== 描述（渲染嵌入式卡片） ===== -->
+      <!-- 描述 -->
       <div class="section">
         <div class="description-body" v-html="renderedDescription"></div>
       </div>
 
-      <!-- ===== 关联卡片展开显示 ===== -->
+      <!-- 关联卡片展开显示 -->
       <div v-if="embeddedCards.length" class="section embedded-section">
         <div class="embedded-header">
           <span class="embedded-label">关联内容</span>
@@ -82,7 +82,7 @@
                 <img :src="item.coverImage" />
               </div>
               <div class="block-detail">
-                <p class="block-desc">{{ getCardSummary(item) }}</p>
+                <p class="block-desc">{{ getCardSummary(item.id) }}</p>
                 <div v-if="item.attributes?.length" class="block-attrs">
                   <span v-for="attr in item.attributes.slice(0, 3)" :key="attr.key" class="block-attr">
                     {{ attr.key }}: {{ attr.value }}
@@ -103,7 +103,7 @@
       </div>
     </div>
 
-    <!-- ===== 图片预览弹窗 ===== -->
+    <!-- 图片预览弹窗 -->
     <el-image-viewer
       v-if="previewVisible"
       :url-list="card?.galleryImages || []"
@@ -117,12 +117,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox, ElImageViewer } from 'element-plus';
 import { useWorldStore } from '@/stores/world';
 import { useUserStore } from '@/stores/user';
-import type { WorldCard } from '@/stores/world';
+import type { CardDetail, CardSummary } from '@/api/worldApi';
 
 // ===== 类型标签映射 =====
 const TYPE_LABELS: Record<string, string> = {
@@ -150,13 +150,16 @@ const userStore = useUserStore();
 const cardId = route.params.cardId as string;
 const projectId = route.params.projectId as string;
 const loading = ref(false);
-const card = ref<WorldCard | null>(null);
 
-// ===== 🆕 图库预览 =====
+// ✅ 使用 ref 存储当前卡片（因为是本地详情）
+const card = ref<CardDetail | null>(null);
+const embeddedCardDetails = ref<Map<string, CardDetail>>(new Map());
+
+// ===== 图库预览 =====
 const previewVisible = ref(false);
 const previewIndex = ref(0);
 
-// ===== 🆕 判断当前用户是否是项目所有者 =====
+// ===== 判断当前用户是否是项目所有者 =====
 const isOwner = computed(() => {
   const userId = userStore.userInfo?.id;
   const ownerId = store.currentProject?.ownerId;
@@ -165,7 +168,7 @@ const isOwner = computed(() => {
 });
 
 // ===== 工具函数：提取关联卡片 ID =====
-const extractEmbeddedCardIds = (c: WorldCard): string[] => {
+const extractEmbeddedCardIds = (c: CardDetail): string[] => {
   const ids: string[] = [];
 
   // 1. 从 contentBlocks 提取
@@ -206,23 +209,72 @@ const cardTags = computed(() => {
   }
 });
 
-// 关联卡片列表（从 store.cards 中获取完整数据）
-const embeddedCards = computed<WorldCard[]>(() => {
+// ✅ 关联卡片列表（从 store.cards 获取精简数据，再从详情缓存获取完整数据）
+const embeddedCards = computed<CardDetail[]>(() => {
   if (!card.value) return [];
   const ids = extractEmbeddedCardIds(card.value);
-  return ids
-    .map(id => store.cards.find((c: WorldCard) => c.id === id))
-    .filter((c): c is WorldCard => c !== undefined);
+  const result: CardDetail[] = [];
+
+  for (const id of ids) {
+    // 优先从详情缓存获取完整数据
+    const detail = store.getCardDetailById(id);
+    if (detail) {
+      result.push(detail);
+      continue;
+    }
+
+    // 否则从 store.cards 获取精简数据
+    const summary = store.getCardById(id);
+    if (summary) {
+      // 构造最小可用对象（对于缺少的字段使用空值）
+      result.push({
+        id: summary.id,
+        projectId: summary.projectId,
+        title: summary.title,
+        type: summary.type,
+        coverImage: summary.coverImage,
+        updatedAt: summary.updatedAt,
+        outRelationCount: summary.outRelationCount,
+        inRelationCount: summary.inRelationCount,
+        // 以下字段在精简数据中不存在，使用空值
+        description: '',
+        content: '{}',
+        contentBlocks: [],
+        timelineEvents: [],
+        aliases: [],
+        attributes: [],
+        tags: [],
+        embeddedCards: [],
+        galleryImages: [],
+        outRelations: [],
+        inRelations: [],
+      });
+    }
+  }
+
+  return result;
 });
 
-const getCardSummary = (item: WorldCard) => {
-  if (item.description) return item.description;
-  try {
-    const data = JSON.parse(item.content || '{}');
-    return data.description || data.summary || '';
-  } catch {
+// ✅ 获取卡片摘要（优先从详情缓存获取）
+const getCardSummary = (targetId: string): string => {
+  const detail = store.getCardDetailById(targetId);
+  if (detail) {
+    if (detail.description) return detail.description;
+    try {
+      const data = JSON.parse(detail.content || '{}');
+      return data.description || data.summary || '';
+    } catch {
+      return '';
+    }
+  }
+
+  // 从 store.cards 获取精简数据
+  const summary = store.getCardById(targetId);
+  if (summary) {
+    // CardSummary 没有 description，返回空
     return '';
   }
+  return '';
 };
 
 // 渲染描述（将 {CARD:xxx} 替换为内联标签）
@@ -231,7 +283,7 @@ const renderedDescription = computed(() => {
   if (!desc) return '';
 
   return desc.replace(/\{CARD:([^}]+)\}/g, (_match: string, id: string) => {
-    const target = store.cards.find((c: WorldCard) => c.id === id);
+    const target = store.getCardById(id);
     if (target) {
       return `<span class="inline-ref">@${getTypeLabel(target.type)}: ${target.title}</span>`;
     }
@@ -245,7 +297,7 @@ const formatDate = (dateStr: string) => {
   return d.toLocaleString('zh-CN');
 };
 
-// ===== 🆕 预览图片 =====
+// ===== 预览图片 =====
 const previewImage = (index: number) => {
   previewIndex.value = index;
   previewVisible.value = true;
@@ -255,16 +307,23 @@ const previewImage = (index: number) => {
 const loadData = async () => {
   loading.value = true;
   try {
-    // 1. 加载当前卡片
+    // 1. 加载卡片列表（确保 store.cards 有数据）
     await store.fetchCards(projectId);
-    const found = store.cards.find((c: WorldCard) => c.id === cardId);
-    card.value = found || null;
 
-    // 2. 🔧 加载所有关联卡片的详情（如果尚未加载）
+    // 2. 加载当前卡片详情
+    const detail = await store.fetchCardDetail(projectId, cardId);
+    card.value = detail;
+
+    // 3. 加载所有关联卡片的详情
     if (card.value) {
       const ids = extractEmbeddedCardIds(card.value);
       if (ids.length > 0) {
-        const existingIds = store.cards.map(c => c.id);
+        const existingIds: string[] = [];
+        for (const id of ids) {
+          if (store.getCardDetailById(id)) {
+            existingIds.push(id);
+          }
+        }
         const missingIds = ids.filter(id => !existingIds.includes(id));
         if (missingIds.length > 0) {
           await store.fetchCardsByIds(projectId, missingIds);
@@ -312,7 +371,7 @@ onMounted(loadData);
 </script>
 
 <style scoped>
-/* ===== 页面布局 ===== */
+/* ===== 样式保持不变 ===== */
 .card-detail {
   min-height: 100vh;
   background: #fafbfc;
@@ -325,7 +384,6 @@ onMounted(loadData);
   margin: 0 auto;
 }
 
-/* ===== 返回按钮 ===== */
 .back-btn {
   background: none;
   border: none;
@@ -340,7 +398,6 @@ onMounted(loadData);
   color: #1e293b;
 }
 
-/* ===== 卡片头部 ===== */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -397,7 +454,6 @@ onMounted(loadData);
   color: #ef4444;
 }
 
-/* ===== 封面图 ===== */
 .cover-banner {
   border-radius: 8px;
   overflow: hidden;
@@ -410,7 +466,6 @@ onMounted(loadData);
   display: block;
 }
 
-/* ===== 🆕 图库样式 ===== */
 .gallery-section {
   padding: 16px 20px;
 }
@@ -443,7 +498,6 @@ onMounted(loadData);
   display: block;
 }
 
-/* ===== 区块 ===== */
 .section {
   background: #fff;
   border-radius: 8px;
@@ -452,7 +506,6 @@ onMounted(loadData);
   border: 1px solid #eef2f6;
 }
 
-/* ===== 属性 ===== */
 .attr-grid {
   display: grid;
   grid-template-columns: 120px 1fr;
@@ -476,7 +529,6 @@ onMounted(loadData);
   border-bottom: none;
 }
 
-/* ===== 描述 ===== */
 .description-body {
   font-size: 15px;
   line-height: 1.8;
@@ -497,7 +549,6 @@ onMounted(loadData);
   color: #ef4444;
 }
 
-/* ===== 嵌入卡片展开 ===== */
 .embedded-section {
   padding: 0;
   border: 1px solid #eef2f6;
@@ -627,7 +678,6 @@ onMounted(loadData);
   color: #c0c4cc;
 }
 
-/* ===== 标签 ===== */
 .tag-list {
   display: flex;
   flex-wrap: wrap;
@@ -641,7 +691,6 @@ onMounted(loadData);
   border-radius: 4px;
 }
 
-/* ===== 状态 ===== */
 .loading-state,
 .not-found {
   display: flex;
@@ -652,7 +701,6 @@ onMounted(loadData);
   font-size: 16px;
 }
 
-/* ===== 响应式 ===== */
 @media (max-width: 640px) {
   .card-detail {
     padding: 16px;
@@ -696,8 +744,6 @@ onMounted(loadData);
   .block-right {
     display: none;
   }
-
-  /* 🆕 图库响应式 */
   .gallery-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 8px;
