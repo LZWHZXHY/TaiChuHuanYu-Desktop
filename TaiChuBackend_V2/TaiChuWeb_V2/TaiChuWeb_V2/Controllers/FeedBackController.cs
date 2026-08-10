@@ -47,10 +47,10 @@ namespace TaiChuWeb_V2.Controllers
                 return Unauthorized(new { code = 401, message = "用户数据不存在" });
             }
 
-            // 🌟 3. 校验 Experience 字段 (经验值满 500 才可提交)
-            if (userStats.Experience < 500)
+            // 🌟 3. 校验 Experience 字段 (经验值满 300 才可提交)
+            if (userStats.Experience < 300)
             {
-                return StatusCode(403, new { code = 403, message = "抱歉，只有经验值达到 500 及以上的用户才能发表意见" });
+                return StatusCode(403, new { code = 403, message = "抱歉，只有经验值达到 300 及以上的用户才能发表意见" });
             }
 
             // 4. 校验反馈内容
