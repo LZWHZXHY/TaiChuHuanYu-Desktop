@@ -20,14 +20,12 @@ namespace TaiChuWeb_V2.Controllers.World
             _cardService = cardService;
         }
 
-        /// <summary>
-        /// 获取项目下的所有卡片（支持按类型筛选）
-        /// </summary>
+        
         [HttpGet]
         public async Task<IActionResult> GetCards(Guid projectId, [FromQuery] string? type = null)
         {
             var userId = GetCurrentUserId();
-            var cards = await _cardService.GetCardsByProjectAsync(projectId, userId, type);
+            var cards = await _cardService.GetCardSummariesByProjectAsync(projectId, userId, type);
             return Ok(cards);
         }
 
@@ -38,16 +36,11 @@ namespace TaiChuWeb_V2.Controllers.World
         public async Task<IActionResult> GetCard(Guid projectId, Guid cardId)
         {
             var userId = GetCurrentUserId();
-
-            // ✅ 优化：GetCardByIdAsync 内部已经包含权限验证和项目归属检查
             var card = await _cardService.GetCardByIdAsync(cardId, userId);
             if (card == null)
                 return NotFound(new { message = "卡片不存在或无权访问" });
-
-            // ✅ 额外验证卡片是否属于该项目
             if (card.ProjectId != projectId)
                 return NotFound(new { message = "卡片不属于该项目" });
-
             return Ok(card);
         }
 

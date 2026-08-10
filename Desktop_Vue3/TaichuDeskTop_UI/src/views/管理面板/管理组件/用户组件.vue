@@ -219,7 +219,8 @@ const PERMISSION_MAP: Record<string, string> = {
   User_Audit: '用户审计师',
   Wiki_Editor: '维基知识库审核员',
   System_Monitor: '系统负载监控员',
-  Survey_Manage: '问卷管理员'  // ✅ 新增
+  Survey_Manage: '问卷管理员', // ✅ 新增
+  JointManager:'联合管理员'
 };
 
 const loading = ref(false);

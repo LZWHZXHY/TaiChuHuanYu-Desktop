@@ -43,7 +43,7 @@
         </div>
         <div class="header-right">
           <router-link
-            v-if="isOrganizer && !isExpired"
+            v-if="canEdit"
             :to="`/joint/edit/${activity.id}`"
             class="btn-line"
           >
@@ -473,6 +473,20 @@ async function handleApprove(status: 'approved' | 'rejected') {
     alert('操作失败，请重试')
   }
 }
+
+
+// ===== 🆕 编辑权限 =====
+const canEdit = computed(() => {
+  if (!activity.value) return false
+
+  // 管理员：可编辑任何状态的活动（包括已过期、已封禁等）
+  if (hasAdminPermission.value) return true
+
+  // 组织者：只能编辑自己举办的、且未过期的活动
+  if (isOrganizer.value && !isExpired.value) return true
+
+  return false
+})
 
 async function handleToggleBan() {
   if (!activity.value) return

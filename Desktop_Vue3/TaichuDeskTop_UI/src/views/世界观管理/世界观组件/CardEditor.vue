@@ -1,6 +1,6 @@
 <!-- src/views/世界观管理/CardEditor.vue -->
 <template>
-  <div class="card-editor-inline">
+  <div class="card-editor-inline" v-loading="loading">
     <div v-if="isCreating" class="create-banner">
       <span>✨ 新建卡片</span>
       <button class="cancel-create" @click="cancelCreate">取消</button>
@@ -37,26 +37,24 @@
       <div v-if="uploadingCover" class="upload-progress-mini">上传中...</div>
     </div>
 
-    <!-- ===== 🆕 图库 ===== -->
-<div class="field gallery-field">
-  <label class="field-label">图库</label>
-  <div class="gallery-upload">
-    <div v-if="form.galleryImages && form.galleryImages.length" class="gallery-grid">
-      <div v-for="(img, idx) in form.galleryImages" :key="idx" class="gallery-item">
-        <img :src="img" :alt="`图 ${idx + 1}`" />
-        <button class="remove-gallery-btn" @click="removeGalleryImage(idx)">✕</button>
+    <!-- 图库 -->
+    <div class="field gallery-field">
+      <label class="field-label">图库</label>
+      <div class="gallery-upload">
+        <div v-if="form.galleryImages && form.galleryImages.length" class="gallery-grid">
+          <div v-for="(img, idx) in form.galleryImages" :key="idx" class="gallery-item">
+            <img :src="img" :alt="`图 ${idx + 1}`" />
+            <button class="remove-gallery-btn" @click="removeGalleryImage(idx)">✕</button>
+          </div>
+        </div>
+        <button class="upload-gallery-btn" @click="triggerGalleryUpload">+ 添加图片</button>
+        <input ref="galleryInput" type="file" accept="image/*" multiple style="display:none" @change="handleGalleryUpload" />
+        <span v-if="uploadingGallery" class="upload-progress">上传中...</span>
       </div>
+      <p class="hint">支持多张图片，展示卡片的多个视角</p>
     </div>
-    <button class="upload-gallery-btn" @click="triggerGalleryUpload">+ 添加图片</button>
-    <input ref="galleryInput" type="file" accept="image/*" multiple style="display:none" @change="handleGalleryUpload" />
-    <span v-if="uploadingGallery" class="upload-progress">上传中...</span>
-  </div>
-  <p class="hint">支持多张图片，展示卡片的多个视角</p>
-</div>
 
-
-
-    <!-- ===== 属性（共用组件） ===== -->
+    <!-- 属性 -->
     <div class="field">
       <AttributeList v-model="form.attributes" />
     </div>
@@ -66,7 +64,7 @@
       <textarea v-model="form.description" rows="3" placeholder="描述..." class="desc-area"></textarea>
     </div>
 
-    <!-- ===== 🔥 类型专属编辑器（动态组件） ===== -->
+    <!-- 类型专属编辑器 -->
     <div v-if="currentTypeEditor" class="field type-editor-wrapper">
       <component
         :is="currentTypeEditor"
@@ -77,7 +75,7 @@
       <p class="placeholder-text">📝 该类型暂无专属编辑器，使用通用字段</p>
     </div>
 
-    <!-- 内容块（关联卡片预览） -->
+    <!-- 关联内容 -->
     <div class="field">
       <div class="blocks-header">
         <span>关联内容</span>
@@ -101,7 +99,6 @@
             <div class="block-info">
               <div class="block-title-row">
                 <span class="block-type-badge">{{ getBlockTypeLabel(block) }}</span>
-                <!-- ✅ 显示关系描述 -->
                 <span v-if="block.contextLabel" class="block-context-label">
                   {{ block.contextLabel }} →
                 </span>
@@ -130,12 +127,12 @@
       </div>
     </div>
 
-    <!-- ===== 标签（共用组件） ===== -->
+    <!-- 标签 -->
     <div class="field">
       <TagInput v-model="form.tags" />
     </div>
 
-    <!-- ===== 关联卡片（共用组件） ===== -->
+    <!-- 关联卡片 -->
     <div class="field">
       <RelationSelector
         v-model="form.relations"
@@ -145,13 +142,13 @@
 
     <!-- 操作按钮 -->
     <div class="editor-actions">
-      <button class="btn-primary" @click="handleSave" :disabled="saving">
+      <button class="btn-primary" @click="handleSave" :disabled="saving || loading">
         {{ saving ? '保存中...' : '保存' }}
       </button>
       <button v-if="!isCreating" class="btn-danger" @click="handleDelete">删除</button>
     </div>
 
-    <!-- ✅ 插入选择器浮层（新增关系描述输入） -->
+    <!-- 插入选择器浮层 -->
     <div v-if="showInsertPicker" class="picker-overlay" @click.self="closeInsertPicker">
       <div class="picker-modal">
         <div class="picker-header">
@@ -161,8 +158,6 @@
         <div class="picker-search">
           <input v-model="pickerSearch" placeholder="搜索卡片..." />
         </div>
-
-        <!-- ✅ 新增：关系描述输入 -->
         <div class="picker-context">
           <input
             v-model="pickerContextLabel"
@@ -170,7 +165,6 @@
             class="context-input"
           />
         </div>
-
         <div class="picker-list">
           <div
             v-for="card in pickerResults"
@@ -199,22 +193,22 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { useWorldStore } from '@/stores/world';
 import { useCos } from '@/composables/useCos';
 import { v4 as uuidv4 } from 'uuid';
 import { CardTypeMeta, type CardType } from '../card_type';
-import type { AttributeItem } from '../card_type'
-
-
-
+import type { AttributeItem } from '../card_type';
+// ===== 导入 CardDetail 类型以进行断言 =====
+import type { CardDetail } from '@/api/worldApi';
 
 // ===== 导入共用组件 =====
 import AttributeList from './AttributeList.vue';
 import TagInput from './TagInput.vue';
 import RelationSelector from './RelationSelector.vue';
 
-// ===== 🔥 导入所有类型专属编辑器 =====
+// ===== 导入所有类型专属编辑器 =====
 import CharacterEditor from '../type-editors/CharacterEditor.vue';
 import LocationEditor from '../type-editors/LocationEditor.vue';
 import ItemEditor from '../type-editors/ItemEditor.vue';
@@ -226,8 +220,11 @@ import OrganizationEditor from '../type-editors/OrganizationEditor.vue';
 import CreatureEditor from '../type-editors/CreatureEditor.vue';
 import SkillEditor from '../type-editors/SkillEditor.vue';
 import ClimateEditor from '../type-editors/ClimateEditor.vue';
-// ✅ 新增：概念编辑器
 import ConceptEditor from '../type-editors/ConceptEditor.vue';
+
+// ===== Router & Route =====
+const route = useRoute();
+const router = useRouter();
 
 // ===== Props =====
 const props = defineProps<{
@@ -236,72 +233,46 @@ const props = defineProps<{
   inline?: boolean;
 }>();
 
-
-
-
 const emit = defineEmits<{
   (e: 'saved'): void;
   (e: 'deleted'): void;
 }>();
 
-
-const galleryInput = ref<HTMLInputElement | null>(null)
-const uploadingGallery = ref(false)
-
-
-const triggerGalleryUpload = () => {
-  galleryInput.value?.click()
-}
-
-
-const handleGalleryUpload = async (e: Event) => {
-  const input = e.target as HTMLInputElement
-  const files = input.files
-  if (!files || !files.length) return
-
-  uploadingGallery.value = true
-  try {
-    const uploadPromises = Array.from(files).map(file =>
-      uploadFile(file, 'world/gallery')
-    )
-    const results = await Promise.all(uploadPromises)
-    const urls = results.map(r => r.url)
-    form.value.galleryImages.push(...urls)
-    ElMessage.success(`成功上传 ${urls.length} 张图片`)
-  } catch (error) {
-    ElMessage.error('部分图片上传失败')
-  } finally {
-    uploadingGallery.value = false
-    input.value = ''
-  }
-}
-
-const removeGalleryImage = (idx: number) => {
-  form.value.galleryImages.splice(idx, 1)
-}
-
-// ===== Store & Composables =====
+// ===== Store =====
 const store = useWorldStore();
 const { uploadFile } = useCos();
 
-// ===== 状态 =====
+// ============================================================
+//  从路由获取参数
+// ============================================================
+const routeProjectId = computed(() => (route.params.projectId as string) || props.projectId);
+const routeCardId = computed(() => route.params.cardId as string | undefined);
+const isEditMode = computed(() => !!routeCardId.value || !!props.cardData?.id);
+
+// ============================================================
+//  状态
+// ============================================================
 const saving = ref(false);
+const loading = ref(false);
 const tagInput = ref('');
 const fileInput = ref<HTMLInputElement | null>(null);
+const galleryInput = ref<HTMLInputElement | null>(null);
 const uploadingCover = ref(false);
+const uploadingGallery = ref(false);
 
-const isCreating = ref(!props.cardData);
+const isCreating = ref(!isEditMode.value);
 const showInsertPicker = ref(false);
 const pickerType = ref<CardType>('character');
 const pickerSearch = ref('');
 const pickerResults = ref<any[]>([]);
 const pickerLoading = ref(false);
-// ✅ 新增：关系描述输入
 const pickerContextLabel = ref('');
 const newRelation = ref({ targetId: '', relationType: '' });
 const searchResults = ref<any[]>([]);
 
-// ===== 卡片类型选项 =====
+// ============================================================
+//  卡片类型选项
+// ============================================================
 const cardTypeOptions = computed(() => {
   if (store.cardTypes && store.cardTypes.length) {
     return store.cardTypes.map((t: any) => ({ value: t.id || t.value, label: t.label }));
@@ -312,7 +283,9 @@ const cardTypeOptions = computed(() => {
   }));
 });
 
-// ===== 🔥 编辑器映射 =====
+// ============================================================
+//  编辑器映射
+// ============================================================
 const editorMap: Record<CardType, any> = {
   character: CharacterEditor,
   location: LocationEditor,
@@ -325,21 +298,22 @@ const editorMap: Record<CardType, any> = {
   creature: CreatureEditor,
   skill: SkillEditor,
   climate: ClimateEditor,
-  concept: ConceptEditor,  // ✅ 新增
+  concept: ConceptEditor,
 };
 
-// ===== 🔥 当前使用的编辑器 =====
 const currentTypeEditor = computed(() => {
   return editorMap[form.value.type as CardType] || null;
 });
 
-// ===== 表单数据 =====
+// ============================================================
+//  表单数据
+// ============================================================
 const form = ref({
   title: '',
   type: 'character' as CardType,
   coverImage: '',
-  galleryImages: [] as string[],  
- attributes: [] as AttributeItem[],   // ✅ 新类型
+  galleryImages: [] as string[],
+  attributes: [] as AttributeItem[],
   description: '',
   content: '{}',
   tags: [] as string[],
@@ -353,17 +327,21 @@ const form = ref({
     cardCover?: string;
     cardSummary?: string;
     cardAttributes?: { key: string; value: string }[];
-    contextLabel?: string; // ✅ 新增
+    contextLabel?: string;
   }[],
 });
 
-// ===== 计算属性 =====
+// ============================================================
+//  计算属性
+// ============================================================
 const pickerTypeLabel = computed(() => {
   const found = cardTypeOptions.value.find(t => t.value === pickerType.value);
   return found?.label || pickerType.value;
 });
 
-// ===== 关联卡片信息获取方法 =====
+// ============================================================
+//  关联卡片信息获取方法
+// ============================================================
 const getBlockTitle = (block: any) => {
   if (block.cardTitle) return block.cardTitle;
   const card = store.cards.find((c: any) => c.id === block.cardId);
@@ -390,25 +368,16 @@ const getBlockCover = (block: any) => {
 };
 
 const getBlockSummary = (block: any) => {
-  if (block.cardSummary) return block.cardSummary;
-  const card = store.cards.find((c: any) => c.id === block.cardId);
-  if (!card) return '';
-  if (card.description) return card.description;
-  try {
-    const data = JSON.parse(card.content || '{}');
-    return data.description || data.summary || '';
-  } catch {
-    return '';
-  }
+  return block.cardSummary || '';
 };
 
 const getBlockAttributes = (block: any) => {
-  if (block.cardAttributes) return block.cardAttributes;
-  const card = store.cards.find((c: any) => c.id === block.cardId);
-  return card?.attributes || [];
+  return block.cardAttributes || [];
 };
 
-// ===== 方法 =====
+// ============================================================
+//  方法
+// ============================================================
 const getTypeLabel = (type: string) => {
   const meta = CardTypeMeta[type as CardType];
   return meta?.label || type;
@@ -431,7 +400,6 @@ const searchCards = (query: string) => {
 const openInsertPicker = (type: CardType) => {
   pickerType.value = type;
   pickerSearch.value = '';
-  // ✅ 清空之前的关系描述
   pickerContextLabel.value = '';
   showInsertPicker.value = true;
   loadPickerCards(type);
@@ -450,19 +418,11 @@ const loadPickerCards = (type: CardType) => {
   pickerLoading.value = false;
 };
 
-// ✅ 修改：插入时保存关系描述
+// ===== 修改后 =====
 const insertBlock = (card: any) => {
   if (form.value.contentBlocks.some((b: any) => b.cardId === card.id)) {
     ElMessage.warning('已插入');
     return;
-  }
-
-  let summary = card.description || '';
-  if (!summary) {
-    try {
-      const data = JSON.parse(card.content || '{}');
-      summary = data.description || data.summary || '';
-    } catch {}
   }
 
   const contextLabel = pickerContextLabel.value.trim() || undefined;
@@ -474,9 +434,9 @@ const insertBlock = (card: any) => {
     order: form.value.contentBlocks.length,
     cardTitle: card.title,
     cardCover: card.coverImage || '',
-    cardSummary: summary,
-    cardAttributes: card.attributes || [],
-    contextLabel, // ✅ 保存关系描述
+    cardSummary: '',        // 不再尝试获取
+    cardAttributes: [],     // 不再尝试获取
+    contextLabel,
   });
 
   pickerContextLabel.value = '';
@@ -522,13 +482,113 @@ const handleFileUpload = async (e: Event) => {
   }
 };
 
+const triggerGalleryUpload = () => {
+  galleryInput.value?.click();
+};
+
+const handleGalleryUpload = async (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  const files = input.files;
+  if (!files || !files.length) return;
+
+  uploadingGallery.value = true;
+  try {
+    const uploadPromises = Array.from(files).map(file =>
+      uploadFile(file, 'world/gallery')
+    );
+    const results = await Promise.all(uploadPromises);
+    const urls = results.map(r => r.url);
+    form.value.galleryImages.push(...urls);
+    ElMessage.success(`成功上传 ${urls.length} 张图片`);
+  } catch (error) {
+    ElMessage.error('部分图片上传失败');
+  } finally {
+    uploadingGallery.value = false;
+    input.value = '';
+  }
+};
+
+const removeGalleryImage = (idx: number) => {
+  form.value.galleryImages.splice(idx, 1);
+};
+
+// ============================================================
+//  核心：加载卡片数据（编辑模式）
+// ============================================================
+const loadCardData = async () => {
+  if (!isEditMode.value) {
+    resetForm();
+    isCreating.value = true;
+    return;
+  }
+
+  const cardId = routeCardId.value || props.cardData?.id;
+  if (!cardId) {
+    console.warn('没有可用的 cardId，进入创建模式');
+    resetForm();
+    isCreating.value = true;
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const projectId = routeProjectId.value;
+    if (!projectId) {
+      throw new Error('缺少 projectId');
+    }
+
+    // 调用 Store 获取完整数据
+    await store.fetchCardDetail(projectId, cardId);
+    // 显式断言为 CardDetail，确保 TypeScript 知道完整字段存在
+    const fullCard = store.currentCard as CardDetail | null;
+
+    if (!fullCard) {
+      throw new Error('卡片数据为空');
+    }
+
+    // 现在可以安全访问 description, content, attributes 等
+    const rawAttributes = fullCard.attributes || [];
+    const attributes: AttributeItem[] = rawAttributes.map((attr: any) => ({
+      key: attr.key,
+      value: attr.value,
+      type: attr.type || 'short'
+    }));
+
+    // 赋值表单，对 type 进行断言
+    form.value = {
+      title: fullCard.title || '',
+      type: fullCard.type as CardType,
+      coverImage: fullCard.coverImage || '',
+      galleryImages: fullCard.galleryImages || [],
+      attributes,
+      description: fullCard.description || '',
+      content: fullCard.content || '{}',
+      tags: Array.isArray(fullCard.tags) ? fullCard.tags : [],
+      relations: (fullCard.outRelations || []).map((r: any) => ({
+        targetCardId: r.targetCardId,
+        relationType: r.relationType,
+      })),
+      contentBlocks: fullCard.contentBlocks || [],
+    };
+
+    isCreating.value = false;
+  } catch (error) {
+    console.error('加载卡片数据失败:', error);
+    ElMessage.error('加载卡片数据失败');
+    resetForm();
+    isCreating.value = true;
+  } finally {
+    loading.value = false;
+  }
+};
+
 const resetForm = () => {
   form.value = {
     title: '',
     type: 'character',
     coverImage: '',
     galleryImages: [],
-    attributes: [] as AttributeItem[],
+    attributes: [],
     description: '',
     content: '{}',
     tags: [],
@@ -540,53 +600,20 @@ const resetForm = () => {
   searchResults.value = [];
 };
 
-const loadCardData = () => {
-  if (props.cardData) {
-    // 从 cardData 中读取 attributes，如果是空数组，则设为 []
-    const rawAttributes = props.cardData.attributes || []
-    // 强制转换为 AttributeItem[]，补默认 type
-    const attributes: AttributeItem[] = rawAttributes.map((attr: any) => ({
-      key: attr.key,
-      value: attr.value,
-      type: attr.type || 'short'   // 默认短文本
-    }))
-
-    form.value = {
-      title: props.cardData.title || '',
-      type: props.cardData.type || 'character',
-      coverImage: props.cardData.coverImage || '',
-      galleryImages: props.cardData.galleryImages || [],   // 🆕
-      attributes,    // 使用转换后的
-      description: props.cardData.description || '',
-      content: props.cardData.content || '{}',
-      tags: Array.isArray(props.cardData.tags)
-        ? props.cardData.tags
-        : (() => {
-            try { return JSON.parse(props.cardData.tags || '[]') }
-            catch { return [] }
-          })(),
-      relations: (props.cardData.relations || []).map((r: any) => ({
-        targetCardId: r.targetCardId,
-        relationType: r.relationType,
-      })),
-      contentBlocks: props.cardData.contentBlocks || [],
-    }
-    isCreating.value = false
-  } else {
-    resetForm()
-    isCreating.value = true
-  }
-}
-
+// ============================================================
+//  保存和删除
+// ============================================================
 const handleSave = async () => {
   if (!form.value.title.trim()) {
     ElMessage.warning('请输入标题');
     return;
   }
+
   const payload = {
     title: form.value.title.trim(),
     type: form.value.type,
     coverImage: form.value.coverImage,
+    galleryImages: form.value.galleryImages,
     attributes: form.value.attributes,
     description: form.value.description.trim(),
     content: form.value.content || '{}',
@@ -594,16 +621,23 @@ const handleSave = async () => {
     relations: form.value.relations,
     contentBlocks: form.value.contentBlocks,
   };
+
   saving.value = true;
   try {
     if (isCreating.value) {
-      await store.createCard(props.projectId, payload);
+      await store.createCard(routeProjectId.value, payload);
       ElMessage.success('已创建');
     } else {
-      await store.updateCard(props.cardData.id, payload);
+      const cardId = routeCardId.value || props.cardData?.id;
+      if (!cardId) {
+        throw new Error('缺少卡片 ID');
+      }
+      await store.updateCard(cardId, payload);
       ElMessage.success('已更新');
     }
     emit('saved');
+    // 可选：跳转回列表页
+    // router.push(`/world/projects/${routeProjectId.value}`);
   } catch (error) {
     console.error('保存失败:', error);
     ElMessage.error('保存失败');
@@ -615,7 +649,11 @@ const handleSave = async () => {
 const handleDelete = async () => {
   try {
     await ElMessageBox.confirm('确定删除吗？', '提示', { type: 'warning' });
-    await store.deleteCard(props.cardData.id);
+    const cardId = routeCardId.value || props.cardData?.id;
+    if (!cardId) {
+      throw new Error('缺少卡片 ID');
+    }
+    await store.deleteCard(cardId);
     ElMessage.success('已删除');
     emit('deleted');
   } catch (error) {
@@ -629,11 +667,33 @@ const cancelCreate = () => {
   }
 };
 
-// ===== 监听 =====
-watch(() => props.cardData, loadCardData, { immediate: true });
+// ============================================================
+//  监听路由和 props 变化
+// ============================================================
+watch(
+  () => route.params.cardId,
+  () => {
+    if (route.params.cardId) {
+      loadCardData();
+    }
+  }
+);
 
-// ===== 生命周期 =====
+watch(
+  () => props.cardData,
+  (newVal) => {
+    if (newVal && !routeCardId.value) {
+      loadCardData();
+    }
+  }
+);
+
+// ============================================================
+//  生命周期
+// ============================================================
 onMounted(() => {
+  loadCardData();
+
   window.addEventListener(
     'open-create-card',
     ((e: CustomEvent) => {
@@ -646,20 +706,19 @@ onMounted(() => {
 });
 </script>
 
+<!-- 样式部分保持不变，请直接复制之前提供的样式代码 -->
+
+
 <style scoped>
 /* ============================================================
-   CardEditor 完整样式
+   CardEditor 完整样式（保持不变）
    ============================================================ */
-
 .card-editor-inline {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-/* ============================================================
-   创建横幅
-   ============================================================ */
 .create-banner {
   display: flex;
   justify-content: space-between;
@@ -678,14 +737,10 @@ onMounted(() => {
   font-size: 13px;
   transition: color 0.2s;
 }
-
 .cancel-create:hover {
   color: #1e293b;
 }
 
-/* ============================================================
-   标题输入
-   ============================================================ */
 .title-input {
   width: 100%;
   border: 1px solid #e2e8f0;
@@ -696,27 +751,21 @@ onMounted(() => {
   background: #fafbfc;
   transition: border-color 0.2s, background 0.2s;
 }
-
 .title-input:focus {
   outline: none;
   border-color: #4f46e5;
   background: white;
 }
-
 .title-input::placeholder {
   color: #a0aec0;
   font-weight: 400;
 }
 
-/* ============================================================
-   类型选择
-   ============================================================ */
 .type-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
-
 .type-tab {
   padding: 4px 12px;
   border: 1px solid #e2e8f0;
@@ -727,28 +776,22 @@ onMounted(() => {
   transition: all 0.2s;
   color: #475569;
 }
-
 .type-tab:hover {
   background: #f1f5f9;
   border-color: #cbd5e1;
 }
-
 .type-tab.active {
   border-color: #4f46e5;
   background: #eef2ff;
   color: #4f46e5;
 }
 
-/* ============================================================
-   封面图
-   ============================================================ */
 .cover-field {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
-
 .cover-preview-mini {
   position: relative;
   width: 80px;
@@ -758,18 +801,16 @@ onMounted(() => {
   border: 1px solid #e2e8f0;
   flex-shrink: 0;
 }
-
 .cover-preview-mini img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-
 .remove-cover-mini {
   position: absolute;
   top: 2px;
   right: 2px;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0,0,0,0.5);
   color: white;
   border: none;
   border-radius: 50%;
@@ -782,11 +823,9 @@ onMounted(() => {
   justify-content: center;
   transition: background 0.2s;
 }
-
 .remove-cover-mini:hover {
   background: #ef4444;
 }
-
 .upload-cover-btn {
   padding: 4px 16px;
   border: 1px dashed #d1d5db;
@@ -797,31 +836,24 @@ onMounted(() => {
   font-size: 13px;
   transition: all 0.2s;
 }
-
 .upload-cover-btn:hover {
   border-color: #4f46e5;
   color: #4f46e5;
   background: #f0f4ff;
 }
-
 .upload-progress-mini {
   font-size: 12px;
   color: #94a3b8;
   animation: pulse 1.2s ease-in-out infinite;
 }
-
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }
 }
 
-/* ============================================================
-   图库（优化版）
-   ============================================================ */
 .gallery-field {
   margin-top: 4px;
 }
-
 .gallery-field .field-label {
   display: block;
   font-weight: 500;
@@ -829,19 +861,16 @@ onMounted(() => {
   color: #334155;
   margin-bottom: 6px;
 }
-
 .gallery-upload {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-
 .gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 10px;
 }
-
 .gallery-item {
   position: relative;
   aspect-ratio: 1;
@@ -851,12 +880,10 @@ onMounted(() => {
   background: #f8fafc;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-
 .gallery-item:hover {
   border-color: #cbd5e1;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
 }
-
 .gallery-item img {
   width: 100%;
   height: 100%;
@@ -864,11 +891,9 @@ onMounted(() => {
   transition: transform 0.3s ease;
   display: block;
 }
-
 .gallery-item:hover img {
   transform: scale(1.04);
 }
-
 .remove-gallery-btn {
   position: absolute;
   top: 6px;
@@ -877,7 +902,7 @@ onMounted(() => {
   height: 26px;
   border: none;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.55);
+  background: rgba(0,0,0,0.55);
   color: #fff;
   cursor: pointer;
   font-size: 14px;
@@ -890,20 +915,13 @@ onMounted(() => {
   line-height: 1;
   padding: 0;
 }
-
 .gallery-item:hover .remove-gallery-btn {
   opacity: 1;
 }
-
 .remove-gallery-btn:hover {
   background: #ef4444;
   transform: scale(1.12);
 }
-
-.remove-gallery-btn:active {
-  transform: scale(0.92);
-}
-
 .upload-gallery-btn {
   display: flex;
   align-items: center;
@@ -923,30 +941,22 @@ onMounted(() => {
   min-width: 140px;
   user-select: none;
 }
-
 .upload-gallery-btn:hover {
   border-color: #4f46e5;
   color: #4f46e5;
   background: #f0f4ff;
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.12);
+  box-shadow: 0 4px 12px rgba(79,70,229,0.12);
 }
-
-.upload-gallery-btn:active {
-  transform: scale(0.97);
-}
-
 .upload-progress {
   font-size: 13px;
   color: #94a3b8;
   animation: gallery-pulse 1.2s ease-in-out infinite;
 }
-
 @keyframes gallery-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
 }
-
 .gallery-field .hint {
   font-size: 12px;
   color: #94a3b8;
@@ -954,22 +964,6 @@ onMounted(() => {
   font-style: italic;
 }
 
-.gallery-empty-hint {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  border: 1px dashed #e2e8f0;
-  border-radius: 10px;
-  color: #94a3b8;
-  font-size: 13px;
-  background: #fafbfc;
-  min-height: 80px;
-}
-
-/* ============================================================
-   描述区域
-   ============================================================ */
 .desc-area {
   width: 100%;
   border: 1px solid #e2e8f0;
@@ -982,25 +976,19 @@ onMounted(() => {
   transition: border-color 0.2s, background 0.2s;
   min-height: 60px;
 }
-
 .desc-area:focus {
   outline: none;
   border-color: #4f46e5;
   background: white;
 }
-
 .desc-area::placeholder {
   color: #a0aec0;
 }
 
-/* ============================================================
-   类型专属编辑器
-   ============================================================ */
 .type-editor-wrapper {
   margin: 8px 0;
   padding: 0;
 }
-
 .type-editor-placeholder {
   padding: 20px;
   background: #f8fafc;
@@ -1009,16 +997,12 @@ onMounted(() => {
   text-align: center;
   margin: 8px 0;
 }
-
 .placeholder-text {
   color: #94a3b8;
   font-size: 14px;
   margin: 0;
 }
 
-/* ============================================================
-   关联内容（ContentBlock）
-   ============================================================ */
 .blocks-header {
   display: flex;
   justify-content: space-between;
@@ -1026,19 +1010,16 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 6px;
 }
-
 .blocks-header > span {
   font-weight: 500;
   font-size: 14px;
   color: #334155;
 }
-
 .insert-toolbar {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
 }
-
 .insert-btn {
   padding: 2px 10px;
   border: 1px solid #e2e8f0;
@@ -1049,13 +1030,11 @@ onMounted(() => {
   transition: all 0.2s;
   color: #475569;
 }
-
 .insert-btn:hover {
   background: #eef2ff;
   border-color: #4f46e5;
   color: #4f46e5;
 }
-
 .blocks-list {
   display: flex;
   flex-direction: column;
@@ -1064,24 +1043,19 @@ onMounted(() => {
   max-height: 300px;
   overflow-y: auto;
 }
-
 .blocks-list::-webkit-scrollbar {
   width: 4px;
 }
-
 .blocks-list::-webkit-scrollbar-track {
   background: transparent;
 }
-
 .blocks-list::-webkit-scrollbar-thumb {
   background: #d1d5db;
   border-radius: 4px;
 }
-
 .blocks-list::-webkit-scrollbar-thumb:hover {
   background: #9ca3af;
 }
-
 .block-card {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
@@ -1089,17 +1063,14 @@ onMounted(() => {
   background: #fafbfc;
   transition: border-color 0.2s;
 }
-
 .block-card:hover {
   border-color: #cbd5e1;
 }
-
 .block-preview-wrapper {
   display: flex;
   align-items: flex-start;
   gap: 12px;
 }
-
 .block-cover-small {
   flex-shrink: 0;
   width: 60px;
@@ -1108,25 +1079,21 @@ onMounted(() => {
   overflow: hidden;
   background: #f1f5f9;
 }
-
 .block-cover-small img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-
 .block-info {
   flex: 1;
   min-width: 0;
 }
-
 .block-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
-
 .block-type-badge {
   font-size: 10px;
   color: #4f46e5;
@@ -1136,7 +1103,6 @@ onMounted(() => {
   font-weight: 500;
   flex-shrink: 0;
 }
-
 .block-context-label {
   font-size: 12px;
   font-weight: 500;
@@ -1146,13 +1112,11 @@ onMounted(() => {
   border-radius: 4px;
   flex-shrink: 0;
 }
-
 .block-title {
   font-weight: 500;
   font-size: 14px;
   color: #0f172a;
 }
-
 .block-summary {
   font-size: 13px;
   color: #64748b;
@@ -1163,13 +1127,11 @@ onMounted(() => {
   overflow: hidden;
   line-height: 1.4;
 }
-
 .block-attr-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
-
 .block-attr-tag {
   font-size: 11px;
   color: #94a3b8;
@@ -1177,12 +1139,10 @@ onMounted(() => {
   padding: 0 8px;
   border-radius: 4px;
 }
-
 .block-attr-more {
   font-size: 11px;
   color: #c0c4cc;
 }
-
 .remove-block-btn {
   flex-shrink: 0;
   background: none;
@@ -1193,11 +1153,9 @@ onMounted(() => {
   padding: 4px;
   transition: color 0.2s;
 }
-
 .remove-block-btn:hover {
   color: #ef4444;
 }
-
 .blocks-empty {
   padding: 12px;
   text-align: center;
@@ -1207,9 +1165,6 @@ onMounted(() => {
   border-radius: 6px;
 }
 
-/* ============================================================
-   底部操作按钮
-   ============================================================ */
 .editor-actions {
   display: flex;
   gap: 8px;
@@ -1217,7 +1172,6 @@ onMounted(() => {
   padding-top: 12px;
   border-top: 1px solid #f1f3f5;
 }
-
 .btn-primary {
   padding: 6px 20px;
   background: #4f46e5;
@@ -1229,16 +1183,13 @@ onMounted(() => {
   font-size: 14px;
   transition: background 0.2s;
 }
-
 .btn-primary:hover:not(:disabled) {
   background: #4338ca;
 }
-
 .btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
-
 .btn-danger {
   padding: 6px 16px;
   background: #fef2f2;
@@ -1249,26 +1200,21 @@ onMounted(() => {
   font-size: 14px;
   transition: all 0.2s;
 }
-
 .btn-danger:hover {
   background: #fee2e2;
   border-color: #fca5a5;
 }
 
-/* ============================================================
-   插入选择器浮层（Picker）
-   ============================================================ */
 .picker-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.3);
+  background: rgba(15,23,42,0.3);
   backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
 }
-
 .picker-modal {
   background: white;
   border-radius: 16px;
@@ -1277,9 +1223,8 @@ onMounted(() => {
   max-height: 70vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.12);
 }
-
 .picker-header {
   display: flex;
   justify-content: space-between;
@@ -1290,7 +1235,6 @@ onMounted(() => {
   font-size: 15px;
   color: #0f172a;
 }
-
 .picker-close {
   background: none;
   border: none;
@@ -1299,16 +1243,13 @@ onMounted(() => {
   color: #94a3b8;
   transition: color 0.2s;
 }
-
 .picker-close:hover {
   color: #1e293b;
 }
-
 .picker-search {
   padding: 8px 12px;
   border-bottom: 1px solid #f1f3f5;
 }
-
 .picker-search input {
   width: 100%;
   padding: 6px 12px;
@@ -1318,18 +1259,15 @@ onMounted(() => {
   background: #fafbfc;
   transition: border-color 0.2s;
 }
-
 .picker-search input:focus {
   outline: none;
   border-color: #4f46e5;
   background: white;
 }
-
 .picker-context {
   padding: 8px 12px;
   border-bottom: 1px solid #f1f3f5;
 }
-
 .picker-context .context-input {
   width: 100%;
   padding: 6px 12px;
@@ -1339,36 +1277,29 @@ onMounted(() => {
   background: #fafbfc;
   transition: border-color 0.2s, background 0.2s;
 }
-
 .picker-context .context-input:focus {
   outline: none;
   border-color: #4f46e5;
   background: white;
 }
-
 .picker-context .context-input::placeholder {
   color: #a0aec0;
 }
-
 .picker-list {
   flex: 1;
   overflow-y: auto;
   padding: 4px 0;
 }
-
 .picker-list::-webkit-scrollbar {
   width: 4px;
 }
-
 .picker-list::-webkit-scrollbar-track {
   background: transparent;
 }
-
 .picker-list::-webkit-scrollbar-thumb {
   background: #d1d5db;
   border-radius: 4px;
 }
-
 .picker-item {
   display: flex;
   align-items: center;
@@ -1377,11 +1308,9 @@ onMounted(() => {
   cursor: pointer;
   transition: background 0.15s;
 }
-
 .picker-item:hover {
   background: #f1f5f9;
 }
-
 .picker-type {
   font-size: 11px;
   color: #4f46e5;
@@ -1390,14 +1319,12 @@ onMounted(() => {
   border-radius: 10px;
   flex-shrink: 0;
 }
-
 .picker-title {
   font-weight: 500;
   font-size: 14px;
   color: #0f172a;
   flex: 1;
 }
-
 .picker-summary {
   font-size: 11px;
   color: #94a3b8;
@@ -1406,14 +1333,12 @@ onMounted(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 .picker-empty {
   padding: 20px;
   text-align: center;
   color: #94a3b8;
   font-size: 14px;
 }
-
 .picker-footer {
   display: flex;
   justify-content: flex-end;
@@ -1421,7 +1346,6 @@ onMounted(() => {
   padding: 10px 16px;
   border-top: 1px solid #f1f3f5;
 }
-
 .picker-footer .btn-outline {
   padding: 6px 16px;
   border: 1px solid #d1d5db;
@@ -1432,12 +1356,10 @@ onMounted(() => {
   color: #475569;
   transition: all 0.2s;
 }
-
 .picker-footer .btn-outline:hover {
   background: #f3f4f6;
   border-color: #9ca3af;
 }
-
 .picker-footer .btn-primary {
   padding: 6px 20px;
   background: #4f46e5;
@@ -1449,20 +1371,15 @@ onMounted(() => {
   font-weight: 500;
   transition: background 0.2s;
 }
-
 .picker-footer .btn-primary:hover {
   background: #4338ca;
 }
 
-/* ============================================================
-   响应式适配
-   ============================================================ */
 @media (max-width: 640px) {
   .gallery-grid {
     grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
     gap: 8px;
   }
-
   .upload-gallery-btn {
     width: 100%;
     min-height: 48px;
@@ -1470,7 +1387,6 @@ onMounted(() => {
     font-size: 13px;
     justify-content: center;
   }
-
   .remove-gallery-btn {
     opacity: 1;
     width: 22px;
@@ -1479,56 +1395,45 @@ onMounted(() => {
     top: 4px;
     right: 4px;
   }
-
   .gallery-item {
     border-radius: 8px;
   }
-
   .gallery-field .hint {
     font-size: 11px;
   }
-
   .picker-modal {
     max-width: 96%;
     max-height: 80vh;
   }
-
   .editor-actions {
     flex-direction: column;
   }
-
   .editor-actions .btn-primary,
   .editor-actions .btn-danger {
     width: 100%;
     justify-content: center;
     text-align: center;
   }
-
   .block-preview-wrapper {
     flex-wrap: wrap;
   }
-
   .block-cover-small {
     width: 50px;
     height: 50px;
   }
 }
-
 @media (max-width: 400px) {
   .gallery-grid {
     grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
     gap: 6px;
   }
-
   .type-tabs {
     gap: 3px;
   }
-
   .type-tab {
     font-size: 11px;
     padding: 3px 10px;
   }
-
   .block-title {
     font-size: 13px;
   }

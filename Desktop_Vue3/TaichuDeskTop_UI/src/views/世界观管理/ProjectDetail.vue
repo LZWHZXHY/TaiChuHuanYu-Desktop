@@ -5,7 +5,6 @@
     <header class="detail-header">
       <div class="header-top">
         <button class="back-link" @click="goBack">← 返回</button>
-        <!-- ✅ 只有项目所有者才能看到操作按钮 -->
         <div v-if="isOwner" class="header-actions">
           <button class="action-link" @click="handleEditProject">编辑项目</button>
           <button class="btn-primary" @click="openCreateDialog">+ 新建卡片</button>
@@ -30,55 +29,100 @@
 
     <!-- ===== 主体：双栏 ===== -->
     <div class="detail-body">
-      <!-- 左栏：卡片列表 -->
+      <!-- 左栏：搜索 + 分类折叠面板 -->
       <div class="left-panel">
-        <!-- 类型筛选 -->
+        <!-- 🔍 搜索框 -->
+        <div class="search-row">
+          <input
+            v-model="searchQuery"
+            type="text"
+            class="search-input"
+            placeholder="🔍 搜索卡片标题..."
+          />
+          <span v-if="searchQuery" class="search-count">
+            找到 {{ filteredCards.length }} 个结果
+          </span>
+          <button v-if="searchQuery" class="clear-search" @click="searchQuery = ''">✕</button>
+        </div>
+
+        <!-- 类型快捷筛选（辅助快速跳转） -->
         <div class="filter-row">
           <button
             v-for="tab in tabs"
             :key="tab.value"
             class="filter-chip"
-            :class="{ active: activeTab === tab.value }"
-            @click="activeTab = tab.value"
+            :class="{ active: activeType === tab.value }"
+            @click="scrollToType(tab.value)"
           >
             {{ tab.label }}
             <span class="count">{{ getCountByType(tab.value) }}</span>
           </button>
         </div>
 
-        <!-- 卡片列表（表格风格） -->
-        <div class="table-wrap" v-loading="loading">
-          <div v-if="filteredCards.length" class="table">
-            <div class="table-head">
-              <span class="col-title">标题</span>
-              <span class="col-type">类型</span>
-              <span class="col-rels">关联</span>
-              <span class="col-time">更新</span>
-              <!-- ✅ 只有项目所有者才能看到操作列 -->
-              <span v-if="isOwner" class="col-actions">操作</span>
-            </div>
-            <div
-              v-for="card in filteredCards"
-              :key="card.id"
-              class="table-row"
-              :class="{ active: selectedCardId === card.id }"
-              @click="selectCard(card.id)"
+        <!-- 📂 分类折叠面板 -->
+        <div class="collapse-wrap" v-loading="loading">
+          <el-collapse v-model="activeNames" accordion>
+            <el-collapse-item
+              v-for="group in groupedCards"
+              :key="group.type"
+              :name="group.type"
             >
-              <span class="col-title">{{ card.title }}</span>
-              <span class="col-type">{{ getTypeLabel(card.type) }}</span>
-              <span class="col-rels">{{ (card.relations?.length || 0) }}</span>
-              <span class="col-time">{{ formatTime(card.updatedAt) }}</span>
-              <!-- ✅ 只有项目所有者才能看到操作按钮 -->
-              <div v-if="isOwner" class="row-actions" @click.stop>
-                <button class="row-action" @click="editCard(card)">编辑</button>
-                <button class="row-action danger" @click="handleDeleteCard(card.id)">删除</button>
+              <template #title>
+                <div class="collapse-header">
+                  <span class="type-icon">{{ getTypeIcon(group.type) }}</span>
+                  <span class="type-label">{{ group.label }}</span>
+                  <span class="type-count">{{ group.cards.length }}</span>
+                </div>
+              </template>
+
+              <!-- 卡片网格 -->
+              <div v-if="group.cards.length" class="card-grid">
+                <div
+                  v-for="card in group.cards"
+                  :key="card.id"
+                  class="card-item"
+                  :class="{ selected: selectedCardId === card.id }"
+                  @click="selectCard(card.id)"
+                >
+                  <!-- 封面图 -->
+                  <div class="card-cover">
+                    <img
+                      v-if="card.coverImage"
+                      :src="getCoverImage(card.coverImage)"
+                      :alt="card.title"
+                      loading="lazy"
+                    />
+                    <div v-else class="card-cover-placeholder">
+                      <span>{{ getTypeIcon(card.type) }}</span>
+                    </div>
+                    <!-- 关联数徽标 -->
+                    <span class="card-rels-badge">
+                      {{ card.outRelationCount || 0 }} 🔗
+                    </span>
+                  </div>
+                  <!-- 卡片信息 -->
+                  <div class="card-info">
+                    <span class="card-title">{{ card.title }}</span>
+                    <span class="card-type-tag">{{ getTypeLabel(card.type) }}</span>
+                    <span class="card-time">{{ formatTime(card.updatedAt) }}</span>
+                  </div>
+                  <!-- 操作按钮（仅所有者） -->
+                  <div v-if="isOwner" class="card-actions" @click.stop>
+                    <button class="card-action edit" @click="editCard(card)">✎</button>
+                    <button class="card-action delete" @click="handleDeleteCard(card.id)">✕</button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-          <div v-else class="empty-state">
-            <p>{{ activeTab === 'all' ? '还没有卡片' : '暂无此类型' }}</p>
-            <!-- ✅ 只有项目所有者才能看到"创建卡片"按钮 -->
-            <button v-if="isOwner" class="btn-outline" @click="openCreateDialog">+ 创建卡片</button>
+              <div v-else class="empty-group">
+                <span>暂无 {{ group.label }}</span>
+              </div>
+            </el-collapse-item>
+          </el-collapse>
+
+          <!-- 无搜索结果 -->
+          <div v-if="searchQuery && !filteredCards.length" class="empty-state">
+            <p>🔍 没有找到 "{{ searchQuery }}" 相关的卡片</p>
+            <button class="btn-outline" @click="searchQuery = ''">清除搜索</button>
           </div>
         </div>
 
@@ -92,13 +136,13 @@
         </div>
       </div>
 
-      <!-- 右栏：编辑面板 -->
+      <!-- 右栏：编辑/详情面板 -->
       <div class="right-panel" :class="{ open: selectedCardId }">
-        <!-- ✅ 只有项目所有者才能打开编辑面板 -->
+        <!-- 编辑模式（所有者） -->
         <div v-if="(selectedCard || isCreating) && isOwner" class="panel-inner">
           <div class="panel-header">
             <span class="panel-title">{{ isCreating ? '新建卡片' : selectedCard?.title }}</span>
-            <button class="panel-close" @click="selectedCardId = null">✕</button>
+            <button class="panel-close" @click="closePanel">✕</button>
           </div>
           <div class="panel-body">
             <CardEditor
@@ -109,24 +153,22 @@
             />
           </div>
         </div>
-        <!-- ✅ 非所有者点击卡片时，只读展示 -->
-        <div v-else-if="selectedCard && !isOwner" class="panel-inner panel-readonly">
+
+        <!-- 只读模式（非所有者） -->
+        <div v-else-if="selectedCardId && !isOwner" class="panel-inner panel-readonly">
           <div class="panel-header">
-            <span class="panel-title">{{ selectedCard?.title }}</span>
-            <button class="panel-close" @click="selectedCardId = null">✕</button>
+            <span class="panel-title">{{ selectedCardDetail?.title || '加载中...' }}</span>
+            <button class="panel-close" @click="closePanel">✕</button>
           </div>
-          <div class="panel-body">
-            <!-- 只读展示卡片内容 -->
-            <div class="readonly-card">
-              <!-- 封面 -->
-              <div v-if="selectedCard.coverImage" class="readonly-cover">
-                <img :src="selectedCard.coverImage" :alt="selectedCard.title" />
+          <div class="panel-body" v-loading="detailLoading">
+            <div v-if="selectedCardDetail" class="readonly-card">
+              <div v-if="selectedCardDetail.coverImage" class="readonly-cover">
+                <img :src="getCoverImage(selectedCardDetail.coverImage)" :alt="selectedCardDetail.title" />
               </div>
-              <!-- 图库 -->
-              <div v-if="selectedCard.galleryImages?.length" class="readonly-gallery">
+              <div v-if="selectedCardDetail.galleryImages?.length" class="readonly-gallery">
                 <div class="readonly-gallery-grid">
                   <img
-                    v-for="(img, idx) in selectedCard.galleryImages"
+                    v-for="(img, idx) in selectedCardDetail.galleryImages"
                     :key="idx"
                     :src="img"
                     :alt="`图 ${idx + 1}`"
@@ -134,24 +176,25 @@
                   />
                 </div>
               </div>
-              <!-- 属性 -->
-              <div v-if="selectedCard.attributes?.length" class="readonly-attributes">
-                <div v-for="attr in selectedCard.attributes" :key="attr.key" class="readonly-attr">
+              <div v-if="selectedCardDetail.attributes?.length" class="readonly-attributes">
+                <div v-for="attr in selectedCardDetail.attributes" :key="attr.key" class="readonly-attr">
                   <span class="attr-key">{{ attr.key }}</span>
                   <span class="attr-value">{{ attr.value }}</span>
                 </div>
               </div>
-              <!-- 描述 -->
-              <div v-if="selectedCard.description" class="readonly-description">
-                {{ selectedCard.description }}
+              <div v-if="selectedCardDetail.description" class="readonly-description">
+                {{ selectedCardDetail.description }}
               </div>
-              <!-- 标签 -->
-              <div v-if="selectedCard.tags?.length" class="readonly-tags">
-                <span v-for="tag in selectedCard.tags" :key="tag" class="readonly-tag">#{{ tag }}</span>
+              <div v-if="selectedCardDetail.tags?.length" class="readonly-tags">
+                <span v-for="tag in selectedCardDetail.tags" :key="tag" class="readonly-tag">#{{ tag }}</span>
               </div>
+            </div>
+            <div v-else-if="!detailLoading" class="empty-state">
+              无法加载卡片详情
             </div>
           </div>
         </div>
+
         <div v-else class="panel-empty">
           <span>← 选择卡片查看详情</span>
         </div>
@@ -161,7 +204,7 @@
     <!-- 图片预览弹窗 -->
     <el-image-viewer
       v-if="previewVisible"
-      :url-list="selectedCard?.galleryImages || []"
+      :url-list="selectedCardDetail?.galleryImages || []"
       :initial-index="previewIndex"
       @close="previewVisible = false"
     />
@@ -169,15 +212,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch, nextTick } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox, ElImageViewer } from 'element-plus';
 import { useWorldStore } from '../../stores/world';
 import { useUserStore } from '@/stores/user';
 import CardEditor from './世界观组件/CardEditor.vue';
 import RelationGraph from './世界观组件/RelationGraph.vue';
+import type { CardDetail } from '@/api/worldApi';
 
-// ===== 🔥 类型标签映射 =====
+// ===== 类型标签映射 =====
 const TYPE_LABELS: Record<string, string> = {
   character: '角色',
   location: '地点',
@@ -193,6 +237,22 @@ const TYPE_LABELS: Record<string, string> = {
   concept: '设定',
 };
 
+// ===== 类型图标映射 =====
+const TYPE_ICONS: Record<string, string> = {
+  character: '🧙',
+  location: '📍',
+  item: '⚔️',
+  event: '📖',
+  faction: '🏛️',
+  species: '🐉',
+  occupation: '🔧',
+  organization: '🏢',
+  creature: '🦁',
+  skill: '⚡',
+  climate: '🌤️',
+  concept: '📜',
+};
+
 const router = useRouter();
 const route = useRoute();
 const store = useWorldStore();
@@ -200,32 +260,37 @@ const userStore = useUserStore();
 
 const projectId = route.params.id as string;
 const loading = ref(false);
-const activeTab = ref('all');
+const searchQuery = ref('');
+const activeType = ref('all');
 const selectedCardId = ref<string | null>(null);
 const isPublicView = ref(false);
 const showGraph = ref(false);
 const graphRef = ref<any>(null);
 
-// ===== 🆕 图片预览 =====
+// 折叠面板：默认展开第一个有数据的类型
+const activeNames = ref<string[]>([]);
+
+// 图片预览
 const previewVisible = ref(false);
 const previewIndex = ref(0);
+
+// 只读卡片完整数据
+const selectedCardDetail = ref<CardDetail | null>(null);
+const detailLoading = ref(false);
 
 const project = computed(() => store.currentProject);
 const cards = computed(() => store.cards);
 
-// ===== 🔥 判断当前是否新建模式 =====
 const isCreating = computed(() => selectedCardId.value === 'new');
 
-// ===== 🆕 判断当前用户是否是项目所有者 =====
 const isOwner = computed(() => {
   const userId = userStore.userInfo?.id;
   const ownerId = store.currentProject?.ownerId;
-  console.log('🔍 调试权限:', { userId, ownerId, currentProject: store.currentProject });
   if (!userId || !ownerId) return false;
   return userId === ownerId;
 });
 
-// ===== 🔥 tabs 筛选 =====
+// ===== tabs 定义 =====
 const tabs = [
   { label: '全部', value: 'all' },
   { label: '角色', value: 'character' },
@@ -242,22 +307,63 @@ const tabs = [
   { label: '设定', value: 'concept' },
 ];
 
+// ===== 搜索过滤 =====
 const filteredCards = computed(() => {
-  if (activeTab.value === 'all') return cards.value;
-  return cards.value.filter(c => c.type === activeTab.value);
+  if (!searchQuery.value.trim()) return cards.value;
+  const q = searchQuery.value.toLowerCase().trim();
+  return cards.value.filter(c => c.title.toLowerCase().includes(q));
 });
 
-// ===== 选中的卡片（用于编辑） =====
-const selectedCard = computed(() => {
-  if (!selectedCardId.value) return null;
-  if (selectedCardId.value === 'new') return null;
-  return cards.value.find(c => c.id === selectedCardId.value) || null;
+// ===== 按类型分组 =====
+const groupedCards = computed(() => {
+  // 先过滤搜索
+  let source = filteredCards.value;
+
+  // 如果有类型筛选，只显示该类型
+  if (activeType.value !== 'all') {
+    source = source.filter(c => c.type === activeType.value);
+  }
+
+  // 按类型分组
+  const groups: Record<string, any[]> = {};
+  tabs.forEach(tab => {
+    if (tab.value === 'all') return;
+    groups[tab.value] = [];
+  });
+
+  source.forEach(card => {
+    if (groups[card.type]) {
+      groups[card.type].push(card);
+    }
+  });
+
+  // 转为数组，过滤空组
+  return tabs
+    .filter(t => t.value !== 'all')
+    .map(t => ({
+      type: t.value,
+      label: t.label,
+      cards: groups[t.value] || [],
+    }))
+    .filter(g => g.cards.length > 0);
 });
 
 const getTypeLabel = (type: string) => TYPE_LABELS[type] || type;
+const getTypeIcon = (type: string) => TYPE_ICONS[type] || '📄';
 const getCountByType = (type: string) => {
   if (type === 'all') return cards.value.length;
   return cards.value.filter(c => c.type === type).length;
+};
+
+// ===== 获取封面图 =====
+const getCoverImage = (coverImage: string | null) => {
+  if (!coverImage) return '';
+  try {
+    const arr = JSON.parse(coverImage);
+    return Array.isArray(arr) && arr.length > 0 ? arr[0] : '';
+  } catch {
+    return coverImage;
+  }
 };
 
 const formatTime = (dateStr: string) => {
@@ -272,7 +378,22 @@ const formatTime = (dateStr: string) => {
   return d.toLocaleDateString('zh-CN');
 };
 
-// ===== 工具函数：提取关联卡片 ID =====
+// ===== 滚动到指定类型 =====
+const scrollToType = (type: string) => {
+  activeType.value = type;
+  // 如果类型有数据，展开该面板
+  const group = groupedCards.value.find(g => g.type === type);
+  if (group) {
+    activeNames.value = [type];
+  }
+  // 滚动到面板区域
+  const collapseWrap = document.querySelector('.collapse-wrap');
+  if (collapseWrap) {
+    collapseWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+};
+
+// ===== 提取关联卡片 ID =====
 const extractEmbeddedCardIds = (c: any): string[] => {
   const ids: string[] = [];
   if (c.contentBlocks) {
@@ -282,21 +403,19 @@ const extractEmbeddedCardIds = (c: any): string[] => {
       }
     });
   }
-  const desc = c.description || '';
-  const matches = desc.match(/\{CARD:([^}]+)\}/g);
-  if (matches) {
-    matches.forEach((m: string) => {
-      const id = m.slice(6, -1);
-      if (!ids.includes(id)) ids.push(id);
-    });
-  }
   return ids;
 };
 
-// ===== 🆕 预览图片 =====
+// ===== 预览图片 =====
 const previewImage = (index: number) => {
   previewIndex.value = index;
   previewVisible.value = true;
+};
+
+// ===== 关闭面板 =====
+const closePanel = () => {
+  selectedCardId.value = null;
+  selectedCardDetail.value = null;
 };
 
 // ===== 数据加载 =====
@@ -306,42 +425,60 @@ const loadData = async () => {
     await store.fetchCards(projectId);
     const publicProj = store.publicProjects.find(p => p.id === projectId);
     if (publicProj) isPublicView.value = true;
+
+    // 初始化折叠面板：展开第一个有数据的类型
+    nextTick(() => {
+      const groups = groupedCards.value;
+      if (groups.length > 0 && activeNames.value.length === 0) {
+        activeNames.value = [groups[0].type];
+      }
+    });
   } finally {
     loading.value = false;
   }
 };
 
-// ===== 选择卡片（加载关联卡片） =====
+// ===== 选中的卡片（列表中的精简数据） =====
+const selectedCard = computed(() => {
+  if (!selectedCardId.value) return null;
+  if (selectedCardId.value === 'new') return null;
+  return cards.value.find(c => c.id === selectedCardId.value) || null;
+});
+
+
+// ===== 选择卡片 =====
 const selectCard = async (id: string) => {
   if (selectedCardId.value === id) {
-    selectedCardId.value = null;
+    closePanel();
     return;
   }
 
   selectedCardId.value = id;
+  selectedCardDetail.value = null;
 
-  const card = cards.value.find(c => c.id === id);
-  if (card) {
-    const ids = extractEmbeddedCardIds(card);
-    if (ids.length > 0) {
-      const existingIds = cards.value.map(c => c.id);
-      const missingIds = ids.filter(cid => !existingIds.includes(cid));
-      if (missingIds.length > 0) {
-        await store.fetchCardsByIds(projectId, missingIds);
-      }
-    }
+  // 加载完整数据用于只读展示
+  detailLoading.value = true;
+  try {
+    await store.fetchCardDetail(projectId, id);
+    selectedCardDetail.value = store.currentCard as CardDetail | null;
+  } catch (error) {
+    console.error('加载卡片详情失败:', error);
+  } finally {
+    detailLoading.value = false;
   }
 };
 
 // ===== 编辑卡片 =====
-const editCard = (card: any) => { selectedCardId.value = card.id; };
+const editCard = (card: any) => {
+  selectedCardId.value = card.id;
+};
 
 const handleDeleteCard = async (cardId: string) => {
   try {
     await ElMessageBox.confirm('确定删除吗？', '', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' });
     await store.deleteCard(cardId);
     ElMessage.success('已删除');
-    if (selectedCardId.value === cardId) selectedCardId.value = null;
+    if (selectedCardId.value === cardId) closePanel();
     loadData();
     if (graphRef.value) graphRef.value.refresh();
   } catch (e) { if (e !== 'cancel') console.error(e); }
@@ -350,16 +487,17 @@ const handleDeleteCard = async (cardId: string) => {
 // ===== 新建卡片 =====
 const openCreateDialog = () => {
   selectedCardId.value = 'new';
+  selectedCardDetail.value = null;
 };
 
 const onCardSaved = () => {
-  selectedCardId.value = null;
+  closePanel();
   loadData();
   if (graphRef.value) graphRef.value.refresh();
 };
 
 const onCardDeleted = () => {
-  selectedCardId.value = null;
+  closePanel();
   loadData();
   if (graphRef.value) graphRef.value.refresh();
 };
@@ -369,11 +507,28 @@ const onCardInserted = () => { loadData(); };
 const goBack = () => router.push('/world');
 const handleEditProject = () => ElMessage.info('编辑功能开发中');
 
+// ===== 监听搜索变化，自动展开匹配的类型 =====
+watch(searchQuery, (val) => {
+  if (val.trim()) {
+    // 搜索时，展开所有有结果的类型
+    const groups = groupedCards.value;
+    if (groups.length > 0) {
+      activeNames.value = groups.map(g => g.type);
+    }
+  } else {
+    // 清除搜索时，恢复只展开第一个
+    const groups = groupedCards.value;
+    if (groups.length > 0) {
+      activeNames.value = [groups[0].type];
+    }
+  }
+});
+
 onMounted(loadData);
 </script>
 
 <style scoped>
-/* ===== 原有样式保持不变 ===== */
+/* ===== 基础布局 ===== */
 .project-detail {
   min-height: 100vh;
   background: #fafbfc;
@@ -387,6 +542,7 @@ onMounted(loadData);
   border-bottom: 1px solid #eef2f6;
   margin-bottom: 20px;
 }
+
 .header-top {
   display: flex;
   justify-content: space-between;
@@ -402,6 +558,7 @@ onMounted(loadData);
   padding: 4px 0;
 }
 .back-link:hover { color: #1e293b; }
+
 .header-actions {
   display: flex;
   gap: 16px;
@@ -415,6 +572,7 @@ onMounted(loadData);
   cursor: pointer;
 }
 .action-link:hover { color: #1e293b; }
+
 .btn-primary {
   background: #0f172a;
   color: #fff;
@@ -460,6 +618,7 @@ onMounted(loadData);
   line-height: 1.6;
 }
 
+/* ===== 主体 ===== */
 .detail-body {
   display: flex;
   gap: 24px;
@@ -473,6 +632,44 @@ onMounted(loadData);
   flex-direction: column;
 }
 
+/* ===== 搜索框 ===== */
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  position: relative;
+}
+.search-input {
+  flex: 1;
+  padding: 8px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.search-input:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+.search-count {
+  font-size: 13px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+.clear-search {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0 4px;
+}
+.clear-search:hover { color: #1e293b; }
+
+/* ===== 筛选标签 ===== */
 .filter-row {
   display: flex;
   gap: 4px;
@@ -501,74 +698,188 @@ onMounted(loadData);
 }
 .filter-chip.active .count { color: #4f46e5; }
 
-.table-wrap {
+/* ===== 折叠面板 ===== */
+.collapse-wrap {
   background: #fff;
   border-radius: 8px;
   border: 1px solid #eef2f6;
   overflow: hidden;
   flex: 1;
+  max-height: 600px;
+  overflow-y: auto;
 }
-.table {
+
+.collapse-wrap :deep(.el-collapse) {
+  border: none;
+}
+.collapse-wrap :deep(.el-collapse-item) {
+  border-bottom: 1px solid #f4f6f8;
+}
+.collapse-wrap :deep(.el-collapse-item:last-child) {
+  border-bottom: none;
+}
+.collapse-wrap :deep(.el-collapse-item__header) {
+  padding: 10px 16px;
+  background: #fafbfc;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+}
+.collapse-wrap :deep(.el-collapse-item__header:hover) {
+  background: #f1f5f9;
+}
+.collapse-wrap :deep(.el-collapse-item__wrap) {
+  border: none;
+}
+.collapse-wrap :deep(.el-collapse-item__content) {
+  padding: 12px 16px;
+}
+
+.collapse-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
 }
-.table-head {
-  display: grid;
-  grid-template-columns: 3fr 80px 60px 100px 100px;
-  padding: 6px 16px;
-  background: #f8fafc;
-  font-size: 11px;
-  font-weight: 500;
+.type-icon { font-size: 18px; }
+.type-label { font-size: 14px; color: #1e293b; }
+.type-count {
+  font-size: 12px;
   color: #94a3b8;
-  border-bottom: 1px solid #eef2f6;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
+  background: #f1f5f9;
+  padding: 0 8px;
+  border-radius: 10px;
+  margin-left: auto;
 }
-.table-row {
-  display: grid;
-  grid-template-columns: 3fr 80px 60px 100px 100px;
-  padding: 8px 16px;
-  font-size: 14px;
-  color: #1e293b;
-  cursor: pointer;
-  border-bottom: 1px solid #f4f6f8;
-  align-items: center;
-  transition: background 0.1s;
-}
-.table-row:hover { background: #fafbfc; }
-.table-row.active {
-  background: #f0f4ff;
-  border-left: 2px solid #4f46e5;
-}
-.table-row:last-child { border-bottom: none; }
 
-.col-title {
+/* ===== 卡片网格 ===== */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.card-item {
+  background: #fff;
+  border: 1px solid #eef2f6;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+.card-item:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+.card-item.selected {
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+}
+
+.card-cover {
+  position: relative;
+  aspect-ratio: 16/10;
+  background: #f1f5f9;
+  overflow: hidden;
+}
+.card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.card-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: #cbd5e1;
+}
+
+.card-rels-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
+}
+
+.card-info {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.card-title {
   font-weight: 500;
+  font-size: 14px;
+  color: #0f172a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.col-type { font-size: 13px; color: #64748b; }
-.col-rels { font-size: 13px; color: #94a3b8; }
-.col-time { font-size: 13px; color: #c0c4cc; }
+.card-type-tag {
+  font-size: 11px;
+  color: #4f46e5;
+  background: #eef2ff;
+  padding: 0 8px;
+  border-radius: 3px;
+  align-self: flex-start;
+}
+.card-time {
+  font-size: 11px;
+  color: #c0c4cc;
+}
 
-.row-actions {
+.card-actions {
+  position: absolute;
+  top: 6px;
+  right: 32px;
   display: flex;
-  gap: 8px;
+  gap: 4px;
   opacity: 0;
-  transition: opacity 0.15s;
+  transition: opacity 0.2s;
 }
-.table-row:hover .row-actions { opacity: 1; }
-.row-action {
-  background: none;
+.card-item:hover .card-actions {
+  opacity: 1;
+}
+.card-action {
+  width: 24px;
+  height: 24px;
   border: none;
+  border-radius: 50%;
   font-size: 12px;
-  color: #94a3b8;
   cursor: pointer;
-  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.9);
+  color: #64748b;
+  transition: all 0.2s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
-.row-action:hover { color: #1e293b; }
-.row-action.danger:hover { color: #ef4444; }
+.card-action.edit:hover {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+.card-action.delete:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
 
+.empty-group {
+  padding: 20px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
 .empty-state {
   padding: 40px 20px;
   text-align: center;
@@ -585,6 +896,7 @@ onMounted(loadData);
 }
 .btn-outline:hover { background: #f1f5f9; }
 
+/* ===== 图谱 ===== */
 .graph-toggle {
   display: flex;
   justify-content: space-between;
@@ -606,6 +918,7 @@ onMounted(loadData);
   height: 260px;
 }
 
+/* ===== 右侧面板 ===== */
 .right-panel {
   width: 0;
   overflow: hidden;
@@ -658,24 +971,18 @@ onMounted(loadData);
   font-size: 14px;
 }
 
-/* ===== 🆕 只读卡片样式 ===== */
-.panel-readonly {
-  /* 复用 panel-inner 样式 */
-}
-
+/* ===== 只读卡片样式 ===== */
 .readonly-card {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
-
 .readonly-cover img {
   width: 100%;
   max-height: 200px;
   object-fit: cover;
   border-radius: 8px;
 }
-
 .readonly-gallery-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
@@ -692,7 +999,6 @@ onMounted(loadData);
 .readonly-gallery-grid img:hover {
   transform: scale(1.03);
 }
-
 .readonly-attributes {
   display: flex;
   flex-direction: column;
@@ -714,14 +1020,12 @@ onMounted(loadData);
   color: #1e293b;
   font-size: 13px;
 }
-
 .readonly-description {
   font-size: 14px;
   line-height: 1.8;
   color: #1e293b;
   white-space: pre-wrap;
 }
-
 .readonly-tags {
   display: flex;
   flex-wrap: wrap;
@@ -735,21 +1039,53 @@ onMounted(loadData);
   border-radius: 4px;
 }
 
+/* ===== 滚动条 ===== */
+.collapse-wrap::-webkit-scrollbar {
+  width: 4px;
+}
+.collapse-wrap::-webkit-scrollbar-track {
+  background: transparent;
+}
+.collapse-wrap::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+.panel-body::-webkit-scrollbar {
+  width: 4px;
+}
+.panel-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.panel-body::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
 /* ===== 响应式 ===== */
 @media (max-width: 820px) {
   .detail-body { flex-direction: column; }
   .right-panel { width: 100% !important; margin-left: 0 !important; height: 400px; }
   .right-panel.open { width: 100% !important; height: 400px; }
-  .table-head, .table-row {
-    grid-template-columns: 2fr 60px 50px 60px;
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
-  .col-time { display: none; }
-  .row-actions { opacity: 1; }
+  .card-actions {
+    opacity: 1;
+  }
 }
 
 @media (max-width: 640px) {
+  .card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
   .readonly-gallery-grid {
     grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  }
+  .search-row {
+    flex-wrap: wrap;
+  }
+  .search-count {
+    font-size: 12px;
   }
 }
 </style>

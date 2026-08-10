@@ -17,14 +17,16 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
         /// <returns>true=可以编辑，false=不可以编辑</returns>
         public static bool CanEdit(JointActivity activity, Guid userId, List<AdminPermission> permissions)
         {
-            // 官方联合：JointManager 或 SuperAdmin 可编辑
-            if (activity.OrganizerType == "official")
-            {
-                return permissions.Contains(AdminPermission.SuperAdmin) ||
-                       permissions.Contains(AdminPermission.JointManager);
-            }
+            // ✅ 管理员（SuperAdmin / JointManager）可以编辑任何联合（包括官方和用户自建）
+            if (permissions.Contains(AdminPermission.SuperAdmin) ||
+                permissions.Contains(AdminPermission.JointManager))
+                return true;
 
-            // 用户自建：只有作者本人可编辑
+            // 官方联合：非管理员无权编辑
+            if (activity.OrganizerType == "official")
+                return false;
+
+            // 用户自建：只有作者本人可编辑（非管理员）
             return activity.OrganizerId == userId;
         }
 

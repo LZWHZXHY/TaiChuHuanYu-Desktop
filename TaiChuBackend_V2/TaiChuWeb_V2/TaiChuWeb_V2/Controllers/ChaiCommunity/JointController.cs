@@ -383,6 +383,13 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             return Ok(MapToDto(updated!));
         }
 
+
+
+
+
+
+
+
         // ============================================================
         // 5. 删除活动（仅 SuperAdmin）
         // ============================================================

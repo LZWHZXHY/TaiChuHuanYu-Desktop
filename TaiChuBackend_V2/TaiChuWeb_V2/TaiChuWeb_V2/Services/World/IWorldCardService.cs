@@ -63,6 +63,9 @@ namespace TaiChuWeb_V2.Services.World
         /// </summary>
         Task<bool> IsCardAccessibleAsync(Guid cardId, Guid userId);
 
+
+        Task<IEnumerable<CardSummaryDto>> GetCardSummariesByProjectAsync(Guid projectId, Guid userId, string? type = null);
+
         // ============================================================
         //  5. 批量操作
         // ============================================================

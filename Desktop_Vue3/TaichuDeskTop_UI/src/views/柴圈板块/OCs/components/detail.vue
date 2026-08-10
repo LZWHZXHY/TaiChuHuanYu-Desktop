@@ -91,7 +91,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch} from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useStickmanStore } from '../stickman_store'
 import { useUserStore } from '@/stores/user'
@@ -105,7 +105,16 @@ const defaultAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=stickman'
 
 const character = computed(() => store.currentCharacter)
 const loading = computed(() => store.loading)
-const isOwner = computed(() => character.value?.authorId === userStore.userInfo?.id)
+
+const isOwner = computed(() => {
+  const authorId = character.value?.authorId
+  const userId = userStore.userInfo?.id
+  if (!authorId || !userId) return false
+  // 统一转为字符串比较，避免类型不一致
+  return String(authorId) === String(userId)
+})
+
+
 // ===== 返回 OC 画阁列表页 =====
 function goBack() {
   router.push('/ocs')
@@ -162,6 +171,23 @@ function goBattle() {
   if (!character.value) return
   router.push(`/battles/create?ocId=${character.value.id}`)
 }
+
+
+
+
+// ===== 调试：打印权限信息 =====
+watch(character, (val) => {
+  if (val) {
+    console.log('🔍 OC 权限检查:', {
+      authorId: val.authorId,
+      userId: userStore.userInfo?.id,
+      isOwner: String(val.authorId) === String(userStore.userInfo?.id),
+    })
+  }
+}, { immediate: true })
+
+
+
 </script>
 
 <style scoped>

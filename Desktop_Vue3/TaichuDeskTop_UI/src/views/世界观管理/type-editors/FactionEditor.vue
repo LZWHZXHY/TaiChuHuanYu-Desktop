@@ -28,7 +28,7 @@
               :key="s"
               class="size-btn"
               :class="{ active: localData.size === s }"
-              @click="localData.size = s"
+              @click="localData.size = s as '小型' | '中型' | '大型' | '巨型'"
             >
               {{ s }}
             </button>
@@ -55,6 +55,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:modelValue', value: FactionData): void
 }>()
+
+const sizeOptions = ['小型', '中型', '大型', '巨型'] as const
+
 
 // ❌ 删除了 leader 和 members 字段
 const defaultData: FactionData = {

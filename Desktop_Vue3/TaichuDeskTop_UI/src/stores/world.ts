@@ -1,11 +1,12 @@
 // src/stores/world.ts
 
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { worldApi } from '@/api/worldApi';
+import type { CardSummary, CardDetail, Relation } from '@/api/worldApi';
 
 // ============================================================
-//  1. 类型定义
+//  项目类型（保持不变）
 // ============================================================
 export interface WorldProject {
   id: string;
@@ -19,46 +20,13 @@ export interface WorldProject {
   ownerId?: string;
 }
 
-export interface WorldRelation {
-  id: string;
-  sourceCardId: string;
-  targetCardId: string;
-  relationType: string;
-  createdAt: string;
-}
-
-export interface ContentBlock {
-  id: string;
-  cardId: string;
-  blockType: string;
-  displayStyle: 'compact' | 'full' | 'preview';
-  order: number;
-}
-
-export interface WorldCard {
-  id: string;
-  projectId: string;
-  title: string;
-  type: string;
-  subType?: string;
-  aliases?: string[];
-  attributes?: { key: string; value: string }[];
-  description?: string;
-  contentBlocks?: ContentBlock[];
-  timelineEvents?: { date: string; title: string; description?: string }[];
-  content: string;
-  tags?: string[];
-  embeddedCards?: string[];
-  createdAt: string;
-  updatedAt: string;
-  relatedIds?: string[];
-  relations?: WorldRelation[];
-  coverImage?: string;
-  galleryImages?: string[];   // 🆕
-}
+// 为了方便，导出类型别名
+export type WorldCardSummary = CardSummary;
+export type WorldCardDetail = CardDetail;
+export type WorldRelation = Relation;
 
 // ============================================================
-//  2. 请求去重工具
+//  请求去重工具（保持不变）
 // ============================================================
 const pendingRequests = new Map<string, Promise<any>>();
 
@@ -84,21 +52,26 @@ function dedupeRequest<T>(key: string, fn: () => Promise<T>, ttl = 5000): Promis
 }
 
 // ============================================================
-//  3. Store 定义
+//  Store 定义
 // ============================================================
 export const useWorldStore = defineStore('world', () => {
   // ---------- 状态 ----------
   const projects = ref<WorldProject[]>([]);
   const publicProjects = ref<WorldProject[]>([]);
   const currentProject = ref<WorldProject | null>(null);
-  const cards = ref<WorldCard[]>([]);
-  const currentCard = ref<WorldCard | null>(null);
+
+  // 列表卡片（精简）
+  const cards = ref<CardSummary[]>([]);
+  // 当前详情卡片（完整）
+  const currentCard = ref<CardDetail | null>(null);
+
   const loading = ref(false);
-  const allRelations = ref<WorldRelation[]>([]);
+  const allRelations = ref<Relation[]>([]);
   const cardTypes = ref<{ label: string; value: string; icon?: string }[]>([]);
 
-  // ---------- 额外缓存 ----------
-  const cardCache = new Map<string, WorldCard>();
+  // 缓存（分开存储精简和完整数据）
+  const cardSummaryCache = new Map<string, CardSummary>();
+  const cardDetailCache = new Map<string, CardDetail>();
 
   // ---------- 卡片类型 ----------
   async function fetchCardTypes() {
@@ -107,6 +80,7 @@ export const useWorldStore = defineStore('world', () => {
       cardTypes.value = res.data;
     } catch (error) {
       console.error('获取卡片类型失败:', error);
+      // 提供默认值
       cardTypes.value = [
         { label: '角色', value: 'character', icon: '🧙' },
         { label: '地点', value: 'location', icon: '📍' },
@@ -184,8 +158,9 @@ export const useWorldStore = defineStore('world', () => {
     return newProject;
   }
 
-  // ---------- 卡片 ----------
+  // ---------- 卡片列表（精简） ----------
   async function fetchCards(projectId: string) {
+    // 如果已有相同项目的数据，直接复用
     if (cards.value.length > 0 && cards.value[0]?.projectId === projectId) {
       console.log(`[Cache] ♻️ 复用 cards 数据: projectId=${projectId}`);
       const found = projects.value.find((p: WorldProject) => p.id === projectId) 
@@ -200,12 +175,12 @@ export const useWorldStore = defineStore('world', () => {
     try {
       const cacheKey = `cards_${projectId}`;
       const res = await dedupeRequest(cacheKey, () => worldApi.getCards(projectId));
-      const cardList = res.data.map((c: any) => mapCard(c));
-      
+      // res.data 已经是 CardSummary[]
+      const cardList = res.data as CardSummary[];
       cards.value = cardList;
-      // 🔧 修复：显式标注 card 类型为 WorldCard
-      cardList.forEach((card: WorldCard) => cardCache.set(card.id, card));
+      cardList.forEach(card => cardSummaryCache.set(card.id, card));
 
+      // 获取关系（用于图谱）
       const relationsKey = `relations_${projectId}`;
       const relationsRes = await dedupeRequest(relationsKey, () => worldApi.getProjectRelations(projectId));
       allRelations.value = relationsRes.data.map((r: any) => ({
@@ -214,15 +189,38 @@ export const useWorldStore = defineStore('world', () => {
         targetCardId: r.targetCardId || r.TargetCardId,
         relationType: r.relationType || r.RelationType,
         createdAt: r.createdAt || r.CreatedAt,
-      }));
-      
-      cards.value = cards.value.map((card: WorldCard) => ({
-        ...card,
-        relations: allRelations.value.filter((r: WorldRelation) => r.sourceCardId === card.id),
+        sourceCardTitle: r.sourceCardTitle || r.SourceCardTitle || '',
+        targetCardTitle: r.targetCardTitle || r.TargetCardTitle || '',
+        sourceCardType: r.sourceCardType || r.SourceCardType || '',
+        targetCardType: r.targetCardType || r.TargetCardType || '',
       }));
 
-      const found = projects.value.find((p: WorldProject) => p.id === projectId) 
-                 || publicProjects.value.find((p: WorldProject) => p.id === projectId);
+      // 查找项目信息
+      let found = projects.value.find((p: WorldProject) => p.id === projectId) 
+               || publicProjects.value.find((p: WorldProject) => p.id === projectId);
+      if (!found) {
+        try {
+          const projectRes = await worldApi.getProject(projectId);
+          found = {
+            id: projectRes.data.id || projectRes.data.Id,
+            name: projectRes.data.name || projectRes.data.Name,
+            description: projectRes.data.description || projectRes.data.Description,
+            isPublic: projectRes.data.isPublic ?? projectRes.data.IsPublic ?? false,
+            createdAt: projectRes.data.createdAt || projectRes.data.CreatedAt,
+            updatedAt: projectRes.data.updatedAt || projectRes.data.UpdatedAt,
+            cardCount: projectRes.data.cardCount || projectRes.data.CardCount || 0,
+            ownerName: projectRes.data.ownerName || projectRes.data.OwnerName,
+            ownerId: projectRes.data.ownerId || projectRes.data.OwnerId,
+          };
+          if (found.isPublic) {
+            publicProjects.value.push(found);
+          } else {
+            projects.value.push(found);
+          }
+        } catch (error) {
+          console.error('获取项目详情失败:', error);
+        }
+      }
       currentProject.value = found || null;
     } catch (error) {
       console.error('获取卡片列表失败:', error);
@@ -232,60 +230,104 @@ export const useWorldStore = defineStore('world', () => {
     }
   }
 
+  // ---------- 创建卡片 ----------
   async function createCard(projectId: string, payload: any) {
     const { relations, ...cardPayload } = payload;
     const res = await worldApi.createCard(projectId, cardPayload);
-    const newCard = mapCard(res.data);
-    
+    const fullCard = res.data as CardDetail;
+    // 转换为精简数据
+    const summary: CardSummary = {
+      id: fullCard.id,
+      projectId: fullCard.projectId,
+      title: fullCard.title,
+      type: fullCard.type,
+      coverImage: fullCard.coverImage,
+      updatedAt: fullCard.updatedAt,
+      outRelationCount: fullCard.outRelations?.length || 0,
+      inRelationCount: fullCard.inRelations?.length || 0,
+    };
     if (relations && relations.length > 0) {
       for (const rel of relations) {
-        await worldApi.addRelation(newCard.id, rel.targetCardId, rel.relationType);
+        await worldApi.addRelation(summary.id, rel.targetCardId, rel.relationType);
       }
-      await fetchCards(projectId);
+      await fetchCards(projectId); // 重新加载列表
     } else {
-      cards.value.push(newCard);
-      cardCache.set(newCard.id, newCard);
+      cards.value.push(summary);
+      cardSummaryCache.set(summary.id, summary);
     }
-    return newCard;
+    return summary;
   }
 
+  // ---------- 更新卡片 ----------
   async function updateCard(cardId: string, payload: any) {
-    const existingCard = cards.value.find((c: WorldCard) => c.id === cardId);
+    const existingCard = cards.value.find((c: CardSummary) => c.id === cardId);
     if (!existingCard) throw new Error('卡片不存在，无法更新');
 
     const { relations, ...cardPayload } = payload;
     const res = await worldApi.updateCard(existingCard.projectId, cardId, cardPayload);
-    const updatedCard = mapCard(res.data);
-    
+    const fullCard = res.data as CardDetail;
+
+    // 更新精简数据
+    const updatedSummary: CardSummary = {
+      id: fullCard.id,
+      projectId: fullCard.projectId,
+      title: fullCard.title,
+      type: fullCard.type,
+      coverImage: fullCard.coverImage,
+      updatedAt: fullCard.updatedAt,
+      outRelationCount: fullCard.outRelations?.length || 0,
+      inRelationCount: fullCard.inRelations?.length || 0,
+    };
+
+    // 处理关系变更
     if (relations !== undefined) {
-      const oldRelations = allRelations.value.filter((r: WorldRelation) => r.sourceCardId === cardId);
+      const oldRelations = allRelations.value.filter((r: Relation) => r.sourceCardId === cardId);
       for (const rel of oldRelations) {
         await worldApi.removeRelation(cardId, rel.id);
       }
       for (const rel of relations) {
         await worldApi.addRelation(cardId, rel.targetCardId, rel.relationType);
       }
+      // 重新获取关系
+      const relationsRes = await worldApi.getCardRelations(cardId);
+      allRelations.value = allRelations.value.filter((r: Relation) => r.sourceCardId !== cardId);
+      const newRels = relationsRes.data.map((r: any) => ({
+        id: r.id || r.Id,
+        sourceCardId: r.sourceCardId || r.SourceCardId,
+        targetCardId: r.targetCardId || r.TargetCardId,
+        relationType: r.relationType || r.RelationType,
+        createdAt: r.createdAt || r.CreatedAt,
+        sourceCardTitle: r.sourceCardTitle || r.SourceCardTitle || '',
+        targetCardTitle: r.targetCardTitle || r.TargetCardTitle || '',
+        sourceCardType: r.sourceCardType || r.SourceCardType || '',
+        targetCardType: r.targetCardType || r.TargetCardType || '',
+      }));
+      allRelations.value.push(...newRels);
+      updatedSummary.outRelationCount = newRels.filter((r: any) => r.sourceCardId === cardId).length;
+      updatedSummary.inRelationCount = newRels.filter((r: any) => r.targetCardId === cardId).length;
     }
-    
-    const index = cards.value.findIndex((c: WorldCard) => c.id === cardId);
-    if (index !== -1) {
-      const rels = allRelations.value.filter((r: WorldRelation) => r.sourceCardId === cardId);
-      const cardWithRels = { ...updatedCard, relations: rels };
-      cards.value[index] = cardWithRels;
-      cardCache.set(cardId, cardWithRels);
+
+    // 更新列表和缓存
+    const idx = cards.value.findIndex((c: CardSummary) => c.id === cardId);
+    if (idx !== -1) {
+      cards.value[idx] = updatedSummary;
+      cardSummaryCache.set(cardId, updatedSummary);
+    }
+    if (cardDetailCache.has(cardId)) {
+      cardDetailCache.set(cardId, fullCard);
     }
     if (currentCard.value?.id === cardId) {
-      const rels = allRelations.value.filter((r: WorldRelation) => r.sourceCardId === cardId);
-      currentCard.value = { ...updatedCard, relations: rels };
+      currentCard.value = fullCard;
     }
-    return updatedCard;
+    return updatedSummary;
   }
 
+  // ---------- 删除卡片 ----------
   async function deleteCard(cardId: string) {
-    const existingCard = cards.value.find((c: WorldCard) => c.id === cardId);
+    const existingCard = cards.value.find((c: CardSummary) => c.id === cardId);
     if (!existingCard) throw new Error('卡片不存在，无法删除');
 
-    const rels = allRelations.value.filter((r: WorldRelation) => r.sourceCardId === cardId || r.targetCardId === cardId);
+    const rels = allRelations.value.filter((r: Relation) => r.sourceCardId === cardId || r.targetCardId === cardId);
     for (const rel of rels) {
       if (rel.sourceCardId === cardId) {
         await worldApi.removeRelation(cardId, rel.id);
@@ -294,62 +336,48 @@ export const useWorldStore = defineStore('world', () => {
       }
     }
     await worldApi.deleteCard(existingCard.projectId, cardId);
-    cards.value = cards.value.filter((c: WorldCard) => c.id !== cardId);
-    allRelations.value = allRelations.value.filter((r: WorldRelation) => r.sourceCardId !== cardId && r.targetCardId !== cardId);
+    cards.value = cards.value.filter((c: CardSummary) => c.id !== cardId);
+    allRelations.value = allRelations.value.filter((r: Relation) => r.sourceCardId !== cardId && r.targetCardId !== cardId);
     if (currentCard.value?.id === cardId) currentCard.value = null;
-    cardCache.delete(cardId);
+    cardSummaryCache.delete(cardId);
+    cardDetailCache.delete(cardId);
   }
 
+  // ---------- 卡片详情（完整） ----------
   async function fetchCardDetail(projectId: string, cardId: string) {
-    if (cardCache.has(cardId)) {
-      const cached = cardCache.get(cardId)!;
-      console.log(`[Cache] 🚀 从缓存返回卡片: ${cardId}`);
+    if (cardDetailCache.has(cardId)) {
+      const cached = cardDetailCache.get(cardId)!;
+      console.log(`[Cache] 🚀 从详情缓存返回卡片: ${cardId}`);
       currentCard.value = cached;
       return cached;
-    }
-
-    const existing = cards.value.find((c: WorldCard) => c.id === cardId);
-    if (existing) {
-      console.log(`[Cache] ♻️ 从 cards 列表获取卡片: ${cardId}`);
-      cardCache.set(cardId, existing);
-      currentCard.value = existing;
-      return existing;
     }
 
     loading.value = true;
     try {
       const cacheKey = `card_${cardId}`;
       const res = await dedupeRequest(cacheKey, () => worldApi.getCard(projectId, cardId));
-      const card = mapCard(res.data);
-      
-      const relationsKey = `card_relations_${cardId}`;
-      const relationsRes = await dedupeRequest(relationsKey, () => worldApi.getCardRelations(cardId));
-      const allRels = relationsRes.data.map((r: any) => ({
-        id: r.id || r.Id,
-        sourceCardId: r.sourceCardId || r.SourceCardId,
-        targetCardId: r.targetCardId || r.TargetCardId,
-        relationType: r.relationType || r.RelationType,
-        createdAt: r.createdAt || r.CreatedAt,
-      }));
-      
-      const outRelations = allRels.filter((r: any) => r.sourceCardId === cardId);
-      const inRelations = allRels.filter((r: any) => r.targetCardId === cardId);
-      const relations = [
-        ...outRelations.map((r: any) => ({ ...r, direction: 'out' as const })),
-        ...inRelations.map((r: any) => ({ ...r, direction: 'in' as const })),
-      ];
-      
-      const fullCard = { ...card, relations };
-      cardCache.set(cardId, fullCard);
+      const fullCard = res.data as CardDetail;
+      cardDetailCache.set(cardId, fullCard);
       currentCard.value = fullCard;
-      
-      if (!cards.value.find((c: WorldCard) => c.id === cardId)) {
-        cards.value.push({ ...card, relations: [] });
+
+      // 同步更新精简缓存
+      const summary: CardSummary = {
+        id: fullCard.id,
+        projectId: fullCard.projectId,
+        title: fullCard.title,
+        type: fullCard.type,
+        coverImage: fullCard.coverImage,
+        updatedAt: fullCard.updatedAt,
+        outRelationCount: fullCard.outRelations?.length || 0,
+        inRelationCount: fullCard.inRelations?.length || 0,
+      };
+      cardSummaryCache.set(cardId, summary);
+      if (!cards.value.find((c: CardSummary) => c.id === cardId)) {
+        cards.value.push(summary);
       } else {
-        const idx = cards.value.findIndex((c: WorldCard) => c.id === cardId);
-        if (idx !== -1) cards.value[idx].relations = relations;
+        const idx = cards.value.findIndex((c: CardSummary) => c.id === cardId);
+        if (idx !== -1) cards.value[idx] = summary;
       }
-      
       return fullCard;
     } catch (error) {
       console.error('获取卡片详情失败:', error);
@@ -359,29 +387,41 @@ export const useWorldStore = defineStore('world', () => {
     }
   }
 
-  // 🔧 新增：批量加载卡片详情（所有回调参数显式类型）
-  async function fetchCardsByIds(projectId: string, cardIds: string[]): Promise<WorldCard[]> {
+  // ---------- 批量加载卡片 ----------
+  async function fetchCardsByIds(projectId: string, cardIds: string[]): Promise<CardSummary[]> {
     if (cardIds.length === 0) return [];
-
-    const missingIds = cardIds.filter((id: string) => !cards.value.find((c: WorldCard) => c.id === id));
-    if (missingIds.length === 0) return [];
+    const missingIds = cardIds.filter(id => !cardSummaryCache.has(id));
+    if (missingIds.length === 0) {
+      return cardIds.map(id => cardSummaryCache.get(id)!);
+    }
 
     loading.value = true;
     try {
-      const promises = missingIds.map((id: string) =>
+      const promises = missingIds.map(id =>
         dedupeRequest(`card_${id}`, () => worldApi.getCard(projectId, id))
       );
       const results = await Promise.all(promises);
-      
-      const newCards = results.map((res: any) => mapCard(res.data));
-      
-      newCards.forEach((card: WorldCard) => {
-        if (!cards.value.find((c: WorldCard) => c.id === card.id)) {
+      const newCards = results.map((res: any) => {
+        const full = res.data as CardDetail;
+        const summary: CardSummary = {
+          id: full.id,
+          projectId: full.projectId,
+          title: full.title,
+          type: full.type,
+          coverImage: full.coverImage,
+          updatedAt: full.updatedAt,
+          outRelationCount: full.outRelations?.length || 0,
+          inRelationCount: full.inRelations?.length || 0,
+        };
+        cardSummaryCache.set(summary.id, summary);
+        cardDetailCache.set(summary.id, full);
+        return summary;
+      });
+      newCards.forEach(card => {
+        if (!cards.value.find(c => c.id === card.id)) {
           cards.value.push(card);
         }
-        cardCache.set(card.id, card);
       });
-
       return newCards;
     } catch (error) {
       console.error('批量加载卡片失败:', error);
@@ -394,64 +434,56 @@ export const useWorldStore = defineStore('world', () => {
   // ---------- 关联管理 ----------
   async function addRelation(sourceCardId: string, targetCardId: string, relationType: string) {
     const res = await worldApi.addRelation(sourceCardId, targetCardId, relationType);
-    const newRelation: WorldRelation = {
+    const newRelation: Relation = {
       id: res.data.id || res.data.Id,
       sourceCardId: res.data.sourceCardId || res.data.SourceCardId,
       targetCardId: res.data.targetCardId || res.data.TargetCardId,
       relationType: res.data.relationType || res.data.RelationType,
       createdAt: res.data.createdAt || res.data.CreatedAt,
+      sourceCardTitle: res.data.sourceCardTitle || res.data.SourceCardTitle || '',
+      targetCardTitle: res.data.targetCardTitle || res.data.TargetCardTitle || '',
+      sourceCardType: res.data.sourceCardType || res.data.SourceCardType || '',
+      targetCardType: res.data.targetCardType || res.data.TargetCardType || '',
     };
     allRelations.value.push(newRelation);
-    const card = cards.value.find((c: WorldCard) => c.id === sourceCardId);
+    // 更新列表中卡片的计数
+    const card = cards.value.find((c: CardSummary) => c.id === sourceCardId);
     if (card) {
-      if (!card.relations) card.relations = [];
-      card.relations.push(newRelation);
-      cardCache.set(sourceCardId, { ...cardCache.get(sourceCardId)!, relations: card.relations });
+      card.outRelationCount = (card.outRelationCount || 0) + 1;
+      cardSummaryCache.set(sourceCardId, card);
     }
     return newRelation;
   }
 
   async function removeRelation(cardId: string, relationId: string) {
     await worldApi.removeRelation(cardId, relationId);
-    allRelations.value = allRelations.value.filter((r: WorldRelation) => r.id !== relationId);
-    for (const card of cards.value) {
-      if (card.relations) {
-        card.relations = card.relations.filter((r: WorldRelation) => r.id !== relationId);
-        cardCache.set(card.id, { ...cardCache.get(card.id)!, relations: card.relations });
+    const removed = allRelations.value.find((r: Relation) => r.id === relationId);
+    allRelations.value = allRelations.value.filter((r: Relation) => r.id !== relationId);
+    const card = cards.value.find((c: CardSummary) => c.id === cardId);
+    if (card && removed) {
+      if (removed.sourceCardId === cardId) {
+        card.outRelationCount = Math.max(0, (card.outRelationCount || 0) - 1);
+      } else if (removed.targetCardId === cardId) {
+        card.inRelationCount = Math.max(0, (card.inRelationCount || 0) - 1);
       }
+      cardSummaryCache.set(cardId, card);
     }
-  }
-
-  function getCardTitle(cardId: string): string {
-    if (cardCache.has(cardId)) {
-      return cardCache.get(cardId)!.title;
-    }
-    const card = cards.value.find((c: WorldCard) => c.id === cardId);
-    return card?.title || '已删除的卡片';
   }
 
   // ---------- 辅助函数 ----------
-  function mapCard(c: any): WorldCard {
-    return {
-      id: c.id || c.Id,
-      projectId: c.projectId || c.ProjectId,
-      title: c.title || c.Title,
-      type: c.type || c.Type,
-      subType: c.subType || c.SubType,
-      aliases: c.aliases || c.Aliases || [],
-      attributes: c.attributes || c.Attributes || [],
-      description: c.description || c.Description,
-      contentBlocks: c.contentBlocks || c.ContentBlocks || [],
-      timelineEvents: c.timelineEvents || c.TimelineEvents || [],
-      content: c.content || c.Content || '{}',
-      tags: c.tags || c.Tags || [],
-      embeddedCards: c.embeddedCards || c.EmbeddedCards || [],
-      createdAt: c.createdAt || c.CreatedAt,
-      updatedAt: c.updatedAt || c.UpdatedAt,
-      relations: [],
-      coverImage: c.coverImage || c.CoverImage || '',
-      galleryImages: c.galleryImages || c.GalleryImages || [],   // 🆕
-    };
+  function getCardTitle(cardId: string): string {
+    if (cardSummaryCache.has(cardId)) return cardSummaryCache.get(cardId)!.title;
+    if (cardDetailCache.has(cardId)) return cardDetailCache.get(cardId)!.title;
+    const card = cards.value.find((c: CardSummary) => c.id === cardId);
+    return card?.title || '已删除的卡片';
+  }
+
+  function getCardById(cardId: string): CardSummary | undefined {
+    return cardSummaryCache.get(cardId) || cards.value.find((c: CardSummary) => c.id === cardId);
+  }
+
+  function getCardDetailById(cardId: string): CardDetail | undefined {
+    return cardDetailCache.get(cardId);
   }
 
   // ---------- 导出 ----------
@@ -477,5 +509,7 @@ export const useWorldStore = defineStore('world', () => {
     addRelation,
     removeRelation,
     getCardTitle,
+    getCardById,
+    getCardDetailById,
   };
 });

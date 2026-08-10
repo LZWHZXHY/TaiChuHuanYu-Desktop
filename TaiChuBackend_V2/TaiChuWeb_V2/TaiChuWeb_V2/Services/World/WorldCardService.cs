@@ -24,6 +24,45 @@ namespace TaiChuWeb_V2.Services.World
             _cache = cache;
         }
 
+        public async Task<IEnumerable<CardSummaryDto>> GetCardSummariesByProjectAsync(Guid projectId, Guid userId, string? type = null)
+        {
+            // 1. 验证项目权限
+            var project = await _context.WorldProjects
+                .FirstOrDefaultAsync(p => p.Id == projectId);
+            if (project == null)
+                throw new KeyNotFoundException("项目不存在");
+            if (!project.IsPublic && project.OwnerId != userId)
+                throw new UnauthorizedAccessException("无权访问此项目");
+
+            // 2. 构建卡片查询
+            var query = _context.WorldCards
+                .Where(c => c.ProjectId == projectId);
+
+            if (!string.IsNullOrEmpty(type))
+                query = query.Where(c => c.Type == type);
+
+            // 3. 投影为精简 DTO
+            var summaries = await query
+                .Select(c => new CardSummaryDto
+                {
+                    Id = c.Id,
+                    ProjectId = c.ProjectId,
+                    Title = c.Title,
+                    Type = c.Type,
+                    CoverImage = c.CoverImage,   // 前端自行解析 JSON 数组取第一张
+                    UpdatedAt = c.UpdatedAt,
+                    // 使用子查询计数，避免加载整个关系集合
+                    OutRelationCount = _context.WorldRelations.Count(r => r.SourceCardId == c.Id),
+                    InRelationCount = _context.WorldRelations.Count(r => r.TargetCardId == c.Id)
+                })
+                .OrderByDescending(c => c.UpdatedAt)
+                .ToListAsync();
+
+            return summaries;
+        }
+
+
+
         // ============================================================
         //  1. 获取项目下的所有卡片（支持按类型筛选）
         // ============================================================
