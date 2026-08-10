@@ -1,356 +1,331 @@
+<!-- src/views/世界观管理/CardEditor.vue -->
 <template>
-  <Transition name="fade">
-    <div v-if="visible" class="dialog-overlay" @click.self="close">
-      <div class="dialog card-editor-dialog">
-        <header class="dialog-header">
-          <h2>{{ isEdit ? '编辑卡片' : '新建卡片' }}</h2>
-          <button class="close-btn" @click="close">✕</button>
-        </header>
+  <div class="card-editor-inline">
+    <div v-if="isCreating" class="create-banner">
+      <span>✨ 新建卡片</span>
+      <button class="cancel-create" @click="cancelCreate">取消</button>
+    </div>
 
-        <div class="dialog-body">
-          <!-- ===== 标题 ===== -->
-          <div class="field">
-            <label>标题 <span class="required">*</span></label>
-            <input v-model="form.title" placeholder="给卡片起个名字" maxlength="100" />
-          </div>
+    <!-- 标题 -->
+    <div class="field">
+      <input v-model="form.title" placeholder="卡片名称" class="title-input" />
+    </div>
 
-          <!-- ===== 封面图 ===== -->
-          <div class="field">
-            <label>封面图</label>
-            <div class="cover-upload">
-              <div v-if="form.coverImage" class="cover-preview">
-                <img :src="form.coverImage" alt="封面图" />
-                <button class="remove-cover" @click="form.coverImage = ''">×</button>
-              </div>
-              <div v-else class="cover-upload-area" @click="triggerFileInput">
-                <span class="upload-icon">📷</span>
-                <span class="upload-text">点击上传封面图</span>
-                <span class="upload-hint">支持 JPG, PNG, WEBP</span>
-              </div>
-              <input
-                ref="fileInput"
-                type="file"
-                accept="image/*"
-                style="display: none"
-                @change="handleFileUpload"
-              />
-              <div v-if="uploadingCover" class="upload-progress">
-                <el-progress :percentage="uploadProgress" />
-              </div>
-            </div>
-          </div>
-
-          <!-- ===== 类型选择（从后端获取） ===== -->
-          <div class="field">
-            <label>类型</label>
-            <div class="type-grid">
-              <div
-                v-for="type in cardTypeOptions"
-                :key="type.value"
-                class="type-card"
-                :class="{ active: form.type === type.value }"
-                @click="selectType(type)"
-              >
-                <!-- 移除 icon，只显示文字 -->
-                <span class="type-name">{{ type.label }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- ===== 别名 ===== -->
-          <div class="field">
-            <label>别名</label>
-            <div class="tag-input">
-              <input
-                v-model="aliasInput"
-                placeholder="输入别名，按回车添加"
-                @keydown.enter.prevent="addAlias"
-              />
-              <button type="button" @click="addAlias" class="add-tag-btn">添加</button>
-            </div>
-            <div class="tag-list">
-              <span v-for="alias in form.aliases" :key="alias" class="tag-item">
-                {{ alias }}
-                <button type="button" @click="removeAlias(alias)" class="remove-tag">×</button>
-              </span>
-            </div>
-          </div>
-
-          <!-- ===== 属性 ===== -->
-          <div class="field">
-            <label>属性</label>
-            <div class="attribute-list">
-              <div v-for="(attr, idx) in form.attributes" :key="idx" class="attribute-item">
-                <input v-model="attr.key" placeholder="属性名" class="attr-key" />
-                <span class="attr-sep">：</span>
-                <input v-model="attr.value" placeholder="属性值" class="attr-value" />
-                <button type="button" class="remove-attr" @click="removeAttribute(idx)">×</button>
-              </div>
-            </div>
-            <button type="button" class="add-attr-btn" @click="addAttribute">+ 添加属性</button>
-          </div>
-
-          <!-- ===== 描述 ===== -->
-          <div class="field">
-            <label>描述</label>
-            <textarea
-              v-model="form.description"
-              rows="4"
-              placeholder="描述这个卡片..."
-            />
-          </div>
-
-          <!-- ===== 内容块（可视化插入） ===== -->
-          <div class="field">
-            <div class="blocks-header">
-              <label>内容块</label>
-              <div class="insert-toolbar">
-                <button
-                  v-for="type in cardTypeOptions"
-                  :key="type.value"
-                  class="insert-btn"
-                  @click="openInsertPicker(type.value)"
-                >
-                  {{ type.label }}
-                </button>
-              </div>
-            </div>
-
-            <div v-if="form.contentBlocks.length > 0" class="blocks-list">
-              <div
-                v-for="(block, idx) in form.contentBlocks"
-                :key="block.id"
-                class="block-item"
-              >
-                <div class="block-preview">
-                  <span class="block-type-label">{{ getTypeLabel(block.cardType) }}</span>
-                  <div class="block-info">
-                    <span class="block-title">{{ getCardTitle(block.cardId) }}</span>
-                    <span class="block-desc">{{ getBlockPreview(block.cardId) }}</span>
-                  </div>
-                </div>
-                <button class="remove-block" @click="removeBlock(idx)">×</button>
-              </div>
-            </div>
-            <div v-else class="blocks-empty">
-              <span>点击上方按钮插入卡片内容块</span>
-            </div>
-          </div>
-
-          <!-- ===== 标签 ===== -->
-          <div class="field">
-            <label>标签</label>
-            <div class="tag-input">
-              <input
-                v-model="tagInput"
-                placeholder="输入标签，按回车添加"
-                @keydown.enter.prevent="addTag"
-              />
-              <button type="button" @click="addTag" class="add-tag-btn">添加</button>
-            </div>
-            <div class="tag-list">
-              <span v-for="tag in form.tags" :key="tag" class="tag-item">
-                #{{ tag }}
-                <button type="button" @click="removeTag(tag)" class="remove-tag">×</button>
-              </span>
-            </div>
-          </div>
-
-          <!-- ===== 关联卡片 ===== -->
-          <div class="field">
-            <label>关联卡片</label>
-            <div class="relation-list">
-              <div v-for="(rel, idx) in form.relations" :key="idx" class="relation-item">
-                <span class="relation-source">{{ getCardTitle(rel.targetCardId) }}</span>
-                <span class="relation-arrow">←</span>
-                <span class="relation-type">「{{ rel.relationType }}」</span>
-                <span class="relation-target">{{ form.title || '(当前卡片)' }}</span>
-                <button type="button" class="remove-relation" @click="removeRelation(idx)">×</button>
-              </div>
-            </div>
-
-            <div class="relation-add">
-              <el-select
-                v-model="newRelation.targetId"
-                filterable
-                remote
-                :remote-method="searchCards"
-                placeholder="搜索并选择要关联的卡片"
-                size="default"
-              >
-                <el-option
-                  v-for="card in searchResults"
-                  :key="card.id"
-                  :label="`${card.title} (${getTypeLabel(card.type)})`"
-                  :value="card.id"
-                />
-              </el-select>
-              <input
-                v-model="newRelation.relationType"
-                placeholder="关系描述"
-                class="relation-input"
-                @keydown.enter.prevent="addRelation"
-              />
-              <button type="button" class="add-relation-btn" @click="addRelation">添加</button>
-            </div>
-          </div>
-        </div>
-
-        <footer class="dialog-footer">
-          <button v-if="isEdit" class="btn-danger" @click="handleDelete">删除</button>
-          <div class="footer-right">
-            <button class="btn-outline" @click="close">取消</button>
-            <button class="btn-primary" @click="handleSave" :disabled="saving">
-              {{ saving ? '保存中...' : '保存' }}
-            </button>
-          </div>
-        </footer>
+    <!-- 类型选择 -->
+    <div class="field">
+      <div class="type-tabs">
+        <button
+          v-for="type in cardTypeOptions"
+          :key="type.value"
+          class="type-tab"
+          :class="{ active: form.type === type.value }"
+          @click="selectType(type)"
+        >
+          {{ type.label }}
+        </button>
       </div>
     </div>
-  </Transition>
 
-  <!-- ===== 卡片插入选择器 ===== -->
-  <div v-if="showInsertPicker" class="picker-overlay" @click.self="closeInsertPicker">
-    <div class="picker-modal">
-      <div class="picker-header">
-        <span>选择要插入的 {{ pickerTypeLabel }} 卡片</span>
-        <button class="picker-close" @click="closeInsertPicker">✕</button>
+    <!-- 封面图 -->
+    <div class="field cover-field">
+      <div v-if="form.coverImage" class="cover-preview-mini">
+        <img :src="form.coverImage" />
+        <button class="remove-cover-mini" @click="form.coverImage = ''">×</button>
       </div>
-      <div class="picker-search">
-        <input v-model="pickerSearch" placeholder="搜索卡片..." />
-      </div>
-      <div class="picker-list">
-        <div
-          v-for="card in pickerResults"
-          :key="card.id"
-          class="picker-item"
-          @click="insertBlock(card)"
-        >
-          <span class="picker-type-label">{{ getTypeLabel(card.type) }}</span>
-          <span class="picker-title">{{ card.title }}</span>
+      <button v-else class="upload-cover-btn" @click="triggerFileInput">+ 封面图</button>
+      <input ref="fileInput" type="file" accept="image/*" style="display:none" @change="handleFileUpload" />
+      <div v-if="uploadingCover" class="upload-progress-mini">上传中...</div>
+    </div>
+
+    <!-- ===== 属性（共用组件） ===== -->
+    <div class="field">
+      <AttributeList v-model="form.attributes" />
+    </div>
+
+    <!-- 描述 -->
+    <div class="field">
+      <textarea v-model="form.description" rows="3" placeholder="描述..." class="desc-area"></textarea>
+    </div>
+
+    <!-- ===== 🔥 类型专属编辑器（动态组件） ===== -->
+    <div v-if="currentTypeEditor" class="field type-editor-wrapper">
+      <component
+        :is="currentTypeEditor"
+        v-model="form"
+      />
+    </div>
+    <div v-else class="field type-editor-placeholder">
+      <p class="placeholder-text">📝 该类型暂无专属编辑器，使用通用字段</p>
+    </div>
+
+    <!-- 内容块（关联卡片预览） -->
+    <div class="field">
+      <div class="blocks-header">
+        <span>关联内容</span>
+        <div class="insert-toolbar">
+          <button
+            v-for="type in cardTypeOptions"
+            :key="type.value"
+            class="insert-btn"
+            @click="openInsertPicker(type.value)"
+          >
+            +{{ type.label }}
+          </button>
         </div>
-        <div v-if="pickerResults.length === 0 && !pickerLoading" class="picker-empty">
-          没有找到 {{ pickerTypeLabel }} 卡片
-        </div>
-        <div v-if="pickerLoading" class="picker-empty">加载中...</div>
       </div>
-      <div class="picker-footer">
-        <button class="btn-outline" @click="closeInsertPicker">取消</button>
-        <button class="btn-primary" @click="createAndInsert">新建 {{ pickerTypeLabel }} 卡片并插入</button>
+      <div class="blocks-list">
+        <div v-for="(block, idx) in form.contentBlocks" :key="block.id" class="block-card">
+          <div class="block-preview-wrapper">
+            <div v-if="getBlockCover(block)" class="block-cover-small">
+              <img :src="getBlockCover(block)" />
+            </div>
+            <div class="block-info">
+              <div class="block-title-row">
+                <span class="block-type-badge">{{ getBlockTypeLabel(block) }}</span>
+                <span class="block-title">{{ getBlockTitle(block) }}</span>
+              </div>
+              <p class="block-summary">{{ getBlockSummary(block) }}</p>
+              <div v-if="getBlockAttributes(block).length" class="block-attr-tags">
+                <span
+                  v-for="attr in getBlockAttributes(block).slice(0, 4)"
+                  :key="attr.key"
+                  class="block-attr-tag"
+                >
+                  {{ attr.key }}: {{ attr.value }}
+                </span>
+                <span v-if="getBlockAttributes(block).length > 4" class="block-attr-more">
+                  +{{ getBlockAttributes(block).length - 4 }}
+                </span>
+              </div>
+            </div>
+            <button class="remove-block-btn" @click="removeBlock(idx)">✕</button>
+          </div>
+        </div>
+        <div v-if="!form.contentBlocks.length" class="blocks-empty">
+          点击上方按钮插入关联卡片
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 标签（共用组件） ===== -->
+    <div class="field">
+      <TagInput v-model="form.tags" />
+    </div>
+
+    <!-- ===== 关联卡片（共用组件） ===== -->
+    <div class="field">
+      <RelationSelector
+        v-model="form.relations"
+        :project-id="projectId"
+      />
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="editor-actions">
+      <button class="btn-primary" @click="handleSave" :disabled="saving">
+        {{ saving ? '保存中...' : '保存' }}
+      </button>
+      <button v-if="!isCreating" class="btn-danger" @click="handleDelete">删除</button>
+    </div>
+
+    <!-- 插入选择器浮层 -->
+    <div v-if="showInsertPicker" class="picker-overlay" @click.self="closeInsertPicker">
+      <div class="picker-modal">
+        <div class="picker-header">
+          <span>插入 {{ pickerTypeLabel }}</span>
+          <button class="picker-close" @click="closeInsertPicker">✕</button>
+        </div>
+        <div class="picker-search">
+          <input v-model="pickerSearch" placeholder="搜索..." />
+        </div>
+        <div class="picker-list">
+          <div
+            v-for="card in pickerResults"
+            :key="card.id"
+            class="picker-item"
+            @click="insertBlock(card)"
+          >
+            <span class="picker-type">{{ getTypeLabel(card.type) }}</span>
+            <span class="picker-title">{{ card.title }}</span>
+            <span v-if="card.description" class="picker-summary">
+              {{ card.description.slice(0, 30) }}
+            </span>
+          </div>
+          <div v-if="!pickerResults.length && !pickerLoading" class="picker-empty">
+            没有可用的卡片
+          </div>
+        </div>
+        <div class="picker-footer">
+          <button class="btn-outline" @click="closeInsertPicker">取消</button>
+          <button class="btn-primary" @click="createAndInsert">新建并插入</button>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, nextTick, onMounted } from 'vue';
+import { ref, watch, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { useWorldStore } from '../../../stores/world';
+import { useWorldStore } from '@/stores/world';
 import { useCos } from '@/composables/useCos';
 import { v4 as uuidv4 } from 'uuid';
+import { CardTypeMeta, type CardType } from '../card_type';
 
+// ===== 导入共用组件 =====
+import AttributeList from './AttributeList.vue';
+import TagInput from './TagInput.vue';
+import RelationSelector from './RelationSelector.vue';
+
+// ===== 🔥 导入所有类型专属编辑器 =====
+import CharacterEditor from '../type-editors/CharacterEditor.vue';
+import LocationEditor from '../type-editors/LocationEditor.vue';
+import ItemEditor from '../type-editors/ItemEditor.vue';
+import EventEditor from '../type-editors/EventEditor.vue';
+import FactionEditor from '../type-editors/FactionEditor.vue';
+import SpeciesEditor from '../type-editors/SpeciesEditor.vue';
+import EcologyEditor from '../type-editors/EcologyEditor.vue';
+import LoreEditor from '../type-editors/LoreEditor.vue';
+import OccupationEditor from '../type-editors/OccupationEditor.vue';
+import NationEditor from '../type-editors/NationEditor.vue';
+import ContinentEditor from '../type-editors/ContinentEditor.vue';
+import OrganizationEditor from '../type-editors/OrganizationEditor.vue';
+import CreatureEditor from '../type-editors/CreatureEditor.vue';
+import BuildingEditor from '../type-editors/BuildingEditor.vue';
+import WeaponEditor from '../type-editors/WeaponEditor.vue';
+import DeityEditor from '../type-editors/DeityEditor.vue';
+import SkillEditor from '../type-editors/SkillEditor.vue';
+// ✅ 新增：气候编辑器
+import ClimateEditor from '../type-editors/ClimateEditor.vue';
+
+// ===== Props =====
 const props = defineProps<{
-  visible: boolean;
   projectId: string;
   cardData?: any | null;
+  inline?: boolean;
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:visible', value: boolean): void;
   (e: 'saved'): void;
   (e: 'deleted'): void;
 }>();
 
+// ===== Store & Composables =====
 const store = useWorldStore();
-const saving = ref(false);
-const tagInput = ref('');
-const aliasInput = ref('');
-
-const fileInput = ref<HTMLInputElement | null>(null);
-const uploadingCover = ref(false);
-const uploadProgress = ref(0);
 const { uploadFile } = useCos();
 
-const TYPE_LABELS: Record<string, string> = {
-  character: '角色',
-  location: '地点',
-  item: '物品',
-  event: '事件',
-  ecology: '生态',
-  faction: '派系',
-  species: '物种',
-  lore: '背景设定',
-};
+// ===== 状态 =====
+const saving = ref(false);
+const tagInput = ref('');
+const fileInput = ref<HTMLInputElement | null>(null);
+const uploadingCover = ref(false);
 
-const cardTypeOptions = computed(() => {
-  if (store.cardTypes && store.cardTypes.length > 0) {
-    return store.cardTypes.map((t: any) => ({
-      value: t.id || t.value,
-      label: t.label,
-    }));
-  }
-  return [
-    { value: 'character', label: '角色' },
-    { value: 'location', label: '地点' },
-    { value: 'item', label: '物品' },
-    { value: 'event', label: '事件' },
-    { value: 'ecology', label: '生态' },
-    { value: 'faction', label: '派系' },
-    { value: 'species', label: '物种' },
-    { value: 'lore', label: '背景设定' },
-  ];
-});
-
+const isCreating = ref(!props.cardData);
 const showInsertPicker = ref(false);
-const pickerType = ref('');
+const pickerType = ref<CardType>('character');
 const pickerSearch = ref('');
 const pickerResults = ref<any[]>([]);
 const pickerLoading = ref(false);
-
-const pickerTypeLabel = computed(() => {
-  const found = cardTypeOptions.value.find(t => t.value === pickerType.value);
-  return found?.label || pickerType.value;
-});
-
 const newRelation = ref({ targetId: '', relationType: '' });
 const searchResults = ref<any[]>([]);
 
+// ===== 卡片类型选项 =====
+const cardTypeOptions = computed(() => {
+  if (store.cardTypes && store.cardTypes.length) {
+    return store.cardTypes.map((t: any) => ({ value: t.id || t.value, label: t.label }));
+  }
+  return Object.entries(CardTypeMeta).map(([value, meta]) => ({
+    value,
+    label: meta.label,
+  }));
+});
+
+// ===== 🔥 编辑器映射 =====
+const editorMap: Record<CardType, any> = {
+  character: CharacterEditor,
+  location: LocationEditor,
+  item: ItemEditor,
+  event: EventEditor,
+  faction: FactionEditor,
+  species: SpeciesEditor,
+  ecology: EcologyEditor,
+  lore: LoreEditor,
+  occupation: OccupationEditor,
+  nation: NationEditor,
+  continent: ContinentEditor,
+  organization: OrganizationEditor,
+  creature: CreatureEditor,
+  building: BuildingEditor,
+  weapon: WeaponEditor,
+  deity: DeityEditor,
+  skill: SkillEditor,
+  // ✅ 新增：气候
+  climate: ClimateEditor,
+};
+
+// ===== 🔥 当前使用的编辑器 =====
+const currentTypeEditor = computed(() => {
+  return editorMap[form.value.type as CardType] || null;
+});
+
+// ===== 表单数据 =====
 const form = ref({
   title: '',
-  type: 'character',
-  subType: '',
+  type: 'character' as CardType,
   coverImage: '',
-  aliases: [] as string[],
   attributes: [] as { key: string; value: string }[],
   description: '',
   content: '{}',
   tags: [] as string[],
   relations: [] as { targetCardId: string; relationType: string }[],
-  timelineEvents: [] as { date: string; title: string; description?: string }[],
-  embeddedCards: [] as string[],
-  contentBlocks: [] as { id: string; cardId: string; cardType: string; order: number }[],
+  contentBlocks: [] as {
+    id: string;
+    cardId: string;
+    cardType: string;
+    order: number;
+    cardTitle?: string;
+    cardCover?: string;
+    cardSummary?: string;
+    cardAttributes?: { key: string; value: string }[];
+  }[],
 });
 
-const isEdit = computed(() => !!props.cardData);
+// ===== 计算属性 =====
+const pickerTypeLabel = computed(() => {
+  const found = cardTypeOptions.value.find(t => t.value === pickerType.value);
+  return found?.label || pickerType.value;
+});
 
-const selectType = (type: any) => {
-  form.value.type = type.value;
-  form.value.subType = '';
-};
-
-const getCardTitle = (cardId: string) => {
-  const card = store.cards.find(c => c.id === cardId);
+// ===== 关联卡片信息获取方法 =====
+const getBlockTitle = (block: any) => {
+  if (block.cardTitle) return block.cardTitle;
+  const card = store.cards.find((c: any) => c.id === block.cardId);
   return card?.title || '已删除的卡片';
 };
 
-const getTypeLabel = (type: string) => {
-  const found = cardTypeOptions.value.find(t => t.value === type);
-  return found?.label || type;
+const getBlockTypeLabel = (block: any) => {
+  if (block.cardType) {
+    const meta = CardTypeMeta[block.cardType as CardType];
+    return meta?.label || block.cardType;
+  }
+  const card = store.cards.find((c: any) => c.id === block.cardId);
+  if (card) {
+    const meta = CardTypeMeta[card.type as CardType];
+    return meta?.label || card.type;
+  }
+  return '未知';
 };
 
-const getBlockPreview = (cardId: string) => {
-  const card = store.cards.find(c => c.id === cardId);
-  if (!card) return '已删除的卡片';
+const getBlockCover = (block: any) => {
+  if (block.cardCover) return block.cardCover;
+  const card = store.cards.find((c: any) => c.id === block.cardId);
+  return card?.coverImage || '';
+};
+
+const getBlockSummary = (block: any) => {
+  if (block.cardSummary) return block.cardSummary;
+  const card = store.cards.find((c: any) => c.id === block.cardId);
+  if (!card) return '';
   if (card.description) return card.description;
   try {
     const data = JSON.parse(card.content || '{}');
@@ -360,47 +335,33 @@ const getBlockPreview = (cardId: string) => {
   }
 };
 
+const getBlockAttributes = (block: any) => {
+  if (block.cardAttributes) return block.cardAttributes;
+  const card = store.cards.find((c: any) => c.id === block.cardId);
+  return card?.attributes || [];
+};
+
+// ===== 方法 =====
+const getTypeLabel = (type: string) => {
+  const meta = CardTypeMeta[type as CardType];
+  return meta?.label || type;
+};
+
+const selectType = (type: any) => {
+  form.value.type = type.value;
+};
+
 const searchCards = (query: string) => {
-  const cards = store.cards;
+  const cards = store.cards.filter((c: any) => c.id !== props.cardData?.id);
   if (!query) {
-    searchResults.value = cards.filter(c => c.id !== props.cardData?.id).slice(0, 10);
+    searchResults.value = cards.slice(0, 10);
     return;
   }
   const lower = query.toLowerCase();
-  searchResults.value = cards
-    .filter(c => c.title.toLowerCase().includes(lower) && c.id !== props.cardData?.id)
-    .slice(0, 10);
+  searchResults.value = cards.filter((c: any) => c.title.toLowerCase().includes(lower)).slice(0, 10);
 };
 
-const addRelation = () => {
-  if (!newRelation.value.targetId) {
-    ElMessage.warning('请选择要关联的卡片');
-    return;
-  }
-  if (!newRelation.value.relationType.trim()) {
-    ElMessage.warning('请输入关系描述');
-    return;
-  }
-  if (form.value.relations.some(r => r.targetCardId === newRelation.value.targetId)) {
-    ElMessage.warning('该卡片已关联');
-    return;
-  }
-  if (newRelation.value.targetId === props.cardData?.id) {
-    ElMessage.warning('不能关联自己');
-    return;
-  }
-  form.value.relations.push({
-    targetCardId: newRelation.value.targetId,
-    relationType: newRelation.value.relationType.trim(),
-  });
-  newRelation.value = { targetId: '', relationType: '' };
-};
-
-const removeRelation = (idx: number) => {
-  form.value.relations.splice(idx, 1);
-};
-
-const openInsertPicker = (type: string) => {
+const openInsertPicker = (type: CardType) => {
   pickerType.value = type;
   pickerSearch.value = '';
   showInsertPicker.value = true;
@@ -411,23 +372,38 @@ const closeInsertPicker = () => {
   showInsertPicker.value = false;
 };
 
-const loadPickerCards = (type: string) => {
+const loadPickerCards = (type: CardType) => {
   pickerLoading.value = true;
-  const cards = store.cards.filter(c => c.type === type && c.id !== props.cardData?.id);
+  const cards = store.cards.filter(
+    (c: any) => c.type === type && c.id !== props.cardData?.id
+  );
   pickerResults.value = cards.slice(0, 20);
   pickerLoading.value = false;
 };
 
 const insertBlock = (card: any) => {
-  if (form.value.contentBlocks.some(b => b.cardId === card.id)) {
-    ElMessage.warning('该卡片已插入');
+  if (form.value.contentBlocks.some((b: any) => b.cardId === card.id)) {
+    ElMessage.warning('已插入');
     return;
   }
+
+  let summary = card.description || '';
+  if (!summary) {
+    try {
+      const data = JSON.parse(card.content || '{}');
+      summary = data.description || data.summary || '';
+    } catch {}
+  }
+
   form.value.contentBlocks.push({
     id: uuidv4(),
     cardId: card.id,
     cardType: card.type,
     order: form.value.contentBlocks.length,
+    cardTitle: card.title,
+    cardCover: card.coverImage || '',
+    cardSummary: summary,
+    cardAttributes: card.attributes || [],
   });
   closeInsertPicker();
   ElMessage.success(`已插入：${card.title}`);
@@ -437,211 +413,119 @@ const removeBlock = (idx: number) => {
   form.value.contentBlocks.splice(idx, 1);
 };
 
-const createAndInsert = async () => {
+const createAndInsert = () => {
   closeInsertPicker();
-  window.dispatchEvent(new CustomEvent('create-card-with-type', {
-    detail: { type: pickerType.value }
-  }));
+  window.dispatchEvent(
+    new CustomEvent('open-create-card', { detail: { type: pickerType.value } })
+  );
 };
 
-watch(pickerSearch, (query) => {
-  if (!showInsertPicker.value) return;
-  const cards = store.cards.filter(c => c.type === pickerType.value && c.id !== props.cardData?.id);
-  if (!query) {
-    pickerResults.value = cards.slice(0, 20);
+const triggerFileInput = () => fileInput.value?.click();
+
+const handleFileUpload = async (e: Event) => {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    ElMessage.warning('请上传图片');
     return;
   }
-  const lower = query.toLowerCase();
-  pickerResults.value = cards
-    .filter(c => c.title.toLowerCase().includes(lower))
-    .slice(0, 20);
-});
-
-const addAlias = () => {
-  const text = aliasInput.value.trim();
-  if (!text) return;
-  if (form.value.aliases.includes(text)) {
-    ElMessage.warning('别名已存在');
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.warning('最大5MB');
     return;
   }
-  form.value.aliases.push(text);
-  aliasInput.value = '';
-};
-
-const removeAlias = (alias: string) => {
-  form.value.aliases = form.value.aliases.filter(a => a !== alias);
-};
-
-const addAttribute = () => {
-  form.value.attributes.push({ key: '', value: '' });
-};
-
-const removeAttribute = (idx: number) => {
-  form.value.attributes.splice(idx, 1);
-};
-
-const addTag = () => {
-  const text = tagInput.value.trim();
-  if (!text) return;
-  if (form.value.tags.includes(text)) {
-    ElMessage.warning('标签已存在');
-    return;
+  uploadingCover.value = true;
+  try {
+    const result = await uploadFile(file, 'world/covers');
+    form.value.coverImage = result.url;
+    ElMessage.success('上传成功');
+  } catch (error) {
+    ElMessage.error('上传失败');
+  } finally {
+    uploadingCover.value = false;
+    input.value = '';
   }
-  if (form.value.tags.length >= 10) {
-    ElMessage.warning('最多添加 10 个标签');
-    return;
-  }
-  form.value.tags.push(text);
-  tagInput.value = '';
-};
-
-const removeTag = (tag: string) => {
-  form.value.tags = form.value.tags.filter(t => t !== tag);
-};
-
-const getCardTags = (tags: any) => {
-  if (Array.isArray(tags)) return tags;
-  if (typeof tags === 'string') {
-    try {
-      return JSON.parse(tags);
-    } catch {
-      return [];
-    }
-  }
-  return [];
 };
 
 const resetForm = () => {
   form.value = {
     title: '',
     type: 'character',
-    subType: '',
     coverImage: '',
-    aliases: [],
     attributes: [],
     description: '',
     content: '{}',
     tags: [],
     relations: [],
-    timelineEvents: [],
-    embeddedCards: [],
     contentBlocks: [],
   };
   tagInput.value = '';
-  aliasInput.value = '';
   newRelation.value = { targetId: '', relationType: '' };
   searchResults.value = [];
 };
 
 const loadCardData = () => {
   if (props.cardData) {
-    const tags = getCardTags(props.cardData.tags);
-    const relations = (props.cardData.relations || []).map((r: any) => ({
-      targetCardId: r.targetCardId,
-      relationType: r.relationType,
-    }));
+    const data = props.cardData;
     form.value = {
-      title: props.cardData.title || '',
-      type: props.cardData.type || 'character',
-      subType: props.cardData.subType || '',
-      coverImage: props.cardData.coverImage || '',
-      aliases: props.cardData.aliases || [],
-      attributes: props.cardData.attributes || [],
-      description: props.cardData.description || '',
-      content: props.cardData.content || '{}',
-      tags: tags,
-      relations: relations,
-      timelineEvents: props.cardData.timelineEvents || [],
-      embeddedCards: props.cardData.embeddedCards || [],
-      contentBlocks: props.cardData.contentBlocks || [],
+      title: data.title || '',
+      type: data.type || 'character',
+      coverImage: data.coverImage || '',
+      attributes: data.attributes || [],
+      description: data.description || '',
+      content: data.content || '{}',
+      tags: Array.isArray(data.tags)
+        ? data.tags
+        : (() => {
+            try {
+              return JSON.parse(data.tags || '[]');
+            } catch {
+              return [];
+            }
+          })(),
+      relations: (data.relations || []).map((r: any) => ({
+        targetCardId: r.targetCardId,
+        relationType: r.relationType,
+      })),
+      contentBlocks: data.contentBlocks || [],
     };
+    isCreating.value = false;
   } else {
     resetForm();
+    isCreating.value = true;
   }
   searchCards('');
 };
 
-const triggerFileInput = () => {
-  fileInput.value?.click();
-};
-
-const handleFileUpload = async (e: Event) => {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-
-  if (!file.type.startsWith('image/')) {
-    ElMessage.warning('请上传图片文件');
-    return;
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    ElMessage.warning('图片大小不能超过 5MB');
-    return;
-  }
-
-  uploadingCover.value = true;
-  uploadProgress.value = 0;
-
-  try {
-    const result = await uploadFile(file, 'world/covers');
-    form.value.coverImage = result.url;
-    ElMessage.success('封面图上传成功');
-  } catch (error) {
-    console.error('上传失败:', error);
-    ElMessage.error('上传失败，请重试');
-  } finally {
-    uploadingCover.value = false;
-    uploadProgress.value = 0;
-    input.value = '';
-  }
-};
-
 const handleSave = async () => {
   if (!form.value.title.trim()) {
-    ElMessage.warning('请输入卡片标题');
+    ElMessage.warning('请输入标题');
     return;
   }
-
-  let contentStr = form.value.content.trim();
-  if (!contentStr) {
-    contentStr = '{}';
-  } else {
-    try {
-      JSON.parse(contentStr);
-    } catch {
-      contentStr = JSON.stringify({ description: contentStr });
-    }
-  }
-
   const payload = {
     title: form.value.title.trim(),
     type: form.value.type,
-    subType: form.value.subType || '',
-    coverImage: form.value.coverImage || '',
-    aliases: form.value.aliases,
+    coverImage: form.value.coverImage,
     attributes: form.value.attributes,
     description: form.value.description.trim(),
-    content: contentStr,
+    content: form.value.content || '{}',
     tags: form.value.tags,
     relations: form.value.relations,
-    timelineEvents: form.value.timelineEvents,
-    embeddedCards: form.value.embeddedCards,
     contentBlocks: form.value.contentBlocks,
   };
-
   saving.value = true;
   try {
-    if (isEdit.value && props.cardData) {
-      await store.updateCard(props.cardData.id, payload);
-      ElMessage.success('卡片已更新');
-    } else {
+    if (isCreating.value) {
       await store.createCard(props.projectId, payload);
-      ElMessage.success('卡片已创建');
+      ElMessage.success('已创建');
+    } else {
+      await store.updateCard(props.cardData.id, payload);
+      ElMessage.success('已更新');
     }
     emit('saved');
   } catch (error) {
     console.error('保存失败:', error);
-    ElMessage.error('保存失败，请重试');
+    ElMessage.error('保存失败');
   } finally {
     saving.value = false;
   }
@@ -649,443 +533,176 @@ const handleSave = async () => {
 
 const handleDelete = async () => {
   try {
-    await ElMessageBox.confirm('确定要删除这张卡片吗？此操作不可恢复。', '确认删除', {
-      confirmButtonText: '确定删除',
-      cancelButtonText: '取消',
-      type: 'warning',
-    });
-    if (props.cardData) {
-      await store.deleteCard(props.cardData.id);
-      ElMessage.success('卡片已删除');
-      emit('deleted');
-    }
+    await ElMessageBox.confirm('确定删除吗？', '提示', { type: 'warning' });
+    await store.deleteCard(props.cardData.id);
+    ElMessage.success('已删除');
+    emit('deleted');
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('删除失败:', error);
-    }
+    if (error !== 'cancel') console.error(error);
   }
 };
 
-const close = () => {
-  emit('update:visible', false);
+const cancelCreate = () => {
+  if (isCreating.value) {
+    emit('deleted');
+  }
 };
 
-watch(
-  () => props.visible,
-  (val) => {
-    if (val) {
-      loadCardData();
-    }
-  }
-);
+// ===== 监听 =====
+watch(() => props.cardData, loadCardData, { immediate: true });
 
-watch(
-  () => props.cardData,
-  () => {
-    if (props.visible) {
-      loadCardData();
-    }
-  }
-);
-
+// ===== 生命周期 =====
 onMounted(() => {
-  window.addEventListener('create-card-with-type', ((e: CustomEvent) => {
-    const type = e.detail?.type;
-    if (type) {
-      close();
-      window.dispatchEvent(new CustomEvent('open-create-card', {
-        detail: { type }
-      }));
-    }
-  }) as EventListener);
+  window.addEventListener(
+    'open-create-card',
+    ((e: CustomEvent) => {
+      const type = e.detail?.type || 'character';
+      resetForm();
+      form.value.type = type;
+      isCreating.value = true;
+    }) as EventListener
+  );
 });
 </script>
 
 <style scoped>
-.dialog-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(4px);
+/* 样式保持不变，与之前相同 */
+.card-editor-inline {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+  flex-direction: column;
+  gap: 12px;
 }
-.dialog {
-  background: white;
-  border-radius: 24px;
-  width: 640px;
-  max-width: 94%;
-  max-height: 90vh;
-  overflow-y: auto;
-  padding: 28px 32px 24px;
-  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.12);
-}
-.dialog-header {
+
+.create-banner {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  background: #eef2ff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 500;
+  color: #4f46e5;
 }
-.dialog-header h2 {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  color: #0f172a;
-}
-.close-btn {
+.cancel-create {
   background: none;
   border: none;
-  font-size: 24px;
-  color: #94a3b8;
+  color: #64748b;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 8px;
 }
-.close-btn:hover {
-  background: #f1f3f5;
-}
-.dialog-body {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.field label {
-  font-weight: 600;
-  font-size: 14px;
-  color: #334155;
-}
-.field label .required {
-  color: #ef4444;
-}
-.field input,
-.field textarea {
+
+.title-input {
+  width: 100%;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-size: 15px;
-  font-family: inherit;
-  transition: border 0.2s;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 16px;
+  font-weight: 500;
   background: #fafbfc;
 }
-.field input:focus,
-.field textarea:focus {
+.title-input:focus {
   outline: none;
   border-color: #4f46e5;
   background: white;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.06);
-}
-.field textarea {
-  resize: vertical;
-  min-height: 60px;
-  font-family: 'Monaco', 'Menlo', monospace;
-  font-size: 14px;
-}
-.hint {
-  font-size: 12px;
-  color: #94a3b8;
 }
 
-.type-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-  gap: 8px;
-}
-.type-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 10px 6px;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: #fafbfc;
-  text-align: center;
-}
-.type-card:hover {
-  border-color: #cbd5e1;
-  background: #f1f5f9;
-}
-.type-card.active {
-  border-color: #4f46e5;
-  background: #eef2ff;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-}
-.type-name {
-  font-weight: 500;
-  font-size: 13px;
-  color: #0f172a;
-}
-
-.tag-input {
-  display: flex;
-  gap: 6px;
-}
-.tag-input input {
-  flex: 1;
-}
-.add-tag-btn {
-  padding: 0 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  background: #fafbfc;
-  color: #64748b;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 13px;
-}
-.add-tag-btn:hover {
-  background: #4f46e5;
-  color: white;
-  border-color: #4f46e5;
-}
-.tag-list {
+.type-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
-}
-.tag-item {
-  display: inline-flex;
-  align-items: center;
   gap: 4px;
+}
+.type-tab {
+  padding: 4px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: white;
+  font-size: 12px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.type-tab:hover {
+  background: #f1f5f9;
+}
+.type-tab.active {
+  border-color: #4f46e5;
   background: #eef2ff;
   color: #4f46e5;
-  padding: 2px 10px 2px 12px;
-  border-radius: 14px;
-  font-size: 13px;
-  font-weight: 500;
-}
-.remove-tag {
-  background: none;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 0 2px;
-}
-.remove-tag:hover {
-  color: #ef4444;
 }
 
-.attribute-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.attribute-item {
+.cover-field {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
-.attr-key {
-  flex: 1;
-  border: 1px solid #e2e8f0;
+.cover-preview-mini {
+  position: relative;
+  width: 80px;
+  height: 60px;
   border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 14px;
-  background: #fafbfc;
-}
-.attr-key:focus {
-  outline: none;
-  border-color: #4f46e5;
-}
-.attr-value {
-  flex: 1.5;
+  overflow: hidden;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 6px 10px;
-  font-size: 14px;
-  background: #fafbfc;
 }
-.attr-value:focus {
-  outline: none;
-  border-color: #4f46e5;
+.cover-preview-mini img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
-.attr-sep {
-  color: #94a3b8;
-}
-.remove-attr {
-  background: none;
+.remove-cover-mini {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
   border: none;
-  color: #94a3b8;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
   cursor: pointer;
-  font-size: 18px;
-  padding: 0 4px;
+  font-size: 14px;
 }
-.remove-attr:hover {
-  color: #ef4444;
-}
-.add-attr-btn {
-  padding: 4px 14px;
+.upload-cover-btn {
+  padding: 4px 16px;
   border: 1px dashed #d1d5db;
   border-radius: 8px;
   background: transparent;
   color: #64748b;
   cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
-  align-self: flex-start;
 }
-.add-attr-btn:hover {
-  border-color: #4f46e5;
-  color: #4f46e5;
+.upload-progress-mini {
+  font-size: 12px;
+  color: #94a3b8;
 }
 
-.relation-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 6px;
-  min-height: 16px;
-}
-.relation-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: #f8f9fc;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font-size: 13px;
-  border: 1px solid #f1f3f5;
-}
-.relation-source {
-  font-weight: 500;
-  color: #0f172a;
-}
-.relation-arrow {
-  color: #94a3b8;
-}
-.relation-type {
-  color: #4f46e5;
-  font-weight: 500;
-}
-.relation-target {
-  color: #64748b;
-}
-.remove-relation {
-  margin-left: auto;
-  background: none;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  font-size: 18px;
-  padding: 0 4px;
-}
-.remove-relation:hover {
-  color: #ef4444;
-}
-.relation-add {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.relation-add :deep(.el-select) {
-  flex: 2;
-  min-width: 140px;
-}
-.relation-add :deep(.el-select .el-input__wrapper) {
-  border-radius: 10px;
-}
-.relation-input {
-  flex: 3;
-  min-width: 120px;
+.desc-area {
+  width: 100%;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
-  padding: 6px 12px;
-  font-size: 14px;
+  padding: 8px 12px;
   font-family: inherit;
+  resize: vertical;
   background: #fafbfc;
 }
-.relation-input:focus {
+.desc-area:focus {
   outline: none;
   border-color: #4f46e5;
   background: white;
 }
-.add-relation-btn {
-  padding: 6px 16px;
-  border: none;
-  border-radius: 10px;
-  background: #4f46e5;
-  color: white;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 13px;
-}
-.add-relation-btn:hover {
-  background: #4338ca;
-  transform: translateY(-1px);
-}
-.add-relation-btn:active {
-  transform: scale(0.97);
+
+.type-editor-wrapper {
+  margin: 8px 0;
+  padding: 0;
 }
 
-.dialog-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid #f1f3f5;
+.type-editor-placeholder {
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px dashed #d1d5db;
+  text-align: center;
+  margin: 8px 0;
 }
-.footer-right {
-  display: flex;
-  gap: 10px;
-}
-.btn-danger {
-  padding: 8px 18px;
-  background: #fef2f2;
-  color: #ef4444;
-  border: 1px solid #fecaca;
-  border-radius: 10px;
+.placeholder-text {
+  color: #94a3b8;
   font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.btn-danger:hover {
-  background: #fee2e2;
-  border-color: #fca5a5;
-}
-.btn-outline {
-  padding: 8px 20px;
-  background: transparent;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-  cursor: pointer;
-}
-.btn-outline:hover {
-  background: #f3f4f6;
-}
-.btn-primary {
-  padding: 8px 24px;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-primary:hover:not(:disabled) {
-  background: #4338ca;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25);
-}
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+  margin: 0;
 }
 
 .blocks-header {
@@ -1093,7 +710,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
 .insert-toolbar {
   display: flex;
@@ -1101,94 +718,166 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 .insert-btn {
-  padding: 4px 12px;
+  padding: 2px 10px;
   border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  border-radius: 12px;
   background: white;
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
-  transition: all 0.2s;
-  color: #475569;
 }
 .insert-btn:hover {
   background: #eef2ff;
   border-color: #4f46e5;
-  color: #4f46e5;
 }
+
 .blocks-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   margin-top: 4px;
+  max-height: 300px;
+  overflow-y: auto;
 }
-.block-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 14px;
-  background: #f8f9fc;
-  border: 1px solid #f1f3f5;
-  border-radius: 10px;
+
+.block-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fafbfc;
 }
-.block-preview {
+
+.block-preview-wrapper {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.block-cover-small {
+  flex-shrink: 0;
+  width: 60px;
+  height: 60px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+.block-cover-small img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.block-info {
   flex: 1;
   min-width: 0;
 }
-.block-type-label {
-  font-size: 11px;
+.block-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.block-type-badge {
+  font-size: 10px;
   color: #4f46e5;
   background: #eef2ff;
-  padding: 1px 10px;
+  padding: 1px 8px;
   border-radius: 10px;
   font-weight: 500;
   flex-shrink: 0;
-}
-.block-info {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 0;
 }
 .block-title {
   font-weight: 500;
+  font-size: 14px;
   color: #0f172a;
 }
-.block-desc {
-  font-size: 12px;
-  color: #94a3b8;
+.block-summary {
+  font-size: 13px;
+  color: #64748b;
+  margin: 2px 0 4px 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.4;
 }
-.remove-block {
+.block-attr-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.block-attr-tag {
+  font-size: 11px;
+  color: #94a3b8;
+  background: #f1f5f9;
+  padding: 0 8px;
+  border-radius: 4px;
+}
+.block-attr-more {
+  font-size: 11px;
+  color: #c0c4cc;
+}
+
+.remove-block-btn {
+  flex-shrink: 0;
   background: none;
   border: none;
-  font-size: 18px;
   color: #94a3b8;
   cursor: pointer;
-  flex-shrink: 0;
-  padding: 0 4px;
+  font-size: 16px;
+  padding: 4px;
 }
-.remove-block:hover {
+.remove-block-btn:hover {
   color: #ef4444;
 }
+
 .blocks-empty {
-  padding: 16px;
+  padding: 12px;
   text-align: center;
   color: #94a3b8;
-  font-size: 14px;
+  font-size: 13px;
   border: 1px dashed #e2e8f0;
-  border-radius: 10px;
+  border-radius: 6px;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f3f5;
+}
+.btn-primary {
+  padding: 6px 20px;
+  background: #4f46e5;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.btn-primary:hover:not(:disabled) {
+  background: #4338ca;
+}
+.btn-primary:disabled {
+  opacity: 0.6;
+}
+.btn-danger {
+  padding: 6px 16px;
+  background: #fef2f2;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.btn-danger:hover {
+  background: #fee2e2;
 }
 
 .picker-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(4px);
+  background: rgba(15, 23, 42, 0.3);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1196,201 +885,87 @@ onMounted(() => {
 }
 .picker-modal {
   background: white;
-  border-radius: 20px;
-  width: 440px;
+  border-radius: 16px;
+  width: 380px;
   max-width: 92%;
-  max-height: 80vh;
+  max-height: 70vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 32px 64px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
 }
 .picker-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 16px 20px;
+  padding: 12px 16px;
   border-bottom: 1px solid #f1f3f5;
   font-weight: 600;
 }
 .picker-close {
   background: none;
   border: none;
-  font-size: 24px;
-  color: #94a3b8;
+  font-size: 20px;
   cursor: pointer;
 }
-.picker-close:hover {
-  color: #1e293b;
-}
 .picker-search {
-  padding: 12px 16px;
+  padding: 8px 12px;
   border-bottom: 1px solid #f1f3f5;
 }
 .picker-search input {
   width: 100%;
-  padding: 8px 14px;
+  padding: 6px 12px;
   border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 14px;
-}
-.picker-search input:focus {
-  outline: none;
-  border-color: #4f46e5;
+  border-radius: 8px;
 }
 .picker-list {
   flex: 1;
   overflow-y: auto;
-  padding: 8px 0;
+  padding: 4px 0;
 }
 .picker-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 20px;
+  gap: 8px;
+  padding: 6px 16px;
   cursor: pointer;
-  transition: background 0.15s;
 }
 .picker-item:hover {
   background: #f1f5f9;
 }
-.picker-type-label {
+.picker-type {
   font-size: 11px;
   color: #4f46e5;
   background: #eef2ff;
-  padding: 1px 10px;
+  padding: 1px 8px;
   border-radius: 10px;
-  font-weight: 500;
-  flex-shrink: 0;
 }
 .picker-title {
   font-weight: 500;
   flex: 1;
 }
+.picker-summary {
+  font-size: 11px;
+  color: #94a3b8;
+}
 .picker-empty {
-  padding: 30px;
+  padding: 20px;
   text-align: center;
   color: #94a3b8;
 }
 .picker-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  padding: 12px 20px;
+  gap: 8px;
+  padding: 10px 16px;
   border-top: 1px solid #f1f3f5;
 }
-.picker-footer .btn-outline {
-  padding: 6px 18px;
-  background: transparent;
+.btn-outline {
+  padding: 4px 14px;
   border: 1px solid #d1d5db;
-  border-radius: 8px;
+  border-radius: 6px;
+  background: transparent;
   cursor: pointer;
 }
-.picker-footer .btn-outline:hover {
+.btn-outline:hover {
   background: #f3f4f6;
-}
-.picker-footer .btn-primary {
-  padding: 6px 18px;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-}
-.picker-footer .btn-primary:hover {
-  background: #4338ca;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.25s ease;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-.fade-enter-active .dialog,
-.fade-leave-active .dialog {
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
-}
-.fade-enter-from .dialog,
-.fade-leave-to .dialog {
-  transform: scale(0.95);
-  opacity: 0;
-}
-
-.cover-upload {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.cover-upload-area {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 120px;
-  border: 2px dashed #d1d5db;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  background: #fafbfc;
-  padding: 16px;
-}
-.cover-upload-area:hover {
-  border-color: #4f46e5;
-  background: #f8f9fc;
-}
-.upload-icon {
-  font-size: 32px;
-  margin-bottom: 8px;
-}
-.upload-text {
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-}
-.upload-hint {
-  font-size: 12px;
-  color: #94a3b8;
-  margin-top: 4px;
-}
-.cover-preview {
-  position: relative;
-  width: 100%;
-  max-height: 240px;
-  overflow: hidden;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
-}
-.cover-preview img {
-  width: 100%;
-  height: auto;
-  max-height: 240px;
-  object-fit: cover;
-  display: block;
-}
-.remove-cover {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: white;
-  border: none;
-  font-size: 18px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-}
-.remove-cover:hover {
-  background: rgba(0, 0, 0, 0.8);
-}
-.upload-progress {
-  margin-top: 8px;
 }
 </style>
