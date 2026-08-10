@@ -15,10 +15,16 @@ namespace TaiChuWeb_V2.Controllers.World
     {
         private readonly IWorldRelationService _relationService;
         private readonly IWorldProjectService _projectService;
-        public WorldRelationsController(IWorldRelationService relationService, IWorldProjectService projectService)
+        private readonly IWorldCardService _cardService;
+
+        public WorldRelationsController(
+            IWorldRelationService relationService,
+            IWorldProjectService projectService,
+            IWorldCardService cardService)
         {
             _relationService = relationService;
-            _projectService = projectService;  // 👈 新增
+            _projectService = projectService;
+            _cardService = cardService;
         }
 
         /// <summary>
@@ -28,6 +34,11 @@ namespace TaiChuWeb_V2.Controllers.World
         public async Task<IActionResult> GetRelations(Guid cardId)
         {
             var userId = GetCurrentUserId();
+
+            // ✅ 优化：验证卡片是否存在且用户有权访问
+            if (!await _cardService.IsCardAccessibleAsync(cardId, userId))
+                return NotFound(new { message = "卡片不存在或无权访问" });
+
             var relations = await _relationService.GetRelationsForCardAsync(cardId, userId);
             return Ok(relations);
         }
@@ -64,11 +75,32 @@ namespace TaiChuWeb_V2.Controllers.World
         public async Task<IActionResult> DeleteRelation(Guid cardId, Guid relationId)
         {
             var userId = GetCurrentUserId();
+
+            // ✅ 优化：验证卡片是否存在且用户有权访问
+            if (!await _cardService.IsCardAccessibleAsync(cardId, userId))
+                return NotFound(new { message = "卡片不存在或无权访问" });
+
             var result = await _relationService.DeleteRelationAsync(relationId, userId);
             if (!result)
                 return NotFound(new { message = "关联不存在或无权删除" });
 
             return NoContent();
+        }
+
+        /// <summary>
+        /// 获取项目下所有关联（用于关系图谱）
+        /// </summary>
+        [HttpGet("/api/world/projects/{projectId}/relations")]
+        public async Task<IActionResult> GetProjectRelations(Guid projectId)
+        {
+            var userId = GetCurrentUserId();
+
+            // ✅ 优化：使用轻量级权限验证
+            if (!await _projectService.IsProjectAccessibleAsync(projectId, userId))
+                return NotFound(new { message = "项目不存在或无权访问" });
+
+            var relations = await _relationService.GetRelationsForProjectAsync(projectId);
+            return Ok(relations);
         }
 
         /// <summary>
@@ -81,19 +113,6 @@ namespace TaiChuWeb_V2.Controllers.World
                 throw new UnauthorizedAccessException("用户未认证");
 
             return Guid.Parse(userIdClaim);
-        }
-
-        [HttpGet("/api/world/projects/{projectId}/relations")]
-        public async Task<IActionResult> GetProjectRelations(Guid projectId)
-        {
-            var userId = GetCurrentUserId();
-            // 验证用户权限
-            var project = await _projectService.GetProjectByIdAsync(projectId, userId);
-            if (project == null)
-                return NotFound();
-
-            var relations = await _relationService.GetRelationsForProjectAsync(projectId);
-            return Ok(relations);
         }
     }
 }

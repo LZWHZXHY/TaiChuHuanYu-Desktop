@@ -4,6 +4,10 @@ namespace TaiChuWeb_V2.Dtos.World
 {
     public class CreateCardDto
     {
+
+        public List<string>? GalleryImages { get; set; }
+
+
         [Required]
         [MaxLength(200)]
         public string Title { get; set; } = string.Empty;
@@ -39,6 +43,7 @@ namespace TaiChuWeb_V2.Dtos.World
     {
         public string Key { get; set; } = string.Empty;
         public string Value { get; set; } = string.Empty;
+        public string Type { get; set; } = "short";   // 🆕 添加
     }
 
     public class ContentBlockDto

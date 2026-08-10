@@ -4,18 +4,6 @@
     <div class="editor-grid">
       <div class="left-column">
         <div class="field-group">
-          <label>材质</label>
-          <el-select v-model="localData.material" filterable allow-create placeholder="选择或输入材质">
-            <el-option
-              v-for="m in ['钢铁', '秘银', '精金', '木材', '石材', '布匹', '皮革', '龙骨', '魔法']"
-              :key="m"
-              :label="m"
-              :value="m"
-            />
-          </el-select>
-        </div>
-
-        <div class="field-group">
           <label>稀有度</label>
           <div class="rarity-options">
             <button
@@ -28,28 +16,14 @@
               {{ r }}
             </button>
           </div>
-        </div>
-
-        <div class="field-group">
-          <label>重量 (kg)</label>
-          <input v-model.number="localData.weight" type="number" placeholder="如：2.5" min="0" step="0.1" />
-        </div>
-
-        <div class="field-group">
-          <label>价值 (金币)</label>
-          <input v-model.number="localData.value" type="number" placeholder="如：500" min="0" />
+          <p class="hint">选择物品的稀有度，会显示对应的颜色标识</p>
         </div>
       </div>
 
       <div class="right-column">
-        <div class="field-group">
-          <label>来源</label>
-          <input v-model="localData.origin" placeholder="如：矮人锻造、上古遗迹" />
-        </div>
-
-        <div class="field-group">
-          <label>用途</label>
-          <textarea v-model="localData.usage" rows="3" placeholder="描述物品的用途..." class="usage-textarea" />
+        <div class="empty-hint">
+          材质、重量、价值、来源、用途等信息<br />
+          可通过「<strong>自定义属性</strong>」自由添加
         </div>
       </div>
     </div>
@@ -73,7 +47,7 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: ItemData): void
 }>()
 
-// ===== 默认数据 =====
+// ❌ 删除了 material、weight、value、origin、usage
 const defaultData: ItemData = {
   id: '',
   projectId: '',
@@ -87,24 +61,16 @@ const defaultData: ItemData = {
   contentBlocks: [],
   createdAt: '',
   updatedAt: '',
-  material: '',
   rarity: undefined,
-  weight: undefined,
-  value: undefined,
-  origin: '',
-  usage: '',
 }
 
-// ===== 本地数据 =====
 const localData = ref<ItemData>({
   ...defaultData,
   ...(props.modelValue || {}),
 })
 
-// ===== 选项数据 =====
 const rarityOptions = ['普通', '稀有', '史诗', '传说', '神器'] as const
 
-// ===== 双向绑定 =====
 watch(localData, (val) => {
   emit('update:modelValue', val)
 }, { deep: true })
@@ -133,9 +99,25 @@ watch(localData, (val) => {
   color: #334155;
   margin-bottom: 4px;
 }
-.field-group input,
-.field-group .el-select {
-  width: 100%;
+
+.hint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 4px 0 0;
+  font-style: italic;
+}
+
+.empty-hint {
+  padding: 20px;
+  text-align: center;
+  color: #c0c4cc;
+  font-size: 13px;
+  border: 1px dashed #e2e8f0;
+  border-radius: 6px;
+  line-height: 1.8;
+}
+.empty-hint strong {
+  color: #4f46e5;
 }
 
 .rarity-options {
@@ -179,20 +161,6 @@ watch(localData, (val) => {
   background: #fecaca;
   border-color: #ef4444;
   color: #dc2626;
-}
-
-.usage-textarea {
-  width: 100%;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-family: inherit;
-  resize: vertical;
-  min-height: 60px;
-}
-.usage-textarea:focus {
-  outline: none;
-  border-color: #4f46e5;
 }
 
 .editor-hint {

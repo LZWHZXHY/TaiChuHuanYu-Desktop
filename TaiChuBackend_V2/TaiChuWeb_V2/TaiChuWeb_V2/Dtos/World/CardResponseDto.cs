@@ -21,6 +21,8 @@
         public DateTime UpdatedAt { get; set; }
         public List<RelationDto> OutRelations { get; set; } = new();
         public List<RelationDto> InRelations { get; set; } = new();
+
+        public List<string> GalleryImages { get; set; } = new();
     }
 
     public class RelationDto

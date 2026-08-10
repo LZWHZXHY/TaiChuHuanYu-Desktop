@@ -10,6 +10,8 @@
 
         public List<string>? Aliases { get; set; }
 
+        public List<string>? GalleryImages { get; set; }
+
         public List<AttributeDto>? Attributes { get; set; }
 
         public string? Description { get; set; }

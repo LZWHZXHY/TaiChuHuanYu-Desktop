@@ -4,7 +4,6 @@ using System;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using TaiChuWeb_V2.Dtos.World;
-
 using TaiChuWeb_V2.Services.World;
 
 namespace TaiChuWeb_V2.Controllers.World
@@ -39,14 +38,15 @@ namespace TaiChuWeb_V2.Controllers.World
         public async Task<IActionResult> GetCard(Guid projectId, Guid cardId)
         {
             var userId = GetCurrentUserId();
-            // 验证卡片是否属于该项目
-            var isInProject = await _cardService.IsCardInProjectAsync(cardId, projectId);
-            if (!isInProject)
-                return NotFound(new { message = "卡片不存在或不属于该项目" });
 
+            // ✅ 优化：GetCardByIdAsync 内部已经包含权限验证和项目归属检查
             var card = await _cardService.GetCardByIdAsync(cardId, userId);
             if (card == null)
                 return NotFound(new { message = "卡片不存在或无权访问" });
+
+            // ✅ 额外验证卡片是否属于该项目
+            if (card.ProjectId != projectId)
+                return NotFound(new { message = "卡片不属于该项目" });
 
             return Ok(card);
         }
@@ -79,6 +79,8 @@ namespace TaiChuWeb_V2.Controllers.World
         public async Task<IActionResult> UpdateCard(Guid projectId, Guid cardId, [FromBody] UpdateCardDto dto)
         {
             var userId = GetCurrentUserId();
+
+            // ✅ 优化：先验证卡片是否存在且属于该项目
             var isInProject = await _cardService.IsCardInProjectAsync(cardId, projectId);
             if (!isInProject)
                 return NotFound(new { message = "卡片不存在或不属于该项目" });
@@ -97,6 +99,8 @@ namespace TaiChuWeb_V2.Controllers.World
         public async Task<IActionResult> DeleteCard(Guid projectId, Guid cardId)
         {
             var userId = GetCurrentUserId();
+
+            // ✅ 优化：先验证卡片是否存在且属于该项目
             var isInProject = await _cardService.IsCardInProjectAsync(cardId, projectId);
             if (!isInProject)
                 return NotFound(new { message = "卡片不存在或不属于该项目" });

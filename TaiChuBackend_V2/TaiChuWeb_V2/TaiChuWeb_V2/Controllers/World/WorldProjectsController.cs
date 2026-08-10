@@ -32,17 +32,30 @@ namespace TaiChuWeb_V2.Controllers.World
         }
 
         /// <summary>
-        /// 获取单个项目详情（公开项目无需认证，但为了简化统一走认证）
+        /// 获取单个项目详情
         /// </summary>
         [HttpGet("{id}")]
         public async Task<IActionResult> GetProject(Guid id)
         {
             var userId = GetCurrentUserId();
-            var project = await _projectService.GetProjectByIdAsync(id, userId);
-            if (project == null)
+
+            // ✅ 优化：使用轻量级权限验证
+            if (!await _projectService.IsProjectAccessibleAsync(id, userId))
                 return NotFound(new { message = "项目不存在或无权访问" });
 
+            var project = await _projectService.GetProjectByIdAsync(id, userId);
             return Ok(project);
+        }
+
+        /// <summary>
+        /// 获取所有公开项目（无需登录）
+        /// </summary>
+        [HttpGet("public")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetPublicProjects()
+        {
+            var projects = await _projectService.GetPublicProjectsAsync();
+            return Ok(projects);
         }
 
         /// <summary>
@@ -66,6 +79,10 @@ namespace TaiChuWeb_V2.Controllers.World
         public async Task<IActionResult> UpdateProject(Guid id, [FromBody] UpdateProjectDto dto)
         {
             var userId = GetCurrentUserId();
+
+            if (!await _projectService.IsProjectAccessibleAsync(id, userId))
+                return NotFound(new { message = "项目不存在或无权访问" });
+
             var project = await _projectService.UpdateProjectAsync(id, userId, dto);
             if (project == null)
                 return NotFound(new { message = "项目不存在或无权修改" });
@@ -80,6 +97,10 @@ namespace TaiChuWeb_V2.Controllers.World
         public async Task<IActionResult> DeleteProject(Guid id)
         {
             var userId = GetCurrentUserId();
+
+            if (!await _projectService.IsProjectAccessibleAsync(id, userId))
+                return NotFound(new { message = "项目不存在或无权访问" });
+
             var result = await _projectService.DeleteProjectAsync(id, userId);
             if (!result)
                 return NotFound(new { message = "项目不存在或无权删除" });

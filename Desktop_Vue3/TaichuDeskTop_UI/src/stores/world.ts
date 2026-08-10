@@ -54,6 +54,7 @@ export interface WorldCard {
   relatedIds?: string[];
   relations?: WorldRelation[];
   coverImage?: string;
+  galleryImages?: string[];   // 🆕
 }
 
 // ============================================================
@@ -449,6 +450,7 @@ export const useWorldStore = defineStore('world', () => {
       updatedAt: c.updatedAt || c.UpdatedAt,
       relations: [],
       coverImage: c.coverImage || c.CoverImage || '',
+      galleryImages: c.galleryImages || c.GalleryImages || [],   // 🆕
     };
   }
 

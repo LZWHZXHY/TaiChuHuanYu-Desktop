@@ -4,28 +4,6 @@
     <div class="editor-grid">
       <div class="left-column">
         <div class="field-group">
-          <label>气候</label>
-          <el-select v-model="localData.climate" filterable allow-create placeholder="选择或输入气候">
-            <el-option
-              v-for="c in ['温带', '热带', '寒带', '沙漠', '极地', '雨林', '山地', '水域', '地下']"
-              :key="c"
-              :label="c"
-              :value="c"
-            />
-          </el-select>
-        </div>
-
-        <div class="field-group">
-          <label>面积 (km²)</label>
-          <input v-model.number="localData.area" type="number" placeholder="如：5230" min="0" />
-        </div>
-
-        <div class="field-group">
-          <label>人口</label>
-          <input v-model.number="localData.population" type="number" placeholder="如：24500" min="0" />
-        </div>
-
-        <div class="field-group">
           <label>危险等级</label>
           <div class="danger-levels">
             <button
@@ -41,6 +19,7 @@
               {{ level }}
             </button>
           </div>
+          <p class="hint">选择地点的危险等级，会显示对应的颜色标识</p>
         </div>
       </div>
 
@@ -76,12 +55,17 @@
             <span v-else>暂无坐标信息</span>
           </div>
         </div>
+
+        <div class="empty-hint">
+          面积、人口、气候、统治者等信息<br />
+          可通过「<strong>自定义属性</strong>」自由添加
+        </div>
       </div>
     </div>
 
     <!-- 🔥 提示用户使用内容块插入关联卡片 -->
     <div class="editor-hint">
-      <p>💡 提示：在「关联内容」区域点击「+角色」按钮，可以插入「统治者」卡片</p>
+      <p>💡 提示：在「关联内容」区域点击「+气候」按钮，可以插入「气候」卡片</p>
     </div>
   </div>
 </template>
@@ -98,8 +82,7 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: LocationData): void
 }>()
 
-// ===== 默认数据 =====
-// ❌ 删除了 ruler 字段
+// ❌ 删除了 area、population、climate、ruler
 const defaultData: LocationData = {
   id: '',
   projectId: '',
@@ -113,23 +96,17 @@ const defaultData: LocationData = {
   contentBlocks: [],
   createdAt: '',
   updatedAt: '',
-  climate: '',
-  area: undefined,
-  population: undefined,
   dangerLevel: undefined,
   coordinate: { x: 0, y: 0 },
 }
 
-// ===== 本地数据 =====
 const localData = ref<LocationData>({
   ...defaultData,
   ...(props.modelValue || {}),
 })
 
-// ===== 选项数据 =====
 const dangerLevels = ['低', '中', '高', '极度危险'] as const
 
-// ===== 双向绑定 =====
 watch(
   localData,
   (val) => {
@@ -162,9 +139,14 @@ watch(
   color: #334155;
   margin-bottom: 4px;
 }
-.field-group input,
-.field-group .el-select {
+.field-group input {
   width: 100%;
+}
+.hint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 4px 0 0;
+  font-style: italic;
 }
 
 .danger-levels {
@@ -242,6 +224,20 @@ watch(
   justify-content: center;
   color: #94a3b8;
   font-size: 14px;
+}
+
+.empty-hint {
+  margin-top: 16px;
+  padding: 16px;
+  text-align: center;
+  color: #c0c4cc;
+  font-size: 13px;
+  border: 1px dashed #e2e8f0;
+  border-radius: 6px;
+  line-height: 1.8;
+}
+.empty-hint strong {
+  color: #4f46e5;
 }
 
 .editor-hint {

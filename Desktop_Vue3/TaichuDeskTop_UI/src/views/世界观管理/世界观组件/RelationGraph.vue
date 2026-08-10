@@ -135,10 +135,14 @@ const TYPE_LABELS: Record<string, string> = {
   location: '地点',
   item: '物品',
   event: '事件',
-  ecology: '生态',
   faction: '派系',
   species: '物种',
-  lore: '背景设定',
+  occupation: '职业',
+  organization: '组织',
+  creature: '生物',
+  skill: '技能',
+  climate: '气候',
+  concept: '设定',  // ✅ 新增
 };
 
 const filterTypes = [
@@ -147,10 +151,14 @@ const filterTypes = [
   { value: 'location', label: '地点' },
   { value: 'item', label: '物品' },
   { value: 'event', label: '事件' },
-  { value: 'ecology', label: '生态' },
   { value: 'faction', label: '派系' },
   { value: 'species', label: '物种' },
-  { value: 'lore', label: '背景' },
+  { value: 'occupation', label: '职业' },
+  { value: 'organization', label: '组织' },
+  { value: 'creature', label: '生物' },
+  { value: 'skill', label: '技能' },
+  { value: 'climate', label: '气候' },
+  { value: 'concept', label: '设定' },  // ✅ 新增
 ];
 
 // ===== 状态 =====

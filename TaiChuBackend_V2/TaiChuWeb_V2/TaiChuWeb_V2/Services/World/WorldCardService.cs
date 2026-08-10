@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,23 +15,31 @@ namespace TaiChuWeb_V2.Services.World
     {
         private readonly AppDbContext _context;
         private readonly IWorldProjectService _projectService;
+        private readonly IMemoryCache _cache;
 
-        public WorldCardService(AppDbContext context, IWorldProjectService projectService)
+        public WorldCardService(AppDbContext context, IWorldProjectService projectService, IMemoryCache cache)
         {
             _context = context;
             _projectService = projectService;
+            _cache = cache;
         }
 
+        // ============================================================
+        //  1. 获取项目下的所有卡片（支持按类型筛选）
+        // ============================================================
         public async Task<IEnumerable<CardResponseDto>> GetCardsByProjectAsync(Guid projectId, Guid userId, string? typeFilter = null)
         {
-            // 检查项目是否存在且用户有权限
-            var project = await _projectService.GetProjectByIdAsync(projectId, userId);
-            if (project == null)
+            // ✅ 使用轻量级权限验证
+            var isAccessible = await _projectService.IsProjectAccessibleAsync(projectId, userId);
+            if (!isAccessible)
                 return new List<CardResponseDto>();
 
             var query = _context.WorldCards
+                .AsNoTracking()
                 .Include(c => c.OutRelations)
+                    .ThenInclude(r => r.TargetCard)
                 .Include(c => c.InRelations)
+                    .ThenInclude(r => r.SourceCard)
                 .Where(c => c.ProjectId == projectId);
 
             if (!string.IsNullOrEmpty(typeFilter))
@@ -38,12 +47,50 @@ namespace TaiChuWeb_V2.Services.World
 
             var cards = await query.ToListAsync();
 
-            return cards.Select(c => MapToResponseDto(c, userId)).ToList();
+            return cards.Select(c => MapToResponseDto(c)).ToList();
         }
 
+        // ============================================================
+        //  2. 获取卡片详情（公开接口，带权限验证）
+        // ============================================================
         public async Task<CardResponseDto> GetCardByIdAsync(Guid cardId, Guid userId)
         {
+            // ✅ 尝试从缓存获取
+            var cacheKey = $"card_{cardId}";
+            if (_cache.TryGetValue(cacheKey, out CardResponseDto? cached))
+                return cached;
+
+            // ✅ 使用内部方法获取卡片（已验证权限）
+            var card = await GetCardByIdInternalAsync(cardId);
+
+            if (card == null)
+                return null;
+
+            // 权限检查：使用项目的公开状态和所有者
+            var project = await _context.WorldProjects
+                .AsNoTracking()
+                .Select(p => new { p.Id, p.IsPublic, p.OwnerId })
+                .FirstOrDefaultAsync(p => p.Id == card.ProjectId);
+
+            if (project == null)
+                return null;
+
+            if (!project.IsPublic && project.OwnerId != userId)
+                return null;
+
+            // ✅ 缓存 5 分钟
+            _cache.Set(cacheKey, card, TimeSpan.FromMinutes(5));
+
+            return card;
+        }
+
+        // ============================================================
+        //  3. 获取卡片详情（内部使用，已验证权限，不重复检查）
+        // ============================================================
+        public async Task<CardResponseDto> GetCardByIdInternalAsync(Guid cardId)
+        {
             var card = await _context.WorldCards
+                .AsNoTracking()
                 .Include(c => c.Project)
                 .Include(c => c.OutRelations)
                     .ThenInclude(r => r.TargetCard)
@@ -54,27 +101,72 @@ namespace TaiChuWeb_V2.Services.World
             if (card == null)
                 return null;
 
-            // 检查权限：公开项目或自己是所有者
-            if (!card.Project.IsPublic && card.Project.OwnerId != userId)
-                return null;
-
-            return MapToResponseDto(card, userId);
+            return MapToResponseDto(card);
         }
 
+        // ============================================================
+        //  4. 轻量级权限验证
+        // ============================================================
+        public async Task<bool> IsCardAccessibleAsync(Guid cardId, Guid userId)
+        {
+            var project = await _context.WorldCards
+                .AsNoTracking()
+                .Where(c => c.Id == cardId)
+                .Select(c => new { c.ProjectId, c.Project.IsPublic, c.Project.OwnerId })
+                .FirstOrDefaultAsync();
+
+            if (project == null)
+                return false;
+
+            return project.IsPublic || project.OwnerId == userId;
+        }
+
+        // ============================================================
+        //  5. 批量获取卡片详情（用于关系图谱）
+        // ============================================================
+        public async Task<IEnumerable<CardResponseDto>> GetCardsByIdsAsync(Guid projectId, IEnumerable<Guid> cardIds, Guid userId)
+        {
+            var idList = cardIds.Distinct().ToList();
+            if (idList.Count == 0)
+                return new List<CardResponseDto>();
+
+            // 验证项目权限
+            var isAccessible = await _projectService.IsProjectAccessibleAsync(projectId, userId);
+            if (!isAccessible)
+                return new List<CardResponseDto>();
+
+            // ✅ 批量查询，一次 SQL
+            var cards = await _context.WorldCards
+                .AsNoTracking()
+                .Include(c => c.OutRelations)
+                    .ThenInclude(r => r.TargetCard)
+                .Include(c => c.InRelations)
+                    .ThenInclude(r => r.SourceCard)
+                .Where(c => c.ProjectId == projectId && idList.Contains(c.Id))
+                .ToListAsync();
+
+            return cards.Select(c => MapToResponseDto(c)).ToList();
+        }
+
+        // ============================================================
+        //  6. 创建卡片
+        // ============================================================
         public async Task<CardResponseDto> CreateCardAsync(Guid projectId, Guid userId, CreateCardDto dto)
         {
-            // 检查项目是否存在且用户是所有者
             var isOwner = await _projectService.IsProjectOwnerAsync(projectId, userId);
             if (!isOwner)
                 throw new UnauthorizedAccessException("无权在此项目中创建卡片");
 
             var card = new WorldCard
             {
+                Id = Guid.NewGuid(),
                 ProjectId = projectId,
                 Title = dto.Title,
                 Type = dto.Type,
                 SubType = dto.SubType,
                 CoverImage = dto.CoverImage,
+                // 🆕 GalleryImages
+                GalleryImages = JsonSerializer.Serialize(dto.GalleryImages ?? new List<string>()),
                 Aliases = JsonSerializer.Serialize(dto.Aliases ?? new List<string>()),
                 Attributes = JsonSerializer.Serialize(dto.Attributes ?? new List<AttributeDto>()),
                 Description = dto.Description,
@@ -90,17 +182,21 @@ namespace TaiChuWeb_V2.Services.World
             await _context.WorldCards.AddAsync(card);
             await _context.SaveChangesAsync();
 
-            return await GetCardByIdAsync(card.Id, userId);
+            // ✅ 清除项目卡片列表缓存
+            ClearProjectCardCache(projectId);
+
+            // 返回创建的卡片
+            return await GetCardByIdInternalAsync(card.Id);
         }
 
+        // ============================================================
+        //  7. 更新卡片
+        // ============================================================
         public async Task<CardResponseDto> UpdateCardAsync(Guid cardId, Guid userId, UpdateCardDto dto)
         {
             var card = await _context.WorldCards
                 .Include(c => c.Project)
                 .FirstOrDefaultAsync(c => c.Id == cardId);
-
-            if (dto.CoverImage != null)
-                card.CoverImage = dto.CoverImage;
 
             if (card == null)
                 return null;
@@ -108,6 +204,14 @@ namespace TaiChuWeb_V2.Services.World
             // 检查权限
             if (card.Project.OwnerId != userId)
                 return null;
+
+            // ✅ 修复：CoverImage 检查移到 card 非空之后
+            if (dto.CoverImage != null)
+                card.CoverImage = dto.CoverImage;
+
+            // 🆕 GalleryImages 更新
+            if (dto.GalleryImages != null)
+                card.GalleryImages = JsonSerializer.Serialize(dto.GalleryImages);
 
             if (!string.IsNullOrEmpty(dto.Title))
                 card.Title = dto.Title;
@@ -147,9 +251,16 @@ namespace TaiChuWeb_V2.Services.World
             _context.WorldCards.Update(card);
             await _context.SaveChangesAsync();
 
-            return await GetCardByIdAsync(card.Id, userId);
+            // ✅ 清除缓存
+            ClearCardCache(cardId);
+            ClearProjectCardCache(card.ProjectId);
+
+            return await GetCardByIdInternalAsync(card.Id);
         }
 
+        // ============================================================
+        //  8. 删除卡片
+        // ============================================================
         public async Task<bool> DeleteCardAsync(Guid cardId, Guid userId)
         {
             var card = await _context.WorldCards
@@ -161,9 +272,10 @@ namespace TaiChuWeb_V2.Services.World
             if (card == null)
                 return false;
 
-            // 检查权限
             if (card.Project.OwnerId != userId)
                 return false;
+
+            var projectId = card.ProjectId;
 
             // 手动删除关联（因为配置了 Restrict）
             var relations = card.OutRelations.Concat(card.InRelations).ToList();
@@ -171,18 +283,29 @@ namespace TaiChuWeb_V2.Services.World
 
             _context.WorldCards.Remove(card);
             await _context.SaveChangesAsync();
+
+            // ✅ 清除缓存
+            ClearCardCache(cardId);
+            ClearProjectCardCache(projectId);
+
             return true;
         }
 
+        // ============================================================
+        //  9. 检查卡片是否属于指定项目（轻量级）
+        // ============================================================
         public async Task<bool> IsCardInProjectAsync(Guid cardId, Guid projectId)
         {
             return await _context.WorldCards
+                .AsNoTracking()
                 .AnyAsync(c => c.Id == cardId && c.ProjectId == projectId);
         }
 
-        // ===== 私有辅助方法 =====
+        // ============================================================
+        //  10. 私有辅助方法
+        // ============================================================
 
-        private CardResponseDto MapToResponseDto(WorldCard card, Guid userId)
+        private CardResponseDto MapToResponseDto(WorldCard card)
         {
             var outRelations = card.OutRelations?.Select(r => new RelationDto
             {
@@ -218,6 +341,8 @@ namespace TaiChuWeb_V2.Services.World
                 Type = card.Type,
                 SubType = card.SubType,
                 CoverImage = card.CoverImage,
+                // 🆕 GalleryImages 反序列化
+                GalleryImages = JsonSerializer.Deserialize<List<string>>(card.GalleryImages ?? "[]") ?? new(),
                 Aliases = JsonSerializer.Deserialize<List<string>>(card.Aliases ?? "[]") ?? new(),
                 Attributes = JsonSerializer.Deserialize<List<AttributeDto>>(card.Attributes ?? "[]") ?? new(),
                 Description = card.Description,
@@ -231,6 +356,20 @@ namespace TaiChuWeb_V2.Services.World
                 OutRelations = outRelations,
                 InRelations = inRelations
             };
+        }
+
+        // ============================================================
+        //  11. 缓存管理
+        // ============================================================
+
+        private void ClearCardCache(Guid cardId)
+        {
+            _cache.Remove($"card_{cardId}");
+        }
+
+        private void ClearProjectCardCache(Guid projectId)
+        {
+            _cache.Remove($"cards_project_{projectId}");
         }
     }
 }

@@ -37,6 +37,25 @@
       <div v-if="uploadingCover" class="upload-progress-mini">上传中...</div>
     </div>
 
+    <!-- ===== 🆕 图库 ===== -->
+<div class="field gallery-field">
+  <label class="field-label">图库</label>
+  <div class="gallery-upload">
+    <div v-if="form.galleryImages && form.galleryImages.length" class="gallery-grid">
+      <div v-for="(img, idx) in form.galleryImages" :key="idx" class="gallery-item">
+        <img :src="img" :alt="`图 ${idx + 1}`" />
+        <button class="remove-gallery-btn" @click="removeGalleryImage(idx)">✕</button>
+      </div>
+    </div>
+    <button class="upload-gallery-btn" @click="triggerGalleryUpload">+ 添加图片</button>
+    <input ref="galleryInput" type="file" accept="image/*" multiple style="display:none" @change="handleGalleryUpload" />
+    <span v-if="uploadingGallery" class="upload-progress">上传中...</span>
+  </div>
+  <p class="hint">支持多张图片，展示卡片的多个视角</p>
+</div>
+
+
+
     <!-- ===== 属性（共用组件） ===== -->
     <div class="field">
       <AttributeList v-model="form.attributes" />
@@ -82,6 +101,10 @@
             <div class="block-info">
               <div class="block-title-row">
                 <span class="block-type-badge">{{ getBlockTypeLabel(block) }}</span>
+                <!-- ✅ 显示关系描述 -->
+                <span v-if="block.contextLabel" class="block-context-label">
+                  {{ block.contextLabel }} →
+                </span>
                 <span class="block-title">{{ getBlockTitle(block) }}</span>
               </div>
               <p class="block-summary">{{ getBlockSummary(block) }}</p>
@@ -128,7 +151,7 @@
       <button v-if="!isCreating" class="btn-danger" @click="handleDelete">删除</button>
     </div>
 
-    <!-- 插入选择器浮层 -->
+    <!-- ✅ 插入选择器浮层（新增关系描述输入） -->
     <div v-if="showInsertPicker" class="picker-overlay" @click.self="closeInsertPicker">
       <div class="picker-modal">
         <div class="picker-header">
@@ -136,8 +159,18 @@
           <button class="picker-close" @click="closeInsertPicker">✕</button>
         </div>
         <div class="picker-search">
-          <input v-model="pickerSearch" placeholder="搜索..." />
+          <input v-model="pickerSearch" placeholder="搜索卡片..." />
         </div>
+
+        <!-- ✅ 新增：关系描述输入 -->
+        <div class="picker-context">
+          <input
+            v-model="pickerContextLabel"
+            placeholder="关系描述（如：出生地、武器、所属势力...）"
+            class="context-input"
+          />
+        </div>
+
         <div class="picker-list">
           <div
             v-for="card in pickerResults"
@@ -171,6 +204,10 @@ import { useWorldStore } from '@/stores/world';
 import { useCos } from '@/composables/useCos';
 import { v4 as uuidv4 } from 'uuid';
 import { CardTypeMeta, type CardType } from '../card_type';
+import type { AttributeItem } from '../card_type'
+
+
+
 
 // ===== 导入共用组件 =====
 import AttributeList from './AttributeList.vue';
@@ -184,19 +221,13 @@ import ItemEditor from '../type-editors/ItemEditor.vue';
 import EventEditor from '../type-editors/EventEditor.vue';
 import FactionEditor from '../type-editors/FactionEditor.vue';
 import SpeciesEditor from '../type-editors/SpeciesEditor.vue';
-import EcologyEditor from '../type-editors/EcologyEditor.vue';
-import LoreEditor from '../type-editors/LoreEditor.vue';
 import OccupationEditor from '../type-editors/OccupationEditor.vue';
-import NationEditor from '../type-editors/NationEditor.vue';
-import ContinentEditor from '../type-editors/ContinentEditor.vue';
 import OrganizationEditor from '../type-editors/OrganizationEditor.vue';
 import CreatureEditor from '../type-editors/CreatureEditor.vue';
-import BuildingEditor from '../type-editors/BuildingEditor.vue';
-import WeaponEditor from '../type-editors/WeaponEditor.vue';
-import DeityEditor from '../type-editors/DeityEditor.vue';
 import SkillEditor from '../type-editors/SkillEditor.vue';
-// ✅ 新增：气候编辑器
 import ClimateEditor from '../type-editors/ClimateEditor.vue';
+// ✅ 新增：概念编辑器
+import ConceptEditor from '../type-editors/ConceptEditor.vue';
 
 // ===== Props =====
 const props = defineProps<{
@@ -205,10 +236,49 @@ const props = defineProps<{
   inline?: boolean;
 }>();
 
+
+
+
 const emit = defineEmits<{
   (e: 'saved'): void;
   (e: 'deleted'): void;
 }>();
+
+
+const galleryInput = ref<HTMLInputElement | null>(null)
+const uploadingGallery = ref(false)
+
+
+const triggerGalleryUpload = () => {
+  galleryInput.value?.click()
+}
+
+
+const handleGalleryUpload = async (e: Event) => {
+  const input = e.target as HTMLInputElement
+  const files = input.files
+  if (!files || !files.length) return
+
+  uploadingGallery.value = true
+  try {
+    const uploadPromises = Array.from(files).map(file =>
+      uploadFile(file, 'world/gallery')
+    )
+    const results = await Promise.all(uploadPromises)
+    const urls = results.map(r => r.url)
+    form.value.galleryImages.push(...urls)
+    ElMessage.success(`成功上传 ${urls.length} 张图片`)
+  } catch (error) {
+    ElMessage.error('部分图片上传失败')
+  } finally {
+    uploadingGallery.value = false
+    input.value = ''
+  }
+}
+
+const removeGalleryImage = (idx: number) => {
+  form.value.galleryImages.splice(idx, 1)
+}
 
 // ===== Store & Composables =====
 const store = useWorldStore();
@@ -226,6 +296,8 @@ const pickerType = ref<CardType>('character');
 const pickerSearch = ref('');
 const pickerResults = ref<any[]>([]);
 const pickerLoading = ref(false);
+// ✅ 新增：关系描述输入
+const pickerContextLabel = ref('');
 const newRelation = ref({ targetId: '', relationType: '' });
 const searchResults = ref<any[]>([]);
 
@@ -248,19 +320,12 @@ const editorMap: Record<CardType, any> = {
   event: EventEditor,
   faction: FactionEditor,
   species: SpeciesEditor,
-  ecology: EcologyEditor,
-  lore: LoreEditor,
   occupation: OccupationEditor,
-  nation: NationEditor,
-  continent: ContinentEditor,
   organization: OrganizationEditor,
   creature: CreatureEditor,
-  building: BuildingEditor,
-  weapon: WeaponEditor,
-  deity: DeityEditor,
   skill: SkillEditor,
-  // ✅ 新增：气候
   climate: ClimateEditor,
+  concept: ConceptEditor,  // ✅ 新增
 };
 
 // ===== 🔥 当前使用的编辑器 =====
@@ -273,7 +338,8 @@ const form = ref({
   title: '',
   type: 'character' as CardType,
   coverImage: '',
-  attributes: [] as { key: string; value: string }[],
+  galleryImages: [] as string[],  
+ attributes: [] as AttributeItem[],   // ✅ 新类型
   description: '',
   content: '{}',
   tags: [] as string[],
@@ -287,6 +353,7 @@ const form = ref({
     cardCover?: string;
     cardSummary?: string;
     cardAttributes?: { key: string; value: string }[];
+    contextLabel?: string; // ✅ 新增
   }[],
 });
 
@@ -364,6 +431,8 @@ const searchCards = (query: string) => {
 const openInsertPicker = (type: CardType) => {
   pickerType.value = type;
   pickerSearch.value = '';
+  // ✅ 清空之前的关系描述
+  pickerContextLabel.value = '';
   showInsertPicker.value = true;
   loadPickerCards(type);
 };
@@ -381,6 +450,7 @@ const loadPickerCards = (type: CardType) => {
   pickerLoading.value = false;
 };
 
+// ✅ 修改：插入时保存关系描述
 const insertBlock = (card: any) => {
   if (form.value.contentBlocks.some((b: any) => b.cardId === card.id)) {
     ElMessage.warning('已插入');
@@ -395,6 +465,8 @@ const insertBlock = (card: any) => {
     } catch {}
   }
 
+  const contextLabel = pickerContextLabel.value.trim() || undefined;
+
   form.value.contentBlocks.push({
     id: uuidv4(),
     cardId: card.id,
@@ -404,7 +476,10 @@ const insertBlock = (card: any) => {
     cardCover: card.coverImage || '',
     cardSummary: summary,
     cardAttributes: card.attributes || [],
+    contextLabel, // ✅ 保存关系描述
   });
+
+  pickerContextLabel.value = '';
   closeInsertPicker();
   ElMessage.success(`已插入：${card.title}`);
 };
@@ -452,7 +527,8 @@ const resetForm = () => {
     title: '',
     type: 'character',
     coverImage: '',
-    attributes: [],
+    galleryImages: [],
+    attributes: [] as AttributeItem[],
     description: '',
     content: '{}',
     tags: [],
@@ -466,36 +542,41 @@ const resetForm = () => {
 
 const loadCardData = () => {
   if (props.cardData) {
-    const data = props.cardData;
+    // 从 cardData 中读取 attributes，如果是空数组，则设为 []
+    const rawAttributes = props.cardData.attributes || []
+    // 强制转换为 AttributeItem[]，补默认 type
+    const attributes: AttributeItem[] = rawAttributes.map((attr: any) => ({
+      key: attr.key,
+      value: attr.value,
+      type: attr.type || 'short'   // 默认短文本
+    }))
+
     form.value = {
-      title: data.title || '',
-      type: data.type || 'character',
-      coverImage: data.coverImage || '',
-      attributes: data.attributes || [],
-      description: data.description || '',
-      content: data.content || '{}',
-      tags: Array.isArray(data.tags)
-        ? data.tags
+      title: props.cardData.title || '',
+      type: props.cardData.type || 'character',
+      coverImage: props.cardData.coverImage || '',
+      galleryImages: props.cardData.galleryImages || [],   // 🆕
+      attributes,    // 使用转换后的
+      description: props.cardData.description || '',
+      content: props.cardData.content || '{}',
+      tags: Array.isArray(props.cardData.tags)
+        ? props.cardData.tags
         : (() => {
-            try {
-              return JSON.parse(data.tags || '[]');
-            } catch {
-              return [];
-            }
+            try { return JSON.parse(props.cardData.tags || '[]') }
+            catch { return [] }
           })(),
-      relations: (data.relations || []).map((r: any) => ({
+      relations: (props.cardData.relations || []).map((r: any) => ({
         targetCardId: r.targetCardId,
         relationType: r.relationType,
       })),
-      contentBlocks: data.contentBlocks || [],
-    };
-    isCreating.value = false;
+      contentBlocks: props.cardData.contentBlocks || [],
+    }
+    isCreating.value = false
   } else {
-    resetForm();
-    isCreating.value = true;
+    resetForm()
+    isCreating.value = true
   }
-  searchCards('');
-};
+}
 
 const handleSave = async () => {
   if (!form.value.title.trim()) {
@@ -566,13 +647,19 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 样式保持不变，与之前相同 */
+/* ============================================================
+   CardEditor 完整样式
+   ============================================================ */
+
 .card-editor-inline {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
+/* ============================================================
+   创建横幅
+   ============================================================ */
 .create-banner {
   display: flex;
   justify-content: space-between;
@@ -582,13 +669,23 @@ onMounted(() => {
   font-weight: 500;
   color: #4f46e5;
 }
+
 .cancel-create {
   background: none;
   border: none;
   color: #64748b;
   cursor: pointer;
+  font-size: 13px;
+  transition: color 0.2s;
 }
 
+.cancel-create:hover {
+  color: #1e293b;
+}
+
+/* ============================================================
+   标题输入
+   ============================================================ */
 .title-input {
   width: 100%;
   border: 1px solid #e2e8f0;
@@ -597,18 +694,29 @@ onMounted(() => {
   font-size: 16px;
   font-weight: 500;
   background: #fafbfc;
+  transition: border-color 0.2s, background 0.2s;
 }
+
 .title-input:focus {
   outline: none;
   border-color: #4f46e5;
   background: white;
 }
 
+.title-input::placeholder {
+  color: #a0aec0;
+  font-weight: 400;
+}
+
+/* ============================================================
+   类型选择
+   ============================================================ */
 .type-tabs {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
+
 .type-tab {
   padding: 4px 12px;
   border: 1px solid #e2e8f0;
@@ -616,22 +724,31 @@ onMounted(() => {
   background: white;
   font-size: 12px;
   cursor: pointer;
-  transition: 0.2s;
+  transition: all 0.2s;
+  color: #475569;
 }
+
 .type-tab:hover {
   background: #f1f5f9;
+  border-color: #cbd5e1;
 }
+
 .type-tab.active {
   border-color: #4f46e5;
   background: #eef2ff;
   color: #4f46e5;
 }
 
+/* ============================================================
+   封面图
+   ============================================================ */
 .cover-field {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
+
 .cover-preview-mini {
   position: relative;
   width: 80px;
@@ -639,12 +756,15 @@ onMounted(() => {
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid #e2e8f0;
+  flex-shrink: 0;
 }
+
 .cover-preview-mini img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
+
 .remove-cover-mini {
   position: absolute;
   top: 2px;
@@ -657,7 +777,16 @@ onMounted(() => {
   height: 20px;
   cursor: pointer;
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
 }
+
+.remove-cover-mini:hover {
+  background: #ef4444;
+}
+
 .upload-cover-btn {
   padding: 4px 16px;
   border: 1px dashed #d1d5db;
@@ -665,27 +794,208 @@ onMounted(() => {
   background: transparent;
   color: #64748b;
   cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
 }
+
+.upload-cover-btn:hover {
+  border-color: #4f46e5;
+  color: #4f46e5;
+  background: #f0f4ff;
+}
+
 .upload-progress-mini {
   font-size: 12px;
   color: #94a3b8;
+  animation: pulse 1.2s ease-in-out infinite;
 }
 
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* ============================================================
+   图库（优化版）
+   ============================================================ */
+.gallery-field {
+  margin-top: 4px;
+}
+
+.gallery-field .field-label {
+  display: block;
+  font-weight: 500;
+  font-size: 14px;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.gallery-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.gallery-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #eef2f6;
+  background: #f8fafc;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.gallery-item:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+  display: block;
+}
+
+.gallery-item:hover img {
+  transform: scale(1.04);
+}
+
+.remove-gallery-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  opacity: 0;
+  line-height: 1;
+  padding: 0;
+}
+
+.gallery-item:hover .remove-gallery-btn {
+  opacity: 1;
+}
+
+.remove-gallery-btn:hover {
+  background: #ef4444;
+  transform: scale(1.12);
+}
+
+.remove-gallery-btn:active {
+  transform: scale(0.92);
+}
+
+.upload-gallery-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 24px;
+  border: 2px dashed #d1d5db;
+  border-radius: 10px;
+  background: #fafbfc;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  min-height: 56px;
+  width: fit-content;
+  min-width: 140px;
+  user-select: none;
+}
+
+.upload-gallery-btn:hover {
+  border-color: #4f46e5;
+  color: #4f46e5;
+  background: #f0f4ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.12);
+}
+
+.upload-gallery-btn:active {
+  transform: scale(0.97);
+}
+
+.upload-progress {
+  font-size: 13px;
+  color: #94a3b8;
+  animation: gallery-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes gallery-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+.gallery-field .hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 4px 0 0 2px;
+  font-style: italic;
+}
+
+.gallery-empty-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  border: 1px dashed #e2e8f0;
+  border-radius: 10px;
+  color: #94a3b8;
+  font-size: 13px;
+  background: #fafbfc;
+  min-height: 80px;
+}
+
+/* ============================================================
+   描述区域
+   ============================================================ */
 .desc-area {
   width: 100%;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 8px 12px;
   font-family: inherit;
+  font-size: 14px;
   resize: vertical;
   background: #fafbfc;
+  transition: border-color 0.2s, background 0.2s;
+  min-height: 60px;
 }
+
 .desc-area:focus {
   outline: none;
   border-color: #4f46e5;
   background: white;
 }
 
+.desc-area::placeholder {
+  color: #a0aec0;
+}
+
+/* ============================================================
+   类型专属编辑器
+   ============================================================ */
 .type-editor-wrapper {
   margin: 8px 0;
   padding: 0;
@@ -699,12 +1009,16 @@ onMounted(() => {
   text-align: center;
   margin: 8px 0;
 }
+
 .placeholder-text {
   color: #94a3b8;
   font-size: 14px;
   margin: 0;
 }
 
+/* ============================================================
+   关联内容（ContentBlock）
+   ============================================================ */
 .blocks-header {
   display: flex;
   justify-content: space-between;
@@ -712,11 +1026,19 @@ onMounted(() => {
   flex-wrap: wrap;
   gap: 6px;
 }
+
+.blocks-header > span {
+  font-weight: 500;
+  font-size: 14px;
+  color: #334155;
+}
+
 .insert-toolbar {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
 }
+
 .insert-btn {
   padding: 2px 10px;
   border: 1px solid #e2e8f0;
@@ -724,10 +1046,14 @@ onMounted(() => {
   background: white;
   font-size: 11px;
   cursor: pointer;
+  transition: all 0.2s;
+  color: #475569;
 }
+
 .insert-btn:hover {
   background: #eef2ff;
   border-color: #4f46e5;
+  color: #4f46e5;
 }
 
 .blocks-list {
@@ -739,11 +1065,33 @@ onMounted(() => {
   overflow-y: auto;
 }
 
+.blocks-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.blocks-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.blocks-list::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+.blocks-list::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
 .block-card {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   padding: 10px 12px;
   background: #fafbfc;
+  transition: border-color 0.2s;
+}
+
+.block-card:hover {
+  border-color: #cbd5e1;
 }
 
 .block-preview-wrapper {
@@ -760,6 +1108,7 @@ onMounted(() => {
   overflow: hidden;
   background: #f1f5f9;
 }
+
 .block-cover-small img {
   width: 100%;
   height: 100%;
@@ -770,12 +1119,14 @@ onMounted(() => {
   flex: 1;
   min-width: 0;
 }
+
 .block-title-row {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
+
 .block-type-badge {
   font-size: 10px;
   color: #4f46e5;
@@ -785,11 +1136,23 @@ onMounted(() => {
   font-weight: 500;
   flex-shrink: 0;
 }
+
+.block-context-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #4f46e5;
+  background: #eef2ff;
+  padding: 0 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
 .block-title {
   font-weight: 500;
   font-size: 14px;
   color: #0f172a;
 }
+
 .block-summary {
   font-size: 13px;
   color: #64748b;
@@ -800,11 +1163,13 @@ onMounted(() => {
   overflow: hidden;
   line-height: 1.4;
 }
+
 .block-attr-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
 }
+
 .block-attr-tag {
   font-size: 11px;
   color: #94a3b8;
@@ -812,6 +1177,7 @@ onMounted(() => {
   padding: 0 8px;
   border-radius: 4px;
 }
+
 .block-attr-more {
   font-size: 11px;
   color: #c0c4cc;
@@ -825,7 +1191,9 @@ onMounted(() => {
   cursor: pointer;
   font-size: 16px;
   padding: 4px;
+  transition: color 0.2s;
 }
+
 .remove-block-btn:hover {
   color: #ef4444;
 }
@@ -839,6 +1207,9 @@ onMounted(() => {
   border-radius: 6px;
 }
 
+/* ============================================================
+   底部操作按钮
+   ============================================================ */
 .editor-actions {
   display: flex;
   gap: 8px;
@@ -846,6 +1217,7 @@ onMounted(() => {
   padding-top: 12px;
   border-top: 1px solid #f1f3f5;
 }
+
 .btn-primary {
   padding: 6px 20px;
   background: #4f46e5;
@@ -854,13 +1226,19 @@ onMounted(() => {
   border-radius: 8px;
   cursor: pointer;
   font-weight: 500;
+  font-size: 14px;
+  transition: background 0.2s;
 }
+
 .btn-primary:hover:not(:disabled) {
   background: #4338ca;
 }
+
 .btn-primary:disabled {
   opacity: 0.6;
+  cursor: not-allowed;
 }
+
 .btn-danger {
   padding: 6px 16px;
   background: #fef2f2;
@@ -868,11 +1246,18 @@ onMounted(() => {
   border: 1px solid #fecaca;
   border-radius: 8px;
   cursor: pointer;
-}
-.btn-danger:hover {
-  background: #fee2e2;
+  font-size: 14px;
+  transition: all 0.2s;
 }
 
+.btn-danger:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+/* ============================================================
+   插入选择器浮层（Picker）
+   ============================================================ */
 .picker-overlay {
   position: fixed;
   inset: 0;
@@ -883,6 +1268,7 @@ onMounted(() => {
   justify-content: center;
   z-index: 2000;
 }
+
 .picker-modal {
   background: white;
   border-radius: 16px;
@@ -893,64 +1279,141 @@ onMounted(() => {
   flex-direction: column;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
 }
+
 .picker-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid #f1f3f5;
   font-weight: 600;
+  font-size: 15px;
+  color: #0f172a;
 }
+
 .picker-close {
   background: none;
   border: none;
   font-size: 20px;
   cursor: pointer;
+  color: #94a3b8;
+  transition: color 0.2s;
 }
+
+.picker-close:hover {
+  color: #1e293b;
+}
+
 .picker-search {
   padding: 8px 12px;
   border-bottom: 1px solid #f1f3f5;
 }
+
 .picker-search input {
   width: 100%;
   padding: 6px 12px;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
+  font-size: 13px;
+  background: #fafbfc;
+  transition: border-color 0.2s;
 }
+
+.picker-search input:focus {
+  outline: none;
+  border-color: #4f46e5;
+  background: white;
+}
+
+.picker-context {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f3f5;
+}
+
+.picker-context .context-input {
+  width: 100%;
+  padding: 6px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 13px;
+  background: #fafbfc;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.picker-context .context-input:focus {
+  outline: none;
+  border-color: #4f46e5;
+  background: white;
+}
+
+.picker-context .context-input::placeholder {
+  color: #a0aec0;
+}
+
 .picker-list {
   flex: 1;
   overflow-y: auto;
   padding: 4px 0;
 }
+
+.picker-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.picker-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.picker-list::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
 .picker-item {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 6px 16px;
   cursor: pointer;
+  transition: background 0.15s;
 }
+
 .picker-item:hover {
   background: #f1f5f9;
 }
+
 .picker-type {
   font-size: 11px;
   color: #4f46e5;
   background: #eef2ff;
   padding: 1px 8px;
   border-radius: 10px;
+  flex-shrink: 0;
 }
+
 .picker-title {
   font-weight: 500;
+  font-size: 14px;
+  color: #0f172a;
   flex: 1;
 }
+
 .picker-summary {
   font-size: 11px;
   color: #94a3b8;
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
 .picker-empty {
   padding: 20px;
   text-align: center;
   color: #94a3b8;
+  font-size: 14px;
 }
+
 .picker-footer {
   display: flex;
   justify-content: flex-end;
@@ -958,14 +1421,116 @@ onMounted(() => {
   padding: 10px 16px;
   border-top: 1px solid #f1f3f5;
 }
-.btn-outline {
-  padding: 4px 14px;
+
+.picker-footer .btn-outline {
+  padding: 6px 16px;
   border: 1px solid #d1d5db;
-  border-radius: 6px;
+  border-radius: 8px;
   background: transparent;
   cursor: pointer;
+  font-size: 13px;
+  color: #475569;
+  transition: all 0.2s;
 }
-.btn-outline:hover {
+
+.picker-footer .btn-outline:hover {
   background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.picker-footer .btn-primary {
+  padding: 6px 20px;
+  background: #4f46e5;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+
+.picker-footer .btn-primary:hover {
+  background: #4338ca;
+}
+
+/* ============================================================
+   响应式适配
+   ============================================================ */
+@media (max-width: 640px) {
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 8px;
+  }
+
+  .upload-gallery-btn {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 16px;
+    font-size: 13px;
+    justify-content: center;
+  }
+
+  .remove-gallery-btn {
+    opacity: 1;
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+    top: 4px;
+    right: 4px;
+  }
+
+  .gallery-item {
+    border-radius: 8px;
+  }
+
+  .gallery-field .hint {
+    font-size: 11px;
+  }
+
+  .picker-modal {
+    max-width: 96%;
+    max-height: 80vh;
+  }
+
+  .editor-actions {
+    flex-direction: column;
+  }
+
+  .editor-actions .btn-primary,
+  .editor-actions .btn-danger {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .block-preview-wrapper {
+    flex-wrap: wrap;
+  }
+
+  .block-cover-small {
+    width: 50px;
+    height: 50px;
+  }
+}
+
+@media (max-width: 400px) {
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 6px;
+  }
+
+  .type-tabs {
+    gap: 3px;
+  }
+
+  .type-tab {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+
+  .block-title {
+    font-size: 13px;
+  }
 }
 </style>

@@ -26,7 +26,7 @@
         <div class="divider"></div>
         <div class="nav-meta">
           <span class="meta-label">版本</span>
-          <span class="meta-value">v0.1</span>
+          <span class="meta-value">v2.1</span>
         </div>
       </aside>
 

@@ -5,7 +5,8 @@
     <header class="detail-header">
       <div class="header-top">
         <button class="back-link" @click="goBack">← 返回</button>
-        <div class="header-actions">
+        <!-- ✅ 只有项目所有者才能看到操作按钮 -->
+        <div v-if="isOwner" class="header-actions">
           <button class="action-link" @click="handleEditProject">编辑项目</button>
           <button class="btn-primary" @click="openCreateDialog">+ 新建卡片</button>
         </div>
@@ -53,6 +54,8 @@
               <span class="col-type">类型</span>
               <span class="col-rels">关联</span>
               <span class="col-time">更新</span>
+              <!-- ✅ 只有项目所有者才能看到操作列 -->
+              <span v-if="isOwner" class="col-actions">操作</span>
             </div>
             <div
               v-for="card in filteredCards"
@@ -65,7 +68,8 @@
               <span class="col-type">{{ getTypeLabel(card.type) }}</span>
               <span class="col-rels">{{ (card.relations?.length || 0) }}</span>
               <span class="col-time">{{ formatTime(card.updatedAt) }}</span>
-              <div class="row-actions" @click.stop>
+              <!-- ✅ 只有项目所有者才能看到操作按钮 -->
+              <div v-if="isOwner" class="row-actions" @click.stop>
                 <button class="row-action" @click="editCard(card)">编辑</button>
                 <button class="row-action danger" @click="handleDeleteCard(card.id)">删除</button>
               </div>
@@ -73,7 +77,8 @@
           </div>
           <div v-else class="empty-state">
             <p>{{ activeTab === 'all' ? '还没有卡片' : '暂无此类型' }}</p>
-            <button class="btn-outline" @click="openCreateDialog">+ 创建卡片</button>
+            <!-- ✅ 只有项目所有者才能看到"创建卡片"按钮 -->
+            <button v-if="isOwner" class="btn-outline" @click="openCreateDialog">+ 创建卡片</button>
           </div>
         </div>
 
@@ -89,9 +94,8 @@
 
       <!-- 右栏：编辑面板 -->
       <div class="right-panel" :class="{ open: selectedCardId }">
-        <!-- 🔧 修复：当 isCreating 为 true 时也显示编辑器 -->
-        <div v-if="selectedCard || isCreating" class="panel-inner">
-          <!-- 新建模式时，panel-title 显示 "新建卡片" -->
+        <!-- ✅ 只有项目所有者才能打开编辑面板 -->
+        <div v-if="(selectedCard || isCreating) && isOwner" class="panel-inner">
           <div class="panel-header">
             <span class="panel-title">{{ isCreating ? '新建卡片' : selectedCard?.title }}</span>
             <button class="panel-close" @click="selectedCardId = null">✕</button>
@@ -105,47 +109,94 @@
             />
           </div>
         </div>
+        <!-- ✅ 非所有者点击卡片时，只读展示 -->
+        <div v-else-if="selectedCard && !isOwner" class="panel-inner panel-readonly">
+          <div class="panel-header">
+            <span class="panel-title">{{ selectedCard?.title }}</span>
+            <button class="panel-close" @click="selectedCardId = null">✕</button>
+          </div>
+          <div class="panel-body">
+            <!-- 只读展示卡片内容 -->
+            <div class="readonly-card">
+              <!-- 封面 -->
+              <div v-if="selectedCard.coverImage" class="readonly-cover">
+                <img :src="selectedCard.coverImage" :alt="selectedCard.title" />
+              </div>
+              <!-- 图库 -->
+              <div v-if="selectedCard.galleryImages?.length" class="readonly-gallery">
+                <div class="readonly-gallery-grid">
+                  <img
+                    v-for="(img, idx) in selectedCard.galleryImages"
+                    :key="idx"
+                    :src="img"
+                    :alt="`图 ${idx + 1}`"
+                    @click="previewImage(idx)"
+                  />
+                </div>
+              </div>
+              <!-- 属性 -->
+              <div v-if="selectedCard.attributes?.length" class="readonly-attributes">
+                <div v-for="attr in selectedCard.attributes" :key="attr.key" class="readonly-attr">
+                  <span class="attr-key">{{ attr.key }}</span>
+                  <span class="attr-value">{{ attr.value }}</span>
+                </div>
+              </div>
+              <!-- 描述 -->
+              <div v-if="selectedCard.description" class="readonly-description">
+                {{ selectedCard.description }}
+              </div>
+              <!-- 标签 -->
+              <div v-if="selectedCard.tags?.length" class="readonly-tags">
+                <span v-for="tag in selectedCard.tags" :key="tag" class="readonly-tag">#{{ tag }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
         <div v-else class="panel-empty">
-          <span>← 选择卡片开始编辑</span>
+          <span>← 选择卡片查看详情</span>
         </div>
       </div>
     </div>
+
+    <!-- 图片预览弹窗 -->
+    <el-image-viewer
+      v-if="previewVisible"
+      :url-list="selectedCard?.galleryImages || []"
+      :initial-index="previewIndex"
+      @close="previewVisible = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox, ElImageViewer } from 'element-plus';
 import { useWorldStore } from '../../stores/world';
+import { useUserStore } from '@/stores/user';
 import CardEditor from './世界观组件/CardEditor.vue';
 import RelationGraph from './世界观组件/RelationGraph.vue';
 
-// ===== 🔥 更新类型标签映射 =====
+// ===== 🔥 类型标签映射 =====
 const TYPE_LABELS: Record<string, string> = {
   character: '角色',
   location: '地点',
   item: '物品',
   event: '事件',
-  ecology: '生态',
   faction: '派系',
   species: '物种',
-  lore: '背景设定',
   occupation: '职业',
-  nation: '国家',
-  continent: '大陆',
   organization: '组织',
   creature: '生物',
-  building: '建筑',
-  weapon: '武器',
-  deity: '神祇',
   skill: '技能',
-  climate: '气候', // ✅ 新增
+  climate: '气候',
+  concept: '设定',
 };
 
 const router = useRouter();
 const route = useRoute();
 const store = useWorldStore();
+const userStore = useUserStore();
 
 const projectId = route.params.id as string;
 const loading = ref(false);
@@ -155,13 +206,26 @@ const isPublicView = ref(false);
 const showGraph = ref(false);
 const graphRef = ref<any>(null);
 
+// ===== 🆕 图片预览 =====
+const previewVisible = ref(false);
+const previewIndex = ref(0);
+
 const project = computed(() => store.currentProject);
 const cards = computed(() => store.cards);
 
 // ===== 🔥 判断当前是否新建模式 =====
 const isCreating = computed(() => selectedCardId.value === 'new');
 
-// ===== 🔥 更新 tabs =====
+// ===== 🆕 判断当前用户是否是项目所有者 =====
+const isOwner = computed(() => {
+  const userId = userStore.userInfo?.id;
+  const ownerId = store.currentProject?.ownerId;
+  console.log('🔍 调试权限:', { userId, ownerId, currentProject: store.currentProject });
+  if (!userId || !ownerId) return false;
+  return userId === ownerId;
+});
+
+// ===== 🔥 tabs 筛选 =====
 const tabs = [
   { label: '全部', value: 'all' },
   { label: '角色', value: 'character' },
@@ -170,18 +234,12 @@ const tabs = [
   { label: '事件', value: 'event' },
   { label: '派系', value: 'faction' },
   { label: '物种', value: 'species' },
-  { label: '生态', value: 'ecology' },
-  { label: '背景', value: 'lore' },
   { label: '职业', value: 'occupation' },
-  { label: '国家', value: 'nation' },
-  { label: '大陆', value: 'continent' },
   { label: '组织', value: 'organization' },
   { label: '生物', value: 'creature' },
-  { label: '建筑', value: 'building' },
-  { label: '武器', value: 'weapon' },
-  { label: '神祇', value: 'deity' },
   { label: '技能', value: 'skill' },
-  { label: '气候', value: 'climate' }, // ✅ 新增
+  { label: '气候', value: 'climate' },
+  { label: '设定', value: 'concept' },
 ];
 
 const filteredCards = computed(() => {
@@ -192,7 +250,6 @@ const filteredCards = computed(() => {
 // ===== 选中的卡片（用于编辑） =====
 const selectedCard = computed(() => {
   if (!selectedCardId.value) return null;
-  // 如果是新建模式，返回 null
   if (selectedCardId.value === 'new') return null;
   return cards.value.find(c => c.id === selectedCardId.value) || null;
 });
@@ -236,6 +293,12 @@ const extractEmbeddedCardIds = (c: any): string[] => {
   return ids;
 };
 
+// ===== 🆕 预览图片 =====
+const previewImage = (index: number) => {
+  previewIndex.value = index;
+  previewVisible.value = true;
+};
+
 // ===== 数据加载 =====
 const loadData = async () => {
   loading.value = true;
@@ -257,7 +320,6 @@ const selectCard = async (id: string) => {
 
   selectedCardId.value = id;
 
-  // 🔧 加载关联卡片
   const card = cards.value.find(c => c.id === id);
   if (card) {
     const ids = extractEmbeddedCardIds(card);
@@ -311,7 +373,7 @@ onMounted(loadData);
 </script>
 
 <style scoped>
-/* 样式保持不变，与之前相同 */
+/* ===== 原有样式保持不变 ===== */
 .project-detail {
   min-height: 100vh;
   background: #fafbfc;
@@ -596,6 +658,84 @@ onMounted(loadData);
   font-size: 14px;
 }
 
+/* ===== 🆕 只读卡片样式 ===== */
+.panel-readonly {
+  /* 复用 panel-inner 样式 */
+}
+
+.readonly-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.readonly-cover img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.readonly-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+}
+.readonly-gallery-grid img {
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #eef2f6;
+  transition: transform 0.2s;
+}
+.readonly-gallery-grid img:hover {
+  transform: scale(1.03);
+}
+
+.readonly-attributes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.readonly-attr {
+  display: flex;
+  gap: 12px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f4f6f8;
+}
+.readonly-attr .attr-key {
+  font-weight: 500;
+  color: #64748b;
+  font-size: 13px;
+  min-width: 80px;
+}
+.readonly-attr .attr-value {
+  color: #1e293b;
+  font-size: 13px;
+}
+
+.readonly-description {
+  font-size: 14px;
+  line-height: 1.8;
+  color: #1e293b;
+  white-space: pre-wrap;
+}
+
+.readonly-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.readonly-tag {
+  font-size: 12px;
+  color: #4f46e5;
+  background: #eef2ff;
+  padding: 2px 12px;
+  border-radius: 4px;
+}
+
+/* ===== 响应式 ===== */
 @media (max-width: 820px) {
   .detail-body { flex-direction: column; }
   .right-panel { width: 100% !important; margin-left: 0 !important; height: 400px; }
@@ -605,5 +745,11 @@ onMounted(loadData);
   }
   .col-time { display: none; }
   .row-actions { opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .readonly-gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+  }
 }
 </style>

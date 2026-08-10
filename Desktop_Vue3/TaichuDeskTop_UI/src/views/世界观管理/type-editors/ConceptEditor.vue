@@ -1,29 +1,29 @@
-<!-- src/views/世界观管理/type-editors/CharacterEditor.vue -->
+<!-- src/views/世界观管理/type-editors/ConceptEditor.vue -->
 <template>
-  <div class="character-editor">
+  <div class="concept-editor">
     <div class="empty-state">
-      <div class="empty-icon">👤</div>
-      <p class="empty-title">角色卡片</p>
+      <div class="empty-icon">✦</div>
+      <p class="empty-title">设定卡片</p>
       <p class="empty-desc">
-        角色的年龄、性别、种族、职业、战力、六维属性等信息，<br />
-        都可以通过「<strong>自定义属性</strong>」自由添加
+        世界观规则、宇宙真理、魔法体系、哲学概念、教义法则等抽象设定，<br />
+        可以通过「<strong>自定义属性</strong>」和「<strong>关联内容</strong>」自由构建
       </p>
     </div>
 
     <!-- 🔥 提示用户使用内容块插入关联卡片 -->
     <div class="editor-hint">
-      <p>💡 提示：在「关联内容」区域点击「+职业」「+物种」「+派系」等按钮，可以插入相关卡片</p>
+      <p>💡 提示：在「关联内容」区域可以关联「事件」「技能」「地点」等具体卡片</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-// 角色卡片已没有任何预设专属字段
-// 所有信息都通过「自定义属性」和「内容块」来扩展
+// 概念卡片是一个纯粹的空模板，用于承载抽象设定
+// 所有信息通过「自定义属性」和「关联内容」来扩展
 </script>
 
 <style scoped>
-.character-editor {
+.concept-editor {
   padding: 16px 0;
   border-top: 1px solid #eef2f6;
   border-bottom: 1px solid #eef2f6;

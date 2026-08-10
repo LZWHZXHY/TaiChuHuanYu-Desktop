@@ -14,7 +14,8 @@
             <span>· 更新于 {{ formatDate(card.updatedAt) }}</span>
           </div>
         </div>
-        <div class="header-right">
+        <!-- ✅ 只有项目所有者才能看到编辑/删除按钮 -->
+        <div v-if="isOwner" class="header-right">
           <button class="action-btn" @click="editCard">编辑</button>
           <button class="action-btn danger" @click="handleDelete">删除</button>
         </div>
@@ -23,6 +24,20 @@
       <!-- 封面图 -->
       <div v-if="card.coverImage" class="cover-banner">
         <img :src="card.coverImage" :alt="card.title" />
+      </div>
+
+      <!-- ===== 🆕 图库 ===== -->
+      <div v-if="card.galleryImages && card.galleryImages.length" class="section gallery-section">
+        <div class="gallery-grid">
+          <div
+            v-for="(img, idx) in card.galleryImages"
+            :key="idx"
+            class="gallery-thumb"
+            @click="previewImage(idx)"
+          >
+            <img :src="img" :alt="`${card.title} 图 ${idx + 1}`" loading="lazy" />
+          </div>
+        </div>
       </div>
 
       <!-- 属性 -->
@@ -88,6 +103,14 @@
       </div>
     </div>
 
+    <!-- ===== 图片预览弹窗 ===== -->
+    <el-image-viewer
+      v-if="previewVisible"
+      :url-list="card?.galleryImages || []"
+      :initial-index="previewIndex"
+      @close="previewVisible = false"
+    />
+
     <div v-else-if="loading" class="loading-state">加载中...</div>
     <div v-else class="not-found">卡片不存在</div>
   </div>
@@ -96,8 +119,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
+import { ElMessage, ElMessageBox, ElImageViewer } from 'element-plus';
 import { useWorldStore } from '@/stores/world';
+import { useUserStore } from '@/stores/user';
 import type { WorldCard } from '@/stores/world';
 
 // ===== 类型标签映射 =====
@@ -106,22 +130,39 @@ const TYPE_LABELS: Record<string, string> = {
   location: '地点',
   item: '物品',
   event: '事件',
-  ecology: '生态',
   faction: '派系',
   species: '物种',
-  lore: '背景设定',
+  occupation: '职业',
+  organization: '组织',
+  creature: '生物',
+  skill: '技能',
+  climate: '气候',
+  concept: '设定',
 };
 
 // ===== 路由 =====
 const router = useRouter();
 const route = useRoute();
 const store = useWorldStore();
+const userStore = useUserStore();
 
 // ===== 状态 =====
 const cardId = route.params.cardId as string;
 const projectId = route.params.projectId as string;
 const loading = ref(false);
 const card = ref<WorldCard | null>(null);
+
+// ===== 🆕 图库预览 =====
+const previewVisible = ref(false);
+const previewIndex = ref(0);
+
+// ===== 🆕 判断当前用户是否是项目所有者 =====
+const isOwner = computed(() => {
+  const userId = userStore.userInfo?.id;
+  const ownerId = store.currentProject?.ownerId;
+  if (!userId || !ownerId) return false;
+  return userId === ownerId;
+});
 
 // ===== 工具函数：提取关联卡片 ID =====
 const extractEmbeddedCardIds = (c: WorldCard): string[] => {
@@ -204,6 +245,12 @@ const formatDate = (dateStr: string) => {
   return d.toLocaleString('zh-CN');
 };
 
+// ===== 🆕 预览图片 =====
+const previewImage = (index: number) => {
+  previewIndex.value = index;
+  previewVisible.value = true;
+};
+
 // ===== 数据加载 =====
 const loadData = async () => {
   loading.value = true;
@@ -221,8 +268,6 @@ const loadData = async () => {
         const missingIds = ids.filter(id => !existingIds.includes(id));
         if (missingIds.length > 0) {
           await store.fetchCardsByIds(projectId, missingIds);
-          // 更新当前卡片（因为 store 中可能新增了卡片，但 card.value 仍是原对象，不影响）
-          // 但 embeddedCards 会重新计算，无需额外操作
         }
       }
     }
@@ -361,6 +406,39 @@ onMounted(loadData);
 .cover-banner img {
   width: 100%;
   max-height: 320px;
+  object-fit: cover;
+  display: block;
+}
+
+/* ===== 🆕 图库样式 ===== */
+.gallery-section {
+  padding: 16px 20px;
+}
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.gallery-thumb {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid #eef2f6;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background: #f1f5f9;
+}
+
+.gallery-thumb:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.gallery-thumb img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   display: block;
 }
@@ -617,6 +695,12 @@ onMounted(loadData);
   }
   .block-right {
     display: none;
+  }
+
+  /* 🆕 图库响应式 */
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
   }
 }
 </style>

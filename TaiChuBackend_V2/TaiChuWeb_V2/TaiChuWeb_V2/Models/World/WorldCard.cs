@@ -48,6 +48,9 @@ namespace TaiChuWeb_V2.Models.World
         public string Tags { get; set; } = "[]";
 
         [Column(TypeName = "json")]
+        public string GalleryImages { get; set; } = "[]";
+
+        [Column(TypeName = "json")]
         public string EmbeddedCards { get; set; } = "[]";
 
         [Column(TypeName = "longtext")]

@@ -10,5 +10,6 @@
         public DateTime UpdatedAt { get; set; }
         public int CardCount { get; set; }
         public string? OwnerName { get; set; }
+        public Guid OwnerId { get; set; }   // 🆕 添加这个字段
     }
 }
