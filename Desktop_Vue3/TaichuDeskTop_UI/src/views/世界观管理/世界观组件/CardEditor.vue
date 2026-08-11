@@ -120,94 +120,102 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { useWorldStore } from '@/stores/world';
-import { useCos } from '@/composables/useCos';
-import { v4 as uuidv4 } from 'uuid';
-import { CardTypeMeta, type CardType } from '../card_type';
-import type { AttributeItem } from '../card_type';
-import type { CardDetail } from '@/api/worldApi';
-import { worldApi } from '@/api/worldApi';
+import { ref, watch, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { useWorldStore } from '@/stores/world'
+import { CardTypeMeta, type CardType } from '../card_type'
+import type { CardDetail } from '@/api/worldApi'
+
+// ===== Composables =====
+import { useCardForm } from '@/composables/世界观管理/useCardForm'
+import { useCardQuota } from '@/composables/世界观管理/useCardQuota'
+import { useCardUpload } from '@/composables/世界观管理/useCardUpload'
+import { useCardTypeOptions } from '@/composables/世界观管理/useCardTypeOptions'
+import { useCardEditor } from '@/composables/世界观管理/useCardEditor'
+import { useRelationDiff } from '@/composables/世界观管理/useRelationDiff'
 
 // ===== 导入共用组件 =====
-import AttributeList from './AttributeList.vue';
-import TagInput from './TagInput.vue';
-import RelationSelector from './RelationSelector.vue';
-import ContentBlockManager from './ContentBlockManager.vue';
+import AttributeList from './AttributeList.vue'
+import TagInput from './TagInput.vue'
+import RelationSelector from './RelationSelector.vue'
+import ContentBlockManager from './ContentBlockManager.vue'
 
 // ===== 导入所有类型专属编辑器 =====
-import CharacterEditor from '../type-editors/CharacterEditor.vue';
-import LocationEditor from '../type-editors/LocationEditor.vue';
-import ItemEditor from '../type-editors/ItemEditor.vue';
-import EventEditor from '../type-editors/EventEditor.vue';
-import FactionEditor from '../type-editors/FactionEditor.vue';
-import SpeciesEditor from '../type-editors/SpeciesEditor.vue';
-import OccupationEditor from '../type-editors/OccupationEditor.vue';
-import OrganizationEditor from '../type-editors/OrganizationEditor.vue';
-import CreatureEditor from '../type-editors/CreatureEditor.vue';
-import SkillEditor from '../type-editors/SkillEditor.vue';
-import ClimateEditor from '../type-editors/ClimateEditor.vue';
-import ConceptEditor from '../type-editors/ConceptEditor.vue';
+import CharacterEditor from '../type-editors/CharacterEditor.vue'
+import LocationEditor from '../type-editors/LocationEditor.vue'
+import ItemEditor from '../type-editors/ItemEditor.vue'
+import EventEditor from '../type-editors/EventEditor.vue'
+import FactionEditor from '../type-editors/FactionEditor.vue'
+import SpeciesEditor from '../type-editors/SpeciesEditor.vue'
+import OccupationEditor from '../type-editors/OccupationEditor.vue'
+import OrganizationEditor from '../type-editors/OrganizationEditor.vue'
+import CreatureEditor from '../type-editors/CreatureEditor.vue'
+import SkillEditor from '../type-editors/SkillEditor.vue'
+import ClimateEditor from '../type-editors/ClimateEditor.vue'
+import ConceptEditor from '../type-editors/ConceptEditor.vue'
 
 // ===== Router & Route =====
-const route = useRoute();
-const router = useRouter();
+const route = useRoute()
+const router = useRouter()
 
 // ===== Props =====
 const props = defineProps<{
-  projectId: string;
-  cardData?: any | null;
-  inline?: boolean;
-}>();
+  projectId: string
+  cardData?: any | null
+  inline?: boolean
+}>()
 
 const emit = defineEmits<{
-  (e: 'saved'): void;
-  (e: 'deleted'): void;
-}>();
+  (e: 'saved'): void
+  (e: 'deleted'): void
+}>()
 
 // ===== Store =====
-const store = useWorldStore();
-const { uploadFile } = useCos();
+const store = useWorldStore()
 
 // ============================================================
-//  从路由获取参数
+//  1. 使用 Composables
 // ============================================================
-const routeProjectId = computed(() => (route.params.projectId as string) || props.projectId);
-const routeCardId = computed(() => route.params.cardId as string | undefined);
-const isEditMode = computed(() => !!routeCardId.value || !!props.cardData?.id);
+
+// 表单管理
+const { form, resetForm, setFormData } = useCardForm()
+
+// 配额管理
+const routeProjectId = computed(() => (route.params.projectId as string) || props.projectId)
+const { quotaInfo, quotaStatus, checkCanCreate } = useCardQuota(routeProjectId)
+
+// 卡片类型选项
+const { cardTypeOptions } = useCardTypeOptions()
+
+// 图片上传
+const { uploadingCover, uploadingGallery, uploadCover, uploadGallery } = useCardUpload()
+
+// 编辑器核心逻辑
+const {
+  saving,
+  loading,
+  isCreating,
+  routeCardId,
+  loadCardData,
+  handleSave: editorHandleSave,
+  handleDelete: editorHandleDelete,
+} = useCardEditor(form, resetForm, setFormData, checkCanCreate)
+
+// 关系差异计算（虽然目前未直接使用，但保留以备后续扩展）
+const { computeDiff } = useRelationDiff()
 
 // ============================================================
-//  状态
+//  2. 组件内部状态（仅 UI 相关）
 // ============================================================
-const saving = ref(false);
-const loading = ref(false);
-const tagInput = ref('');
-const fileInput = ref<HTMLInputElement | null>(null);
-const galleryInput = ref<HTMLInputElement | null>(null);
-const uploadingCover = ref(false);
-const uploadingGallery = ref(false);
-
-const isCreating = ref(!isEditMode.value);
-const newRelation = ref({ targetId: '', relationType: '' });
-const searchResults = ref<any[]>([]);
+const fileInput = ref<HTMLInputElement | null>(null)
+const galleryInput = ref<HTMLInputElement | null>(null)
+const tagInput = ref('')
+const newRelation = ref({ targetId: '', relationType: '' })
+const searchResults = ref<any[]>([])
 
 // ============================================================
-//  卡片类型选项
-// ============================================================
-const cardTypeOptions = computed(() => {
-  if (store.cardTypes && store.cardTypes.length) {
-    return store.cardTypes.map((t: any) => ({ value: t.id || t.value, label: t.label }));
-  }
-  return Object.entries(CardTypeMeta).map(([value, meta]) => ({
-    value,
-    label: meta.label,
-  }));
-});
-
-// ============================================================
-//  编辑器映射
+//  3. 编辑器映射
 // ============================================================
 const editorMap: Record<CardType, any> = {
   character: CharacterEditor,
@@ -222,450 +230,125 @@ const editorMap: Record<CardType, any> = {
   skill: SkillEditor,
   climate: ClimateEditor,
   concept: ConceptEditor,
-};
+}
 
 const currentTypeEditor = computed(() => {
-  return editorMap[form.value.type as CardType] || null;
-});
+  return editorMap[form.value.type as CardType] || null
+})
 
 // ============================================================
-//  表单数据
+//  4. UI 事件处理
 // ============================================================
-const form = ref({
-  title: '',
-  type: 'character' as CardType,
-  coverImage: '',
-  galleryImages: [] as string[],
-  attributes: [] as AttributeItem[],
-  description: '',
-  content: '{}',
-  tags: [] as string[],
-  relations: [] as { targetCardId: string; relationType: string }[],
-  contentBlocks: [] as {
-    id: string;
-    cardId: string;
-    cardType: string;
-    order: number;
-    cardTitle?: string;
-    cardCover?: string;
-    cardSummary?: string;
-    cardAttributes?: { key: string; value: string }[];
-    contextLabel?: string;
-  }[],
-});
-
-// ============================================================
-//  方法
-// ============================================================
-const getTypeLabel = (type: string) => {
-  const meta = CardTypeMeta[type as CardType];
-  return meta?.label || type;
-};
-
 const selectType = (type: any) => {
-  form.value.type = type.value;
-};
+  form.value.type = type.value
+}
 
-const searchCards = (query: string) => {
-  const cards = store.cards.filter((c: any) => c.id !== props.cardData?.id);
-  if (!query) {
-    searchResults.value = cards.slice(0, 10);
-    return;
-  }
-  const lower = query.toLowerCase();
-  searchResults.value = cards.filter((c: any) => c.title.toLowerCase().includes(lower)).slice(0, 10);
-};
-
-const triggerFileInput = () => fileInput.value?.click();
+const triggerFileInput = () => fileInput.value?.click()
+const triggerGalleryUpload = () => galleryInput.value?.click()
 
 const handleFileUpload = async (e: Event) => {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0];
-  if (!file) return;
-  if (!file.type.startsWith('image/')) {
-    ElMessage.warning('请上传图片');
-    return;
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    ElMessage.warning('最大5MB');
-    return;
-  }
-  uploadingCover.value = true;
-  try {
-    const result = await uploadFile(file, 'world/covers');
-    form.value.coverImage = result.url;
-    ElMessage.success('上传成功');
-  } catch (error) {
-    ElMessage.error('上传失败');
-  } finally {
-    uploadingCover.value = false;
-    input.value = '';
-  }
-};
-
-const triggerGalleryUpload = () => {
-  galleryInput.value?.click();
-};
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  const url = await uploadCover(file)
+  if (url) form.value.coverImage = url
+  input.value = ''
+}
 
 const handleGalleryUpload = async (e: Event) => {
-  const input = e.target as HTMLInputElement;
-  const files = input.files;
-  if (!files || !files.length) return;
-
-  uploadingGallery.value = true;
-  try {
-    const uploadPromises = Array.from(files).map(file =>
-      uploadFile(file, 'world/gallery')
-    );
-    const results = await Promise.all(uploadPromises);
-    const urls = results.map(r => r.url);
-    form.value.galleryImages.push(...urls);
-    ElMessage.success(`成功上传 ${urls.length} 张图片`);
-  } catch (error) {
-    ElMessage.error('部分图片上传失败');
-  } finally {
-    uploadingGallery.value = false;
-    input.value = '';
-  }
-};
+  const input = e.target as HTMLInputElement
+  const files = input.files
+  if (!files || !files.length) return
+  const urls = await uploadGallery(files)
+  form.value.galleryImages.push(...urls)
+  input.value = ''
+}
 
 const removeGalleryImage = (idx: number) => {
-  form.value.galleryImages.splice(idx, 1);
-};
+  form.value.galleryImages.splice(idx, 1)
+}
 
-// ============================================================
-//  加载卡片数据（编辑模式）
-// ============================================================
-const loadCardData = async () => {
-  if (!isEditMode.value) {
-    resetForm();
-    isCreating.value = true;
-    return;
-  }
-
-  const cardId = routeCardId.value || props.cardData?.id;
-  if (!cardId) {
-    console.warn('没有可用的 cardId，进入创建模式');
-    resetForm();
-    isCreating.value = true;
-    return;
-  }
-
-  loading.value = true;
-  try {
-    const projectId = routeProjectId.value;
-    if (!projectId) {
-      throw new Error('缺少 projectId');
-    }
-
-    await store.fetchCardDetail(projectId, cardId);
-    const fullCard = store.currentCard as CardDetail | null;
-
-    if (!fullCard) {
-      throw new Error('卡片数据为空');
-    }
-
-    const rawAttributes = fullCard.attributes || [];
-    const attributes: AttributeItem[] = rawAttributes.map((attr: any) => ({
-      key: attr.key,
-      value: attr.value,
-      type: attr.type || 'short'
-    }));
-
-    form.value = {
-      title: fullCard.title || '',
-      type: fullCard.type as CardType,
-      coverImage: fullCard.coverImage || '',
-      galleryImages: fullCard.galleryImages || [],
-      attributes,
-      description: fullCard.description || '',
-      content: fullCard.content || '{}',
-      tags: Array.isArray(fullCard.tags) ? fullCard.tags : [],
-      relations: (fullCard.outRelations || []).map((r: any) => ({
-        targetCardId: r.targetCardId,
-        relationType: r.relationType,
-      })),
-      contentBlocks: fullCard.contentBlocks || [],
-    };
-
-    isCreating.value = false;
-  } catch (error) {
-    console.error('加载卡片数据失败:', error);
-    ElMessage.error('加载卡片数据失败');
-    resetForm();
-    isCreating.value = true;
-  } finally {
-    loading.value = false;
-  }
-};
-
-const resetForm = () => {
-  form.value = {
-    title: '',
-    type: 'character',
-    coverImage: '',
-    galleryImages: [],
-    attributes: [],
-    description: '',
-    content: '{}',
-    tags: [],
-    relations: [],
-    contentBlocks: [],
-  };
-  tagInput.value = '';
-  newRelation.value = { targetId: '', relationType: '' };
-  searchResults.value = [];
-};
-
-// ============================================================
-//  卡片配额
-// ============================================================
-const quotaInfo = ref({
-  currentCount: 0,
-  maxCount: 0,
-  remaining: 0,
-  canAdd: true,
-});
-const quotaLoading = ref(false);
-
-const quotaStatus = computed(() => {
-  if (quotaInfo.value.remaining <= 0) return 'quota-full';
-  if (quotaInfo.value.remaining <= 10) return 'quota-warning';
-  return 'quota-normal';
-});
-
-const loadQuota = async () => {
-  if (!routeProjectId.value) return;
-  quotaLoading.value = true;
-  try {
-    const { data } = await worldApi.canAddCard(routeProjectId.value);
-    quotaInfo.value = {
-      currentCount: data.currentCount,
-      maxCount: data.maxCount,
-      remaining: data.maxCount - data.currentCount,
-      canAdd: data.canAdd,
-    };
-  } catch (error) {
-    console.error('获取卡片配额失败:', error);
-  } finally {
-    quotaLoading.value = false;
-  }
-};
-
-// ============================================================
-//  保存和删除
-// ============================================================
-const handleSave = async () => {
-  if (!form.value.title.trim()) {
-    ElMessage.warning('请输入标题');
-    return;
-  }
-
-  // 1. 检查配额（仅创建时）
-  if (isCreating.value) {
-    try {
-      const { data } = await worldApi.canAddCard(routeProjectId.value);
-      if (!data.canAdd) {
-        ElMessage.warning({
-          message: data.message || '当前世界卡片数量已达上限，请扩容',
-          duration: 5000,
-          showClose: true,
-        });
-        return;
-      }
-    } catch (error) {
-      console.error('检查卡片配额失败:', error);
-    }
-  }
-
-  // ============================================================
-  //  2. 准备基本信息 payload（不包含 relations）
-  // ============================================================
-  const cardPayload = {
-    title: form.value.title.trim(),
-    type: form.value.type,
-    coverImage: form.value.coverImage,
-    galleryImages: form.value.galleryImages,
-    attributes: form.value.attributes,
-    description: form.value.description.trim(),
-    content: form.value.content || '{}',
-    tags: form.value.tags,
-    // 注意：不包含 relations，也不包含 contentBlocks（若有需求可类似处理）
-  };
-
-  // ============================================================
-  //  3. 处理关系变更（仅编辑模式）
-  // ============================================================
-  let toRemove: any[] = [];
-  let toAdd: { targetCardId: string; relationType: string }[] = [];
-
-  if (!isCreating.value) {
-    const cardId = routeCardId.value || props.cardData?.id;
-    if (!cardId) throw new Error('缺少卡片 ID');
-
-    // 获取当前卡片已有关系（从缓存或加载）
-    let existingRelations = store.getCardDetailById(cardId)?.outRelations || [];
-    if (existingRelations.length === 0) {
-      // 如果缓存未加载，强制获取
-      await store.fetchCardDetail(routeProjectId.value, cardId);
-      existingRelations = store.getCardDetailById(cardId)?.outRelations || [];
-    }
-
-    const newRelations = form.value.relations || [];
-
-    // 计算需要删除的（在旧列表但不在新列表，按 targetCardId 匹配）
-    toRemove = existingRelations.filter(old =>
-      !newRelations.some(n => n.targetCardId === old.targetCardId)
-    );
-    // 计算需要新增的
-    toAdd = newRelations.filter(n =>
-      !existingRelations.some(old => old.targetCardId === n.targetCardId)
-    );
-  }
-
-  // ============================================================
-  //  4. 执行保存
-  // ============================================================
-  saving.value = true;
-  try {
-    let cardId = routeCardId.value || props.cardData?.id;
-
-    if (isCreating.value) {
-      // 4a. 创建卡片（不包含关系）
-      const newCard = await store.createCard(routeProjectId.value, cardPayload);
-      cardId = newCard.id;
-      // 创建后，添加所有新关系
-      for (const rel of form.value.relations || []) {
-        await store.addRelation(cardId, rel.targetCardId, rel.relationType);
-      }
-      ElMessage.success('已创建');
-    } else {
-      // 4b. 更新卡片基本信息（不包含关系）
-      await store.updateCard(cardId, cardPayload);
-
-      // 4c. 执行关系变更
-      for (const rel of toRemove) {
-        await store.removeRelation(cardId, rel.id);
-      }
-      for (const rel of toAdd) {
-        await store.addRelation(cardId, rel.targetCardId, rel.relationType);
-      }
-
-      // 4d. 强制刷新卡片详情（确保前端显示最新关系）
-      await store.fetchCardDetail(routeProjectId.value, cardId, true);
-      ElMessage.success('已更新');
-    }
-
-    emit('saved');
-  } catch (error: any) {
-    console.error('保存失败:', error);
-    if (error?.response?.data?.code === 'CARD_LIMIT_EXCEEDED') {
-      ElMessage.warning({
-        message: error.response.data.message || '卡片数量已达上限，请扩容',
-        duration: 5000,
-        showClose: true,
-      });
-    } else {
-      ElMessage.error('保存失败');
-    }
-  } finally {
-    saving.value = false;
-  }
-};
-
-const handleDelete = async () => {
-  try {
-    await ElMessageBox.confirm('确定删除吗？', '提示', { type: 'warning' });
-    const cardId = routeCardId.value || props.cardData?.id;
-    if (!cardId) {
-      throw new Error('缺少卡片 ID');
-    }
-    await store.deleteCard(cardId);
-    ElMessage.success('已删除');
-    emit('deleted');
-  } catch (error) {
-    if (error !== 'cancel') console.error(error);
-  }
-};
-
-const cancelCreate = () => {
-  if (isCreating.value) {
-    emit('deleted');
-  }
-};
-
-// ===== 处理从 ContentBlockManager 发出的"新建并插入"事件 =====
 const handleCreateCardFromBlock = (type: string) => {
   window.dispatchEvent(
     new CustomEvent('open-create-card', { detail: { type, fromBlock: true } })
-  );
-};
+  )
+}
+
+const cancelCreate = () => {
+  if (isCreating.value) {
+    emit('deleted')
+  }
+}
+
+// 封装保存和删除，以触发 emit
+const handleSave = async () => {
+  await editorHandleSave(() => {
+    emit('saved')
+  })
+}
+
+const handleDelete = async () => {
+  await editorHandleDelete(() => {
+    emit('deleted')
+  })
+}
 
 // ============================================================
-//  监听路由和 props 变化
+//  5. 监听路由变化
 // ============================================================
 watch(
   () => route.params.cardId,
   () => {
     if (route.params.cardId) {
-      loadCardData();
+      loadCardData()
     }
   }
-);
+)
 
 watch(
   () => props.cardData,
   (newVal) => {
     if (newVal && !routeCardId.value) {
-      loadCardData();
+      loadCardData()
     }
   }
-);
-
-// 监听 projectId 变化重新加载配额
-watch(routeProjectId, () => {
-  if (routeProjectId.value) {
-    loadQuota();
-  }
-});
+)
 
 // ============================================================
-//  🆕 监听 store.currentCard 变化，同步更新 form.relations
+//  6. 监听 store.currentCard 同步关系
 // ============================================================
 watch(
   () => store.currentCard,
   (newCard) => {
-    console.log('🔄 CardEditor 收到 currentCard 变化:', newCard?.title, newCard?.outRelations?.length);
-    if (newCard && isEditMode.value) {
+    if (newCard && routeCardId.value) {
       const newRelations = (newCard.outRelations || []).map((r: any) => ({
         targetCardId: r.targetCardId,
         relationType: r.relationType,
-      }));
-      form.value.relations = newRelations;
-      console.log('✅ form.relations 已更新:', form.value.relations);
+      }))
+      form.value.relations = newRelations
     }
   },
-  { deep: true, immediate: true }
-);
+  { deep: true }
+)
 
 // ============================================================
-//  生命周期
+//  7. 生命周期
 // ============================================================
 onMounted(() => {
-  loadCardData();
-  loadQuota();
+  loadCardData()
 
   window.addEventListener(
     'open-create-card',
     ((e: CustomEvent) => {
-      const type = e.detail?.type || 'character';
-      resetForm();
-      form.value.type = type;
-      isCreating.value = true;
+      const type = e.detail?.type || 'character'
+      resetForm()
+      form.value.type = type
+      isCreating.value = true
     }) as EventListener
-  );
-});
+  )
+})
 </script>
+
 
 <style scoped>
 /* ============================================================
