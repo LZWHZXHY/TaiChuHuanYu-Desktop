@@ -14,10 +14,12 @@ namespace TaiChuWeb_V2.Controllers.World
     public class WorldProjectsController : ControllerBase
     {
         private readonly IWorldProjectService _projectService;
+        private readonly IWorldQuotaService _quotaService;  // 🆕 新增
 
-        public WorldProjectsController(IWorldProjectService projectService)
+        public WorldProjectsController(IWorldProjectService projectService, IWorldQuotaService quotaService)  // 🆕 新增参数
         {
             _projectService = projectService;
+            _quotaService = quotaService;  // 🆕
         }
 
         /// <summary>
@@ -68,7 +70,26 @@ namespace TaiChuWeb_V2.Controllers.World
                 return BadRequest(ModelState);
 
             var userId = GetCurrentUserId();
+
+            // ✅ 检查世界观配额
+            var quotaCheck = await _quotaService.CanCreateProjectAsync(userId);
+            if (!quotaCheck.CanCreate)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    code = "QUOTA_EXCEEDED",
+                    message = quotaCheck.Message,
+                    used = quotaCheck.Used,
+                    max = quotaCheck.Max
+                });
+            }
+
             var project = await _projectService.CreateProjectAsync(userId, dto);
+
+            // ✅ 增加已使用数量
+            await _quotaService.IncrementUsedWorldCountAsync(userId);
+
             return CreatedAtAction(nameof(GetProject), new { id = project.Id }, project);
         }
 
@@ -104,6 +125,9 @@ namespace TaiChuWeb_V2.Controllers.World
             var result = await _projectService.DeleteProjectAsync(id, userId);
             if (!result)
                 return NotFound(new { message = "项目不存在或无权删除" });
+
+            // ✅ 减少已使用数量
+            await _quotaService.DecrementUsedWorldCountAsync(userId);
 
             return NoContent();
         }

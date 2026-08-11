@@ -16,6 +16,28 @@
         <p>从一个想法开始，构建属于你的世界观</p>
       </header>
 
+      <!-- 🆕 配额信息横幅 -->
+      <div v-if="quotaInfo" class="quota-banner">
+        <div class="quota-item">
+          <span>📚 世界观配额</span>
+          <span class="quota-num">{{ quotaInfo.usedWorldCount }} / {{ quotaInfo.maxWorldCount }}</span>
+          <span v-if="quotaInfo.remainingWorldCount <= 0" class="quota-warning">⚠️ 已满</span>
+          <span v-else class="quota-remaining">剩余 {{ quotaInfo.remainingWorldCount }} 个</span>
+        </div>
+        <div class="quota-item">
+          <span>💰 当前经验</span>
+          <span class="quota-num">{{ quotaInfo.experience }}</span>
+        </div>
+        <button 
+          v-if="quotaInfo.remainingWorldCount <= 0" 
+          class="quota-upgrade-btn"
+          @click="goToQuota"
+        >
+          🔧 扩容 ({{ quotaInfo.expCostPerWorldSlot }} 经验)
+        </button>
+        <router-link v-else to="/world/quota" class="quota-link">配额管理 →</router-link>
+      </div>
+
       <!-- 双栏布局 -->
       <div class="create-layout">
         <!-- 左侧：表单 -->
@@ -122,8 +144,8 @@
             <!-- 提交按钮 -->
             <div class="form-actions">
               <button type="button" class="btn-outline" @click="goBack">取消</button>
-              <button type="submit" class="btn-primary" :disabled="submitting">
-                {{ submitting ? '创建中...' : '🚀 创建世界' }}
+              <button type="submit" class="btn-primary" :disabled="submitting || quotaFull">
+                {{ submitting ? '创建中...' : quotaFull ? '配额已满，请扩容' : '🚀 创建世界' }}
               </button>
             </div>
           </form>
@@ -155,16 +177,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
+import { ref, reactive, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { useWorldStore } from '../../stores/world';
+import { worldApi } from '@/api/worldApi';
 
 const router = useRouter();
 const store = useWorldStore();
 
 const submitting = ref(false);
 const tagInput = ref('');
+const quotaInfo = ref<any>(null);
+const loadingQuota = ref(false);
 
 const form = reactive({
   name: '',
@@ -175,6 +200,25 @@ const form = reactive({
 });
 
 const worldTypes = ['奇幻', '科幻', '末世', '现代', '历史', '神话', '悬疑', '治愈'];
+
+// ===== 🆕 判断配额是否已满 =====
+const quotaFull = computed(() => {
+  if (!quotaInfo.value) return false;
+  return quotaInfo.value.remainingWorldCount <= 0;
+});
+
+// ===== 🆕 加载配额信息 =====
+const loadQuota = async () => {
+  loadingQuota.value = true;
+  try {
+    const { data } = await worldApi.getQuota();
+    quotaInfo.value = data;
+  } catch (error) {
+    console.error('获取配额信息失败:', error);
+  } finally {
+    loadingQuota.value = false;
+  }
+};
 
 // 添加标签
 const addTag = () => {
@@ -197,11 +241,44 @@ const removeTag = (tag: string) => {
   form.tags = form.tags.filter(t => t !== tag);
 };
 
-// 提交
+// ===== 🆕 跳转到配额管理 =====
+const goToQuota = () => {
+  router.push('/world/quota');
+};
+
+// ===== 🆕 提交前检查配额 =====
 const handleSubmit = async () => {
   if (!form.name.trim()) {
     ElMessage.warning('请输入项目名称');
     return;
+  }
+
+  // ✅ 如果配额已满，直接提示
+  if (quotaFull.value) {
+    ElMessage.warning({
+      message: `世界观数量已达上限（${quotaInfo.value.maxWorldCount} 个），请先去扩容`,
+      duration: 5000,
+      showClose: true,
+    });
+    return;
+  }
+
+  // ✅ 再次检查配额（防止并发变化）
+  try {
+    const { data } = await worldApi.canCreateProject();
+    if (!data.canCreate) {
+      ElMessage.warning({
+        message: data.message || '世界观数量已达上限',
+        duration: 5000,
+        showClose: true,
+      });
+      // 刷新配额信息
+      await loadQuota();
+      return;
+    }
+  } catch (error) {
+    console.error('检查配额失败:', error);
+    // 如果检查失败，继续尝试创建（让后端最终决定）
   }
 
   submitting.value = true;
@@ -212,9 +289,20 @@ const handleSubmit = async () => {
       isPublic: form.isPublic,
     });
     ElMessage.success('🎉 世界创建成功！');
-    router.push('/world/projects');
-  } catch (error) {
-    ElMessage.error('创建失败，请稍后重试');
+    router.push('/world');
+  } catch (error: any) {
+    // ✅ 处理后端返回的配额错误
+    if (error?.response?.data?.code === 'QUOTA_EXCEEDED') {
+      ElMessage.warning({
+        message: error.response.data.message || '世界观数量已达上限，请扩容',
+        duration: 5000,
+        showClose: true,
+      });
+      // 刷新配额信息
+      await loadQuota();
+    } else {
+      ElMessage.error('创建失败，请稍后重试');
+    }
     console.error(error);
   } finally {
     submitting.value = false;
@@ -225,6 +313,11 @@ const handleSubmit = async () => {
 const goBack = () => {
   router.back();
 };
+
+// ===== 生命周期 =====
+onMounted(() => {
+  loadQuota();
+});
 </script>
 
 <style scoped>
@@ -263,7 +356,7 @@ const goBack = () => {
 
 /* ===== 页面标题 ===== */
 .page-header {
-  margin-bottom: 36px;
+  margin-bottom: 20px;
 }
 .page-header h1 {
   font-size: 30px;
@@ -276,6 +369,63 @@ const goBack = () => {
   margin: 0;
   color: #94a3b8;
   font-size: 16px;
+}
+
+/* ===== 🆕 配额横幅 ===== */
+.quota-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 20px;
+  background: #f8fafc;
+  border: 1px solid #eef2f6;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  font-size: 13px;
+}
+.quota-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.quota-item > span:first-child {
+  color: #64748b;
+}
+.quota-num {
+  font-weight: 600;
+  color: #0f172a;
+}
+.quota-remaining {
+  color: #22c55e;
+  font-weight: 500;
+}
+.quota-warning {
+  color: #ef4444;
+  font-weight: 600;
+}
+.quota-upgrade-btn {
+  padding: 4px 16px;
+  border: 1px solid #ef4444;
+  border-radius: 6px;
+  background: #fef2f2;
+  color: #ef4444;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.quota-upgrade-btn:hover {
+  background: #ef4444;
+  color: #fff;
+}
+.quota-link {
+  color: #4f46e5;
+  text-decoration: none;
+  font-size: 13px;
+  margin-left: auto;
+}
+.quota-link:hover {
+  text-decoration: underline;
 }
 
 /* ===== 双栏布局 ===== */
@@ -602,6 +752,15 @@ const goBack = () => {
   .visibility-options {
     grid-template-columns: 1fr 1fr;
   }
+  .quota-banner {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .quota-link {
+    margin-left: 0;
+    text-align: center;
+  }
 }
 
 @media (max-width: 480px) {
@@ -621,6 +780,12 @@ const goBack = () => {
   .btn-outline {
     width: 100%;
     justify-content: center;
+  }
+  .quota-banner {
+    padding: 12px 16px;
+  }
+  .quota-item {
+    flex-wrap: wrap;
   }
 }
 </style>

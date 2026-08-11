@@ -14,13 +14,15 @@ namespace TaiChuWeb_V2.Controllers.World
     public class WorldCardsController : ControllerBase
     {
         private readonly IWorldCardService _cardService;
+        private readonly IWorldQuotaService _quotaService;  // 🆕 新增
 
-        public WorldCardsController(IWorldCardService cardService)
+        public WorldCardsController(IWorldCardService cardService, IWorldQuotaService quotaService)  // 🆕 新增参数
         {
             _cardService = cardService;
+            _quotaService = quotaService;  // 🆕
         }
 
-        
+
         [HttpGet]
         public async Task<IActionResult> GetCards(Guid projectId, [FromQuery] string? type = null)
         {
@@ -56,6 +58,21 @@ namespace TaiChuWeb_V2.Controllers.World
             try
             {
                 var userId = GetCurrentUserId();
+
+                // ✅ 检查词条配额
+                var quotaCheck = await _quotaService.CanAddCardAsync(projectId, userId);
+                if (!quotaCheck.CanAdd)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        code = "CARD_LIMIT_EXCEEDED",
+                        message = quotaCheck.Message,
+                        currentCount = quotaCheck.CurrentCount,
+                        maxCount = quotaCheck.MaxCount
+                    });
+                }
+
                 var card = await _cardService.CreateCardAsync(projectId, userId, dto);
                 return CreatedAtAction(nameof(GetCard), new { projectId, cardId = card.Id }, card);
             }
@@ -73,11 +90,6 @@ namespace TaiChuWeb_V2.Controllers.World
         {
             var userId = GetCurrentUserId();
 
-            // ✅ 优化：先验证卡片是否存在且属于该项目
-            var isInProject = await _cardService.IsCardInProjectAsync(cardId, projectId);
-            if (!isInProject)
-                return NotFound(new { message = "卡片不存在或不属于该项目" });
-
             var card = await _cardService.UpdateCardAsync(cardId, userId, dto);
             if (card == null)
                 return NotFound(new { message = "卡片不存在或无权修改" });
@@ -93,11 +105,7 @@ namespace TaiChuWeb_V2.Controllers.World
         {
             var userId = GetCurrentUserId();
 
-            // ✅ 优化：先验证卡片是否存在且属于该项目
-            var isInProject = await _cardService.IsCardInProjectAsync(cardId, projectId);
-            if (!isInProject)
-                return NotFound(new { message = "卡片不存在或不属于该项目" });
-
+            // ✅ 直接调用 Service，内部已做完整验证
             var result = await _cardService.DeleteCardAsync(cardId, userId);
             if (!result)
                 return NotFound(new { message = "卡片不存在或无权删除" });

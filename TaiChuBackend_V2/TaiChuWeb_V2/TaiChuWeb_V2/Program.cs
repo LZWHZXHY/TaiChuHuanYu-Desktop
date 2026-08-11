@@ -60,7 +60,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<SystemConfigService>();
-
+builder.Services.AddScoped<IWorldQuotaService, WorldQuotaService>();
 
 
 

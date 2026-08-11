@@ -152,4 +152,44 @@ export const worldApi = {
     const data = await request.get(`/world/projects/${projectId}/relations`);
     return { data };
   },
+
+  // src/api/worldApi.ts
+
+// 在 export const worldApi 中添加：
+
+// ----- 配额管理 -----
+/** 获取当前用户配额信息 */
+getQuota: async () => {
+  const data = await request.get('/world/quota/my');
+  return { data };
+},
+
+/** 检查是否可以创建新世界观 */
+canCreateProject: async () => {
+  const data = await request.get('/world/quota/can-create-project');
+  return { data };
+},
+
+/** 检查指定项目是否可以添加卡片 */
+canAddCard: async (projectId: string) => {
+  const data = await request.get(`/world/quota/can-add-card/${projectId}`);
+  return { data };
+},
+
+/** 用经验扩容 */
+upgradeQuota: async (upgradeType: 'WorldCount' | 'WorldCardCapacity') => {
+  const data = await request.post('/world/quota/upgrade', { upgradeType });
+  return { data };
+},
+
+/** 获取扩容历史 */
+getQuotaHistory: async (limit = 20) => {
+  const data = await request.get(`/world/quota/history?limit=${limit}`);
+  return { data };
+},
+
+
+
+
+
 };

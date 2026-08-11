@@ -108,11 +108,13 @@ namespace TaiChuWeb_V2.Controllers
                     Experience = 0,
                     CurrentSignStreak = 0,
                     MaxSignStreak = 0,
-                    // 🌟 补齐配额系统所需的基础字段
                     MaxSpaces = 1,
                     MaxNotes = 100,
-                    UsedSpaces = 1, // 算上下面即将分配的默认空间，已用 1 个
-                    UsedNotes = 0
+                    UsedSpaces = 1,
+                    UsedNotes = 0,
+                    MaxWorldCount = 3,          // ✅ 显式赋值
+                    MaxCardsPerWorld = 100,     // ✅ 显式赋值
+                                                // UsedWorldCount 默认为 0，无需显式设置
                 }
             };
 

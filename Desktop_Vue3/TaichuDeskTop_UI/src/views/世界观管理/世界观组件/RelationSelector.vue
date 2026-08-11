@@ -38,7 +38,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useWorldStore } from '@/stores/world'
 import { CardTypeMeta } from '../card_type'
@@ -97,25 +97,26 @@ const addRelation = () => {
   })
   newTargetId.value = ''
   newRelationType.value = ''
+  // ✅ 手动触发更新
+  emit('update:modelValue', localValue.value)
 }
 
 const removeRelation = (idx: number) => {
   localValue.value.splice(idx, 1)
+  // ✅ 手动触发更新
+  emit('update:modelValue', localValue.value)
 }
 
-watch(localValue, (val) => {
-  emit('update:modelValue', val)
-}, { deep: true })
-
+// ✅ 监听父组件数据变化，同步到本地（不再触发 emit）
 watch(() => props.modelValue, (val) => {
-  if (JSON.stringify(val) !== JSON.stringify(localValue.value)) {
-    localValue.value = [...val]
-  }
-}, { deep: true })
+  localValue.value = [...val]
+}, { deep: true, immediate: true })
 
 // 初始加载卡片列表
 searchCards('')
 </script>
+
+
 
 <style scoped>
 .relation-selector {

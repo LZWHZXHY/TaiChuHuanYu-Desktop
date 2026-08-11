@@ -344,18 +344,13 @@ export const useWorldStore = defineStore('world', () => {
   }
 
   // ---------- 卡片详情（完整） ----------
-  async function fetchCardDetail(projectId: string, cardId: string) {
-    if (cardDetailCache.has(cardId)) {
-      const cached = cardDetailCache.get(cardId)!;
-      console.log(`[Cache] 🚀 从详情缓存返回卡片: ${cardId}`);
-      currentCard.value = cached;
-      return cached;
-    }
-
+async function fetchCardDetail(projectId: string, cardId: string, force = false) {
+  // 如果强制刷新，跳过缓存，直接从服务器获取
+  if (force) {
     loading.value = true;
     try {
-      const cacheKey = `card_${cardId}`;
-      const res = await dedupeRequest(cacheKey, () => worldApi.getCard(projectId, cardId));
+      console.log(`📡 强制刷新卡片: ${cardId}`);
+      const res = await worldApi.getCard(projectId, cardId);
       const fullCard = res.data as CardDetail;
       cardDetailCache.set(cardId, fullCard);
       currentCard.value = fullCard;
@@ -372,20 +367,72 @@ export const useWorldStore = defineStore('world', () => {
         inRelationCount: fullCard.inRelations?.length || 0,
       };
       cardSummaryCache.set(cardId, summary);
-      if (!cards.value.find((c: CardSummary) => c.id === cardId)) {
-        cards.value.push(summary);
-      } else {
-        const idx = cards.value.findIndex((c: CardSummary) => c.id === cardId);
-        if (idx !== -1) cards.value[idx] = summary;
-      }
+      const idx = cards.value.findIndex((c: CardSummary) => c.id === cardId);
+      if (idx !== -1) cards.value[idx] = summary;
+      else cards.value.push(summary);
+
       return fullCard;
     } catch (error) {
-      console.error('获取卡片详情失败:', error);
+      console.error('强制刷新卡片失败:', error);
       throw error;
     } finally {
       loading.value = false;
     }
   }
+
+  // 原有缓存逻辑
+  if (cardDetailCache.has(cardId)) {
+    const cached = cardDetailCache.get(cardId)!;
+    console.log(`[Cache] 🚀 从详情缓存返回卡片: ${cardId}`);
+    currentCard.value = cached;
+    return cached;
+  }
+
+  loading.value = true;
+  try {
+    const cacheKey = `card_${cardId}`;
+    const res = await dedupeRequest(cacheKey, () => worldApi.getCard(projectId, cardId));
+    const fullCard = res.data as CardDetail;
+    cardDetailCache.set(cardId, fullCard);
+    currentCard.value = fullCard;
+
+    // 同步更新精简缓存
+    const summary: CardSummary = {
+      id: fullCard.id,
+      projectId: fullCard.projectId,
+      title: fullCard.title,
+      type: fullCard.type,
+      coverImage: fullCard.coverImage,
+      updatedAt: fullCard.updatedAt,
+      outRelationCount: fullCard.outRelations?.length || 0,
+      inRelationCount: fullCard.inRelations?.length || 0,
+    };
+    cardSummaryCache.set(cardId, summary);
+    if (!cards.value.find((c: CardSummary) => c.id === cardId)) {
+      cards.value.push(summary);
+    } else {
+      const idx = cards.value.findIndex((c: CardSummary) => c.id === cardId);
+      if (idx !== -1) cards.value[idx] = summary;
+    }
+    return fullCard;
+  } catch (error) {
+    console.error('获取卡片详情失败:', error);
+    throw error;
+  } finally {
+    loading.value = false;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
 
   // ---------- 批量加载卡片 ----------
   async function fetchCardsByIds(projectId: string, cardIds: string[]): Promise<CardSummary[]> {
@@ -431,29 +478,68 @@ export const useWorldStore = defineStore('world', () => {
     }
   }
 
-  // ---------- 关联管理 ----------
   async function addRelation(sourceCardId: string, targetCardId: string, relationType: string) {
-    const res = await worldApi.addRelation(sourceCardId, targetCardId, relationType);
-    const newRelation: Relation = {
-      id: res.data.id || res.data.Id,
-      sourceCardId: res.data.sourceCardId || res.data.SourceCardId,
-      targetCardId: res.data.targetCardId || res.data.TargetCardId,
-      relationType: res.data.relationType || res.data.RelationType,
-      createdAt: res.data.createdAt || res.data.CreatedAt,
-      sourceCardTitle: res.data.sourceCardTitle || res.data.SourceCardTitle || '',
-      targetCardTitle: res.data.targetCardTitle || res.data.TargetCardTitle || '',
-      sourceCardType: res.data.sourceCardType || res.data.SourceCardType || '',
-      targetCardType: res.data.targetCardType || res.data.TargetCardType || '',
-    };
-    allRelations.value.push(newRelation);
-    // 更新列表中卡片的计数
-    const card = cards.value.find((c: CardSummary) => c.id === sourceCardId);
-    if (card) {
-      card.outRelationCount = (card.outRelationCount || 0) + 1;
-      cardSummaryCache.set(sourceCardId, card);
-    }
-    return newRelation;
+  const res = await worldApi.addRelation(sourceCardId, targetCardId, relationType);
+  const newRelation: Relation = {
+    id: res.data.id || res.data.Id,
+    sourceCardId: res.data.sourceCardId || res.data.SourceCardId,
+    targetCardId: res.data.targetCardId || res.data.TargetCardId,
+    relationType: res.data.relationType || res.data.RelationType,
+    createdAt: res.data.createdAt || res.data.CreatedAt,
+    sourceCardTitle: res.data.sourceCardTitle || res.data.SourceCardTitle || '',
+    targetCardTitle: res.data.targetCardTitle || res.data.TargetCardTitle || '',
+    sourceCardType: res.data.sourceCardType || res.data.SourceCardType || '',
+    targetCardType: res.data.targetCardType || res.data.TargetCardType || '',
+  };
+  allRelations.value.push(newRelation);
+
+  // 更新列表中卡片的计数
+  const card = cards.value.find((c: CardSummary) => c.id === sourceCardId);
+  if (card) {
+    card.outRelationCount = (card.outRelationCount || 0) + 1;
+    cardSummaryCache.set(sourceCardId, card);
   }
+  const targetCard = cards.value.find((c: CardSummary) => c.id === targetCardId);
+  if (targetCard) {
+    targetCard.inRelationCount = (targetCard.inRelationCount || 0) + 1;
+    cardSummaryCache.set(targetCardId, targetCard);
+  }
+
+  // 更新详情缓存中的关系列表
+  const sourceDetail = cardDetailCache.get(sourceCardId);
+  if (sourceDetail) {
+    if (!sourceDetail.outRelations) sourceDetail.outRelations = [];
+    sourceDetail.outRelations.push(newRelation);
+    cardDetailCache.set(sourceCardId, sourceDetail);
+  }
+  const targetDetail = cardDetailCache.get(targetCardId);
+  if (targetDetail) {
+    if (!targetDetail.inRelations) targetDetail.inRelations = [];
+    targetDetail.inRelations.push(newRelation);
+    cardDetailCache.set(targetCardId, targetDetail);
+  }
+
+  // ✅ 强制刷新当前卡片
+  if (currentCard.value?.id === sourceCardId || currentCard.value?.id === targetCardId) {
+    const projectId = currentCard.value.projectId;
+    const cardId = currentCard.value.id;
+    cardDetailCache.delete(cardId);
+    await fetchCardDetail(projectId, cardId, true);
+  }
+
+  return newRelation;
+}
+
+
+
+
+
+
+
+
+
+
+
 
   async function removeRelation(cardId: string, relationId: string) {
     await worldApi.removeRelation(cardId, relationId);

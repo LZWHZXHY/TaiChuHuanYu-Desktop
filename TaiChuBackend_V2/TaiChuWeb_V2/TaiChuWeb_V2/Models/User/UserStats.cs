@@ -47,8 +47,30 @@ namespace TaiChuWeb_V2.Models.User
 
         public int MaxProjectCount { get; set; } = 10; // 最大项目数，默认10，可通过升级或购买扩展
 
-        [ForeignKey("UserId")] // 明确外键关系
+
+        // ===== 🆕 世界观配额 =====
+        /// <summary>
+        /// 已使用的世界观数量（创建世界观项目时 +1，删除时 -1）
+        /// </summary>
+        public int UsedWorldCount { get; set; } = 0;
+
+        /// <summary>
+        /// 可创建的世界观总数（默认 3）
+        /// </summary>
+        public int MaxWorldCount { get; set; } = 3;
+
+        /// <summary>
+        /// 每个世界观的最大词条数（默认 100）
+        /// </summary>
+        public int MaxCardsPerWorld { get; set; } = 100;
+
+        [ForeignKey("UserId")]
         public virtual User User { get; set; } = null!;
+
+
+       
+
+
     }
 
 

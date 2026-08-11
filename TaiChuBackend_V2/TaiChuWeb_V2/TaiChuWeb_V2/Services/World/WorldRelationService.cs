@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,11 +14,13 @@ namespace TaiChuWeb_V2.Services.World
     {
         private readonly AppDbContext _context;
         private readonly IWorldCardService _cardService;
+        private readonly IMemoryCache _cache;  // 🆕 新增缓存
 
-        public WorldRelationService(AppDbContext context, IWorldCardService cardService)
+        public WorldRelationService(AppDbContext context, IWorldCardService cardService, IMemoryCache cache)
         {
             _context = context;
             _cardService = cardService;
+            _cache = cache;  // 🆕
         }
 
         // ============================================================
@@ -25,27 +28,37 @@ namespace TaiChuWeb_V2.Services.World
         // ============================================================
         public async Task<RelationDto> CreateRelationAsync(Guid sourceCardId, Guid userId, CreateRelationDto dto)
         {
-            // 1. 验证源卡片存在且用户有权限
-            var sourceCard = await _cardService.GetCardByIdAsync(sourceCardId, userId);
-            if (sourceCard == null)
-                throw new UnauthorizedAccessException("源卡片不存在或无权操作");
+            // 1. 验证源卡片权限（只取 ProjectId 和 OwnerId）
+            var sourceInfo = await _context.WorldCards
+                .Where(c => c.Id == sourceCardId)
+                .Select(c => new { c.ProjectId, c.Project.OwnerId })
+                .FirstOrDefaultAsync();
 
-            // 2. 验证目标卡片存在且用户有权限
-            var targetCard = await _cardService.GetCardByIdAsync(dto.TargetCardId, userId);
-            if (targetCard == null)
-                throw new UnauthorizedAccessException("目标卡片不存在或无权操作");
+            if (sourceInfo == null || sourceInfo.OwnerId != userId)
+                throw new UnauthorizedAccessException("源卡片不存在或无权限");
 
-            // 3. 不能关联自己
+            // 2. 验证目标卡片存在且在同一项目（只取 ProjectId）
+            var targetProjectId = await _context.WorldCards
+                .Where(c => c.Id == dto.TargetCardId)
+                .Select(c => c.ProjectId)
+                .FirstOrDefaultAsync();
+
+            if (targetProjectId == Guid.Empty)
+                throw new UnauthorizedAccessException("目标卡片不存在");
+
+            if (targetProjectId != sourceInfo.ProjectId)
+                throw new InvalidOperationException("卡片必须属于同一项目");
+
             if (sourceCardId == dto.TargetCardId)
                 throw new InvalidOperationException("不能关联自己");
 
-            // 4. 检查关联是否已存在
-            var existing = await _context.WorldRelations
+            // 3. 检查关联是否已存在
+            bool exists = await _context.WorldRelations
                 .AnyAsync(r => r.SourceCardId == sourceCardId && r.TargetCardId == dto.TargetCardId);
-            if (existing)
+            if (exists)
                 throw new InvalidOperationException("该关联已存在");
 
-            // 5. 创建关联
+            // 4. 创建新关系
             var relation = new WorldRelation
             {
                 Id = Guid.NewGuid(),
@@ -58,13 +71,30 @@ namespace TaiChuWeb_V2.Services.World
             await _context.WorldRelations.AddAsync(relation);
             await _context.SaveChangesAsync();
 
-            // 6. 返回 DTO（直接查询，避免导航属性加载问题）
-            return await MapToRelationDto(relation.Id);
+            // 5. 清除相关卡片缓存
+            _cache.Remove($"card_{sourceCardId}");
+            _cache.Remove($"card_{dto.TargetCardId}");
+
+            // 6. 可选：一次查询获取源和目标卡片的标题/类型（如果需要返回）
+            var titles = await _context.WorldCards
+                .Where(c => c.Id == sourceCardId || c.Id == dto.TargetCardId)
+                .Select(c => new { c.Id, c.Title, c.Type })
+                .ToDictionaryAsync(c => c.Id);
+
+            return new RelationDto
+            {
+                Id = relation.Id,
+                SourceCardId = relation.SourceCardId,
+                TargetCardId = relation.TargetCardId,
+                RelationType = relation.RelationType,
+                CreatedAt = relation.CreatedAt,
+                SourceCardTitle = titles.TryGetValue(sourceCardId, out var s) ? s.Title : null,
+                TargetCardTitle = titles.TryGetValue(dto.TargetCardId, out var t) ? t.Title : null,
+                SourceCardType = titles.TryGetValue(sourceCardId, out var st) ? st.Type : null,
+                TargetCardType = titles.TryGetValue(dto.TargetCardId, out var tt) ? tt.Type : null
+            };
         }
 
-        // ============================================================
-        //  2. 删除关联
-        // ============================================================
         public async Task<bool> DeleteRelationAsync(Guid relationId, Guid userId)
         {
             var relation = await _context.WorldRelations
@@ -75,12 +105,22 @@ namespace TaiChuWeb_V2.Services.World
             if (relation == null)
                 return false;
 
-            // 检查权限：只有源卡片所属项目的所有者才能删除
             if (relation.SourceCard?.Project?.OwnerId != userId)
                 return false;
 
+            var sourceCardId = relation.SourceCardId;
+            var targetCardId = relation.TargetCardId;
+
             _context.WorldRelations.Remove(relation);
             await _context.SaveChangesAsync();
+
+            // ✅ 优化：仅清除缓存，不重新加载
+            _cache.Remove($"card_{sourceCardId}");
+            _cache.Remove($"card_{targetCardId}");
+            // 同时清除项目卡片列表缓存（如果有）
+            var projectId = relation.SourceCard.ProjectId;
+            _cache.Remove($"cards_project_{projectId}");
+
             return true;
         }
 
@@ -94,7 +134,6 @@ namespace TaiChuWeb_V2.Services.World
             if (card == null)
                 return new List<RelationDto>();
 
-            // ✅ 优化：使用 Select 直接投影，无需额外的 MapToRelationDto
             var relations = await _context.WorldRelations
                 .AsNoTracking()
                 .Where(r => r.SourceCardId == cardId || r.TargetCardId == cardId)
@@ -116,12 +155,10 @@ namespace TaiChuWeb_V2.Services.World
         }
 
         // ============================================================
-        //  4. 获取项目下所有关联（优化版 - 单次查询 + 直接投影）
+        //  4. 获取项目下所有关联
         // ============================================================
         public async Task<IEnumerable<RelationDto>> GetRelationsForProjectAsync(Guid projectId)
         {
-            // ✅ 优化：直接用 Select 投影，不需要 Include + 二次转换
-            // 这会生成一个 SQL JOIN 查询，一次性返回所有数据
             var relations = await _context.WorldRelations
                 .AsNoTracking()
                 .Where(r =>
@@ -145,7 +182,7 @@ namespace TaiChuWeb_V2.Services.World
         }
 
         // ============================================================
-        //  5. 私有辅助方法（按 ID 查询并映射）
+        //  5. 私有辅助方法
         // ============================================================
         private async Task<RelationDto> MapToRelationDto(Guid relationId)
         {

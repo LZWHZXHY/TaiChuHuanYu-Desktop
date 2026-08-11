@@ -449,18 +449,23 @@ const selectedCard = computed(() => {
 // ===== 选择卡片 =====
 const selectCard = async (id: string) => {
   if (selectedCardId.value === id) {
-    closePanel();
+    // 同一卡片：强制刷新（不关闭面板）
+    detailLoading.value = true;
+    try {
+      await store.fetchCardDetail(projectId, id, true);
+    } catch (error) {
+      console.error('刷新卡片失败:', error);
+    } finally {
+      detailLoading.value = false;
+    }
     return;
   }
 
+  // 不同卡片：切换并强制刷新
   selectedCardId.value = id;
-  selectedCardDetail.value = null;
-
-  // 加载完整数据用于只读展示
   detailLoading.value = true;
   try {
-    await store.fetchCardDetail(projectId, id);
-    selectedCardDetail.value = store.currentCard as CardDetail | null;
+    await store.fetchCardDetail(projectId, id, true);
   } catch (error) {
     console.error('加载卡片详情失败:', error);
   } finally {

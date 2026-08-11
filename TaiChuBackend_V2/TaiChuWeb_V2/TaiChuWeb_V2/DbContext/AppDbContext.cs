@@ -31,6 +31,10 @@ namespace TaiChuWeb_V2.DbContext
         {
         }
 
+
+        public DbSet<QuotaUpgradeRecord> QuotaUpgradeRecords { get; set; }
+
+
         // ===== 柴圈社区 - 约战系统 =====
         public DbSet<Battle> Battles { get; set; }
         public DbSet<BattleParticipant> BattleParticipants { get; set; }
@@ -813,6 +817,23 @@ namespace TaiChuWeb_V2.DbContext
                     .HasForeignKey(e => e.ParticipantId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
+
+
+            // ===== 扩容记录表配置 =====
+            modelBuilder.Entity<QuotaUpgradeRecord>(entity =>
+            {
+                entity.ToTable("QuotaUpgradeRecords");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.UpgradeType).IsRequired().HasMaxLength(20);
+                entity.Property(e => e.CreatedAt).IsRequired();
+                entity.HasIndex(e => e.UserId).HasDatabaseName("IX_QuotaUpgradeRecords_UserId");
+                entity.HasIndex(e => e.CreatedAt).HasDatabaseName("IX_QuotaUpgradeRecords_CreatedAt");
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
 
 
 

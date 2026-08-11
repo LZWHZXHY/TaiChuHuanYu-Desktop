@@ -126,11 +126,12 @@ namespace TaiChuWeb_V2.Services.World
         // ============================================================
         //  3. 获取卡片详情（内部使用，已验证权限，不重复检查）
         // ============================================================
+        // 文件：WorldCardService.cs
         public async Task<CardResponseDto> GetCardByIdInternalAsync(Guid cardId)
         {
+            // 🔥 一次查询加载卡片 + 所有关系
             var card = await _context.WorldCards
                 .AsNoTracking()
-                .Include(c => c.Project)
                 .Include(c => c.OutRelations)
                     .ThenInclude(r => r.TargetCard)
                 .Include(c => c.InRelations)
@@ -140,6 +141,7 @@ namespace TaiChuWeb_V2.Services.World
             if (card == null)
                 return null;
 
+            // 直接映射，因为关系已加载
             return MapToResponseDto(card);
         }
 
@@ -228,35 +230,40 @@ namespace TaiChuWeb_V2.Services.World
             return await GetCardByIdInternalAsync(card.Id);
         }
 
-        // ============================================================
-        //  7. 更新卡片
-        // ============================================================
         public async Task<CardResponseDto> UpdateCardAsync(Guid cardId, Guid userId, UpdateCardDto dto)
         {
+            // 1. 一次查询加载所有必需数据（卡片 + 项目 + 出度/入度关系）
             var card = await _context.WorldCards
-                .Include(c => c.Project)
+                .Include(c => c.Project)                        // 用于权限检查
+                .Include(c => c.OutRelations)
+                    .ThenInclude(r => r.TargetCard)             // 目标卡片标题/类型
+                .Include(c => c.InRelations)
+                    .ThenInclude(r => r.SourceCard)             // 源卡片标题/类型
                 .FirstOrDefaultAsync(c => c.Id == cardId);
 
             if (card == null)
                 return null;
 
-            // 检查权限
+            // 2. 权限检查：只有项目所有者才能修改
             if (card.Project.OwnerId != userId)
                 return null;
 
-            // ✅ 修复：CoverImage 检查移到 card 非空之后
+            // 3. 更新字段（只更新有值的）
             if (dto.CoverImage != null)
                 card.CoverImage = dto.CoverImage;
 
-            // 🆕 GalleryImages 更新
             if (dto.GalleryImages != null)
                 card.GalleryImages = JsonSerializer.Serialize(dto.GalleryImages);
 
             if (!string.IsNullOrEmpty(dto.Title))
                 card.Title = dto.Title;
 
+            // 🔥 关键修复：显式处理 Type 字段，并强制标记为已修改
             if (!string.IsNullOrEmpty(dto.Type))
+            {
                 card.Type = dto.Type;
+                _context.Entry(card).Property(c => c.Type).IsModified = true;
+            }
 
             if (dto.SubType != null)
                 card.SubType = dto.SubType;
@@ -285,16 +292,19 @@ namespace TaiChuWeb_V2.Services.World
             if (dto.Content != null)
                 card.Content = dto.Content;
 
+            // 4. 更新时间戳
             card.UpdatedAt = DateTime.UtcNow;
 
+            // 5. 保存更改
             _context.WorldCards.Update(card);
             await _context.SaveChangesAsync();
 
-            // ✅ 清除缓存
+            // 6. 清除缓存
             ClearCardCache(cardId);
             ClearProjectCardCache(card.ProjectId);
 
-            return await GetCardByIdInternalAsync(card.Id);
+            // 7. 直接使用已加载关系的 card 实体构造 DTO，无需额外查询
+            return MapToResponseDto(card);
         }
 
         // ============================================================
