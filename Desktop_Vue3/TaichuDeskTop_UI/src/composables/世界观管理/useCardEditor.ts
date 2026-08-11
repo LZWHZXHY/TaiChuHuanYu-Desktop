@@ -1,5 +1,5 @@
 // src/composables/世界观管理/useCardEditor.ts
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useWorldStore } from '@/stores/world'
@@ -11,7 +11,9 @@ export function useCardEditor(
   form: any,
   resetForm: () => void,
   setFormData: (data: any) => void,
-  checkQuota: () => Promise<boolean> // 作为第四个参数传入
+  checkQuota: () => Promise<boolean>,
+  // 新增：显式传入 projectId，优先使用
+  projectId?: string
 ) {
   const route = useRoute()
   const store = useWorldStore()
@@ -20,9 +22,10 @@ export function useCardEditor(
   const loading = ref(false)
   const isCreating = ref(true)
 
-  const routeProjectId = computed(() => (route.params.projectId as string) || '')
+  // 优先使用传入的 projectId，如果没有则从路由获取
+  const routeProjectId = computed(() => (route.params.projectId as string) || projectId || '')
   const routeCardId = computed(() => route.params.cardId as string | undefined)
-  const isEditMode = computed(() => !!routeCardId.value)
+  const isEditMode = computed(() => !!routeCardId.value || !!projectId)  // 如果有 projectId 表示处于编辑状态
 
   // ===== 加载卡片数据 =====
   const loadCardData = async (cardData?: any) => {
@@ -33,13 +36,14 @@ export function useCardEditor(
       return
     }
 
+    // 如果有传入的 projectId，优先使用，否则用路由中的
+    const projectId = routeProjectId.value
+    if (!projectId) {
+      throw new Error('缺少 projectId')
+    }
+
     loading.value = true
     try {
-      const projectId = routeProjectId.value
-      if (!projectId) {
-        throw new Error('缺少 projectId')
-      }
-
       await store.fetchCardDetail(projectId, cardId)
       const fullCard = store.currentCard
 
@@ -47,12 +51,22 @@ export function useCardEditor(
         throw new Error('卡片数据为空')
       }
 
+      // 🔍 调试日志
+      console.log('🔍 fullCard.outRelations:', fullCard.outRelations)
+
       const rawAttributes = fullCard.attributes || []
       const attributes: AttributeItem[] = rawAttributes.map((attr: any) => ({
         key: attr.key,
         value: attr.value,
         type: attr.type || 'short'
       }))
+
+      const relations = (fullCard.outRelations || []).map((r: any) => ({
+        targetCardId: r.targetCardId,
+        relationType: r.relationType,
+      }))
+
+      console.log('🔍 映射后的 relations:', relations)
 
       setFormData({
         title: fullCard.title || '',
@@ -63,12 +77,12 @@ export function useCardEditor(
         description: fullCard.description || '',
         content: fullCard.content || '{}',
         tags: Array.isArray(fullCard.tags) ? fullCard.tags : [],
-        relations: (fullCard.outRelations || []).map((r: any) => ({
-          targetCardId: r.targetCardId,
-          relationType: r.relationType,
-        })),
+        relations,
         contentBlocks: fullCard.contentBlocks || [],
       })
+
+      await nextTick()
+      console.log('✅ form.relations 已设置:', form.value.relations)
 
       isCreating.value = false
     } catch (error) {
@@ -97,7 +111,6 @@ export function useCardEditor(
       }
     }
 
-    // 准备基本信息 payload
     const cardPayload = {
       title: form.value.title.trim(),
       type: form.value.type,
@@ -109,7 +122,6 @@ export function useCardEditor(
       tags: form.value.tags,
     }
 
-    // 处理关系变更
     let toRemove: any[] = []
     let toAdd: { targetCardId: string; relationType: string }[] = []
 
@@ -119,13 +131,13 @@ export function useCardEditor(
 
       let existingRelations = store.getCardDetailById(cardId)?.outRelations || []
       if (existingRelations.length === 0) {
+        // 这里需要 projectId，使用 routeProjectId
         await store.fetchCardDetail(routeProjectId.value, cardId)
         existingRelations = store.getCardDetailById(cardId)?.outRelations || []
       }
 
       const newRelations = form.value.relations || []
 
-      // 显式类型标注避免隐式 any
       toRemove = existingRelations.filter((old: any) =>
         !newRelations.some((n: { targetCardId: string; relationType: string }) =>
           n.targetCardId === old.targetCardId
@@ -148,7 +160,6 @@ export function useCardEditor(
         }
         ElMessage.success('已创建')
       } else {
-        // cardId 已经在上面赋值，但为安全重新获取
         const existingCardId = routeCardId.value
         if (!existingCardId) throw new Error('缺少卡片 ID')
         await store.updateCard(existingCardId, cardPayload)

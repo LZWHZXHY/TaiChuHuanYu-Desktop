@@ -101,11 +101,23 @@
       <TagInput v-model="form.tags" />
     </div>
 
-    <!-- 关联卡片 -->
+    <!-- 关联卡片（出度，可编辑） -->
     <div class="field">
       <RelationSelector
         v-model="form.relations"
         :project-id="projectId"
+      />
+    </div>
+
+    <!-- 🔗 入度关系（只读） -->
+    <div class="field" v-if="incomingRelations.length">
+      <RelationList
+        :relations="incomingRelations"
+        type="in"
+        :project-id="projectId"
+        :card-id="routeCardId"
+        label="📌 被以下卡片关联（只读）"
+        @card-click="goToCard"
       />
     </div>
 
@@ -139,6 +151,7 @@ import { useRelationDiff } from '@/composables/世界观管理/useRelationDiff'
 import AttributeList from './AttributeList.vue'
 import TagInput from './TagInput.vue'
 import RelationSelector from './RelationSelector.vue'
+import RelationList from './RelationList.vue'
 import ContentBlockManager from './ContentBlockManager.vue'
 
 // ===== 导入所有类型专属编辑器 =====
@@ -200,9 +213,9 @@ const {
   loadCardData,
   handleSave: editorHandleSave,
   handleDelete: editorHandleDelete,
-} = useCardEditor(form, resetForm, setFormData, checkCanCreate)
+} = useCardEditor(form, resetForm, setFormData, checkCanCreate, props.projectId)
 
-// 关系差异计算（虽然目前未直接使用，但保留以备后续扩展）
+// 关系差异计算
 const { computeDiff } = useRelationDiff()
 
 // ============================================================
@@ -280,7 +293,6 @@ const cancelCreate = () => {
   }
 }
 
-// 封装保存和删除，以触发 emit
 const handleSave = async () => {
   await editorHandleSave(() => {
     emit('saved')
@@ -294,13 +306,25 @@ const handleDelete = async () => {
 }
 
 // ============================================================
-//  5. 监听路由变化
+//  5. 入度关系展示（新增）
+// ============================================================
+const incomingRelations = computed(() => {
+  return store.currentCard?.inRelations || []
+})
+
+const goToCard = (targetId: string) => {
+  if (targetId === routeCardId.value) return
+  router.push(`/world/project/${routeProjectId.value}/card/${targetId}`)
+}
+
+// ============================================================
+//  6. 监听路由变化
 // ============================================================
 watch(
   () => route.params.cardId,
   () => {
     if (route.params.cardId) {
-      loadCardData()
+      loadCardData(props.cardData)
     }
   }
 )
@@ -309,33 +333,16 @@ watch(
   () => props.cardData,
   (newVal) => {
     if (newVal && !routeCardId.value) {
-      loadCardData()
+      loadCardData(newVal)
     }
   }
 )
 
 // ============================================================
-//  6. 监听 store.currentCard 同步关系
-// ============================================================
-watch(
-  () => store.currentCard,
-  (newCard) => {
-    if (newCard && routeCardId.value) {
-      const newRelations = (newCard.outRelations || []).map((r: any) => ({
-        targetCardId: r.targetCardId,
-        relationType: r.relationType,
-      }))
-      form.value.relations = newRelations
-    }
-  },
-  { deep: true }
-)
-
-// ============================================================
-//  7. 生命周期
+//  8. 生命周期
 // ============================================================
 onMounted(() => {
-  loadCardData()
+  loadCardData(props.cardData)
 
   window.addEventListener(
     'open-create-card',
@@ -350,425 +357,7 @@ onMounted(() => {
 </script>
 
 
+
 <style scoped>
-/* ============================================================
-   CardEditor 完整样式
-   ============================================================ */
-.card-editor-inline {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.create-banner {
-  display: flex;
-  justify-content: space-between;
-  background: #eef2ff;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-weight: 500;
-  color: #4f46e5;
-}
-
-.cancel-create {
-  background: none;
-  border: none;
-  color: #64748b;
-  cursor: pointer;
-  font-size: 13px;
-  transition: color 0.2s;
-}
-.cancel-create:hover {
-  color: #1e293b;
-}
-
-.title-input {
-  width: 100%;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 16px;
-  font-weight: 500;
-  background: #fafbfc;
-  transition: border-color 0.2s, background 0.2s;
-}
-.title-input:focus {
-  outline: none;
-  border-color: #4f46e5;
-  background: white;
-}
-.title-input::placeholder {
-  color: #a0aec0;
-  font-weight: 400;
-}
-
-/* ===== 配额提示 ===== */
-.quota-hint {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-.quota-normal {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #16a34a;
-}
-.quota-warning {
-  background: #fefce8;
-  border: 1px solid #fde68a;
-  color: #d97706;
-}
-.quota-full {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
-}
-.quota-remaining {
-  font-weight: 500;
-}
-.quota-full .quota-full {
-  font-weight: 600;
-}
-
-/* ===== 类型选择 ===== */
-.type-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.type-tab {
-  padding: 4px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: white;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: #475569;
-}
-.type-tab:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
-.type-tab.active {
-  border-color: #4f46e5;
-  background: #eef2ff;
-  color: #4f46e5;
-}
-
-/* ===== 封面图 ===== */
-.cover-field {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.cover-preview-mini {
-  position: relative;
-  width: 80px;
-  height: 60px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid #e2e8f0;
-  flex-shrink: 0;
-}
-.cover-preview-mini img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.remove-cover-mini {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
-  cursor: pointer;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-}
-.remove-cover-mini:hover {
-  background: #ef4444;
-}
-.upload-cover-btn {
-  padding: 4px 16px;
-  border: 1px dashed #d1d5db;
-  border-radius: 8px;
-  background: transparent;
-  color: #64748b;
-  cursor: pointer;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-.upload-cover-btn:hover {
-  border-color: #4f46e5;
-  color: #4f46e5;
-  background: #f0f4ff;
-}
-.upload-progress-mini {
-  font-size: 12px;
-  color: #94a3b8;
-  animation: pulse 1.2s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-/* ===== 图库 ===== */
-.gallery-field {
-  margin-top: 4px;
-}
-.gallery-field .field-label {
-  display: block;
-  font-weight: 500;
-  font-size: 14px;
-  color: #334155;
-  margin-bottom: 6px;
-}
-.gallery-upload {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.gallery-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
-}
-.gallery-item {
-  position: relative;
-  aspect-ratio: 1;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid #eef2f6;
-  background: #f8fafc;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.gallery-item:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-}
-.gallery-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-  display: block;
-}
-.gallery-item:hover img {
-  transform: scale(1.04);
-}
-.remove-gallery-btn {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 300;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  opacity: 0;
-  line-height: 1;
-  padding: 0;
-}
-.gallery-item:hover .remove-gallery-btn {
-  opacity: 1;
-}
-.remove-gallery-btn:hover {
-  background: #ef4444;
-  transform: scale(1.12);
-}
-.upload-gallery-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px 24px;
-  border: 2px dashed #d1d5db;
-  border-radius: 10px;
-  background: #fafbfc;
-  color: #64748b;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.25s ease;
-  min-height: 56px;
-  width: fit-content;
-  min-width: 140px;
-  user-select: none;
-}
-.upload-gallery-btn:hover {
-  border-color: #4f46e5;
-  color: #4f46e5;
-  background: #f0f4ff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.12);
-}
-.upload-progress {
-  font-size: 13px;
-  color: #94a3b8;
-  animation: gallery-pulse 1.2s ease-in-out infinite;
-}
-@keyframes gallery-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-.gallery-field .hint {
-  font-size: 12px;
-  color: #94a3b8;
-  margin: 4px 0 0 2px;
-  font-style: italic;
-}
-
-/* ===== 描述 ===== */
-.desc-area {
-  width: 100%;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-family: inherit;
-  font-size: 14px;
-  resize: vertical;
-  background: #fafbfc;
-  transition: border-color 0.2s, background 0.2s;
-  min-height: 60px;
-}
-.desc-area:focus {
-  outline: none;
-  border-color: #4f46e5;
-  background: white;
-}
-.desc-area::placeholder {
-  color: #a0aec0;
-}
-
-.type-editor-wrapper {
-  margin: 8px 0;
-  padding: 0;
-}
-.type-editor-placeholder {
-  padding: 20px;
-  background: #f8fafc;
-  border-radius: 8px;
-  border: 1px dashed #d1d5db;
-  text-align: center;
-  margin: 8px 0;
-}
-.placeholder-text {
-  color: #94a3b8;
-  font-size: 14px;
-  margin: 0;
-}
-
-/* ===== 操作按钮 ===== */
-.editor-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-  padding-top: 12px;
-  border-top: 1px solid #f1f3f5;
-}
-.btn-primary {
-  padding: 6px 20px;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 14px;
-  transition: background 0.2s;
-}
-.btn-primary:hover:not(:disabled) {
-  background: #4338ca;
-}
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.btn-danger {
-  padding: 6px 16px;
-  background: #fef2f2;
-  color: #ef4444;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-.btn-danger:hover {
-  background: #fee2e2;
-  border-color: #fca5a5;
-}
-
-/* ===== 响应式 ===== */
-@media (max-width: 640px) {
-  .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-    gap: 8px;
-  }
-  .upload-gallery-btn {
-    width: 100%;
-    min-height: 48px;
-    padding: 10px 16px;
-    font-size: 13px;
-    justify-content: center;
-  }
-  .remove-gallery-btn {
-    opacity: 1;
-    width: 22px;
-    height: 22px;
-    font-size: 12px;
-    top: 4px;
-    right: 4px;
-  }
-  .gallery-item {
-    border-radius: 8px;
-  }
-  .gallery-field .hint {
-    font-size: 11px;
-  }
-  .editor-actions {
-    flex-direction: column;
-  }
-  .editor-actions .btn-primary,
-  .editor-actions .btn-danger {
-    width: 100%;
-    justify-content: center;
-    text-align: center;
-  }
-}
-@media (max-width: 400px) {
-  .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-    gap: 6px;
-  }
-  .type-tabs {
-    gap: 3px;
-  }
-  .type-tab {
-    font-size: 11px;
-    padding: 3px 10px;
-  }
-}
+@import './CardEditor.css';
 </style>
