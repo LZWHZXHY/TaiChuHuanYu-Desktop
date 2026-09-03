@@ -27,48 +27,39 @@ namespace TaiChuWeb_V2.Controllers.Admin
         public async Task<IActionResult> PushEmail([FromBody] EmailPushDto dto)
         {
             if (dto.Type != "update" && dto.Type != "activity")
-            {
-                return BadRequest(new { message = "当前接口仅支持 'update' (社区更新) 和 'activity' (活动邀约) 类型的即时发送。" });
-            }
+                return BadRequest(new { message = "当前接口仅支持 'update' 和 'activity'。" });
 
             var targetUsersQuery = _context.Users
                 .Include(u => u.Settings)
                 .Where(u => !string.IsNullOrEmpty(u.Email));
 
             if (dto.Type == "update")
-            {
                 targetUsersQuery = targetUsersQuery.Where(u => u.Settings == null || u.Settings.ReceiveUpdateEmail);
-            }
             else if (dto.Type == "activity")
-            {
                 targetUsersQuery = targetUsersQuery.Where(u => u.Settings != null && u.Settings.ReceiveActivityEmail);
-            }
 
             var emailList = await targetUsersQuery.Select(u => u.Email!).ToListAsync();
 
-            if (!emailList.Any())
-            {
-                return BadRequest(new { message = "当前没有任何道友满足该类型的邮件接收条件。" });
-            }
+            // 过滤合法邮箱
+            var validEmails = emailList.Where(e => e.Contains("@") && e.Contains(".")).ToList();
 
-            var emailConfig = _config.GetSection("EmailConfig2");
+            if (!validEmails.Any())
+                return BadRequest(new { message = "当前没有任何道友满足该类型的邮件接收条件，或邮箱格式全部非法。" });
+
+            var emailConfig = _config.GetSection("EmailConfig");
             string smtpHost = emailConfig["SmtpServer"] ?? "smtp.qq.com";
             int smtpPort = int.TryParse(emailConfig["Port"], out int port) ? port : 465;
             string senderEmail = emailConfig["SenderEmail"]!;
             string senderName = emailConfig["SenderName"] ?? "太初寰宇社区";
             string authCode = emailConfig["Password"]!;
 
-            if (string.IsNullOrEmpty(senderEmail) || string.IsNullOrEmpty(authCode))
-            {
-                return StatusCode(500, new { message = "服务器未配置完整的邮件发送凭据 (SMTP)。" });
-            }
-
             int successCount = 0;
-            int batchSize = 30;
+            // 🚀 提速：每批发 40 人
+            int batchSize = 40;
+            string lastError = string.Empty;
 
-            // 🌟 将前端传来的普通文本套入太初精美模板
+
             string finalHtmlBody = BuildTaiChuEmailTemplate(dto.Subject, dto.Content);
-
             using var client = new SmtpClient();
 
             try
@@ -76,32 +67,53 @@ namespace TaiChuWeb_V2.Controllers.Admin
                 await client.ConnectAsync(smtpHost, smtpPort, true);
                 await client.AuthenticateAsync(senderEmail, authCode);
 
-                for (int i = 0; i < emailList.Count; i += batchSize)
+                for (int i = 0; i < validEmails.Count; i += batchSize)
                 {
-                    var batchEmails = emailList.Skip(i).Take(batchSize).ToList();
-
+                    var batchEmails = validEmails.Skip(i).Take(batchSize).ToList();
                     var message = new MimeMessage();
-                    message.From.Add(new MailboxAddress(senderName, senderEmail));
-                    message.Subject = dto.Subject;
 
-                    // 👉 这里使用包装后的 HTML
+                    message.From.Add(new MailboxAddress(senderName, senderEmail));
+                    message.To.Add(new MailboxAddress(senderName, senderEmail));
+                    message.Subject = dto.Subject;
                     message.Body = new TextPart("html") { Text = finalHtmlBody };
 
                     foreach (var email in batchEmails)
                     {
-                        message.Bcc.Add(new MailboxAddress("", email));
+                        try
+                        {
+                            message.Bcc.Add(new MailboxAddress("", email.Trim()));
+                        }
+                        catch { /* 忽略无法解析的脏邮箱 */ }
                     }
 
-                    await client.SendAsync(message);
-                    successCount += batchEmails.Count;
-
-                    if (i + batchSize < emailList.Count)
+                    if (message.Bcc.Count > 0)
                     {
-                        await Task.Delay(5000);
+                        try
+                        {
+                            await client.SendAsync(message);
+                            successCount += message.Bcc.Count;
+                        }
+                        catch (Exception ex)
+                        {
+                            // 🌟 核心修改：抓取腾讯网关的真实拦截日志，并直接中断后续发送
+                            lastError = ex.Message;
+                            break;
+                        }
+                    }
+
+                    if (i + batchSize < validEmails.Count)
+                    {
+                        await Task.Delay(1000);
                     }
                 }
 
                 await client.DisconnectAsync(true);
+
+                // 🌟 核心修改：如果是 0 触达，直接给前端返回 500 并在弹窗里显示腾讯的真实报错！
+                if (successCount == 0 && !string.IsNullOrEmpty(lastError))
+                {
+                    return StatusCode(500, new { message = $"发送被拦截！腾讯网关返回: {lastError}" });
+                }
 
                 var log = new EmailLog
                 {
@@ -114,15 +126,13 @@ namespace TaiChuWeb_V2.Controllers.Admin
                 _context.EmailLogs.Add(log);
                 await _context.SaveChangesAsync();
 
-                return Ok(new { message = $"邮件推送成功！通过分批发送，已成功触达 {successCount} 位道友。", count = successCount });
+                return Ok(new { message = $"邮件推送完成！已成功触达 {successCount} 位道友。", count = successCount });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Email Error] SMTP 发送异常: {ex.Message}");
-                return StatusCode(500, new { message = $"邮件发送中断。已成功发送 {successCount} 封，请检查 SMTP 授权码或风控限制。" });
+                return StatusCode(500, new { message = $"服务器连接失败，详细信息: {ex.Message}" });
             }
         }
-
 
         // POST: api/Admin/Email/TestPush
         [HttpPost("TestPush")]
@@ -144,7 +154,6 @@ namespace TaiChuWeb_V2.Controllers.Admin
             string testNotice = "<div style='padding:12px; background:#fffbeb; color:#b45309; border: 1px solid #fef3c7; margin-bottom:24px; border-radius:6px; font-size:14px;'>" +
                                 "<strong>⚠️ [内部测试]</strong> 这是一封从太初后台发出的测试预览邮件。</div>";
 
-            // 🌟 将测试提示和正文拼接后，套入太初精美模板
             string combinedContent = testNotice + dto.Content;
             string finalHtmlBody = BuildTaiChuEmailTemplate(dto.Subject, combinedContent);
 
@@ -152,8 +161,6 @@ namespace TaiChuWeb_V2.Controllers.Admin
             message.From.Add(new MailboxAddress(senderName, senderEmail));
             message.To.Add(new MailboxAddress("", testReceiver));
             message.Subject = "[测试预览] " + dto.Subject;
-
-            // 👉 这里使用包装后的 HTML
             message.Body = new TextPart("html") { Text = finalHtmlBody };
 
             using var client = new SmtpClient();
@@ -198,26 +205,21 @@ namespace TaiChuWeb_V2.Controllers.Admin
             return Ok(logs);
         }
 
-        // =========================================================================
-        // 🌟 新增：太初寰宇专属 HTML 邮件模板生成器
-        // =========================================================================
         private string BuildTaiChuEmailTemplate(string subject, string content)
         {
-            // 将普通文本的换行符替换为 HTML 的 <br>，保证排版
             string formattedContent = content.Replace("\n", "<br>");
 
-            // 邮件客户端对 CSS 支持有限，必须使用内联样式 (Inline CSS)
             return $@"
             <div style=""background-color: #f6f8fa; padding: 40px 15px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;"">
                 <div style=""max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);"">
                     
-                    <!-- 邮件头部 (黑金/极简主题) -->
+                    <!-- 邮件头部 -->
                     <div style=""background-color: #111111; padding: 32px 40px; text-align: center;"">
                         <h1 style=""color: #ffffff; margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 2px;"">太初寰宇</h1>
                         <p style=""color: #888888; margin: 8px 0 0 0; font-size: 13px; letter-spacing: 1px;"">TAICHU UNIVERSE</p>
                     </div>
                     
-                    <!-- 邮件主体区域 -->
+                    <!-- 邮件主体 -->
                     <div style=""padding: 40px; color: #333333; font-size: 16px; line-height: 1.8;"">
                         <h2 style=""font-size: 20px; color: #111111; margin-top: 0; margin-bottom: 24px; border-bottom: 1px solid #eeeeee; padding-bottom: 12px;"">
                             {subject}
@@ -228,7 +230,7 @@ namespace TaiChuWeb_V2.Controllers.Admin
                         </div>
                     </div>
                     
-                    <!-- 邮件底部区域 -->
+                    <!-- 邮件底部 -->
                     <div style=""background-color: #fafbfc; padding: 24px 40px; text-align: center; border-top: 1px solid #eaeef2;"">
                         <p style=""color: #888888; font-size: 12px; margin: 0 0 8px 0; line-height: 1.5;"">
                             此信件由太初社区中枢系统发出，请勿直接回复本邮件。
@@ -248,7 +250,6 @@ namespace TaiChuWeb_V2.Controllers.Admin
         public string Type { get; set; } = string.Empty;
         public string Subject { get; set; } = string.Empty;
         public string Content { get; set; } = string.Empty;
-
         public string RecallDays { get; set; } = string.Empty;
         public string FestivalType { get; set; } = string.Empty;
         public string HolidayDate { get; set; } = string.Empty;
