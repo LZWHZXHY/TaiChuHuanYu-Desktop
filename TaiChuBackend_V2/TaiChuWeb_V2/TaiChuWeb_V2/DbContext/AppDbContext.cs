@@ -2,6 +2,7 @@
 using TaiChuWeb_V2.Models.Activity;
 using TaiChuWeb_V2.Models.Artwork;
 using TaiChuWeb_V2.Models.ChaiCommunity;  // 新增
+using TaiChuWeb_V2.Models.ChaiCommunity.Battle; // 引入约战模型
 using TaiChuWeb_V2.Models.ChaiCommunity.Joint; // 引入联合活动模型
 using TaiChuWeb_V2.Models.Event;
 using TaiChuWeb_V2.Models.Feedback;
@@ -19,8 +20,7 @@ using TaiChuWeb_V2.Models.Trade;
 using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.Models.Wiki;
 using TaiChuWeb_V2.Models.World;
-using TaiChuWeb_V2.Models.ChaiCommunity.Battle; // 引入约战模型
-
+using TaiChuWeb_V2.Models.Admin;
 
 
 namespace TaiChuWeb_V2.DbContext
@@ -30,10 +30,12 @@ namespace TaiChuWeb_V2.DbContext
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
-
+        // 在文件的 DbSet 声明区域加入：
+        public DbSet<EmailTemplate> EmailTemplates { get; set; }
+        public DbSet<EmailLog> EmailLogs { get; set; }
 
         public DbSet<QuotaUpgradeRecord> QuotaUpgradeRecords { get; set; }
-
+        public DbSet<UserSettings> UserSettings { get; set; }
 
         // ===== 柴圈社区 - 约战系统 =====
         public DbSet<Battle> Battles { get; set; }
@@ -834,7 +836,28 @@ namespace TaiChuWeb_V2.DbContext
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // 用户表唯一性索引配置
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.HasIndex(u => u.Username).IsUnique();
+                entity.HasIndex(u => u.Email).IsUnique();
+            });
 
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.Profile).WithOne(p => p.User).HasForeignKey<UserProfile>(p => p.UserId).OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.Stats).WithOne(s => s.User).HasForeignKey<UserStats>(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
+
+            // 👇 新增：配置 User 与 UserSettings 的一对一关系，并设置级联删除（删除用户时自动删除设置）
+            modelBuilder.Entity<User>()
+                .HasOne(u => u.Settings)
+                .WithOne(s => s.User)
+                .HasForeignKey<UserSettings>(s => s.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<UserSignLog>()
+                .HasOne(l => l.User).WithMany(u => u.SignLogs).HasForeignKey(l => l.UserId).OnDelete(DeleteBehavior.Cascade);
 
 
         }

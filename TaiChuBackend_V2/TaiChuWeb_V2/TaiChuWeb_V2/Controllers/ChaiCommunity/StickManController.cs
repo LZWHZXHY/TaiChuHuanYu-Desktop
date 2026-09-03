@@ -90,9 +90,9 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
         public async Task<ActionResult<StickmanCharacterDto>> GetDetail(Guid id)
         {
             var character = await _context.StickmanCharacters
-                .Include(c => c.Attributes)
-                .Include(c => c.Images)
-                .FirstOrDefaultAsync(c => c.Id == id);
+    .Include(c => c.Attributes.OrderBy(a => a.SortOrder))
+    .Include(c => c.Images.OrderBy(i => i.SortOrder))
+    .FirstOrDefaultAsync(c => c.Id == id);
 
             if (character == null)
                 return NotFound(new { message = "OC 角色不存在" });

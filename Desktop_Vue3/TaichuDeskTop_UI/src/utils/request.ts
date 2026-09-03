@@ -44,8 +44,8 @@ request.interceptors.response.use(
 
     // --- B. 核心：根据不同状态码，定制化业务逻辑和通知标题 ---
     if (status === 401) {
-      errorTitle = '尚未道成';
-      backendMessage = '身份凭证已失效，请重新编织登入';
+      errorTitle = '身份验证失败';
+      backendMessage = '身份凭证失效，请重新登陆账户';
 
       // 清除本地残存的身份印记
       localStorage.removeItem('token');
@@ -62,7 +62,7 @@ request.interceptors.response.use(
       errorTitle = '权限受阻';
       // 如果后端没给具体话术，给个保底话术
       if (backendMessage === '未知灵气波动') {
-        backendMessage = '您当前在灵脉中权限不足，无权操作此项';
+        backendMessage = '您当前权限不足，无权操作此项';
       }
     } 
     else if (status === 500) {

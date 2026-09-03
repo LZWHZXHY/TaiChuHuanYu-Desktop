@@ -28,6 +28,8 @@ namespace TaiChuWeb_V2.Models.User
  
         public virtual UserStats? Stats { get; set; }
 
+        public virtual UserSettings? Settings { get; set; }
+
         public virtual ICollection<UserSignLog> SignLogs { get; set; } = new List<UserSignLog>();
     }
 }

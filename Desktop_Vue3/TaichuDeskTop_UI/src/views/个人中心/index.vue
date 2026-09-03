@@ -4,12 +4,16 @@ import { useUserStore } from '../../stores/user'
 import { useCos } from '../../composables/useCos'
 import request from '../../utils/request'
 import ProfileCard from './ProfileCard.vue'
+import PreferenceSettings from './PreferenceSettings.vue' // 🌟 引入偏好设置组件
 
 const userStore = useUserStore()
 const { uploadFile, isUploading } = useCos()
 
 const fileInput = ref<HTMLInputElement | null>(null)
 const defaultAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
+
+// 🌟 新增 Tab 状态控制
+const activeTab = ref('overview') // 'overview' | 'settings'
 
 // 经验条计算（无改动）
 const expPercentage = computed(() => {
@@ -24,7 +28,6 @@ const expPercentage = computed(() => {
   return Math.min(Math.max(percentage, 0), 100)
 })
 
-// ---------- 强制刷新：完全替换 userInfo ----------
 // ---------- 强制刷新：完全替换 userInfo ----------
 const fetchFullProfile = async () => {
   console.log('🔄 开始获取完整资料...')
@@ -53,7 +56,6 @@ const fetchFullProfile = async () => {
 onMounted(() => {
   console.log('🚀 个人页面已挂载')
   // 不管有没有数据，都强制刷新一次（保证最新）
-  // 如果你希望减少请求，可以加条件，但为了调试我们先强制拉取
   fetchFullProfile()
 })
 
@@ -98,8 +100,6 @@ const handleEditProfile = () => {
 }
 </script>
 
-<!-- template 和 style 完全保持你原来的，一个字符不改 -->
-<!-- 为了完整，我将它们也列出来，但你直接复制上面的 script 部分加上你原来的 template/style 也可以 -->
 <template>
   <article class="user-center" v-if="userStore.userInfo">
     <div class="content-layout">
@@ -153,6 +153,34 @@ const handleEditProfile = () => {
             <span class="stat-value">{{ userStore.userInfo.maxSignStreak }} <small>天</small></span>
           </div>
         </div>
+
+        <!-- 🌟 新增：内容切换 Tab -->
+        <div class="content-tabs">
+          <button 
+            class="tab-btn" 
+            :class="{ active: activeTab === 'overview' }" 
+            @click="activeTab = 'overview'"
+          >
+            近期动态
+          </button>
+          <button 
+            class="tab-btn" 
+            :class="{ active: activeTab === 'settings' }" 
+            @click="activeTab = 'settings'"
+          >
+            偏好设置
+          </button>
+        </div>
+
+        <!-- 🌟 新增：Tab 内容区 -->
+        <div class="tab-content-area">
+          <div v-if="activeTab === 'overview'" class="overview-placeholder">
+            <p class="empty-hint">暂无近期动态</p>
+          </div>
+          
+          <PreferenceSettings v-if="activeTab === 'settings'" />
+        </div>
+
       </section>
       
       <aside class="side-widgets">
@@ -169,12 +197,6 @@ const handleEditProfile = () => {
     载入灵脉数据中...
   </div>
 </template>
-
-<style scoped>
-/* 你的样式完全不变，这里省略，实际复制时保留 */
-</style>
-
-
 
 <style scoped>
 .user-center { width: 100%; color: #24292f; }
@@ -215,7 +237,7 @@ const handleEditProfile = () => {
 .stat-item { background: #f6f8fa; padding: 20px; border-radius: 12px; display: flex; flex-direction: column; justify-content: center; }
 .stat-label { font-size: 0.85rem; color: #57606a; margin-bottom: 8px; }
 .stat-value { font-size: 1.5rem; font-weight: 700; font-family: monospace; }
-.title-value { font-size: 1.1rem; color: #cf8a05; } /* 金色视觉，体现头衔感 */
+.title-value { font-size: 1.1rem; color: #cf8a05; } 
 
 .exp-bar { width: 100%; height: 6px; background: #eaeef2; border-radius: 3px; margin-top: 12px; overflow: hidden; }
 .exp-progress { height: 100%; background: #24292f; transition: width 0.3s; }
@@ -223,11 +245,73 @@ const handleEditProfile = () => {
 .exp-text-wrapper { text-align: right; margin-top: 4px; }
 .exp-val { font-size: 12px; color: #8c959f; }
 
+/* 🌟 新增 Tab 样式 */
+.content-tabs {
+  display: flex;
+  gap: 20px;
+  border-bottom: 1px solid #eaeef2;
+  margin-bottom: 24px;
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  padding: 10px 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #57606a;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.3s;
+}
+
+.tab-btn:hover {
+  color: #24292f;
+}
+
+.tab-btn.active {
+  color: #24292f;
+}
+
+/* 墨划风格底部指示线 */
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: #24292f;
+  border-radius: 2px;
+}
+
+.tab-content-area {
+  min-height: 200px;
+}
+
+.overview-placeholder {
+  background: #f6f8fa;
+  border-radius: 12px;
+  padding: 60px 20px;
+  text-align: center;
+  animation: fadeIn 0.4s ease;
+}
+
+.empty-hint {
+  color: #8c959f;
+  font-size: 0.9rem;
+}
+
 .loading-state { padding: 100px; text-align: center; color: #57606a; font-style: italic; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 @media (max-width: 1024px) {
   .content-layout { flex-direction: column; }
-  .side-widgets { width: 100%; order: -1; } /* 移动端 ProfileCard 置顶 */
+  .side-widgets { width: 100%; order: -1; } 
   .stats-grid { grid-template-columns: 1fr; }
 }
 </style>

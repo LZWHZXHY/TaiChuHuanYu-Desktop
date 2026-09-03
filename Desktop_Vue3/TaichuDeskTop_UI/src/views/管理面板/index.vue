@@ -62,16 +62,21 @@ import 维基组件 from './管理组件/维基组件.vue';
 // 🌟 1. 新增：引入用户治理组件
 import 用户组件 from './管理组件/用户组件.vue'; 
 import 作品管理 from './管理组件/作品管理.vue';
+import 邮件管理 from './管理组件/邮件管理.vue';
+import 数据中心 from './管理组件/数据中心.vue';
 
-const activeTab = ref('trade');
+
+const activeTab = ref('data');
 
 // 🌟 2. 新增：将用户组件注册到左侧导航菜单
 const menus = [
+  { id: 'data', label: '数据', icon: '◱', component: 数据中心 },
   { id: 'trade', label: '交易行', icon: '◈', component: 交易行组件 },
   { id: 'users', label: '用户', icon: '⚇', component: 用户组件 }, // 新增这行
   { id: 'event', label: '活动', icon: '◒', component: 活动组件 },
   { id: 'feedback', label: '反馈', icon: '✉', component: 反馈组件 },
   { id: 'news', label: '公告', icon: '☖', component: 公告组件 },
+  { id: 'email', label: '邮件', icon: '＠', component: 邮件管理 },
   { id: 'wiki', label: '维基', icon: '▤', component: 维基组件 },
   { id: 'product', label: '作品', icon: '▤', component: 作品管理 },
 ];

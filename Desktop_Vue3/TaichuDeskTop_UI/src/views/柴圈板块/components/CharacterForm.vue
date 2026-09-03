@@ -68,7 +68,28 @@
           />
         </div>
 
-        <button type="button" class="btn-remove" @click="removeAttribute(index)">×</button>
+        <!-- 操作按钮组 -->
+        <div class="attr-actions">
+          <button
+            type="button"
+            class="btn-move"
+            @click="moveAttributeUp(index)"
+            :disabled="index === 0"
+            title="上移"
+          >↑</button>
+          <button
+            type="button"
+            class="btn-move"
+            @click="moveAttributeDown(index)"
+            :disabled="index === form.attributes.length - 1"
+            title="下移"
+          >↓</button>
+          <button
+            type="button"
+            class="btn-remove"
+            @click="removeAttribute(index)"
+          >×</button>
+        </div>
       </div>
 
       <div v-if="!form.attributes.length" class="empty-hint">
@@ -228,16 +249,22 @@ onMounted(() => {
     // 如果状态是 archived，强制变为 draft（或保留，但 select 无 archived 选项，所以设为 draft）
     form.isBattleEnabled = props.initialData.isBattleEnabled ?? true
 
+    // ===== 加载属性时按 sortOrder 排序（防御性编程） =====
     if (props.initialData.attributes?.length) {
-      form.attributes = props.initialData.attributes.map(a => ({
+      const sorted = [...props.initialData.attributes]
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      form.attributes = sorted.map(a => ({
         key: a.key,
         value: a.value || '',
         type: a.type || 'short'
       }))
     }
 
+    // 图库也按 sortOrder 排序（可选，建议加上）
     if (props.initialData.images?.length) {
-      form.images = props.initialData.images.map(i => ({
+      const sortedImages = [...props.initialData.images]
+        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      form.images = sortedImages.map(i => ({
         url: i.url,
         alt: i.alt || '',
       }))
@@ -320,6 +347,21 @@ function addAttribute() {
 
 function removeAttribute(index: number) {
   form.attributes.splice(index, 1)
+}
+
+// ===== 新增：上移 / 下移属性 =====
+function moveAttributeUp(index: number) {
+  if (index <= 0) return
+  const temp = form.attributes[index - 1]
+  form.attributes[index - 1] = form.attributes[index]
+  form.attributes[index] = temp
+}
+
+function moveAttributeDown(index: number) {
+  if (index >= form.attributes.length - 1) return
+  const temp = form.attributes[index + 1]
+  form.attributes[index + 1] = form.attributes[index]
+  form.attributes[index] = temp
 }
 
 function removeImage(index: number) {
@@ -604,9 +646,42 @@ function handleSubmit() {
   background-position: right 8px center;
 }
 
+/* ===== 操作按钮组 ===== */
+.attr-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.btn-move {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line-raw);
+  background: transparent;
+  color: var(--ink-black);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+}
+
+.btn-move:hover:not(:disabled) {
+  border-color: var(--cinnabar);
+  color: var(--cinnabar);
+}
+
+.btn-move:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* 删除按钮尺寸统一 */
 .btn-remove {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: 1px solid var(--line-raw);
   background: transparent;
   color: var(--ink-light);
@@ -617,7 +692,6 @@ function handleSubmit() {
   justify-content: center;
   transition: all 0.3s;
   flex-shrink: 0;
-  margin-top: 2px;
 }
 
 .btn-remove:hover {
@@ -785,6 +859,11 @@ function handleSubmit() {
 
   .attr-row:last-child {
     border-bottom: none;
+  }
+
+  .attr-actions {
+    justify-content: flex-end;
+    margin-top: 4px;
   }
 
   .gallery-grid-form {
