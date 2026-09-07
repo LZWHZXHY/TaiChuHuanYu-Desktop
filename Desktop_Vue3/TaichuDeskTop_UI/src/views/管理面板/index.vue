@@ -64,7 +64,7 @@ import 用户组件 from './管理组件/用户组件.vue';
 import 作品管理 from './管理组件/作品管理.vue';
 import 邮件管理 from './管理组件/邮件管理.vue';
 import 数据中心 from './管理组件/数据中心.vue';
-
+import 用户手册组件 from './管理组件/用户手册组件.vue';
 
 const activeTab = ref('data');
 
@@ -73,6 +73,7 @@ const menus = [
   { id: 'data', label: '数据', icon: '◱', component: 数据中心 },
   { id: 'trade', label: '交易行', icon: '◈', component: 交易行组件 },
   { id: 'users', label: '用户', icon: '⚇', component: 用户组件 }, // 新增这行
+  { id: 'manual', label: '手册', icon: '📖', component: 用户手册组件 }, // 🌟 添加用户手册
   { id: 'event', label: '活动', icon: '◒', component: 活动组件 },
   { id: 'feedback', label: '反馈', icon: '✉', component: 反馈组件 },
   { id: 'news', label: '公告', icon: '☖', component: 公告组件 },
@@ -83,7 +84,7 @@ const menus = [
 
 const currentView = computed(() => {
   const menu = menus.find(m => m.id === activeTab.value);
-  return menu ? menu.component : 交易行组件;
+  return menu ? menu.component : 数据中心; // 建议兜底与 activeTab 默认值一致
 });
 
 const activeMenuLabel = computed(() => {

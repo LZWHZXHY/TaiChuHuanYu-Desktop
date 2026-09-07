@@ -5,6 +5,7 @@ import { useCos } from '../../composables/useCos'
 import request from '../../utils/request'
 import ProfileCard from './ProfileCard.vue'
 import PreferenceSettings from './PreferenceSettings.vue' // 🌟 引入偏好设置组件
+import UserManualViewer from './UserManualViewer.vue' // 🌟 引入用户手册组件
 
 const userStore = useUserStore()
 const { uploadFile, isUploading } = useCos()
@@ -12,10 +13,10 @@ const { uploadFile, isUploading } = useCos()
 const fileInput = ref<HTMLInputElement | null>(null)
 const defaultAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
 
-// 🌟 新增 Tab 状态控制
-const activeTab = ref('overview') // 'overview' | 'settings'
+// 🌟 新增 Tab 状态控制 (增加 'manual')
+const activeTab = ref('overview') // 'overview' | 'settings' | 'manual'
 
-// 经验条计算（无改动）
+// 经验条计算
 const expPercentage = computed(() => {
   const exp = userStore.userInfo?.experience || 0
   if (exp <= 0) return 0
@@ -170,6 +171,14 @@ const handleEditProfile = () => {
           >
             偏好设置
           </button>
+          <!-- 🌟 增加用户手册 Tab -->
+          <button 
+            class="tab-btn" 
+            :class="{ active: activeTab === 'manual' }" 
+            @click="activeTab = 'manual'"
+          >
+            操作手册
+          </button>
         </div>
 
         <!-- 🌟 新增：Tab 内容区 -->
@@ -179,6 +188,9 @@ const handleEditProfile = () => {
           </div>
           
           <PreferenceSettings v-if="activeTab === 'settings'" />
+
+          <!-- 🌟 挂载用户手册组件 -->
+          <UserManualViewer v-if="activeTab === 'manual'" />
         </div>
 
       </section>

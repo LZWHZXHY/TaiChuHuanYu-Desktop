@@ -14,8 +14,13 @@
           >荣誉</button>
         </div>
       </div>
-      
-     
+
+      <!-- 右侧：直接在画布布展发布作品入口 -->
+      <div class="nav-right">
+        <button class="upload-link" @click="handleUpload">
+          ✦ 展开画卷
+        </button>
+      </div>
     </header>
 
     <main class="gallery-view">
@@ -24,7 +29,8 @@
           <div class="view-header">
             <span class="view-label">维度碎片 / 全部</span>
           </div>
-         <ArtworkInfiniteGrid @on-click="openArtwork" />
+          <!-- 绑定 key：发布新作品后递增 key，无感重置并重新加载瀑布流列表 -->
+          <ArtworkInfiniteGrid :key="gridKey" @on-click="openArtwork" />
         </div>
 
         <div v-else-if="viewMode === 'ranking'" key="ranking" class="view-wrapper">
@@ -44,6 +50,7 @@
       </transition>
     </main>
 
+    <!-- 详情抽屉弹窗 -->
     <transition name="slide-up">
       <ArtworkDetail 
         v-if="activeArtworkId" 
@@ -51,17 +58,13 @@
         @close="closeArtworkDetail"
       />
     </transition>
+
+    <!-- 🌟 画布直接发布弹窗 -->
+    <ArtworkPublishModal 
+      v-model="isPublishModalOpen" 
+      @published="onArtworkPublished" 
+    />
   </article>
-
-
-
-
-
-
-
-
-
-  
 </template>
 
 <script setup lang="ts">
@@ -70,7 +73,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '../../stores/user';
 import ArtworkRanking from './ArtworkRanking.vue';
 import ArtworkInfiniteGrid from './ArtworkInfiniteGrid.vue';
-import ArtworkDetail from './ArtworkDetail.vue'; // 确保你创建了这个文件
+import ArtworkDetail from './ArtworkDetail.vue';
+import ArtworkPublishModal from './ArtworkPublishModal.vue';
 
 const userStore = useUserStore();
 const route = useRoute();
@@ -80,11 +84,13 @@ const router = useRouter();
 const viewMode = ref<'explore' | 'ranking'>('explore');
 const currentTab = ref('月');
 
+// 控制发布弹窗显隐与瀑布流刷新
+const isPublishModalOpen = ref(false);
+const gridKey = ref(0);
+
 // --- 🌟 路由同步逻辑 ---
 const activeArtworkId = ref<string | null>(null);
 
-
-  
 const openArtwork = (id: number | string) => {
   console.log('正在开启灵脉详情，作品ID:', id);
   router.push({
@@ -94,7 +100,6 @@ const openArtwork = (id: number | string) => {
     }
   });
 };
-
 
 watch(
   () => route.query.workId,
@@ -118,11 +123,30 @@ const switchMode = (mode: 'explore' | 'ranking') => {
   });
 };
 
-const handleUpload = () => alert('上传通道构建中...');
+// 触发发布流程，如果已登录则开启弹窗
+// 触发发布流程：通过 userInfo 判定是否已连接灵脉
+const handleUpload = () => {
+  if (!userStore.userInfo?.id) {
+    alert('请先连接灵脉（登录）后再行布展');
+    return;
+  }
+  isPublishModalOpen.value = true;
+};
+
+// 发布成功后的回调：切回探索视图并重载瀑布流
+const onArtworkPublished = (createdArtwork?: any) => {
+  viewMode.value = 'explore';
+  gridKey.value += 1;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // 如果后端返回了新生成的作品ID，可自动打开该作品详情预览
+  if (createdArtwork?.id) {
+    openArtwork(createdArtwork.id);
+  }
+};
 </script>
 
 <style scoped>
-/* --- 保持你原本的所有样式 --- */
 .gallery-container {
   width: 100%;
   min-height: 100vh;
@@ -148,7 +172,23 @@ const handleUpload = () => alert('上传通道构建中...');
 .mode-selectors { display: flex; gap: 24px; }
 .mode-item { background: none; border: none; font-size: 1rem; font-weight: 500; color: #86868b; cursor: pointer; transition: color 0.3s; }
 .mode-item.active { color: #1a1a1a; font-weight: 600; }
-.upload-link { background: #000; color: #fff; border: none; padding: 8px 20px; border-radius: 40px; font-size: 0.9rem; font-weight: 500; cursor: pointer; }
+
+.nav-right { display: flex; align-items: center; }
+.upload-link { 
+  background: #000; 
+  color: #fff; 
+  border: none; 
+  padding: 10px 24px; 
+  border-radius: 40px; 
+  font-size: 0.9rem; 
+  font-weight: 500; 
+  cursor: pointer; 
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.upload-link:hover { 
+  opacity: 0.85; 
+  transform: translateY(-1px);
+}
 
 .gallery-view { padding: 60px 4%; }
 .view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
@@ -162,7 +202,7 @@ const handleUpload = () => alert('上传通道构建中...');
 .fade-enter-from { opacity: 0; transform: translateY(10px); }
 .fade-leave-to { opacity: 0; transform: translateY(-10px); }
 
-/* 🌟 详情弹窗专用的滑入动画：极致沉浸感 */
+/* 详情弹窗专用的滑入动画 */
 .slide-up-enter-active, 
 .slide-up-leave-active {
   transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
@@ -179,5 +219,6 @@ const handleUpload = () => alert('上传通道构建中...');
 @media (max-width: 768px) {
   .nav-left { gap: 20px; }
   .brand-title { font-size: 1.2rem; }
+  .upload-link { padding: 6px 14px; font-size: 0.8rem; }
 }
 </style>

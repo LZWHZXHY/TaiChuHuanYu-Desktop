@@ -30,6 +30,12 @@ namespace TaiChuWeb_V2.DbContext
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
+
+        // ===== 🌟 用户手册模块 =====
+        public DbSet<ManualCategory> ManualCategories { get; set; }
+        public DbSet<ManualArticle> ManualArticles { get; set; }
+
+
         // 在文件的 DbSet 声明区域加入：
         public DbSet<EmailTemplate> EmailTemplates { get; set; }
         public DbSet<EmailLog> EmailLogs { get; set; }
@@ -858,6 +864,40 @@ namespace TaiChuWeb_V2.DbContext
 
             modelBuilder.Entity<UserSignLog>()
                 .HasOne(l => l.User).WithMany(u => u.SignLogs).HasForeignKey(l => l.UserId).OnDelete(DeleteBehavior.Cascade);
+
+
+
+            // ===== 🌟 用户手册模块配置 =====
+            modelBuilder.Entity<ManualCategory>(entity =>
+            {
+                entity.ToTable("manual_categories");
+                entity.HasKey(c => c.Id);
+                entity.HasIndex(c => c.SortOrder);
+            });
+
+            modelBuilder.Entity<ManualArticle>(entity =>
+            {
+                entity.ToTable("manual_articles");
+                entity.HasKey(a => a.Id);
+
+                // 核心：URL slug 必须全局唯一，避免路由冲突
+                entity.HasIndex(a => a.Slug)
+                    .IsUnique()
+                    .HasDatabaseName("UK_ManualArticles_Slug");
+
+                // 复合索引：加速前台目录按分类和排序字段查询
+                entity.HasIndex(a => new { a.CategoryId, a.SortOrder })
+                    .HasDatabaseName("IX_ManualArticles_Category_SortOrder");
+
+                // 索引：加速前台发布状态筛选
+                entity.HasIndex(a => a.IsPublished);
+
+                // 关系配置：分类与文章一对多，分类删除时级联删除旗下文章
+                entity.HasOne(a => a.Category)
+                    .WithMany(c => c.Articles)
+                    .HasForeignKey(a => a.CategoryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
 
         }
