@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -52,6 +53,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 {
                     ProjectId = projectId,
                     UserId = CurrentUserId,
+                    RoleIds = new List<string> { "role_system_viewer" }, // 🌟 初始化默认观察者身份
                     JoinedAt = DateTime.UtcNow
                 });
                 await _context.SaveChangesAsync();
@@ -122,7 +124,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
         {
             if (!await IsManager(projectId))
             {
-                return Forbid(); // ✅ 安全返回 403
+                return Forbid(); // 安全返回 403
             }
 
             var app = await _context.ProjectApplications.FirstOrDefaultAsync(a => a.Id == applicationId && a.ProjectId == projectId);
@@ -146,6 +148,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
                     {
                         ProjectId = projectId,
                         UserId = app.UserId,
+                        RoleIds = new List<string> { "role_system_viewer" }, // 🌟 初始化默认观察者身份
                         JoinedAt = DateTime.UtcNow
                     });
                 }
@@ -165,14 +168,13 @@ namespace TaiChuWeb_V2.Controllers.Projects
 
         #region --- 辅助方法 ---
 
+        // 🌟 核心修改：项目创建者(OwnerId)即拥有项目管理与审批权限，彻底消除对旧字段 RoleId 的依赖
         private async Task<bool> IsManager(string projectId)
         {
-            var myRole = await _context.ProjectMembers
-                .Where(m => m.ProjectId == projectId && m.UserId == CurrentUserId)
-                .Select(m => (int?)m.RoleId)
-                .FirstOrDefaultAsync();
+            if (string.IsNullOrEmpty(CurrentUserId)) return false;
 
-            return myRole != null && myRole == 0;
+            return await _context.Projects
+                .AnyAsync(p => p.Id == projectId && p.OwnerId.ToString() == CurrentUserId);
         }
 
         #endregion

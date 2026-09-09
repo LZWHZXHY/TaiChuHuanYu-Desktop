@@ -1,20 +1,21 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 using System.Text;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Filters;
+using TaiChuWeb_V2.Hubs;
 using TaiChuWeb_V2.Services;
 using TaiChuWeb_V2.Services.Cos;
 using TaiChuWeb_V2.Services.Email;
 using TaiChuWeb_V2.Services.LingMai;
+using TaiChuWeb_V2.Services.Project;
 using TaiChuWeb_V2.Services.Publish;
 using TaiChuWeb_V2.Services.Trade;
 using TaiChuWeb_V2.Services.World;
-using TaiChuWeb_V2.Hubs;
-using Microsoft.AspNetCore.Routing;
-
+using TaiChuWeb_V2.Services.Project;
 var builder = WebApplication.CreateBuilder(args);
 
 // 1. 获取连接字符串
@@ -61,7 +62,7 @@ builder.Services.AddScoped<JwtService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<SystemConfigService>();
 builder.Services.AddScoped<IWorldQuotaService, WorldQuotaService>();
-
+builder.Services.AddScoped<IProjectPermissionService, ProjectPermissionService>();
 
 
 builder.Services.AddControllers(options => {

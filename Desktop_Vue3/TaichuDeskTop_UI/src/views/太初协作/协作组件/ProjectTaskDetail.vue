@@ -3,7 +3,11 @@
     <div v-if="isOpen" class="modal-overlay drawer-overlay" @click.self="closeDrawer">
       <div class="task-detail-drawer">
         <header class="drawer-header">
-          <span class="task-id-large">#{{ localTask.id?.substring(0, 8) }}</span>
+          <div class="header-left-meta">
+            <span class="task-id-large">#{{ localTask.id?.substring(0, 8) }}</span>
+            <!-- 🌟 顶部徽标展示贡献点数 -->
+            <span class="points-badge" title="灵脉意图贡献点">⚡ {{ localTask.points ?? 1 }} 点</span>
+          </div>
           <button class="close-btn" @click="closeDrawer">×</button>
         </header>
 
@@ -14,6 +18,7 @@
             placeholder="任务核心意图..." 
           />
 
+          <!-- 基础属性网格 -->
           <div class="properties-grid">
             <div class="prop-item">
               <label>所属维度 (分类)</label>
@@ -27,7 +32,7 @@
 
             <div class="prop-item">
               <label>指派给</label>
-              <select v-model="localTask.assigneeId">
+              <select v-model="localTask.assigneeId" :disabled="!canManageTasks">
                 <option :value="null">未指派</option>
                 <option v-for="m in projectMembers" :key="m.id" :value="m.id">
                   {{ m.name || m.id }}
@@ -53,6 +58,61 @@
             <div class="prop-item">
               <label>截止节点</label>
               <input type="date" v-model="localTask.dueDate" />
+            </div>
+          </div>
+
+          <!-- 🌟 量化评估与贡献核算专区 (带权限控制) -->
+          <div class="quant-section">
+            <div class="section-label-bar">
+              <label class="section-label">量化评估与贡献核算</label>
+              <span v-if="!canManageTasks" class="lock-notice">🔒 核心量化权重已由主理人锁定</span>
+            </div>
+            
+            <div class="quant-grid">
+              <!-- 1. 贡献点数：仅管理者可改动 -->
+              <div class="quant-item">
+                <span class="quant-title">贡献点数 (Points)</span>
+                <input 
+                  type="number" 
+                  min="0" 
+                  v-model.number="localTask.points" 
+                  placeholder="如: 1, 3, 5..." 
+                  class="quant-input"
+                  :disabled="!canManageTasks"
+                  :class="{ 'is-locked': !canManageTasks }"
+                />
+                <span class="quant-hint">{{ canManageTasks ? '衡量任务难度权重与成员贡献' : '仅主理人与管理员可核准分配' }}</span>
+              </div>
+
+              <!-- 2. 预估工时：仅管理者可排期 -->
+              <div class="quant-item">
+                <span class="quant-title">预估工时 (h)</span>
+                <input 
+                  type="number" 
+                  step="0.5" 
+                  min="0" 
+                  v-model.number="localTask.estimatedHours" 
+                  placeholder="0.0" 
+                  class="quant-input"
+                  :disabled="!canManageTasks"
+                  :class="{ 'is-locked': !canManageTasks }"
+                />
+                <span class="quant-hint">{{ canManageTasks ? '评估开发周期基准与负载' : '仅主理人与管理员可排期' }}</span>
+              </div>
+
+              <!-- 3. 实际耗时：执行者与管理者皆可自主填报核实 -->
+              <div class="quant-item">
+                <span class="quant-title">实际耗时 (h)</span>
+                <input 
+                  type="number" 
+                  step="0.5" 
+                  min="0" 
+                  v-model.number="localTask.actualHours" 
+                  placeholder="0.0" 
+                  class="quant-input"
+                />
+                <span class="quant-hint">研发投入耗时，用于核算真实产出</span>
+              </div>
             </div>
           </div>
 
@@ -82,7 +142,14 @@
         </div>
 
         <footer class="drawer-footer">
-          <button class="delete-task-btn" @click="handleDelete">抹除此意图</button>
+          <!-- 只有管理者才能彻底抹除任务 -->
+          <button 
+            v-if="canManageTasks" 
+            class="delete-task-btn" 
+            @click="handleDelete"
+          >
+            抹除此意图
+          </button>
           
           <span class="save-status" v-if="isSaving">正在同步灵脉...</span>
           <button class="save-btn" @click="handleSave">确立修改</button>
@@ -93,16 +160,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import projectService from '../../../api/projectService';
+import request from '@/utils/request';
 
 const props = defineProps<{
   isOpen: boolean;
   projectId: string;
-  task: any;                  // 激活的任务基准数据
+  task: any;
   originalCategoryId: string | null;
-  boardCategories: any[];     // 可选的分栏维度
-  projectMembers: any[];      // 注入的共建者池
+  boardCategories: any[];
+  projectMembers: any[];
 }>();
 
 const emit = defineEmits(['close', 'refresh', 'confirmDelete']);
@@ -112,25 +180,59 @@ const newTagInput = ref('');
 const localTask = ref<any>({});
 const tagArray = ref<string[]>([]);
 
-// 深度监听传入任务的激活状态，完成隔离的深拷贝复制与日期截取
+// 🌟 权限控制响应式状态
+const myPermissions = ref<string[]>([]);
+const isOwner = ref(false);
+
+// 计算当前用户是否拥有全权管理意图的权限 (所有者、通配符*、或具备 task:manage)
+const canManageTasks = computed(() => {
+  if (isOwner.value) return true;
+  return myPermissions.value.includes('*') || myPermissions.value.includes('task:manage');
+});
+
+// 拉取当前用户在该项目中的有效权限列表
+const fetchMyPermissions = async () => {
+  if (!props.projectId) return;
+  try {
+    const res: any = await request.get(`/project/${props.projectId}/roles/my-permissions`);
+    const data = res.data || res;
+    isOwner.value = Boolean(data.isOwner);
+    myPermissions.value = data.permissions || [];
+  } catch (err) {
+    console.error("加载个人权限清单失败:", err);
+  }
+};
+
 watch(() => props.isOpen, (newVal) => {
   if (newVal && props.task) {
     localTask.value = JSON.parse(JSON.stringify(props.task));
+    
+    // 初始化默认量化数值
+    if (localTask.value.points === undefined || localTask.value.points === null) {
+      localTask.value.points = 1;
+    }
+    if (localTask.value.estimatedHours === undefined || localTask.value.estimatedHours === null) {
+      localTask.value.estimatedHours = 0;
+    }
+    if (localTask.value.actualHours === undefined || localTask.value.actualHours === null) {
+      localTask.value.actualHours = 0;
+    }
+
     tagArray.value = localTask.value.tags ? localTask.value.tags.split(',').filter(Boolean) : [];
     
-    // 🌟 核心同步：防御并截取开始时间的 T00:00:00 后缀，使其能原生地在 <input type="date"> 中初始化赋默认值
     if (localTask.value.startDate) {
       localTask.value.startDate = localTask.value.startDate.split('T')[0];
     }
     if (localTask.value.dueDate) {
       localTask.value.dueDate = localTask.value.dueDate.split('T')[0];
     }
+
+    // 每次打开抽屉时动态核实权限
+    fetchMyPermissions();
   }
 }, { immediate: true });
 
-const closeDrawer = () => {
-  emit('close');
-};
+const closeDrawer = () => emit('close');
 
 const addTag = () => {
   const val = newTagInput.value.trim();
@@ -140,27 +242,24 @@ const addTag = () => {
   newTagInput.value = '';
 };
 
-const removeTag = (index: number) => {
-  tagArray.value.splice(index, 1);
-};
+const removeTag = (index: number) => tagArray.value.splice(index, 1);
 
-// 保存细节并自动处理跨维度分栏排序
 const handleSave = async () => {
   isSaving.value = true;
   localTask.value.tags = tagArray.value.join(',');
   
-  // 🌟 时空防御：若用户清除日期，将其重置为 null 传给后端 UpdateTaskDto，防止空字符串导致 .NET 反序列化异常
   const submitPayload = {
     ...localTask.value,
+    points: Number(localTask.value.points) || 0,
+    estimatedHours: Number(localTask.value.estimatedHours) || 0,
+    actualHours: Number(localTask.value.actualHours) || 0,
     startDate: localTask.value.startDate || null,
     dueDate: localTask.value.dueDate || null
   };
 
   try {
-    // 1. 同步详情全量数据
     await projectService.updateTaskDetails(props.projectId, submitPayload.id, submitPayload);
     
-    // 2. 如果分栏节点发生了变化，自动执行越栏跨区排序
     if (submitPayload.categoryId !== props.originalCategoryId) {
       await projectService.moveKanbanTask(props.projectId, submitPayload.id, {
         targetCategoryId: submitPayload.categoryId,
@@ -168,18 +267,17 @@ const handleSave = async () => {
         nextSortOrder: null
       });
     }
-    emit('refresh'); // 通知母画布（或横向时间轴长卷）拉取最新投影
+    emit('refresh');
     closeDrawer();
-  } catch (err) {
+  } catch (err: any) {
     console.error("意图细节同步失败", err);
+    alert(err.response?.data?.message || err.response?.data || "更新失败，请确认权限");
   } finally {
     isSaving.value = false;
   }
 };
 
-const handleDelete = () => {
-  emit('confirmDelete', localTask.value.id);
-};
+const handleDelete = () => emit('confirmDelete', localTask.value.id);
 </script>
 
 <style scoped>
@@ -191,7 +289,7 @@ const handleDelete = () => {
 .drawer-overlay { background: rgba(0, 0, 0, 0.2); align-items: stretch; justify-content: flex-end; }
 
 .task-detail-drawer {
-  background: #fff; width: 100%; max-width: 720px; height: 100%;
+  background: #fff; width: 100%; max-width: 740px; height: 100%;
   box-shadow: -20px 0 50px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden;
   animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -200,7 +298,12 @@ const handleDelete = () => {
   padding: 32px 40px; border-bottom: 1px solid #f5f5f5;
   display: flex; justify-content: space-between; align-items: center;
 }
+.header-left-meta { display: flex; align-items: center; gap: 14px; }
 .task-id-large { font-family: monospace; color: #ccc; font-size: 1.1rem; }
+.points-badge {
+  background: #1a1a1a; color: #fff; font-size: 0.72rem; padding: 3px 8px; border-radius: 2px;
+  letter-spacing: 0.5px;
+}
 .close-btn { background: none; border: none; font-size: 2rem; line-height: 1; color: #aaa; cursor: pointer; transition: color 0.3s;}
 .close-btn:hover { color: #1a1a1a; }
 
@@ -211,17 +314,86 @@ const handleDelete = () => {
 }
 .huge-title-input:focus { border-bottom-color: #eee; }
 
-/* 🌟 微调为无固定比例的 Grid，使其能够优雅包裹新拓宽的 5 个属性项 */
 .properties-grid { 
   display: grid; 
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); 
-  gap: 30px; 
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
+  gap: 28px; 
   margin-bottom: 40px; 
 }
 .prop-item label { display: block; font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
 .prop-item select, .prop-item input {
   width: 100%; padding: 10px 0; border: none; border-bottom: 1px solid #eee;
   background: transparent; outline: none; font-size: 0.95rem; color: #333; cursor: pointer;
+}
+.prop-item select:disabled {
+  background: #fafafa;
+  color: #aaa;
+  cursor: not-allowed;
+}
+
+/* 🌟 量化评估专区样式与权限锁态 */
+.quant-section {
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  padding: 24px;
+  margin-bottom: 40px;
+}
+.section-label-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.section-label {
+  display: block;
+  font-size: 0.7rem;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  margin: 0;
+}
+.lock-notice {
+  font-size: 0.7rem;
+  color: #bbb;
+  letter-spacing: 0.5px;
+}
+.quant-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+.quant-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.quant-title {
+  font-size: 0.75rem;
+  color: #555;
+  font-weight: 500;
+}
+.quant-input {
+  border: 1px solid #e0e0e0;
+  background: #fff;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  outline: none;
+  transition: all 0.2s;
+}
+.quant-input:focus {
+  border-color: #1a1a1a;
+}
+.quant-input.is-locked {
+  background: #f5f5f5;
+  border-color: #eee;
+  color: #888;
+  cursor: not-allowed;
+}
+.quant-hint {
+  font-size: 0.65rem;
+  color: #aaa;
+  line-height: 1.3;
 }
 
 .tags-section { margin-bottom: 40px; }
@@ -248,7 +420,7 @@ const handleDelete = () => {
 
 .delete-task-btn {
   background: none; border: none; color: #ccc; font-size: 0.85rem; cursor: pointer; padding: 12px 0; margin-right: auto;
-  transition: color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: color 0.3s;
 }
 .delete-task-btn:hover { color: #ff4757; }
 

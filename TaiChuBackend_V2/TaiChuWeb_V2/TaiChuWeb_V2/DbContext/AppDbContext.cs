@@ -30,7 +30,9 @@ namespace TaiChuWeb_V2.DbContext
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
-
+        public DbSet<ProjectReport> ProjectReports { get; set; }
+        public DbSet<ProjectCustomRole> ProjectCustomRoles { get; set; }
+        public DbSet<ProjectPermissionDefinition> ProjectPermissionDefinitions { get; set; }
         // ===== 🌟 用户手册模块 =====
         public DbSet<ManualCategory> ManualCategories { get; set; }
         public DbSet<ManualArticle> ManualArticles { get; set; }
@@ -245,6 +247,34 @@ namespace TaiChuWeb_V2.DbContext
 
             modelBuilder.Entity<ProjectDocument>()
                 .HasKey(pd => new { pd.ProjectId, pd.NoteId }); // 联合主键
+
+            // 🌟 1. 配置项目与汇报的级联删除
+            modelBuilder.Entity<Project>()
+                .HasMany(p => p.Reports)
+                .WithOne(r => r.Project)
+                .HasForeignKey(r => r.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // 🌟 2. 汇报表性能索引
+            modelBuilder.Entity<ProjectReport>(entity =>
+            {
+                entity.HasKey(r => r.Id);
+                entity.HasIndex(r => new { r.ProjectId, r.Type, r.CreatedAt });
+            });
+
+            // 🌟 3. 自定义角色表索引
+            modelBuilder.Entity<ProjectCustomRole>(entity =>
+            {
+                entity.HasKey(r => r.Id);
+                entity.HasIndex(r => r.ProjectId);
+            });
+
+            // 🌟 4. 权限字典表主键
+            modelBuilder.Entity<ProjectPermissionDefinition>(entity =>
+            {
+                entity.HasKey(p => p.Code);
+            });
+
 
             // 可选：设置级联删除，项目删除时，自动清理底下的任务和分类
             modelBuilder.Entity<Project>()

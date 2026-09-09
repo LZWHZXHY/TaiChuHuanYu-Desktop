@@ -142,7 +142,6 @@ onMounted(async ()=> {
   width: 100%;
   /* 极致阅读体验：限制最大宽度防止行太长，但不强制居中 */
 
-  /* 删掉 margin: 0 auto; */
   margin: 0; 
   transition: all 0.3s ease;
 }

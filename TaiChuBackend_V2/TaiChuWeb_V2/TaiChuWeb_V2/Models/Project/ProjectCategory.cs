@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace TaiChuWeb_V2.Models.Project
 {
@@ -18,6 +19,13 @@ namespace TaiChuWeb_V2.Models.Project
         [MaxLength(20)]
         public string ColorCode { get; set; } // 例如：#007bff (用于复刻 HacknPlan 的彩色条)
 
+        /// <summary>
+        /// 🌟 分栏排序权重（用于看板列表左右拖拽排序，默认步进 1000.0）
+        /// </summary>
+        public double SortOrder { get; set; } = 1000.0;
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        public int CategoryType { get; set; } = 0;
     }
 }

@@ -112,11 +112,11 @@ const projectService = {
     request.get<{ board: any[], unclassified: any[] }>(`/project/${projectId}/kanban/board`),
 
   // 添加新的画布分栏
-  createKanbanCategory: (projectId: string, data: { name: string, colorCode?: string }) =>
+  createKanbanCategory: (projectId: string, data: { name: string, colorCode?: string, categoryType?: number }) =>
     request.post(`/project/${projectId}/kanban/categories`, data),
 
   // 修改分栏
-  updateKanbanCategory: (projectId: string, categoryId: string, data: { name?: string, colorCode?: string }) =>
+  updateKanbanCategory: (projectId: string, categoryId: string, data: { name?: string, colorCode?: string, categoryType?: number }) =>
     request.put(`Project/${projectId}/kanban/categories/${categoryId}`, data),
 
   // 删除分栏

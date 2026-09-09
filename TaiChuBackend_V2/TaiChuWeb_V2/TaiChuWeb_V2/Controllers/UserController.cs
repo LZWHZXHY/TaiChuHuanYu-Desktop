@@ -4,7 +4,7 @@ using System.Security.Claims;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.User;
 using TaiChuWeb_V2.Models.User;
-using Microsoft.EntityFrameworkCore; 
+using Microsoft.EntityFrameworkCore;
 
 [Authorize]
 [Route("api/[controller]")]
@@ -24,7 +24,7 @@ public class UserController : ControllerBase
         var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdStr, out var userId)) return Unauthorized();
 
-        // 🌟 核心优化：联查 User、Profile 和 Stats
+        // 🌟 联查 User、Profile 和 Stats
         var user = await _context.Users
             .Include(u => u.Profile)
             .Include(u => u.Stats)
@@ -32,9 +32,10 @@ public class UserController : ControllerBase
 
         if (user == null) return NotFound("用户不存在");
 
-        // 🌟 新增：动态计算当前用户已经创建的、且没有被封存（Status != 3）的活跃项目数量
-        var activeProjectCount = await _context.ProjectMembers
-            .CountAsync(m => m.UserId == userIdStr && m.RoleId == 0 && m.Project.Status != 3);
+        // 🌟 核心修复：直接通过 Projects 表的 OwnerId 统计当前用户作为所有者且未封存（Status != 3）的活跃项目数
+        // 彻底解决 CS1061 报错，不再依赖 ProjectMember.RoleId
+        var activeProjectCount = await _context.Projects
+            .CountAsync(p => p.OwnerId == userId && p.Status != 3);
 
         return Ok(new
         {
@@ -57,13 +58,13 @@ public class UserController : ControllerBase
             Birthday = user.Profile?.Birthday,
             Age = user.Profile?.Age ?? 0,
 
-            // --- Stats 数据 (已移除 Points) ---
+            // --- Stats 数据 ---
             Level = user.Stats?.Level ?? 0,
             Experience = user.Stats?.Experience ?? 0,
             MaxSignStreak = user.Stats?.MaxSignStreak ?? 0,
             Title = user.Stats?.Title,
 
-            // 🌟 新增：灵脉编织额度载荷看板（无缝输送给前端）
+            // 🌟 灵脉编织额度载荷看板（无缝输送给前端）
             ProjectQuota = new
             {
                 ActiveCount = activeProjectCount,                           // 已使用的活跃项目数
@@ -80,38 +81,32 @@ public class UserController : ControllerBase
         var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!Guid.TryParse(userIdStr, out var userId)) return Unauthorized();
 
-        // 优化：直接查 Profile 效率更高
         var profile = await _context.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId);
 
-        // 如果用户主表存在但 Profile 还没创建（虽然注册时你应该已经初始化了，但这里做个保险）
         if (profile == null)
         {
             profile = new UserProfile { UserId = userId };
             _context.UserProfiles.Add(profile);
         }
 
-        // --- 开始更新字段 ---
-        // 注意：如果你希望用户能把某个字段改为空，就不能用 string.IsNullOrEmpty 判断
-        // 这里采用覆盖式更新，或者你可以根据业务需求判断是否为 null
+        // --- 覆盖式更新字段 ---
         profile.Avatar = dto.Avatar ?? profile.Avatar;
         profile.Address = dto.Address ?? profile.Address;
-        profile.PhoneNumber = dto.PhoneNumber ?? profile.PhoneNumber; // 新增
+        profile.PhoneNumber = dto.PhoneNumber ?? profile.PhoneNumber;
         profile.Gender = dto.Gender ?? profile.Gender;
         profile.Bio = dto.Bio ?? profile.Bio;
         profile.Mood = dto.Mood ?? profile.Mood;
         profile.SocialLinks = dto.SocialLinks ?? profile.SocialLinks;
         profile.Birthday = dto.Birthday ?? profile.Birthday;
-        profile.ExtraConfig = dto.ExtraConfig ?? profile.ExtraConfig; // 新增
+        profile.ExtraConfig = dto.ExtraConfig ?? profile.ExtraConfig;
 
         try
         {
             await _context.SaveChangesAsync();
 
-            // 建议返回更新后的数据，方便前端刷新状态
             return Ok(new
             {
                 message = "寰宇档案已重塑",
-                // 返回计算后的新数据，前端不用刷新页面就能看到星座/年龄变化
                 data = new
                 {
                     profile.Zodiac,

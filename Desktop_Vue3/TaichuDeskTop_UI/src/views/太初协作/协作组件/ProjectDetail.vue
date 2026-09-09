@@ -78,7 +78,7 @@ import ProjectSettings from './ProjectSettings.vue';
 import ProjectMember from './ProjectMember.vue';
 import ProjectTimeline from './ProjectTimeline.vue';
 import ProjectDocument from './ProjectDocument.vue';
-
+import ProjectReports from './ProjectReports.vue'; // 🌟 引入汇报组件
 
 const route = useRoute();
 const router = useRouter();
@@ -89,6 +89,7 @@ const tabs = [
   { id: 'kanban', name: '任务看板' },
   { id: 'timeline', name: '演进线' },
   { id: 'members', name: '成员' },
+  { id: 'reports', name: '工作汇报' }, // 🌟 新增项
   { id: 'document', name: '文档'},
   { id: 'settings', name: '项目配置' }
 ];
@@ -115,6 +116,7 @@ const componentMap: Record<string, any> = {
   kanban: ProjectKanban,
   settings: ProjectSettings,
   timeline: ProjectTimeline,
+  reports: ProjectReports, // 🌟 映射挂载
   members: ProjectMember,
   document:ProjectDocument,
 };

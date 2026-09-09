@@ -48,5 +48,8 @@ namespace TaiChuWeb_V2.Models.Project
         public ICollection<ProjectCategory> Categories { get; set; }
         // 关联下面的申请表
         public ICollection<ProjectApplication> Applications { get; set; }
+
+        // Project.cs 内部追加
+        public ICollection<ProjectReport> Reports { get; set; } = new List<ProjectReport>();
     }
 }

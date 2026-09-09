@@ -1,5 +1,5 @@
 <template>
-  <div class="member-manager">
+  <div class="member-manager" @click="closeDropdown">
     <div v-if="isLoading" class="loading-state">
       <div class="loading-bar"></div>
     </div>
@@ -8,17 +8,45 @@
       <aside v-if="hasManagerPermission || joinRequests.length > 0" class="side-panel">
         <section v-if="hasManagerPermission" class="panel-block invite-section">
           <h2 class="section-title">邀请协作者</h2>
-          <div class="invite-form">
-            <input
-              v-model="inviteTarget"
-              type="text"
-              placeholder="输入用户名 或 用户ID..."
-              class="invite-input"
-              @keyup.enter="sendInvitation"
-            />
-            <button class="invite-btn" @click="sendInvitation" :disabled="!inviteTarget.trim()">
-              发送邀请
-            </button>
+          
+          <!-- 🌟 带有实时检索联想浮层的邀请输入框 -->
+          <div class="invite-form-wrapper" @click.stop>
+            <div class="invite-form">
+              <input
+                v-model="inviteTarget"
+                type="text"
+                placeholder="输入用户名检索 (例如: 照烧)..."
+                class="invite-input"
+                @input="handleInputSearch"
+                @focus="handleInputFocus"
+                @keyup.enter="sendInvitation"
+              />
+              <button class="invite-btn" @click="sendInvitation" :disabled="!inviteTarget.trim()">
+                发送邀请
+              </button>
+            </div>
+
+            <!-- 实时联想下拉悬浮层 -->
+            <div v-if="showDropdown && (candidateList.length > 0 || isSearching)" class="search-dropdown-menu">
+              <div v-if="isSearching" class="searching-hint">
+                <span>正在探寻共建者...</span>
+              </div>
+              <ul v-else class="candidate-list">
+                <li
+                  v-for="user in candidateList"
+                  :key="user.id"
+                  class="candidate-item"
+                  @click="selectCandidate(user)"
+                >
+                  <div class="candidate-avatar">{{ user.username.charAt(0) }}</div>
+                  <div class="candidate-info">
+                    <span class="candidate-name">{{ user.username }}</span>
+                    <span class="candidate-email">{{ user.email }}</span>
+                  </div>
+                  <span class="choose-action">+ 选择</span>
+                </li>
+              </ul>
+            </div>
           </div>
         </section>
 
@@ -58,29 +86,39 @@
               <div class="member-core">
                 <span class="member-name">
                   {{ member.name }}
-                  <span v-if="member.role === 'owner'" class="owner-tag">创建者</span>
+                  <span v-if="member.isOwner" class="owner-tag">创建者</span>
                 </span>
                 <span class="member-email">{{ member.email }}</span>
               </div>
             </div>
             <div class="card-bottom">
               <div class="role-section">
-                <select
-                  class="role-select"
-                  :value="member.role"
-                  :disabled="member.role === 'owner' || !hasManagerPermission"
-                  @change="updateRole(member.id, ($event.target as HTMLSelectElement).value)"
-                >
-                  <option v-for="role in roleOptions" :key="role.value" :value="role.value">
-                    {{ role.label }}
-                  </option>
-                </select>
-                <p class="role-description">
-                  {{ getRoleDescription(member.role) }}
-                </p>
+                <!-- 创建者：固定展示项目掌控者 -->
+                <div v-if="member.isOwner" class="owner-identity">
+                  <span class="owner-title">项目掌控者</span>
+                  <p class="role-description">至高权限，统领项目一切意图、长卷、汇报与成员</p>
+                </div>
+
+                <!-- 普通成员：展示动态身份组下拉框 -->
+                <template v-else>
+                  <select
+                    class="role-select"
+                    :value="member.roleIds?.[0] || 'role_system_viewer'"
+                    :disabled="!hasManagerPermission"
+                    @change="updateRole(member.id, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option v-for="role in availableRoles" :key="role.id" :value="role.id">
+                      {{ role.name }}
+                    </option>
+                  </select>
+                  <p class="role-description">
+                    {{ getRoleDescription(member.roleIds?.[0]) }}
+                  </p>
+                </template>
               </div>
+
               <button
-                v-if="member.role !== 'owner' && hasManagerPermission"
+                v-if="!member.isOwner && hasManagerPermission"
                 class="remove-btn"
                 @click="confirmRemove(member)"
               >
@@ -112,6 +150,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import projectService from '../../../api/projectService'
+import request from '@/utils/request'
 
 const props = defineProps<{
   projectId: string
@@ -123,7 +162,8 @@ interface Member {
   id: string
   name: string
   email: string
-  role: string
+  isOwner: boolean
+  roleIds: string[]
 }
 
 interface JoinRequest {
@@ -133,31 +173,34 @@ interface JoinRequest {
   message: string 
 }
 
-const roleOptions = [
-  { value: 'owner', label: '超级管理员', description: '完全控制权限，可管理项目、成员与所有任务' },
-  { value: 'admin', label: '管理员', description: '管理成员和项目设置，可操作所有任务' },
-  { value: 'editor', label: '编辑者', description: '创建、编辑、移动所有任务，但不能管理成员' },
-  { value: 'executor', label: '执行员', description: '仅可移动和处理自己被指派的任务' },
-  { value: 'viewer', label: '观察者', description: '只读访问，无法进行任何修改' },
-]
-
-const roleMapToBackend: Record<string, number> = {
-  'owner': 0,
-  'admin': 1,
-  'editor': 2,
-  'executor': 3,
-  'viewer': 4
+interface CandidateUser {
+  id: string
+  username: string
+  email: string
 }
 
-const getRoleDescription = (roleValue: string) => {
-  return roleOptions.find(r => r.value === roleValue)?.description || ''
+const availableRoles = ref<any[]>([
+  { id: 'role_system_viewer', name: '只读观察者', description: '只读访问，无法修改任务与汇报' },
+  { id: 'role_system_member', name: '执行协作者', description: '可流转自己被指派的任务与提交汇报' },
+  { id: 'role_system_admin', name: '统筹管理员', description: '可发布意图任务并查看全员汇报' }
+])
+
+const getRoleDescription = (roleId?: string) => {
+  const match = availableRoles.value.find(r => r.id === roleId)
+  return match?.description || '项目协作者身份'
 }
 
 const isLoading = ref(true)
 const members = ref<Member[]>([])
 const joinRequests = ref<JoinRequest[]>([])
-const inviteTarget = ref('') 
-const hasManagerPermission = ref(false) // 🌟 新增：标记当前登录用户是否有管理权限
+const hasManagerPermission = ref(false)
+
+// 🌟 实时搜索相关响应式状态
+const inviteTarget = ref('')
+const candidateList = ref<CandidateUser[]>([])
+const showDropdown = ref(false)
+const isSearching = ref(false)
+let searchTimer: any = null
 
 const removeModal = ref({
   isOpen: false,
@@ -165,31 +208,43 @@ const removeModal = ref({
   memberName: '',
 })
 
-// 🌟 核心改进：拆解 Promise.all，将常规列表与权限审批解耦加载
 const loadData = async () => {
   isLoading.value = true
   
-  // 1. 获取团队成员列表（所有成员都能看，不应该被卡住）
+  // 1. 获取动态身份组定义
   try {
-    const membersData = await projectService.getProjectMembers(props.projectId)
-    members.value = membersData as any[]
-  } catch (error) {
-    console.error('加载常规团队成员失败:', error)
+    const rolesRes: any = await request.get(`/project/${props.projectId}/roles`)
+    const list = rolesRes.data || rolesRes || []
+    if (list.length > 0) {
+      availableRoles.value = list
+    }
+  } catch (err) {
+    console.warn('获取项目自定义身份组失败，使用默认角色模板')
   }
 
-  // 2. 获取待审核申请列表（仅管理层可读，403 时不应该引发页面溃败）
+  // 2. 获取团队成员列表
   try {
-    const requestsData = await projectService.getPendingApplications(props.projectId)
-    joinRequests.value = requestsData as any[]
-    hasManagerPermission.value = true // 请求成功，说明是项目所有者或管理员
+    const membersData: any = await projectService.getProjectMembers(props.projectId)
+    members.value = (membersData.data || membersData || []).map((m: any) => ({
+      id: m.id,
+      name: m.name,
+      email: m.email,
+      isOwner: Boolean(m.isOwner),
+      roleIds: m.roleIds || []
+    }))
+  } catch (error) {
+    console.error('加载团队成员失败:', error)
+  }
+
+  // 3. 获取待审核申请列表
+  try {
+    const requestsData: any = await projectService.getPendingApplications(props.projectId)
+    joinRequests.value = requestsData.data || requestsData || []
+    hasManagerPermission.value = true
   } catch (error: any) {
-    // 判断是否是 403 或者是触发了后端的权限校验错误
     if (error.response?.status === 403 || error.response?.status === 500) {
       hasManagerPermission.value = false
       joinRequests.value = []
-      console.log('当前登录用户非管理层，已隐式隐藏审批及邀请面板。')
-    } else {
-      console.error('加载待审核申请列表遇到了其他异常:', error)
     }
   } finally {
     isLoading.value = false
@@ -198,6 +253,52 @@ const loadData = async () => {
 
 onMounted(loadData)
 
+// 🌟 输入防抖实时检索
+const handleInputSearch = () => {
+  if (searchTimer) clearTimeout(searchTimer)
+  
+  const query = inviteTarget.value.trim()
+  if (!query) {
+    candidateList.value = []
+    showDropdown.value = false
+    return
+  }
+
+  showDropdown.value = true
+  isSearching.value = true
+
+  searchTimer = setTimeout(async () => {
+    try {
+      const res: any = await request.get(`/project/${props.projectId}/members/search-candidates`, {
+        params: { keyword: query }
+      })
+      candidateList.value = res.data || res || []
+    } catch (err) {
+      console.error('检索用户失败:', err)
+      candidateList.value = []
+    } finally {
+      isSearching.value = false
+    }
+  }, 280) // 280ms 优雅防抖
+}
+
+const handleInputFocus = () => {
+  if (candidateList.value.length > 0 && inviteTarget.value.trim()) {
+    showDropdown.value = true
+  }
+}
+
+// 选中候选人
+const selectCandidate = (user: CandidateUser) => {
+  inviteTarget.value = user.username
+  showDropdown.value = false
+  sendInvitation()
+}
+
+const closeDropdown = () => {
+  showDropdown.value = false
+}
+
 // 发送邀请
 const sendInvitation = async () => {
   const target = inviteTarget.value.trim()
@@ -205,6 +306,8 @@ const sendInvitation = async () => {
   try {
     await projectService.inviteMember(props.projectId, { usernameOrId: target })
     inviteTarget.value = ''
+    candidateList.value = []
+    showDropdown.value = false
     alert("已成功将该共建者纳入灵脉。")
     await loadData() 
     emit('updated')
@@ -214,14 +317,18 @@ const sendInvitation = async () => {
   }
 }
 
-const updateRole = async (memberId: string, newRoleString: string) => {
-  const numericRole = roleMapToBackend[newRoleString] ?? 4
+// 更新角色
+const updateRole = async (memberId: string, newRoleId: string) => {
   try {
-    await projectService.updateMemberRole(props.projectId, memberId, { roleValue: numericRole })
+    await request.put(`/project/${props.projectId}/members/${memberId}/role`, {
+      roleIds: [newRoleId]
+    })
     const member = members.value.find(m => m.id === memberId)
-    if (member) member.role = newRoleString
+    if (member) member.roleIds = [newRoleId]
+    emit('updated')
   } catch (err) {
-    console.error('更新角色失败', err)
+    console.error('更新角色身份组失败', err)
+    alert('身份调整失败，可能权限不足')
   }
 }
 
@@ -281,17 +388,99 @@ const handleRequest = async (requestId: string, action: 'approve' | 'reject') =>
 .loading-bar { width: 60px; height: 1px; background: #1a1a1a; animation: pulse 1.5s infinite; }
 .manager-layout { display: flex; gap: 48px; align-items: flex-start; }
 @media (max-width: 800px) { .manager-layout { flex-direction: column; } }
-.side-panel { flex: 0 0 340px; display: flex; flex-direction: column; gap: 32px; }
+.side-panel { flex: 0 0 360px; display: flex; flex-direction: column; gap: 32px; }
 .panel-block { background: #fff; border: 1px solid #f0f0f0; padding: 28px; }
 .members-panel { flex: 1; min-width: 0; }
 .section-title { font-size: 0.85rem; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; color: #888; margin: 0 0 20px 0; display: flex; align-items: center; gap: 8px; }
 .count-badge { font-size: 0.7rem; font-family: monospace; color: #bbb; background: #fafafa; padding: 2px 6px; border-radius: 2px; font-weight: 400; }
+
+/* 🌟 输入与联想浮层容器样式 */
+.invite-form-wrapper {
+  position: relative;
+  width: 100%;
+}
 .invite-form { display: flex; gap: 10px; }
 .invite-input { flex: 1; border: 1px solid #eaeaea; padding: 10px 14px; font-size: 0.9rem; color: #1a1a1a; outline: none; transition: border-color 0.2s; background: #fff; }
 .invite-input:focus { border-color: #1a1a1a; }
-.invite-btn { padding: 10px 20px; background: #1a1a1a; color: #fff; border: none; font-size: 0.85rem; cursor: pointer; transition: background 0.3s; white-space: nowrap; }
+.invite-btn { padding: 10px 18px; background: #1a1a1a; color: #fff; border: none; font-size: 0.85rem; cursor: pointer; transition: background 0.3s; white-space: nowrap; }
 .invite-btn:disabled { background: #ccc; cursor: not-allowed; }
 .invite-btn:not(:disabled):hover { background: #333; }
+
+/* 联想下拉菜单 */
+.search-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #eaeaea;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+  border-radius: 2px;
+  z-index: 50;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.searching-hint {
+  padding: 16px;
+  font-size: 0.8rem;
+  color: #999;
+  text-align: center;
+}
+.candidate-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.candidate-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f9f9f9;
+  transition: background 0.2s;
+}
+.candidate-item:last-child {
+  border-bottom: none;
+}
+.candidate-item:hover {
+  background: #f7f7f7;
+}
+.candidate-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.candidate-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.candidate-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+.candidate-email {
+  font-size: 0.72rem;
+  color: #999;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.choose-action {
+  font-size: 0.75rem;
+  color: #666;
+}
 
 .request-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 16px; }
 .request-item { display: flex; flex-direction: column; gap: 16px; padding: 20px 0; border-bottom: 1px solid #f5f5f5; }
@@ -321,12 +510,17 @@ const handleRequest = async (requestId: string, action: 'approve' | 'reject') =>
 .member-email { font-size: 0.8rem; color: #999; }
 .card-bottom { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; }
 .role-section { display: flex; flex-direction: column; gap: 6px; flex: 1; }
+
+.owner-identity { display: flex; flex-direction: column; gap: 4px; }
+.owner-title { font-size: 0.85rem; font-weight: 600; color: #1a1a1a; letter-spacing: 0.5px; }
+
 .role-select { border: 1px solid #eaeaea; padding: 6px 10px; font-size: 0.8rem; color: #1a1a1a; background: #fff; outline: none; cursor: pointer; transition: border-color 0.2s; width: 140px; }
 .role-select:disabled { background: #fafafa; color: #999; cursor: not-allowed; }
 .role-select:focus { border-color: #1a1a1a; }
 .role-description { font-size: 0.7rem; color: #aaa; line-height: 1.4; margin: 0; }
 .remove-btn { background: none; border: none; color: #bbb; font-size: 0.8rem; cursor: pointer; padding: 6px 0; transition: color 0.2s; align-self: center; }
 .remove-btn:hover { color: #ff4757; }
+
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .minimal-modal { background: #fff; width: 100%; max-width: 420px; padding: 48px; border: 1px solid #eee; box-shadow: 0 40px 100px rgba(0, 0, 0, 0.04); }
 .modal-inner-header h2 { font-size: 1.2rem; font-weight: 500; margin: 0 0 12px 0; color: #1a1a1a; }
@@ -338,6 +532,7 @@ const handleRequest = async (requestId: string, action: 'approve' | 'reject') =>
 .confirm-btn:hover { background: #333; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pulse { 0% { transform: scaleX(0.5); opacity: 0.2; } 50% { transform: scaleX(1.5); opacity: 1; } 100% { transform: scaleX(0.5); opacity: 0.2; } }
 </style>

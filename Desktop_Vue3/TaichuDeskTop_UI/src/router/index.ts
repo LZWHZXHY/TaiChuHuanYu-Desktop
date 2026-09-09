@@ -22,9 +22,6 @@ import FillSurvey from '@/views/活动中心/问卷中心/FillSurvey.vue'
 import SurveyEditor from '@/views/活动中心/问卷中心/SurveyEditor.vue'
 import SurveyResult from '@/views/活动中心/问卷中心/SurveyResult.vue'
 import Manage from '@/views/活动中心/问卷中心/Manage.vue'
-// 后续结果页可选
-// import SurveyResult from '@/views/活动中心/问卷中心/SurveyResult.vue'
-
 
 
 const router = createRouter({
@@ -35,7 +32,7 @@ const router = createRouter({
       name: 'root',
       component: () => import('../views/推送首页/index.vue')
     },
-
+    
     // ===== 世界观模块 =====
     {
       path: '/world',
@@ -129,7 +126,7 @@ const router = createRouter({
         { path: 'my', component: () => import('@/views/柴圈板块/Joint/components/MyJoint.vue') },
       ]
     },
-
+    
     // ===== TCV 约战系统 =====
     {
       path: '/battles',
