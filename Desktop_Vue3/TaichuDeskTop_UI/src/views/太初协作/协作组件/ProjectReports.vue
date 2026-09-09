@@ -32,7 +32,11 @@
               <span class="report-meta">{{ rep.date }} · 投入 {{ rep.hours }}h · {{ rep.module || '常规推进' }}</span>
             </div>
           </div>
-          <span class="type-tag" :class="rep.type">{{ rep.type }}</span>
+          <div class="action-group">
+            <span class="type-tag" :class="rep.type">{{ rep.type }}</span>
+            <!-- 🌟 仅主理人/管理员可见的抹除按钮 -->
+            <button v-if="canManage" class="btn-delete" @click="deleteReport(rep.id)">×</button>
+          </div>
         </div>
 
         <div class="entry-content">
@@ -67,7 +71,7 @@
       </div>
     </div>
 
-    <!-- 提交报告弹窗 (集成 useCos 直传) -->
+    <!-- 提交报告弹窗 -->
     <div v-if="showModal" class="modal-backdrop" @click.self="showModal = false">
       <div class="modal-window">
         <header class="modal-head">
@@ -129,12 +133,18 @@
               </div>
             </div>
           </div>
+          
+          <!-- 🌟 超时预警遮罩 -->
+          <div v-if="isTimeoutLocked" class="timeout-warning">
+            ⚠️ 提交通道已关闭。当前已超过主理人设置的 <strong>{{ newForm.type }}</strong> 提交期限。
+          </div>
         </div>
 
         <footer class="modal-foot">
           <button class="btn-cancel" @click="showModal = false">取消</button>
-          <button class="btn-confirm" :disabled="isSubmitting || isUploading" @click="submitReport">
-            {{ isSubmitting ? '正在归档...' : '提交归档' }}
+          <!-- 🌟 按钮绑定超时锁定状态 -->
+          <button class="btn-confirm" :disabled="isSubmitting || isUploading || isTimeoutLocked" @click="submitReport">
+            {{ isSubmitting ? '正在归档...' : (isTimeoutLocked ? '已超时锁定' : '提交归档') }}
           </button>
         </footer>
       </div>
@@ -149,11 +159,10 @@ import request from '@/utils/request';
 
 const props = defineProps<{
   projectId: string;
-  initialData?: any;
+  initialData?: any; // 🌟 这里会接收来自父组件拉取的项目配置 (含 deadline)
 }>();
 
 const emit = defineEmits(['updated']);
-
 const { uploadFile, isUploading } = useCos();
 
 const currentFilter = ref('all');
@@ -161,6 +170,32 @@ const showModal = ref(false);
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 const reports = ref<any[]>([]);
+
+// 🌟 权限风控状态
+const isOwner = ref(false);
+const myPermissions = ref<string[]>([]);
+const canManage = computed(() => isOwner.value || myPermissions.value.includes('*'));
+
+// 🌟 核心：实时计算是否超时锁定
+const isTimeoutLocked = computed(() => {
+  if (canManage.value) return false; // 管理层免疫超时
+  if (!props.initialData) return false;
+
+  const now = new Date();
+  const wDeadline = props.initialData.weeklyReportDeadline || 0;
+  const mDeadline = props.initialData.monthlyReportDeadline || 0;
+
+  if (newForm.value.type === '周报' && wDeadline > 0) {
+    let currentDay = now.getDay() === 0 ? 7 : now.getDay();
+    if (currentDay > wDeadline) return true;
+  }
+
+  if (newForm.value.type === '月报' && mDeadline > 0) {
+    if (now.getDate() > mDeadline) return true;
+  }
+
+  return false;
+});
 
 const filteredReports = computed(() => {
   if (currentFilter.value === 'all') return reports.value;
@@ -177,7 +212,17 @@ const newForm = ref({
   images: [] as string[]
 });
 
-// 🌟 从真实后端拉取汇报流水
+// 拉取个人权限清单，用于风控与按钮展示
+const fetchMyPermissions = async () => {
+  if (!props.projectId) return;
+  try {
+    const res: any = await request.get(`/project/${props.projectId}/roles/my-permissions`);
+    const data = res.data || res;
+    isOwner.value = Boolean(data.isOwner);
+    myPermissions.value = data.permissions || [];
+  } catch (err) {}
+};
+
 const fetchReports = async () => {
   if (!props.projectId) return;
   isLoading.value = true;
@@ -223,7 +268,6 @@ const handlePaste = async (e: ClipboardEvent) => {
   }
 };
 
-// 🌟 向后端真实提交汇报
 const submitReport = async () => {
   if (!newForm.value.summary.trim()) {
     alert('请填写主要产出内容');
@@ -242,27 +286,27 @@ const submitReport = async () => {
       images: newForm.value.images
     });
 
-    // 成功后重置表单并关闭弹窗
-    newForm.value = { 
-      type: '周报', 
-      module: '常规推进',
-      hours: 4, 
-      summary: '', 
-      blockers: '', 
-      nextPlan: '', 
-      images: [] 
-    };
+    newForm.value = { type: '周报', module: '常规推进', hours: 4, summary: '', blockers: '', nextPlan: '', images: [] };
     showModal.value = false;
 
-    // 刷新列表并通知父级
     await fetchReports();
     emit('updated');
-    alert('汇报已成功归档入脉！');
   } catch (err: any) {
     console.error('提交汇报失败:', err);
-    alert(err.response?.data?.message || err.response?.data || '提交汇报失败，请确认您在此项目中具备汇报权限');
+    alert(err.response?.data?.message || '提交失败，可能已超出提交限制期');
   } finally {
     isSubmitting.value = false;
+  }
+};
+
+// 🌟 新增：管理员专属抹除功能
+const deleteReport = async (reportId: string) => {
+  if (!confirm('确定要彻底抹除这条汇报记录吗？此操作无法撤销。')) return;
+  try {
+    await request.delete(`/project/${props.projectId}/reports/${reportId}`);
+    await fetchReports();
+  } catch (err: any) {
+    alert(err.response?.data?.message || '删除失败');
   }
 };
 
@@ -270,9 +314,8 @@ const openImg = (u: string) => window.open(u, '_blank');
 
 watch(() => props.projectId, () => {
   fetchReports();
+  fetchMyPermissions(); // 🌟 监听切换时同步刷新权限
 }, { immediate: true });
-
-onMounted(fetchReports);
 </script>
 
 <style scoped>
@@ -295,6 +338,12 @@ onMounted(fetchReports);
 .avatar-box { width: 32px; height: 32px; border-radius: 50%; background: #1a1a1a; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold; }
 .author-name { font-size: 0.95rem; color: #1a1a1a; display: block; }
 .report-meta { font-size: 0.75rem; color: #aaa; }
+
+/* 🌟 操作组与删除按钮样式 */
+.action-group { display: flex; align-items: center; gap: 12px; }
+.btn-delete { background: none; border: none; font-size: 1.3rem; color: #ccc; cursor: pointer; transition: color 0.2s; line-height: 1; padding: 0 4px; }
+.btn-delete:hover { color: #ff4757; }
+
 .type-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 2px; font-weight: 500; }
 .type-tag.日报 { background: #e0f2fe; color: #0284c7; }
 .type-tag.周报 { background: #fef3c7; color: #d97706; }
@@ -325,10 +374,14 @@ onMounted(fetchReports);
 .preview-item { position: relative; width: 60px; height: 40px; }
 .preview-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
 .del-btn { position: absolute; top: -4px; right: -4px; background: #ff4757; color: #fff; border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+/* 🌟 超时预警框样式 */
+.timeout-warning { background: #fff1f0; border: 1px solid #ffa39e; padding: 12px; font-size: 0.8rem; color: #cf1322; border-radius: 2px; margin-top: 16px; text-align: center; }
+
 .modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
 .btn-cancel { background: #f5f5f5; border: none; padding: 8px 16px; font-size: 0.85rem; cursor: pointer; }
 .btn-confirm { background: #1a1a1a; color: #fff; border: none; padding: 8px 24px; font-size: 0.85rem; cursor: pointer; transition: background 0.3s; }
-.btn-confirm:hover { background: #333; }
+.btn-confirm:hover:not(:disabled) { background: #333; }
 .btn-confirm:disabled { background: #ccc; cursor: not-allowed; }
 .empty-hint { text-align: center; padding: 60px 0; color: #bbb; font-size: 0.85rem; }
 

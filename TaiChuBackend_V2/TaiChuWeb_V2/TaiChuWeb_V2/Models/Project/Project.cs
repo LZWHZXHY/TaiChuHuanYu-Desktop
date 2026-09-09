@@ -51,5 +51,11 @@ namespace TaiChuWeb_V2.Models.Project
 
         // Project.cs 内部追加
         public ICollection<ProjectReport> Reports { get; set; } = new List<ProjectReport>();
+
+        // 0表示不限制。1-7表示周一到周日
+        public int WeeklyReportDeadline { get; set; } = 0;
+
+        // 0表示不限制。1-31表示每月的几号
+        public int MonthlyReportDeadline { get; set; } = 0;
     }
 }

@@ -11,5 +11,9 @@
         public int? Status { get; set; }
 
         public string? CoverUrl { get; set; }
+
+        // 🌟 新增：接收汇报时间限制规则
+        public int? WeeklyReportDeadline { get; set; }
+        public int? MonthlyReportDeadline { get; set; }
     }
 }

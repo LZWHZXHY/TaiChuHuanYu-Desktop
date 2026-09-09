@@ -27,6 +27,8 @@ namespace TaiChuWeb_V2.Models.User
 
         public long Experience { get; set; } = 0;
 
+        public long ContributionPoints { get; set; } = 0;
+
         public int Reputation { get; set; } = 100; // 信誉分，初始100。用于违规扣分或高质量奖励。
         public string? Title { get; set; } // 头衔
         public int CurrentSignStreak { get; set; } = 0; // 当前连续签到天数
@@ -91,4 +93,35 @@ namespace TaiChuWeb_V2.Models.User
         [ForeignKey("UserId")]
         public virtual User User { get; set; } // ✅ 建议加上导航属性
     }
+
+    // 🌟 核心修改 2：新增贡献值变动流水表（确保贡献值发放有迹可循，防注水）
+    public class UserContributionLog
+    {
+        [Key]
+        public long Id { get; set; }
+
+        public Guid UserId { get; set; }
+
+        public int Change { get; set; }
+
+        [MaxLength(200)]
+        public string Reason { get; set; } // 获得原因，例如："完善世界观词条" 或 "提交有效Bug"
+
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [ForeignKey("UserId")]
+        public virtual User User { get; set; }
+    }
+
+
+
+
+
+
+
+
+
+
+
+
 }

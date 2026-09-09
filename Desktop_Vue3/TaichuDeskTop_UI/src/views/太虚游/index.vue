@@ -87,6 +87,17 @@ import * as signalR from '@microsoft/signalr'
 
 // ===== 游戏模块注册 =====
 const gameModules = {
+  // ----- 联机服务器专区 ✅ 新增 -----
+  MinecraftServer: {
+    label: '太虚方块服',
+    category: 'server',
+    icon: '⛏️',
+    description: 'Fabric 1.21.1 纯净生存服务器，御剑修仙，方块无界',
+    status: '已上线',
+    isNew: true,
+    component: defineAsyncComponent(() => import('./games/Minecraft/index.vue'))
+  },
+
   // ----- 棋类 -----
   Gobang: {
     label: '五子棋',
@@ -136,10 +147,11 @@ const gameModules = {
 
 // 分类定义
 const categoryMap = {
-  chess: { label: '棋类对弈', order: 1 },
-  classic: { label: '经典小游戏', order: 2 },
-  test: { label: '测试问卷', order: 3 },
-  custom: { label: '自定义工坊', order: 4 }
+  server: { label: 'MC服务器', order: 1 }, // 调整到最前或合适的位置
+  chess: { label: '棋类对弈', order: 2 },
+  classic: { label: '经典小游戏', order: 3 },
+  test: { label: '测试问卷', order: 4 },
+  custom: { label: '自定义工坊', order: 5 }
 }
 
 // 分组后的导航数据

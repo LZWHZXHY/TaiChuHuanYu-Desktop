@@ -238,6 +238,21 @@ const projectMembers = ref<any[]>([]);
 let draggingTask: any = null;
 let draggingLane: any = null;
 
+const handleDeleteTask = async (taskId: string) => {
+  console.log("收到了删除指令，开始请求后端抹除任务:", taskId); // 🌟 调试日志
+  try {
+    await projectService.deleteTask(props.projectId, taskId);
+    drawerState.value.isOpen = false; 
+    await loadBoard(); 
+  } catch (err) {
+    console.error("抹除意图失败:", err);
+  }
+};
+
+
+
+
+
 const drawerState = ref({
   isOpen: false,
   activeTask: null as any,
@@ -308,18 +323,7 @@ const openTaskModal = (task: any, currentCategoryId: string | null) => {
   drawerState.value.isOpen = true;
 };
 
-const handleDeleteTask = async (taskId: string) => {
-  const isConfirmed = await customConfirm("抹除意图", "确定要将这一意图卡片彻底从画布中抹除吗？此操作将无法撤销。");
-  if (!isConfirmed) return;
 
-  try {
-    await projectService.deleteTask(props.projectId, taskId);
-    drawerState.value.isOpen = false; 
-    await loadBoard(); 
-  } catch (err) {
-    console.error("抹除意图失败:", err);
-  }
-};
 
 const addNewCategory = async () => {
   const name = await customPrompt("铸造新维度", "请输入新分栏维度的称谓...");
@@ -616,7 +620,7 @@ const formatShortDate = (dateStr: string) => {
 .due-date { font-size: 0.65rem; padding: 2px 4px; background: #eee; border-radius: 2px; color: #666; }
 .due-date.overdue { background: #fee; color: #c00; }
 
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999; /* 🌟 核心：拉高层级，压过抽屉组件 */ }
 .minimal-modal { background: #fff; width: 100%; max-width: 440px; padding: 48px; border: 1px solid #eee; box-shadow: 0 40px 100px rgba(0,0,0,0.04); }
 .modal-inner-header h2 { font-size: 1.2rem; font-weight: 500; margin: 0 0 12px 0; color: #1a1a1a; }
 .modal-inner-header p { font-size: 0.85rem; color: #777; line-height: 1.6; margin: 0; }

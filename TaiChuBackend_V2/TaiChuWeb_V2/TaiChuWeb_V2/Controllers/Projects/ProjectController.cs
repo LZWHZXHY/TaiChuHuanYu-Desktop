@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Models.Project;
 using TaiChuWeb_V2.Dtos.Project;
+using ProjectEntity = TaiChuWeb_V2.Models.Project.Project;
 
 namespace TaiChuWeb_V2.Controllers.Projects
 {
@@ -80,7 +81,6 @@ namespace TaiChuWeb_V2.Controllers.Projects
                     m.Project.Status,
                     m.Project.StartTime,
                     m.Project.EndTime,
-                    // 🌟 修复 1：将旧的 m.RoleId 改为读取全新身份组列表 RoleIds
                     RoleIds = m.RoleIds,
                     m.Project.CreatedAt,
                     OwnerId = m.Project.OwnerId,
@@ -105,17 +105,14 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 return Unauthorized("无效的用户身份");
             }
 
-            // 1. 查询当前登录用户的 Stats 数据
             var userStats = await _context.UserStats
                 .FirstOrDefaultAsync(s => s.UserId == currentUserGuid);
 
             if (userStats == null) return Unauthorized("未寻得您的太初数据，无法校验额度");
 
-            // 🌟 修复 2：不再依赖 m.RoleId == 0，直接通过 Projects 表统计当前用户创建且未封存的项目
             var activeProjectCount = await _context.Projects
                 .CountAsync(p => p.OwnerId == currentUserGuid && p.Status != 3);
 
-            // 2. 额度拦截
             if (activeProjectCount >= userStats.MaxProjectCount)
             {
                 return StatusCode(StatusCodes.Status403Forbidden, new
@@ -127,8 +124,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
             var currentUser = await _context.Users.FindAsync(currentUserGuid);
             var ownerName = currentUser?.Username ?? "未知创造者";
 
-            // 3. 创建项目实体
-            var project = new Project
+            var project = new ProjectEntity
             {
                 Id = Guid.NewGuid().ToString(),
                 Name = dto.Name,
@@ -144,7 +140,6 @@ namespace TaiChuWeb_V2.Controllers.Projects
 
             _context.Projects.Add(project);
 
-            // 🌟 修复 3：使用 RoleIds 替代已弃用的 RoleId = 0
             _context.ProjectMembers.Add(new ProjectMember
             {
                 ProjectId = project.Id,
@@ -176,7 +171,6 @@ namespace TaiChuWeb_V2.Controllers.Projects
 
         #region --- 管理：设置与属性修改 ---
 
-        // 获取项目基础信息与统计
         [HttpGet("{projectId}/settings")]
         public async Task<IActionResult> GetProjectSettings(string projectId)
         {
@@ -194,6 +188,9 @@ namespace TaiChuWeb_V2.Controllers.Projects
                     p.StartTime,
                     p.EndTime,
                     p.CreatedAt,
+                    // 🌟 新增：读取汇报时间限制
+                    p.WeeklyReportDeadline,
+                    p.MonthlyReportDeadline,
                     MemberCount = _context.ProjectMembers.Count(m => m.ProjectId == p.Id),
                     TaskCount = _context.ProjectTasks.Count(t => t.ProjectId == p.Id)
                 })
@@ -204,14 +201,12 @@ namespace TaiChuWeb_V2.Controllers.Projects
             return Ok(project);
         }
 
-        // 修改项目属性
         [HttpPatch("{projectId}")]
         public async Task<IActionResult> UpdateProject(string projectId, [FromBody] UpdateProjectDto dto)
         {
             var project = await _context.Projects.FindAsync(projectId);
             if (project == null) return NotFound();
 
-            // 🌟 修复 4：直接校验是否为所有者，替代旧的 role != 0 校验
             if (!await IsProjectOwner(projectId))
             {
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = "只有项目所有者可以修改设置" });
@@ -226,6 +221,10 @@ namespace TaiChuWeb_V2.Controllers.Projects
             if (dto.EndTime.HasValue) project.EndTime = dto.EndTime;
             if (dto.Status.HasValue) project.Status = dto.Status.Value;
 
+            // 🌟 新增：更新汇报时间限制
+            if (dto.WeeklyReportDeadline.HasValue) project.WeeklyReportDeadline = dto.WeeklyReportDeadline.Value;
+            if (dto.MonthlyReportDeadline.HasValue) project.MonthlyReportDeadline = dto.MonthlyReportDeadline.Value;
+
             await _context.SaveChangesAsync();
 
             return Ok(new
@@ -237,15 +236,16 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 project.JoinPolicy,
                 project.Status,
                 project.StartTime,
-                project.EndTime
+                project.EndTime,
+                // 🌟 新增：返回更新后的时间限制
+                project.WeeklyReportDeadline,
+                project.MonthlyReportDeadline
             });
         }
 
-        // 彻底解散项目
         [HttpDelete("{projectId}")]
         public async Task<IActionResult> DeleteProject(string projectId)
         {
-            // 🌟 修复 5：直接校验是否为所有者
             if (!await IsProjectOwner(projectId)) return Forbid();
 
             var project = await _context.Projects.FindAsync(projectId);
@@ -257,7 +257,6 @@ namespace TaiChuWeb_V2.Controllers.Projects
             return Ok("项目已从灵脉中抹除");
         }
 
-        // 获取指定项目下的所有公开/协作归档文档大纲
         [HttpGet("{projectId}/documents")]
         public async Task<IActionResult> GetProjectDocuments(string projectId)
         {
@@ -301,7 +300,6 @@ namespace TaiChuWeb_V2.Controllers.Projects
         private async Task<bool> IsMember(string projectId) =>
             await _context.ProjectMembers.AnyAsync(m => m.ProjectId == projectId && m.UserId == CurrentUserId);
 
-        // 🌟 修复 6：彻底移除依赖已删除字段 RoleId 的 GetUserRole 方法，替换为判断所有权
         private async Task<bool> IsProjectOwner(string projectId)
         {
             if (string.IsNullOrEmpty(CurrentUserId)) return false;

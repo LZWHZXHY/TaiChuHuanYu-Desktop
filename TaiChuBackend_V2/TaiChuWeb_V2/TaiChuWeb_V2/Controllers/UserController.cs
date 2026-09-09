@@ -18,6 +18,34 @@ public class UserController : ControllerBase
         _context = context;
     }
 
+
+    // 把它加到你现有的 UserController 里
+    [HttpGet("search")]
+    public async Task<IActionResult> SearchGlobalUsers([FromQuery] string keyword)
+    {
+        if (string.IsNullOrWhiteSpace(keyword))
+            return Ok(new List<object>());
+
+        var users = await _context.Users
+            .Where(u => u.Username.Contains(keyword))
+            .Take(10)
+            .Select(u => new
+            {
+                id = u.Id,
+                username = u.Username,
+                email = u.Email
+            })
+            .ToListAsync();
+
+        return Ok(users);
+    }
+
+
+
+
+
+
+
     [HttpGet("me")]
     public async Task<IActionResult> GetCurrentUser()
     {

@@ -30,6 +30,16 @@ namespace TaiChuWeb_V2.DbContext
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
+
+
+
+
+
+
+
+        public DbSet<UserContributionLog> UserContributionLogs { get; set; }
+        public DbSet<ProjectDeliveryRecord> ProjectDeliveryRecords { get; set; }
+
         public DbSet<ProjectReport> ProjectReports { get; set; }
         public DbSet<ProjectCustomRole> ProjectCustomRoles { get; set; }
         public DbSet<ProjectPermissionDefinition> ProjectPermissionDefinitions { get; set; }

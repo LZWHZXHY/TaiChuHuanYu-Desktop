@@ -79,7 +79,7 @@ import ProjectMember from './ProjectMember.vue';
 import ProjectTimeline from './ProjectTimeline.vue';
 import ProjectDocument from './ProjectDocument.vue';
 import ProjectReports from './ProjectReports.vue'; // 🌟 引入汇报组件
-
+import ProjectDeliveries from './ProjectDeliveries.vue';
 const route = useRoute();
 const router = useRouter();
 const project = ref<any>(null);
@@ -89,6 +89,7 @@ const tabs = [
   { id: 'kanban', name: '任务看板' },
   { id: 'timeline', name: '演进线' },
   { id: 'members', name: '成员' },
+  { id: 'deliveries', name: '履约验收' }, // 🌟 新增的专门记账本
   { id: 'reports', name: '工作汇报' }, // 🌟 新增项
   { id: 'document', name: '文档'},
   { id: 'settings', name: '项目配置' }
@@ -116,9 +117,10 @@ const componentMap: Record<string, any> = {
   kanban: ProjectKanban,
   settings: ProjectSettings,
   timeline: ProjectTimeline,
-  reports: ProjectReports, // 🌟 映射挂载
+  reports: ProjectReports,
+  deliveries: ProjectDeliveries, // 🌟 挂载
   members: ProjectMember,
-  document:ProjectDocument,
+  document: ProjectDocument,
 };
 
 // 🌟 动态计算视口挂载项，自动防御 Ref 包装问题
