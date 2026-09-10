@@ -31,7 +31,7 @@ namespace TaiChuWeb_V2.DbContext
         {
         }
 
-
+        public DbSet<BlockHistory> BlockHistories { get; set; }
 
 
 

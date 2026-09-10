@@ -28,6 +28,15 @@ export interface IWikiArticle {
   authorId?: string;
 }
 
+// 💡 补充创建词条所需的 Payload 类型定义
+export interface ICreateArticleDto {
+  title: string;
+  categoryId: number;
+  excerpt?: string;
+  content?: string;
+  tags?: string[];
+}
+
 export const wikiApi = {
   getCategories: () => request.get<IWikiCategory[]>('/wiki/categories'),
   
@@ -36,8 +45,10 @@ export const wikiApi = {
 
   publishFromNote: (data: any) => request.post('/wiki/publish', data),
 
+  // 🌟 核心修复：在这里正式补上 createArticle 映射，复用后端发布接口
+  createArticle: (data: ICreateArticleDto) => request.post<any>('/wiki/publish', data),
+
   // 🌟 核心修改：这就是 index.vue 里调用的真正更新接口！
-// 🌟 修改为直接接收 content 字符串
   updateFromNote: (data: { 
     articleId: string; 
     content: string; 
