@@ -71,7 +71,8 @@ export const lingmaiApi = {
       : `/LingMaiNodeGraph/spaces/${spaceId}/graph`;
     return request.get(url);
   },
-
+  search: (q: string) => request.get(`/LingMai/search?q=${encodeURIComponent(q)}`),
+  getBlockPreview: (blockId: string) => request.get(`/LingMai/blocks/${blockId}/preview`),
   /**
    * 🌟 反向链接：获取引用了当前笔记的所有笔记
    */
@@ -96,7 +97,7 @@ export const lingmaiApi = {
       tiptapContent: rebuildTiptapJson(res.blocks)
     };
   },
-
+  getNotePreview: (id: string) => request.get(`/LingMai/notes/${id}/preview`),
   /**
    * 🌟 获取列表
    */

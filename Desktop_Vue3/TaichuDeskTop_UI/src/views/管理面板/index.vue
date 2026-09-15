@@ -62,9 +62,15 @@ import 维基组件 from './管理组件/维基组件.vue';
 // 🌟 1. 新增：引入用户治理组件
 import 用户组件 from './管理组件/用户组件.vue'; 
 import 作品管理 from './管理组件/作品管理.vue';
+// 🌟 新增：俱乐部游戏管理组件
+import 俱乐部游戏组件 from './管理组件/俱乐部游戏组件.vue';
 import 邮件管理 from './管理组件/邮件管理.vue';
 import 数据中心 from './管理组件/数据中心.vue';
 import 用户手册组件 from './管理组件/用户手册组件.vue';
+
+
+
+
 
 const activeTab = ref('data');
 
@@ -72,16 +78,16 @@ const activeTab = ref('data');
 const menus = [
   { id: 'data', label: '数据', icon: '◱', component: 数据中心 },
   { id: 'trade', label: '交易行', icon: '◈', component: 交易行组件 },
-  { id: 'users', label: '用户', icon: '⚇', component: 用户组件 }, // 新增这行
-  { id: 'manual', label: '手册', icon: '📖', component: 用户手册组件 }, // 🌟 添加用户手册
+  { id: 'users', label: '用户', icon: '⚇', component: 用户组件 },
+  { id: 'manual', label: '手册', icon: '📖', component: 用户手册组件 },
   { id: 'event', label: '活动', icon: '◒', component: 活动组件 },
   { id: 'feedback', label: '反馈', icon: '✉', component: 反馈组件 },
   { id: 'news', label: '公告', icon: '☖', component: 公告组件 },
   { id: 'email', label: '邮件', icon: '＠', component: 邮件管理 },
   { id: 'wiki', label: '维基', icon: '▤', component: 维基组件 },
+  { id: 'club', label: '俱乐部', icon: '🎮', component: 俱乐部游戏组件 }, // 🌟 新增
   { id: 'product', label: '作品', icon: '▤', component: 作品管理 },
 ];
-
 const currentView = computed(() => {
   const menu = menus.find(m => m.id === activeTab.value);
   return menu ? menu.component : 数据中心; // 建议兜底与 activeTab 默认值一致

@@ -11,5 +11,11 @@
         JointManager,   // 太虚绘院部门管理员
 
         TaiChu,         // 🌟 新增：太初寰宇官方内阁/工坊研发权限
+
+        // ===== 太初俱乐部 =====
+        Club_OperatorAudit,  // 打手审核（批准 / 拒绝 / 封禁）
+        Club_Manage,         // 俱乐部总管理（价目、规则）
+        Club_OrderAudit,     // 订单纠纷处理
+        Club_Finance,        // 财务（结算、分红）
     }
 }

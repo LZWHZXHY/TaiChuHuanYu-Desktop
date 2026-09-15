@@ -22,10 +22,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, inject } from 'vue';
 import SpiritEditor from '@/components/SpiritText.vue';
-import { lingmaiApi } from '@/api/lingmai'; // 🌟 必须引入 API
-
+import { useAutoSave } from '@/composables/useAutoSave'; // 🌟 引入全局单例保存引擎
+import { nanoid } from 'nanoid'
 const props = defineProps<{
   modelValue: boolean;
   noteId: string;
@@ -37,13 +37,13 @@ const props = defineProps<{
 defineEmits(['update:modelValue']); 
 
 const quickEditorRef = ref();
-let quickSyncTimer: any = null;
+const showToast = inject('showToast') as ((msg: string, duration?: number) => void) | undefined;
+const { syncToCloud } = useAutoSave(); // 🌟 激活引擎
 
-// 🌟 核心新增：抽屉自治！监听打开动作，自己把数据解析并塞给编辑器
+// 抽屉自治：监听打开动作，自己把数据解析并塞给编辑器
 watch(
   () => props.modelValue, 
   (isOpen) => {
-    // 只有在抽屉打开，且没有在 loading 的时候才去设置内容
     if (isOpen && props.noteMeta && !props.isLoading) {
       setTimeout(() => {
         if (quickEditorRef.value && quickEditorRef.value.editor) {
@@ -60,45 +60,39 @@ watch(
           }
           quickEditorRef.value.editor.commands.setContent(contentToSet);
         }
-      }, 100); // 稍微延迟等待编辑器实例挂载完成
+      }, 100); 
     }
   }
 );
 
-// 处理自动保存（全部替换为 props.xxx）
+// 🌟 处理自动保存（使用单例防抖）
 const handleQuickEditorChange = (json: any) => {
-  if (quickSyncTimer) clearTimeout(quickSyncTimer);
-  quickSyncTimer = setTimeout(async () => {
-     if (!props.noteId) return;
+  if (!props.noteId) return;
      
-     let finalBlocks: any[] = [];
-     if (json && json.content) {
-        finalBlocks = json.content.map((b: any, i: number) => ({
-          id: b.attrs?.id || Math.random().toString(36).substring(2, 11),
-          ownerId: props.noteId,
-          ownerType: props.noteMeta?.type || 'note',
-          type: b.type,
-          sortOrder: i,
-          data: JSON.stringify(b)
-        }));
-     }
+  let finalBlocks: any[] = [];
+  if (json && json.content) {
+    finalBlocks = json.content.map((b: any, i: number) => ({
+      id: b.attrs?.id || nanoid(21),   // 🌟 换这里
+      ownerId: props.noteId,
+      ownerType: props.noteMeta?.type || 'note',
+      type: b.type,
+      sortOrder: i,
+      data: JSON.stringify(b)
+    }));
+  }
      
-     try {
-        const syncPayload = {
-            noteId: props.noteId,
-            title: props.noteMeta?.title || '',
-            extraData: props.noteMeta?.extraData || '[]',
-            tags: props.noteMeta?.tags || [],
-            blocks: finalBlocks
-        };
-        await lingmaiApi.updateNoteContent(props.noteId, syncPayload); 
-     } catch(e) {
-        console.error("抽屉同步失败", e);
-     }
-  }, 2000);
+  const syncPayload = {
+    noteId: props.noteId,
+    title: props.noteMeta?.title || '',
+    extraData: props.noteMeta?.extraData || '[]',
+    tags: props.noteMeta?.tags || [],
+    blocks: finalBlocks
+  };
+
+  // 甩锅给单例
+  syncToCloud(props.noteId, syncPayload, showToast);
 };
 
-// 依然暴露实例，防止其他地方偶尔需要
 defineExpose({
   editor: quickEditorRef
 });

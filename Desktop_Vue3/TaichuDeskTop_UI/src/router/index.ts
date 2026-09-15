@@ -24,6 +24,22 @@ import SurveyResult from '@/views/活动中心/问卷中心/SurveyResult.vue'
 import Manage from '@/views/活动中心/问卷中心/Manage.vue'
 
 
+
+
+// ===== 太初俱乐部相关导入 =====
+import TaichuHome       from '@/views/太初俱乐部/index.vue'
+import TaichuOperators  from '@/views/太初俱乐部/OperatorsView.vue'
+import TaichuPricing    from '@/views/太初俱乐部/PricingView.vue'
+import TaichuRules      from '@/views/太初俱乐部/RulesView.vue'
+import TaichuEvents     from '@/views/太初俱乐部/EventsView.vue'
+import TaichuProfile    from '@/views/太初俱乐部/MyProfile.vue'
+
+
+
+
+
+
+
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
@@ -32,6 +48,49 @@ const router = createRouter({
       name: 'root',
       component: () => import('../views/推送首页/index.vue')
     },
+
+
+        // ==========================================
+    // ===== 太初俱乐部 =====
+    // ==========================================
+    {
+      path: '/Club',
+      name: 'TaichuHome',
+      component: TaichuHome
+    },
+    {
+      path: '/taichu/operators',
+      name: 'TaichuOperators',
+      component: TaichuOperators
+    },
+    {
+      path: '/taichu/pricing',
+      name: 'TaichuPricing',
+      component: TaichuPricing
+    },
+    {
+      path: '/taichu/rules',
+      name: 'TaichuRules',
+      component: TaichuRules
+    },
+    {
+      path: '/taichu/events',
+      name: 'TaichuEvents',
+      component: TaichuEvents
+    },
+    {
+      path: '/taichu/profile',
+      name: 'TaichuProfile',
+      component: TaichuProfile
+    },
+
+
+
+
+
+
+
+
     
     // ===== 世界观模块 =====
     {

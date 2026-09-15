@@ -9,6 +9,7 @@ using TaiChuWeb_V2.Filters;
 using TaiChuWeb_V2.Hubs;
 using TaiChuWeb_V2.Services;
 using TaiChuWeb_V2.Services.Cos;
+using Minio;
 using TaiChuWeb_V2.Services.Email;
 using TaiChuWeb_V2.Services.LingMai;
 using TaiChuWeb_V2.Services.Project;
@@ -63,6 +64,29 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<SystemConfigService>();
 builder.Services.AddScoped<IWorldQuotaService, WorldQuotaService>();
 builder.Services.AddScoped<IProjectPermissionService, ProjectPermissionService>();
+
+
+
+var minioEndpoint = builder.Configuration["MinioSettings:Endpoint"];
+var minioAccessKey = builder.Configuration["MinioSettings:AccessKey"];
+var minioSecretKey = builder.Configuration["MinioSettings:SecretKey"];
+
+builder.Services.AddSingleton<IMinioClient>(sp =>
+{
+    return new MinioClient()
+        .WithEndpoint(minioEndpoint)
+        .WithCredentials(minioAccessKey, minioSecretKey)
+        .WithSSL() // 关键修改：去掉 false，开启 SSL
+        .Build();
+});
+
+
+
+
+
+
+
+
 
 
 builder.Services.AddControllers(options => {

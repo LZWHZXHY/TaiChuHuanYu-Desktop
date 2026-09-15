@@ -25,16 +25,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onUnmounted, ref } from 'vue';
+import { computed, inject, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import MainWorkspace from './MainWorkspace.vue';
 import { useSpiritData } from '@/composables/useSpiritData';
-import { lingmaiApi } from '@/api/lingmai';
+import { useAutoSave } from '@/composables/useAutoSave'; // 🌟 引入全局单例保存引擎
 import { checkHasImage } from '@/utils/editorHelpers';
+import { nanoid } from 'nanoid'
+
+
 
 const showToast = inject('showToast') as ((msg: string, duration?: number) => void) | undefined;
-
-
 
 const route = useRoute();
 
@@ -47,16 +48,14 @@ const isContentLoading = inject('isContentLoading') as any;
 const openQuickEditor = inject('openQuickEditor') as (id: string) => void;
 
 // ---------- 全局方法 ----------
-const { updateNoteTitle, updateNoteContent } = useSpiritData();
+const { updateNoteTitle } = useSpiritData();
+const { syncToCloud } = useAutoSave(); // 🌟 激活全局防抖同步引擎
 
 // ---------- 计算属性 ----------
 const hasArtImage = computed(() => {
   if (!displayNote.value) return false;
   return checkHasImage(displayNote.value.content);
 });
-
-// ---------- 同步定时器 ----------
-let syncTimer: any = null;
 
 // ---------- 事件处理 ----------
 const handleUpdateTitle = (val: string) => {
@@ -81,7 +80,7 @@ const handleEditorAutoSync = (json: any) => {
   if (!displayNote.value || !route.params.id) return;
 
   const blocks = json.content.map((b: any, i: number) => ({
-    id: b.attrs?.id || Math.random().toString(36).substring(2, 11),
+    id: b.attrs?.id || nanoid(21), 
     ownerId: route.params.id as string,
     ownerType: displayNote.value?.type || 'note',
     type: b.type,
@@ -101,18 +100,12 @@ const handleOpenSubDrawer = (targetId: string) => {
   }
 };
 
-// ---------- 同步逻辑 ----------
+// ---------- 🌟 同步逻辑 (重构极简版) ----------
 const triggerDebouncedSync = () => {
-  if (syncTimer) clearTimeout(syncTimer);
-  syncTimer = setTimeout(async () => {
-    await executeSync();
-  }, 2000);
-};
-
-const executeSync = async () => {
   const noteId = route.params.id as string;
   if (!noteId || !displayNote.value) return;
 
+  // 1. 组装数据快照
   const payload = {
     noteId,
     title: displayNote.value.title || '',
@@ -121,26 +114,14 @@ const executeSync = async () => {
     blocks: workspaceBlocks.value,
   };
 
-  try {
-    await lingmaiApi.updateNoteContent(noteId, payload);
-    showToast?.('☁️ 已自动同步', 1500); // ✅ 使用可选链
-  } catch (e) {
-    console.error('同步失败', e);
-    showToast?.('❌ 同步失败', 2000);
-  }
+  // 2. 丢给全局单例去排队处理，彻底避免并发写冲突
+  syncToCloud(noteId, payload, showToast); 
 };
 
-// ---------- 清理 ----------
-onUnmounted(() => {
-  if (syncTimer) clearTimeout(syncTimer);
-});
-
 defineExpose({
-  save: executeSync,
+  save: () => triggerDebouncedSync(),
 });
 </script>
-
-
 
 <style scoped>
 /* 样式保持不变 */

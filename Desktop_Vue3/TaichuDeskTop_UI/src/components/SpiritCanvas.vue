@@ -142,7 +142,7 @@ const presetColors = ['#34c759', '#ff3b30', '#007aff', '#ff9500', '#af52de', '#8
 
 const extractLinks = (nodeObj: any, links = new Set<string>()) => {
   if (!nodeObj) return links;
-  if (nodeObj.type === 'spiritLink' && nodeObj.attrs?.id) {
+    if (nodeObj.type === 'spirit-link' && nodeObj.attrs?.id) {
     links.add(nodeObj.attrs.id);
   }
   if (Array.isArray(nodeObj.content)) {

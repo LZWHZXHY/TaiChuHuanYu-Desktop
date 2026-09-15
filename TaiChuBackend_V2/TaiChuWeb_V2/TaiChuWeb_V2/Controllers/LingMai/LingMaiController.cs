@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.LingMai;
+using TaiChuWeb_V2.Models.FinalNodes;   // 🌟 新增：BlockIndex 所在命名空间
 using TaiChuWeb_V2.Models.LingMai;
 using TaiChuWeb_V2.Models.Tag;
 using TaiChuWeb_V2.Models.User;
@@ -59,6 +60,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 if (Guid.TryParse(spaceIdProp.GetString(), out var newSpaceId))
                 {
                     note.SpaceId = newSpaceId;
+                    note.FolderId = null;   // 🌟 迁移时清空 folderId
                 }
             }
 
@@ -156,41 +158,134 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         {
             if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
 
-            // 1. 查找空间
-            var space = await _context.Spaces.FindAsync(id);
+            var space = await _context.Spaces.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
             if (space == null) return NotFound(new { message = "未找到指定的空间" });
             if (space.UserId != CurrentUserId) return Forbid();
 
-            // 2. 获取该空间下的所有笔记（为了统计需要扣减的 UsedNotes 数量）
-            var notesInSpace = await _context.Notes.Where(n => n.SpaceId == id).ToListAsync();
-            int notesCount = notesInSpace.Count;
+            // 该空间下所有笔记的 ID
+            var noteIds = await _context.Notes
+                .AsNoTracking()
+                .Where(n => n.SpaceId == id)
+                .Select(n => n.Id)
+                .ToListAsync();
 
-            // 3. 获取用户统计数据对象
-            // 假设你有一个 GetQuotaStatus 或直接查询 stats
+            var noteIdStrs = noteIds.Select(x => x.ToString()).ToList();
+            int notesCount = noteIds.Count;
+
             var user = await _context.Users
                 .Include(u => u.Stats)
                 .FirstOrDefaultAsync(u => u.Id == Guid.Parse(CurrentUserId));
-
             if (user?.Stats == null) return BadRequest("无法更新账户审计数据");
 
-            // --- 🌟 执行删除与计数器同步 ---
+            // 🌟 用 ExecutionStrategy 包裹整个事务
+            var strategy = _context.Database.CreateExecutionStrategy();
 
-            // 删除笔记和空间
-            _context.Notes.RemoveRange(notesInSpace);
-            _context.Spaces.Remove(space);
+            try
+            {
+                return await strategy.ExecuteAsync<IActionResult>(async () =>
+                {
+                    using var transaction = await _context.Database.BeginTransactionAsync();
 
-            // 同步更新计数器
-            // 使用 Math.Max 确保不会因为意外变成负数
-            user.Stats.UsedSpaces = Math.Max(0, user.Stats.UsedSpaces - 1);
-            user.Stats.UsedNotes = Math.Max(0, user.Stats.UsedNotes - notesCount);
+                    try
+                    {
+                        if (noteIds.Count > 0)
+                        {
+                            // 全部用 ExecuteDeleteAsync，绕过 EF 跟踪
+                            await _context.NoteLinks
+                                .Where(l => noteIds.Contains(l.SourceNoteId) || noteIds.Contains(l.TargetNoteId))
+                                .ExecuteDeleteAsync();
 
-            // 显式标记状态已改变
-            _context.Entry(user.Stats).State = EntityState.Modified;
+                            await _context.NoteHistories
+                                .Where(h => noteIds.Contains(h.NoteId))
+                                .ExecuteDeleteAsync();
 
-            await _context.SaveChangesAsync();
+                            await _context.Comments
+                                .Where(c => c.NoteId != null && noteIds.Contains(c.NoteId.Value))
+                                .ExecuteDeleteAsync();
 
-            return Ok(new { success = true, deletedNotes = notesCount });
+                            await _context.Blocks
+                                .Where(b => noteIdStrs.Contains(b.OwnerId))
+                                .ExecuteDeleteAsync();
+
+                            await _context.BlockIndexes
+                                .Where(b => noteIdStrs.Contains(b.NodeId))
+                                .ExecuteDeleteAsync();
+
+                            await _context.TagAssignments
+                                .Where(ta => ta.EntityType == "Note" && noteIdStrs.Contains(ta.EntityId))
+                                .ExecuteDeleteAsync();
+                        }
+
+                        // PublishedNotes / PublishedBlocks
+                        var pubIds = await _context.PublishedNotes
+                            .AsNoTracking()
+                            .Where(pn => pn.SpaceId == id)
+                            .Select(pn => pn.Id.ToString())
+                            .ToListAsync();
+
+                        if (pubIds.Count > 0)
+                        {
+                            await _context.PublishedBlocks
+                                .Where(pb => pubIds.Contains(pb.OwnerId))
+                                .ExecuteDeleteAsync();
+
+                            await _context.PublishedNotes
+                                .Where(pn => pn.SpaceId == id)
+                                .ExecuteDeleteAsync();
+                        }
+
+                        // 删笔记
+                        await _context.Notes
+                            .Where(n => n.SpaceId == id)
+                            .ExecuteDeleteAsync();
+
+                        // 删空间
+                        await _context.Spaces
+                            .Where(s => s.Id == id)
+                            .ExecuteDeleteAsync();
+
+                        // 更新计数
+                        user.Stats.UsedSpaces = Math.Max(0, user.Stats.UsedSpaces - 1);
+                        user.Stats.UsedNotes = Math.Max(0, user.Stats.UsedNotes - notesCount);
+                        await _context.SaveChangesAsync();
+
+                        await transaction.CommitAsync();
+                        return Ok(new { success = true, deletedNotes = notesCount });
+                    }
+                    catch (Exception ex)
+                    {
+                        await transaction.RollbackAsync();
+                        var inner = ex.InnerException?.Message ?? "(无内部异常)";
+                        return StatusCode(500, $"删除失败: {ex.Message} || 内部: {inner}");
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                var inner = ex.InnerException?.Message ?? "(无内部异常)";
+                return StatusCode(500, $"删除失败(重试后): {ex.Message} || 内部: {inner}");
+            }
         }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         [HttpPatch("spaces/{id:guid}")]
         public async Task<IActionResult> UpdateSpaceName(Guid id, [FromBody] string name)
@@ -683,21 +778,20 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         var currentOutlinkIds = new HashSet<Guid>();
 
                         // ========================================================================
-                        // 🌟 【修复核心】：判断是走大 JSON 路线，还是走高级块级覆盖清洗路线
+                        // 分流处理 blocks
                         // ========================================================================
                         bool isCanvasOrMap = note.Type == "canvas" || note.Type == "map";
-                        bool isSchedule = note.Type == "schedule"; // 🚀 识别新加的独立日程空间形态
+                        bool isSchedule = note.Type == "schedule";
 
                         if (isCanvasOrMap)
                         {
-                            // 路线 A：白板/地图 -> 维持原有的 JSON 降维打击存储（不污染 blocks 实体表）
+                            // 路线 A：白板/地图 -> 大 JSON 存储
                             var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
                             string blocksJson = dto.Blocks != null && dto.Blocks.Any()
                                 ? JsonSerializer.Serialize(dto.Blocks, jsonOptions)
                                 : "[]";
                             note.BlocksData = blocksJson;
 
-                            // 极速解析双链
                             if (blocksJson.Length > 2)
                             {
                                 var matches = Regex.Matches(blocksJson, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
@@ -708,16 +802,12 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                 }
                             }
 
-                            // 清理残余
                             var obsoleteBlocks = await _context.Blocks.Where(b => b.OwnerId == dto.NoteId.ToString()).ToListAsync();
                             if (obsoleteBlocks.Any()) _context.Blocks.RemoveRange(obsoleteBlocks);
                         }
                         else if (isSchedule)
                         {
-                            // 🚀 路线 C：对于高自由度的 Schedule，采用高速「物理抹除 + 干净落库」策略
-                            // 完美终结极其脆弱的 EF Core 追踪失效导致的 Duplicate entry 报错！
-
-                            // 1. 不管三七二十一，用最简单、最快的方式，抹除当前 noteId 关联的不管任何 ownerType 的老积木块
+                            // 路线 C：Schedule，物理抹除 + 干净落库
                             var noteIdStr = dto.NoteId.ToString();
                             var oldBlocks = await _context.Blocks.Where(b => b.OwnerId == noteIdStr).ToListAsync();
                             if (oldBlocks.Any())
@@ -725,7 +815,6 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                 _context.Blocks.RemoveRange(oldBlocks);
                             }
 
-                            // 2. 将前端传过来的最新干净卡片和状态列直接用 AddRange 灌入
                             if (dto.Blocks != null && dto.Blocks.Any())
                             {
                                 foreach (var (b, index) in dto.Blocks.Select((item, i) => (item, i)))
@@ -734,14 +823,13 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                     {
                                         Id = b.Id,
                                         OwnerId = noteIdStr,
-                                        OwnerType = "schedule", // 锁定一致性，防止归属混乱
+                                        OwnerType = "schedule",
                                         Type = b.Type,
                                         Data = b.Data ?? string.Empty,
                                         SortOrder = b.SortOrder ?? index,
                                         UpdatedAt = DateTime.UtcNow
                                     });
 
-                                    // 顺手同步解析日程/看板卡片中包含的双链
                                     if (!string.IsNullOrWhiteSpace(b.Data))
                                     {
                                         var matches = Regex.Matches(b.Data, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
@@ -756,42 +844,37 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                         }
                         else
                         {
-                            // 🛣️ 路线 B：原汁原味的普通流式笔记随笔（文本级排版），维持增量比较
-                            var existingBlocks = await _context.Blocks
+                            // ================================================================
+                            // 🛣️ 路线 B（重写）：普通笔记也改成「全删全建」
+                            // 用 ExecuteDeleteAsync 绕过 ChangeTracker，直接发 SQL DELETE
+                            // 从根上杜绝与后续 INSERT 撞主键（包括并发、复制、中间插入等场景）
+                            // ================================================================
+                            await _context.Blocks
                                 .Where(b => b.OwnerId == dto.NoteId.ToString())
-                                .ToDictionaryAsync(b => b.Id);
+                                .ExecuteDeleteAsync();
 
-                            if (dto.Blocks != null)
+                            if (dto.Blocks != null && dto.Blocks.Any())
                             {
-                                foreach (var (b, index) in dto.Blocks.Select((item, i) => (item, i)))
+                                var seenIds = new HashSet<string>();   // 请求内去重
+                                int blockOrder = 0;
+
+                                foreach (var b in dto.Blocks)
                                 {
-                                    if (existingBlocks.TryGetValue(b.Id, out var dbBlock))
+                                    if (string.IsNullOrEmpty(b.Id) || !seenIds.Add(b.Id)) continue;
+
+                                    _context.Blocks.Add(new Block
                                     {
-                                        bool isChanged = false;
-                                        var newData = b.Data ?? string.Empty;
-                                        var newSortOrder = b.SortOrder ?? index;
+                                        Id = b.Id,
+                                        OwnerId = dto.NoteId.ToString(),
+                                        OwnerType = note.Type,
+                                        Type = b.Type,
+                                        Data = b.Data ?? string.Empty,
+                                        SortOrder = b.SortOrder ?? blockOrder,
+                                        UpdatedAt = DateTime.UtcNow
+                                    });
+                                    blockOrder++;
 
-                                        if (dbBlock.Data != newData) { dbBlock.Data = newData; isChanged = true; }
-                                        if (dbBlock.SortOrder != newSortOrder) { dbBlock.SortOrder = newSortOrder; isChanged = true; }
-                                        if (dbBlock.Type != b.Type) { dbBlock.Type = b.Type; isChanged = true; }
-
-                                        if (isChanged) dbBlock.UpdatedAt = DateTime.UtcNow;
-                                        existingBlocks.Remove(b.Id);
-                                    }
-                                    else
-                                    {
-                                        _context.Blocks.Add(new Block
-                                        {
-                                            Id = b.Id,
-                                            OwnerId = dto.NoteId.ToString(),
-                                            OwnerType = note.Type,
-                                            Type = b.Type,
-                                            Data = b.Data ?? string.Empty,
-                                            SortOrder = b.SortOrder ?? index,
-                                            UpdatedAt = DateTime.UtcNow
-                                        });
-                                    }
-
+                                    // 顺手解析双链
                                     if (!string.IsNullOrWhiteSpace(b.Data))
                                     {
                                         var matches = Regex.Matches(b.Data, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
@@ -803,15 +886,10 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                     }
                                 }
                             }
-
-                            if (existingBlocks.Any())
-                            {
-                                _context.Blocks.RemoveRange(existingBlocks.Values);
-                            }
                         }
 
                         // ========================================================================
-                        // 3. 增量更新 NoteLinks 表 (双链) 与标签系统 (维持原有稳定逻辑不变)
+                        // 3. 增量更新 NoteLinks 表 (双链) 与标签系统
                         // ========================================================================
                         var existingLinks = await _context.NoteLinks
                             .Where(nl => nl.SourceNoteId == note.Id)
@@ -862,6 +940,113 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                                 }
                             }
                         }
+                        // ========================================================================
+                        // 🌟 3.5 投影 block_links（块级引用的边）
+                        // ========================================================================
+                        var sourceBlockIds = dto.Blocks?
+                            .Select(b => b.Id)
+                            .Where(x => !string.IsNullOrEmpty(x))
+                            .Cast<string>()
+                            .ToList() ?? new List<string>();
+
+                        // 3.5.1 删掉之前以这些块为 source 的边
+                        if (sourceBlockIds.Any())
+                        {
+                            await _context.BlockLinks
+                                .Where(l => sourceBlockIds.Contains(l.SourceBlockId))
+                                .ExecuteDeleteAsync();
+                        }
+
+                        // 3.5.2 从 dto.Blocks 里重新解析
+                        if (dto.Blocks != null)
+                        {
+                            var newBlockLinks = new List<BlockLink>();
+                            var seenEdges = new HashSet<string>();
+
+                            foreach (var b in dto.Blocks)
+                            {
+                                if (string.IsNullOrEmpty(b.Id)) continue;
+                                var targets = ExtractBlockRefTargets(b.Data);
+                                foreach (var tgt in targets)
+                                {
+                                    if (tgt == b.Id) continue; // 自己引用自己跳过
+                                    var edgeKey = $"{b.Id}|{tgt}";
+                                    if (!seenEdges.Add(edgeKey)) continue;
+
+                                    newBlockLinks.Add(new BlockLink
+                                    {
+                                        Id = Guid.NewGuid().ToString(),
+                                        SourceBlockId = b.Id,
+                                        TargetBlockId = tgt,
+                                        RelationType = "reference",
+                                        CreatedAt = DateTime.UtcNow,
+                                    });
+                                }
+                            }
+
+                            if (newBlockLinks.Any())
+                            {
+                                _context.BlockLinks.AddRange(newBlockLinks);
+                            }
+                        }
+                        // ========================================================================
+                        // 4. 投影 block_index
+                        // ========================================================================
+                        var indexNodeId = dto.NoteId.ToString();
+
+                        await _context.BlockIndexes
+                            .Where(x => x.NodeId == indexNodeId)
+                            .ExecuteDeleteAsync();
+
+                        if (dto.Blocks != null && dto.Blocks.Any())
+                        {
+                            int blockOrder = 0;
+                            var seenIds = new HashSet<string>();
+
+                            foreach (var b in dto.Blocks)
+                            {
+                                if (string.IsNullOrEmpty(b.Id) || !seenIds.Add(b.Id)) continue;
+
+                                string? text = null;
+                                string? latex = null;
+                                string? assetId = null;
+
+                                try
+                                {
+                                    using var doc = JsonDocument.Parse(b.Data ?? "{}");
+                                    var root = doc.RootElement;
+
+                                    if (root.ValueKind == JsonValueKind.Object &&
+                                        root.TryGetProperty("attrs", out var attrs) &&
+                                        attrs.ValueKind == JsonValueKind.Object)
+                                    {
+                                        if (attrs.TryGetProperty("latex", out var lx) &&
+                                            lx.ValueKind == JsonValueKind.String)
+                                            latex = lx.GetString();
+
+                                        if (attrs.TryGetProperty("assetId", out var aid) &&
+                                            aid.ValueKind == JsonValueKind.String)
+                                            assetId = aid.GetString();
+                                    }
+
+                                    text = ExtractBlockText(root);
+                                }
+                                catch { }
+
+                                _context.BlockIndexes.Add(new BlockIndex
+                                {
+                                    Id = b.Id,
+                                    NodeId = indexNodeId,
+                                    BlockType = b.Type ?? "paragraph",
+                                    ParentBlockId = null,
+                                    SortOrder = blockOrder++,
+                                    TextContent = text,
+                                    Latex = latex,
+                                    AssetId = assetId,
+                                    UpdatedAt = DateTime.UtcNow,
+                                });
+                            }
+                        }
 
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
@@ -872,6 +1057,12 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                     {
                         await transaction.RollbackAsync();
                         return Ok(new { success = true, message = "并发重叠已由新版本覆盖" });
+                    }
+                    catch (DbUpdateException ex) when (ex.InnerException is MySqlConnector.MySqlException mySqlEx2 && mySqlEx2.Number == 1062)
+                    {
+                        // 🌟 主键冲突兜底：即使并发写入，也不报 500，让前端下次保存覆盖
+                        await transaction.RollbackAsync();
+                        return Ok(new { success = true, message = "主键冲突已忽略，下次保存将覆盖" });
                     }
                     catch (DbUpdateConcurrencyException)
                     {
@@ -887,9 +1078,225 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"灵脉同步异常: {ex.Message}");
+                var inner = ex.InnerException?.Message ?? "(无内部异常)";
+                var deeper = ex.InnerException?.InnerException?.Message ?? "(无更深异常)";
+                return StatusCode(500, $"灵脉同步异常: {ex.Message} || 内部: {inner} || 更深: {deeper}");
             }
         }
+
+        /// <summary>
+        /// 🌟 全局搜索：笔记标题 + 块文本
+        /// </summary>
+        [HttpGet("search")]
+        public async Task<IActionResult> Search([FromQuery] string q, [FromQuery] int limit = 20)
+        {
+            if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
+
+            if (string.IsNullOrWhiteSpace(q))
+                return Ok(new { notes = new List<object>(), blocks = new List<object>() });
+
+            // 用户的空间
+            var userSpaceIds = await _context.Spaces
+                .Where(s => s.UserId == CurrentUserId)
+                .Select(s => s.Id)
+                .ToListAsync();
+
+            if (userSpaceIds.Count == 0)
+                return Ok(new { notes = new List<object>(), blocks = new List<object>() });
+
+            var pattern = $"%{q}%";
+
+            // 用户的所有笔记
+            var userNoteIds = await _context.Notes
+                .Where(n => userSpaceIds.Contains(n.SpaceId) && n.Status == 0)
+                .Select(n => n.Id.ToString())
+                .ToListAsync();
+
+            if (userNoteIds.Count == 0)
+                return Ok(new { notes = new List<object>(), blocks = new List<object>() });
+
+            // 搜笔记
+            var notesRaw = await _context.Notes
+                .Where(n => userSpaceIds.Contains(n.SpaceId) && n.Status == 0)
+                .Where(n => EF.Functions.Like(n.Title, pattern))
+                .OrderByDescending(n => n.UpdatedAt)
+                .Take(limit)
+                .Select(n => new { n.Id, n.Title, n.Type })
+                .ToListAsync();
+
+            // 搜块
+            var blocksRaw = await _context.BlockIndexes
+                .Where(b => userNoteIds.Contains(b.NodeId))
+                .Where(b => b.TextContent != null && EF.Functions.Like(b.TextContent, pattern))
+                .OrderByDescending(b => b.UpdatedAt)
+                .Take(limit)
+                .Select(b => new { b.Id, b.NodeId, b.BlockType, b.TextContent, b.Latex })
+                .ToListAsync();
+
+            // 补 noteTitle
+            var blockNoteIds = blocksRaw.Select(b => b.NodeId).Distinct().ToList();
+            var noteTitles = await _context.Notes
+                .Where(n => blockNoteIds.Contains(n.Id.ToString()))
+                .ToDictionaryAsync(n => n.Id.ToString(), n => n.Title);
+
+            return Ok(new
+            {
+                notes = notesRaw.Select(n => new { id = n.Id, title = n.Title, type = n.Type }),
+                blocks = blocksRaw.Select(b => new
+                {
+                    id = b.Id,
+                    noteId = b.NodeId,
+                    noteTitle = noteTitles.ContainsKey(b.NodeId) ? noteTitles[b.NodeId] : "无标题",
+                    type = b.BlockType,
+                    text = b.TextContent,
+                    latex = b.Latex,
+                }),
+            });
+        }
+
+        /// <summary>
+        /// 🌟 块预览：拿单个块的文本，供悬浮卡片显示
+        /// </summary>
+        [HttpGet("blocks/{blockId}/preview")]
+        public async Task<IActionResult> GetBlockPreview(string blockId)
+        {
+            if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
+
+            var block = await _context.BlockIndexes.FirstOrDefaultAsync(b => b.Id == blockId);
+            if (block == null) return NotFound();
+
+            var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id.ToString() == block.NodeId);
+            if (note == null) return NotFound();
+
+            var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
+            if (!isOwner) return Forbid();
+
+            var backlinkCount = await _context.BlockLinks
+    .Where(l => l.TargetBlockId == blockId)
+    .CountAsync();
+
+            return Ok(new
+            {
+                id = block.Id,
+                noteId = block.NodeId,
+                noteTitle = note.Title,
+                type = block.BlockType,
+                text = block.TextContent,
+                latex = block.Latex,
+                assetId = block.AssetId,
+                backlinkCount,
+            });
+        }
+        /// <summary>
+        /// 🌟 笔记预览：拿标题 + 前几块文本，供悬浮卡片显示
+        /// </summary>
+        [HttpGet("notes/{id:guid}/preview")]
+        public async Task<IActionResult> GetNotePreview(Guid id)
+        {
+            if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
+
+            var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == id);
+            if (note == null) return NotFound();
+
+            var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
+            if (!isOwner) return Forbid();
+
+            // 拿前 5 个块，抽纯文本
+            var blocks = await _context.Blocks
+                .Where(b => b.OwnerId == id.ToString())
+                .OrderBy(b => b.SortOrder)
+                .Take(30)
+                .ToListAsync();
+
+            var sb = new System.Text.StringBuilder();
+            foreach (var b in blocks)
+            {
+                var t = ExtractTextFromBlockData(b.Data);
+                if (!string.IsNullOrEmpty(t))
+                {
+                    sb.Append(t);
+                    sb.Append('\n');
+                }
+                if (sb.Length > 300) break;
+            }
+
+            var excerpt = sb.ToString().Trim();
+            if (excerpt.Length > 200) excerpt = excerpt.Substring(0, 200) + "…";
+
+            // 🌟 统计这个笔记里所有块被引用的总次数
+            var blockIds = await _context.BlockIndexes
+                .Where(bi => bi.NodeId == id.ToString())
+                .Select(bi => bi.Id)
+                .ToListAsync();
+
+            int backlinkCount = 0;
+            if (blockIds.Any())
+            {
+                backlinkCount = await _context.BlockLinks
+                    .Where(l => blockIds.Contains(l.TargetBlockId))
+                    .CountAsync();
+            }
+
+            return Ok(new
+            {
+                id = note.Id,
+                title = note.Title,
+                type = note.Type,
+                excerpt,
+                backlinkCount,
+            });
+        }
+
+        /// <summary>
+        /// 从 Block.Data JSON 里抽纯文本
+        /// </summary>
+        private static string ExtractTextFromBlockData(string? data)
+        {
+            if (string.IsNullOrEmpty(data)) return "";
+            try
+            {
+                using var doc = JsonDocument.Parse(data);
+                var sb = new System.Text.StringBuilder();
+                WalkTextForPreview(doc.RootElement, sb);
+                return sb.ToString().Trim();
+            }
+            catch { return ""; }
+        }
+
+        private static void WalkTextForPreview(JsonElement node, System.Text.StringBuilder sb)
+        {
+            if (node.ValueKind != JsonValueKind.Object) return;
+
+            // 普通文本节点
+            if (node.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String)
+            {
+                sb.Append(t.GetString());
+                sb.Append(' ');
+            }
+
+            // 🌟 schedule-item 之类的 title 字段
+            if (node.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String)
+            {
+                sb.Append(title.GetString());
+                sb.Append(' ');
+            }
+
+            // 递归子节点
+            if (node.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var child in c.EnumerateArray())
+                    WalkTextForPreview(child, sb);
+            }
+        }
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1044,10 +1451,90 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             return Ok(result);
         }
 
-
-
         #endregion
-    }
 
-    
+        // ========================================================================
+        // 🌟 block_index 投影辅助方法
+        // ========================================================================
+
+        /// <summary>
+        /// 从 Tiptap 节点 JSON 里榨取纯文本，用于 block_index.TextContent
+        /// </summary>
+        private static string? ExtractBlockText(JsonElement node)
+        {
+            var sb = new System.Text.StringBuilder();
+            WalkText(node, sb);
+            var result = sb.ToString().Trim();
+            return string.IsNullOrEmpty(result) ? null : result;
+        }
+
+        /// <summary>
+        /// 递归遍历 JSON 节点，把所有 text 字段拼起来
+        /// </summary>
+        private static void WalkText(JsonElement node, System.Text.StringBuilder sb)
+        {
+            if (node.ValueKind != JsonValueKind.Object) return;
+
+            if (node.TryGetProperty("text", out var t) &&
+                t.ValueKind == JsonValueKind.String)
+            {
+                sb.Append(t.GetString());
+                sb.Append(' ');
+            }
+
+            if (node.TryGetProperty("content", out var c) &&
+                c.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var child in c.EnumerateArray())
+                {
+                    WalkText(child, sb);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 🌟 从 Block.Data JSON 里提取所有 spirit-link 指向的 blockId
+        /// </summary>
+        private static List<string> ExtractBlockRefTargets(string? data)
+        {
+            var result = new List<string>();
+            if (string.IsNullOrWhiteSpace(data)) return result;
+            try
+            {
+                using var doc = JsonDocument.Parse(data);
+                WalkForBlockRefs(doc.RootElement, result);
+            }
+            catch { }
+            return result;
+        }
+
+        private static void WalkForBlockRefs(JsonElement node, List<string> output)
+        {
+            if (node.ValueKind != JsonValueKind.Object) return;
+
+            // 是 spirit-link 节点？
+            if (node.TryGetProperty("type", out var t) &&
+                t.ValueKind == JsonValueKind.String &&
+                t.GetString() == "spirit-link")
+            {
+                if (node.TryGetProperty("attrs", out var attrs) &&
+                    attrs.ValueKind == JsonValueKind.Object &&
+                    attrs.TryGetProperty("blockId", out var bid) &&
+                    bid.ValueKind == JsonValueKind.String)
+                {
+                    var b = bid.GetString();
+                    if (!string.IsNullOrEmpty(b)) output.Add(b);
+                }
+            }
+
+            // 递归
+            if (node.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var child in c.EnumerateArray())
+                    WalkForBlockRefs(child, output);
+            }
+        }
+
+
+    }
 }

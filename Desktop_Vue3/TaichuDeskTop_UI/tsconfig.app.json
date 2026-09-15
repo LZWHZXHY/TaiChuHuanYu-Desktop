@@ -19,5 +19,5 @@
     "erasableSyntaxOnly": false, //这里后面需要改成true
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.d.ts"] 
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.vue", "src/**/*.d.ts", "封档/WorkspaceDoc.vue", "封档/WorkspaceArt.vue", "封档/WorkspaceChar.vue", "封档/WorkspaceExcel.vue", "封档/WorkspaceMap.vue"] 
 }

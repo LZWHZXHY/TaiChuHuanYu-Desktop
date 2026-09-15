@@ -1,11 +1,14 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using TaiChuWeb_V2.Models.Activity;
+using TaiChuWeb_V2.Models.Admin;
 using TaiChuWeb_V2.Models.Artwork;
 using TaiChuWeb_V2.Models.ChaiCommunity;  // 新增
 using TaiChuWeb_V2.Models.ChaiCommunity.Battle; // 引入约战模型
 using TaiChuWeb_V2.Models.ChaiCommunity.Joint; // 引入联合活动模型
+using TaiChuWeb_V2.Models.Club;
 using TaiChuWeb_V2.Models.Event;
 using TaiChuWeb_V2.Models.Feedback;
+using TaiChuWeb_V2.Models.FinalNodes;
 using TaiChuWeb_V2.Models.Financial;
 using TaiChuWeb_V2.Models.Game;
 using TaiChuWeb_V2.Models.Interact;
@@ -20,7 +23,6 @@ using TaiChuWeb_V2.Models.Trade;
 using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.Models.Wiki;
 using TaiChuWeb_V2.Models.World;
-using TaiChuWeb_V2.Models.Admin;
 
 
 namespace TaiChuWeb_V2.DbContext
@@ -30,6 +32,35 @@ namespace TaiChuWeb_V2.DbContext
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
         {
         }
+
+        public DbSet<BlockIndex> BlockIndexes { get; set; }
+        public DbSet<Asset> Assets { get; set; }
+        public DbSet<BlockLink> BlockLinks { get; set; }
+        public DbSet<ReviewCard> ReviewCards { get; set; }
+
+
+
+
+
+
+
+
+
+
+        public DbSet<OperatorGameSkill> OperatorGameSkills { get; set; }   // 如果还没有就加
+        public DbSet<ClubGame> ClubGames { get; set; }
+        public DbSet<ClubGameField> ClubGameFields { get; set; }
+
+
+        public DbSet<OperatorProfile> OperatorProfiles { get; set; }
+        public DbSet<UniversalNode> FinalNodes { get; set; }
+        public DbSet<UniversalNodeContent> FinalNodeContents { get; set; }
+        public DbSet<UniversalRelation> FinalRelations { get; set; }
+
+
+
+
+
 
         public DbSet<BlockHistory> BlockHistories { get; set; }
 
@@ -161,7 +192,9 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<CardType> CardTypes { get; set; }
 
 
-
+        public DbSet<ClubOrderType> ClubOrderTypes { get; set; }
+        public DbSet<ClubOrder> ClubOrders { get; set; }
+        public DbSet<OrderReview> OrderReviews { get; set; }
 
 
 
@@ -172,6 +205,62 @@ namespace TaiChuWeb_V2.DbContext
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // ⭐ 订单类型：同游戏下 Code 唯一
+            modelBuilder.Entity<ClubOrderType>()
+                .HasIndex(t => new { t.GameCode, t.Code })
+                .IsUnique();
+
+            // ⭐ 订单号唯一
+            modelBuilder.Entity<ClubOrder>()
+                .HasIndex(o => o.OrderNo)
+                .IsUnique();
+
+            // ⭐ 评价：同订单 + 同评价人 唯一（一人只能评一次）
+            modelBuilder.Entity<OrderReview>()
+                .HasIndex(r => new { r.OrderId, r.FromUserId })
+                .IsUnique();
+            // ===== 太初俱乐部：游戏注册表 =====
+            modelBuilder.Entity<ClubGame>(entity =>
+            {
+                entity.HasKey(g => g.Code);
+                entity.HasIndex(g => g.IsActive);
+                entity.HasIndex(g => g.SortOrder);
+            });
+
+            modelBuilder.Entity<ClubGameField>(entity =>
+            {
+                entity.HasKey(f => f.Id);
+                entity.HasIndex(f => f.GameCode);
+                entity.HasIndex(f => new { f.GameCode, f.SortOrder });
+
+                entity.HasOne(f => f.Game)
+                    .WithMany(g => g.Fields)
+                    .HasForeignKey(f => f.GameCode)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ===== 太初俱乐部：打手每游戏技能 =====
+            modelBuilder.Entity<OperatorGameSkill>(entity =>
+            {
+                entity.HasKey(s => s.Id);
+                entity.HasIndex(s => s.UserId);
+                entity.HasIndex(s => s.GameCode);
+                entity.HasIndex(s => new { s.UserId, s.GameCode }).IsUnique();
+                entity.HasIndex(s => s.AuditStatus);
+
+                entity.HasOne(s => s.User)
+                    .WithMany()
+                    .HasForeignKey(s => s.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+
+
+
+
+
+
 
 
             // 👇 世界模块配置
@@ -940,6 +1029,144 @@ namespace TaiChuWeb_V2.DbContext
             });
 
 
+            // ===== 🌟 FinalNodes 大一统架构配置 =====
+
+            // 1. 节点与内容的 1对1 关系
+            // 确保删除一个 Node 时，它的胖表长文本数据也会被自动级联清理
+            modelBuilder.Entity<UniversalNode>()
+                .HasOne(n => n.Content)
+                .WithOne(c => c.Node)
+                .HasForeignKey<UniversalNodeContent>(c => c.NodeId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+
+            // ================================================================
+            // 🌟 学习笔记扩展：BlockIndex / Asset / BlockLink / ReviewCard
+            // ================================================================
+
+            // ---------- BlockIndex ----------
+            modelBuilder.Entity<BlockIndex>(entity =>
+            {
+                entity.ToTable("block_index");
+                entity.HasKey(x => x.Id);
+
+                entity.HasIndex(x => new { x.NodeId, x.SortOrder })
+                    .HasDatabaseName("IX_BlockIndex_Node_Sort");
+
+                entity.HasIndex(x => x.BlockType)
+                    .HasDatabaseName("IX_BlockIndex_Type");
+
+                entity.HasIndex(x => x.ParentBlockId)
+                    .HasDatabaseName("IX_BlockIndex_Parent");
+
+                entity.HasIndex(x => x.AssetId)
+                    .HasDatabaseName("IX_BlockIndex_Asset");
+
+                entity.Property(x => x.TextContent).HasColumnType("longtext");
+                entity.Property(x => x.Latex).HasColumnType("longtext");
+            });
+
+            // ---------- Asset ----------
+            modelBuilder.Entity<Asset>(entity =>
+            {
+                entity.ToTable("assets");
+                entity.HasKey(x => x.Id);
+
+                entity.HasIndex(x => new { x.OwnerId, x.Kind })
+                    .HasDatabaseName("IX_Assets_Owner_Kind");
+
+                entity.HasIndex(x => x.SpaceId)
+                    .HasDatabaseName("IX_Assets_Space");
+
+                entity.HasIndex(x => x.CreatedAt)
+                    .HasDatabaseName("IX_Assets_CreatedAt");
+
+                entity.HasIndex(x => x.StorageKey)
+                    .IsUnique()
+                    .HasDatabaseName("UX_Assets_StorageKey");
+
+                entity.Property(x => x.ExtractedText).HasColumnType("longtext");
+                entity.Property(x => x.ExtractedLatex).HasColumnType("longtext");
+                entity.Property(x => x.RenderedSvg).HasColumnType("longtext");
+                entity.Property(x => x.SearchText).HasColumnType("longtext");
+            });
+
+            // ---------- BlockLink ----------
+            modelBuilder.Entity<BlockLink>(entity =>
+            {
+                entity.ToTable("block_links");
+                entity.HasKey(x => x.Id);
+
+                entity.HasIndex(x => x.SourceBlockId)
+                    .HasDatabaseName("IX_BlockLinks_Source");
+
+                entity.HasIndex(x => x.TargetBlockId)
+                    .HasDatabaseName("IX_BlockLinks_Target");
+
+                entity.HasIndex(x => x.RelationType)
+                    .HasDatabaseName("IX_BlockLinks_RelationType");
+
+                entity.HasIndex(x => new { x.SourceBlockId, x.TargetBlockId, x.RelationType })
+                    .IsUnique()
+                    .HasDatabaseName("UX_BlockLinks_Edge");
+
+                entity.Property(x => x.Excerpt).HasColumnType("longtext");
+                entity.Property(x => x.ExtraData).HasColumnType("json");
+            });
+
+            // ---------- ReviewCard ----------
+            modelBuilder.Entity<ReviewCard>(entity =>
+            {
+                entity.ToTable("review_cards");
+                entity.HasKey(x => x.Id);
+
+                entity.HasIndex(x => x.BlockId)
+                    .IsUnique()
+                    .HasDatabaseName("UX_ReviewCards_Block");
+
+                entity.HasIndex(x => new { x.OwnerId, x.Due })
+                    .HasDatabaseName("IX_ReviewCards_Owner_Due");
+
+                entity.HasIndex(x => x.Due)
+                    .HasDatabaseName("IX_ReviewCards_Due");
+
+                entity.HasIndex(x => new { x.OwnerId, x.State })
+                    .HasDatabaseName("IX_ReviewCards_Owner_State");
+            });
+
+
+
+
+
+
+
+
+            // 2. 关系网络 (边) 的防死锁配置
+            modelBuilder.Entity<UniversalRelation>(entity =>
+            {
+                // 起点节点被删除时，直接级联删除这条连线
+                entity.HasOne(r => r.SourceNode)
+                    .WithMany()
+                    .HasForeignKey(r => r.SourceNodeId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // 终点节点被删除时，采取受限策略（Restrict）
+                // 这是为了防止数据库引擎在删除节点时产生循环引用的级联风暴
+                entity.HasOne(r => r.TargetNode)
+                    .WithMany()
+                    .HasForeignKey(r => r.TargetNodeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+
+
+
+
+
+
+
+
         }
+
     }
 }

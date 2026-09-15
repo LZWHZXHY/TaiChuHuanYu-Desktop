@@ -49,12 +49,12 @@
 
         <transition name="fade">
           <div v-if="isCreateMenuOpen" class="create-dropdown" @click.stop>
-            <div class="create-opt" @click="handleCreateWithType('note')">笔记 (Note)</div>
-            <div class="create-opt" @click="handleCreateWithType('schedule')">日历看板 (Schedule)</div>
-            <div class="create-opt" @click="handleCreateWithType('wiki')">词条 (Wiki)</div>
-            <div class="create-opt" @click="handleCreateWithType('art')">画廊 (Art)</div>
-            <div class="create-opt" @click="handleCreateWithType('canvas')">星图白板 (Canvas)</div>
-            <div class="create-opt" @click="handleCreateWithType('map')">世界地图 (Map)</div>
+            <div class="create-opt" @click="handleCreateWithType('note')">📝 长文随笔</div>
+            <div class="create-opt" @click="handleCreateWithType('blog')">✒️ 深度博客</div>
+            <div class="create-opt" @click="handleCreateWithType('post')">💬 短篇简语</div>
+            <div class="create-opt" @click="handleCreateWithType('wiki')">🪐 百科与攻略</div>
+            <div class="create-opt" @click="handleCreateWithType('schedule')">📅 日历看板</div>
+            <div class="create-opt" @click="handleCreateWithType('canvas')">🕸️ 星图白板</div>
           </div>
         </transition>
       </div>
@@ -340,7 +340,6 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 样式部分保持原样，无需改动 */
 .spirit-sidebar { display: flex; flex-direction: column; height: 100%; background: #ffffff; color: #1d1d1f; border-right: 1px solid #f2f2f2; }
 .inline-input { border: none; background: transparent; padding: 0; font-size: inherit; color: #0066cc; outline: none; width: 100%; border-bottom: 1px solid #0066cc; }
 .space-selector-area { padding: 40px 24px 20px; position: relative; }
@@ -404,13 +403,13 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-.note-item.type-art::before { background: #af52de; }
-.note-item.type-thought::before { background: #32ade6; }
-.note-item.type-char::before { background: #ff9500; }
+/* --- 左侧呼吸灯指示条颜色 --- */
+.note-item.type-blog::before { background: #af52de; }
+.note-item.type-post::before { background: #32ade6; }
+.note-item.type-schedule::before { background: #ff9500; }
 .note-item.type-wiki::before { background: #34c759; }
 .note-item.type-note::before { background: #8e8e93; }
-.note-item.type-canvas::before { background: #5856d6; } 
-.note-item.type-map::before { background: #00c7be; }
+.note-item.type-canvas::before { background: #5856d6; }
 
 .item-content {
   display: flex;
@@ -427,10 +426,12 @@ onUnmounted(() => {
   transition: color 0.2s;
 }
 
-.note-item.type-thought .item-title { font-style: italic; color: #6e6e73; }
+/* --- 标题特殊样式区分 --- */
+.note-item.type-post .item-title { font-style: italic; color: #6e6e73; }
 .note-item.type-wiki .item-title { font-weight: 600; letter-spacing: 0.02em; }
-.note-item.type-art .item-title { font-family: "Georgia", serif; letter-spacing: 0.02em; }
+.note-item.type-blog .item-title { font-weight: 600; color: #1d1d1f; }
 
+/* --- 右侧极简字样标签颜色 --- */
 .type-label {
   font-size: 8px;
   font-weight: 700;
@@ -440,13 +441,12 @@ onUnmounted(() => {
   flex-shrink: 0;
   transition: opacity 0.2s;
 }
-.note-item.type-art .type-label { color: #af52de; }
-.note-item.type-thought .type-label { color: #32ade6; }
-.note-item.type-char .type-label { color: #ff9500; }
+.note-item.type-blog .type-label { color: #af52de; }
+.note-item.type-post .type-label { color: #32ade6; }
+.note-item.type-schedule .type-label { color: #ff9500; }
 .note-item.type-wiki .type-label { color: #34c759; }
 .note-item.type-note .type-label { color: #8e8e93; }
 .note-item.type-canvas .type-label { color: #5856d6; }
-.note-item.type-map .type-label { color: #00c7be; }
 
 .item-hover-actions { display: none; gap: 8px; font-size: 10px; color: #c7c7cc; }
 .danger { color: #ff3b30 !important; }

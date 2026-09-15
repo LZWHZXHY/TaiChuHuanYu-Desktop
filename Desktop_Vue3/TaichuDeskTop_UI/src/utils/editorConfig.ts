@@ -7,13 +7,94 @@ import { Highlight } from '@tiptap/extension-highlight'
 import { Placeholder } from '@tiptap/extension-placeholder'
 import BubbleMenuExtension from '@tiptap/extension-bubble-menu'
 import Link from '@tiptap/extension-link'
-import { Node, mergeAttributes } from '@tiptap/core'
+import { Node, Extension, mergeAttributes } from '@tiptap/core'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { nanoid } from 'nanoid'
 import Image from '@tiptap/extension-image'
 import TaskList from '@tiptap/extension-task-list'
 import TaskItem from '@tiptap/extension-task-item'
 import Mention from '@tiptap/extension-mention'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
 import PanelGraphBlock from '@/components/SpiritTextComponents/PanelGraphBlock.vue'
+import katex from 'katex'
+import MathBlockView from '@/components/SpiritTextComponents/MathBlockView.vue'
+import MathInlineView from '@/components/SpiritTextComponents/MathInlineView.vue'
+import PdfEmbedView from '@/components/SpiritTextComponents/PdfEmbedView.vue'
+
+
+
+
+
+
+// ========================================================================
+// 🌟 BlockIdExtension：给每个块分配稳定的 Nanoid，一次生成，永久不变
+// ========================================================================
+export const BlockIdExtension = Extension.create({
+  name: 'blockId',
+
+  addGlobalAttributes() {
+    return [
+      {
+        types: [
+          'paragraph', 'heading', 'blockquote', 'codeBlock',
+          'bulletList', 'orderedList', 'taskList', 'taskItem',
+          'image', 'spirit-link', 'panelGraph', 'details',
+          'mathBlock', 'mathInline',
+          'pdfEmbed',
+        ],
+        attributes: {
+          id: {
+            default: null,
+            parseHTML: el => el.getAttribute('data-block-id'),
+            renderHTML: attrs => attrs.id ? { 'data-block-id': attrs.id } : {},
+          },
+        },
+      },
+    ]
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('blockIdAssigner'),
+        appendTransaction: (transactions, oldState, newState) => {
+          if (!transactions.some(tr => tr.docChanged)) return null
+
+          const seenIds = new Set<string>()
+          const needsFix: { pos: number, attrs: any }[] = []
+
+          newState.doc.descendants((node, pos) => {
+            if (node.attrs.id === undefined) return
+
+            const id = node.attrs.id
+
+            if (!id) {
+              needsFix.push({ pos, attrs: node.attrs })
+              return
+            }
+
+            if (seenIds.has(id)) {
+              needsFix.push({ pos, attrs: node.attrs })
+              return
+            }
+
+            seenIds.add(id)
+          })
+
+          if (needsFix.length === 0) return null
+
+          let tr = newState.tr
+          needsFix.sort((a, b) => b.pos - a.pos)
+          needsFix.forEach(({ pos, attrs }) => {
+            tr = tr.setNodeMarkup(pos, undefined, { ...attrs, id: nanoid(21) })
+          })
+
+          return tr
+        },
+      }),
+    ]
+  },
+})
 
 
 
@@ -26,7 +107,6 @@ const PanelGraphNode = Node.create({
 
   addAttributes() {
     return {
-      // 默认可以给一个简单的 3 维或 4 维作为初始种子，用户可以肆意增减或修改
       attributesList: {
         default: [
           { name: '属性A', value: 50, min: 0, max: 100 },
@@ -52,6 +132,194 @@ const PanelGraphNode = Node.create({
 
 
 
+// ========================================================================
+// 🌟 MathBlock：块级数学公式
+// ========================================================================
+const MathBlock = Node.create({
+  name: 'mathBlock',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+
+  addAttributes() {
+    return {
+      latex: { default: '' },
+      assetId: { default: null },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-type="math-block"]' }]
+  },
+
+  renderHTML({ HTMLAttributes, node }) {
+    let html = ''
+    try {
+      html = katex.renderToString(node.attrs.latex || '', {
+        displayMode: true,
+        throwOnError: false,
+      })
+    } catch (e) {
+      html = '<span style="color:#ff3b30">公式错误</span>'
+    }
+    return ['div', mergeAttributes(HTMLAttributes, {
+      'data-type': 'math-block',
+      'data-latex': node.attrs.latex || '',
+      class: 'spirit-math-block',
+    }), ['div', { innerHTML: html }]]
+  },
+
+  addNodeView() {
+    return VueNodeViewRenderer(MathBlockView)
+  },
+})
+
+// ========================================================================
+// 🌟 MathInline：行内数学公式
+// ========================================================================
+const MathInline = Node.create({
+  name: 'mathInline',
+  group: 'inline',
+  inline: true,
+  atom: true,
+  selectable: true,
+
+  addAttributes() {
+    return {
+      latex: { default: '' },
+      assetId: { default: null },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'span[data-type="math-inline"]' }]
+  },
+
+  renderHTML({ HTMLAttributes, node }) {
+    let html = ''
+    try {
+      html = katex.renderToString(node.attrs.latex || '', {
+        displayMode: false,
+        throwOnError: false,
+      })
+    } catch (e) {
+      html = '<span style="color:#ff3b30">?</span>'
+    }
+    return ['span', mergeAttributes(HTMLAttributes, {
+      'data-type': 'math-inline',
+      'data-latex': node.attrs.latex || '',
+      class: 'spirit-math-inline',
+    }), ['span', { innerHTML: html }]]
+  },
+
+  addNodeView() {
+    return VueNodeViewRenderer(MathInlineView)
+  },
+})
+
+// ========================================================================
+// 🌟 MathInputExtension：统一处理 $...$ 和 $$...$$ 输入转换
+// ========================================================================
+const MathInputExtension = Extension.create({
+  name: 'mathInput',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: new PluginKey('mathInput'),
+        props: {
+          handleTextInput(view, from, _to, text) {
+            if (text !== '$') return false
+
+            const doc = view.state.doc
+            const mathBlockType = view.state.schema.nodes.mathBlock
+            const mathInlineType = view.state.schema.nodes.mathInline
+            if (!mathBlockType || !mathInlineType) return false
+
+            const $pos = doc.resolve(from)
+            const parentStart = $pos.start()
+            const scanStart = Math.max(parentStart, from - 300)
+            const before = doc.textBetween(scanStart, from, undefined, '\ufffc')
+
+            // ---------- 先看是不是 $$...$$ 闭合 ----------
+            const doubleOpenIdx = before.lastIndexOf('$$')
+            if (doubleOpenIdx !== -1) {
+              const inner = before.slice(doubleOpenIdx + 2)
+              if (inner && !inner.includes('$') && !inner.includes('\n')) {
+                const absStart = scanStart + doubleOpenIdx
+                const verify = doc.textBetween(absStart, from, undefined, '\ufffc')
+                if (verify === before.slice(doubleOpenIdx)) {
+                  const node = mathBlockType.create({ latex: inner.trim() })
+                  view.dispatch(view.state.tr.replaceWith(absStart, from, node))
+                  return true
+                }
+              }
+            }
+
+            // ---------- 再看是不是 $...$ 闭合 ----------
+            const lastDollar = before.lastIndexOf('$')
+            if (lastDollar === -1) return false
+
+            if (lastDollar >= 1 && before[lastDollar - 1] === '$') return false
+
+            const inner = before.slice(lastDollar + 1)
+            if (!inner || inner.includes('$') || inner.includes('\n')) return false
+
+            const absStart = scanStart + lastDollar
+            const verify = doc.textBetween(absStart, from, undefined, '\ufffc')
+            if (verify !== before.slice(lastDollar)) return false
+
+            const node = mathInlineType.create({ latex: inner.trim() })
+            view.dispatch(view.state.tr.replaceWith(absStart, from, node))
+            return true
+          }
+        }
+      })
+    ]
+  },
+})
+
+
+
+// ========================================================================
+// 🌟 PdfEmbed：PDF 嵌入节点
+// ========================================================================
+const PdfEmbed = Node.create({
+  name: 'pdfEmbed',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  draggable: true,
+
+  addAttributes() {
+    return {
+      assetId: { default: null },
+      url: { default: null },
+      fileName: { default: '' },
+      height: { default: '600px' },
+    }
+  },
+
+  parseHTML() {
+    return [{ tag: 'div[data-type="pdf-embed"]' }]
+  },
+
+  renderHTML({ HTMLAttributes, node }) {
+    return ['div', mergeAttributes(HTMLAttributes, {
+      'data-type': 'pdf-embed',
+      'data-asset-id': node.attrs.assetId || '',
+      'data-url': node.attrs.url || '',
+    }), `PDF: ${node.attrs.fileName || ''}`]
+  },
+
+  addNodeView() {
+    return VueNodeViewRenderer(PdfEmbedView)
+  },
+})
+
+
+
+
 
 const SpiritNode = Node.create({
   name: 'spirit-link',
@@ -60,27 +328,38 @@ const SpiritNode = Node.create({
   selectable: true,
   atom: true,
   addAttributes() {
-    return { id: { default: null }, title: { default: '' } }
+    return {
+      id: { default: null },
+      blockId: { default: null },
+      title: {
+        default: '',
+        renderHTML: () => ({}),
+      },
+    }
   },
   parseHTML() {
     return [{ tag: 'span[data-spirit-id]' }]
   },
-  renderHTML({ HTMLAttributes, node }) {
+  renderHTML({ node }) {
+    const display = node.attrs.blockId
+      ? `[[${node.attrs.title}#${String(node.attrs.blockId).slice(0, 6)}]]`
+      : `[[${node.attrs.title}]]`
+
     return [
       'span',
-      mergeAttributes(HTMLAttributes, {
+      {
         'data-spirit-id': node.attrs.id,
-        class: 'spirit-link-node'
-      }),
-      `[[${node.attrs.title}]]`
+        'data-block-id': node.attrs.blockId || '',
+        class: 'spirit-link-node',
+      },
+      display,
     ]
-  }
+  },
 })
 
 const DetailsNode = Node.create({
   name: 'details',
   group: 'block',
-  // 🌟 保持使用 'image' 节点名（因为我们没有改名）
   content: 'summary (paragraph|taskList|orderedList|bulletList|codeBlock|image)+',
   addAttributes() { return { open: { default: true } } },
   parseHTML() { return [{ tag: 'details' }] },
@@ -96,6 +375,7 @@ const SummaryNode = Node.create({
 })
 
 export const spiritExtensions = [
+  BlockIdExtension,
   Mention.configure({
     HTMLAttributes: { class: 'spirit-mention-node' },
     renderLabel({ node }) {
@@ -110,9 +390,10 @@ export const spiritExtensions = [
     HTMLAttributes: { class: 'spirit-task-item' },
   }),
   PanelGraphNode,
-
-
-  // 🌟🌟🌟 核心修改：直接扩展 Image，保留节点名 'image'，添加 caption 和 NodeView
+  MathInputExtension,
+  MathBlock,
+  MathInline,
+  PdfEmbed,
   Image.extend({
     addAttributes() {
       return {
@@ -125,16 +406,17 @@ export const spiritExtensions = [
           default: '100%',
           renderHTML: attributes => ({ style: `width: ${attributes.width}; height: auto;` }),
         },
-        // 🌟 必须加上 caption 属性声明，不然静态渲染或更新时，数据无法落进 attributes 
         caption: {
           default: '',
           renderHTML: attributes => ({ 'data-caption': attributes.caption }),
-        }
+        },
+        assetId: {
+          default: null,
+          renderHTML: attributes => attributes.assetId ? { 'data-asset-id': attributes.assetId } : {},
+        },
       }
     },
 
-    // 🌟 核心修复点：为静态 preview（generateHTML）提供专属的静态 HTML 标签蓝图
-    // 当在预览环境下运行时，Tiptap 会直接读取这个结构，而不会去走下面崩溃的 addNodeView
     renderHTML({ HTMLAttributes }) {
       return [
         'figure', 
@@ -144,11 +426,10 @@ export const spiritExtensions = [
         })],
         ['figcaption', { 
           style: 'text-align: center; font-size: 0.9em; color: #86868b; padding: 12px 0 0;' 
-        }, HTMLAttributes.caption || ''] // 把题注静态渲染出来
+        }, HTMLAttributes.caption || '']
       ]
     },
 
-    // 下面你原有的 addNodeView 保持原样不动
     addNodeView() {
       return ({ node, editor }) => {
         const container = document.createElement('figure')
@@ -202,8 +483,6 @@ export const spiritExtensions = [
 
 
 
-
-
   SpiritNode,
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
@@ -230,7 +509,7 @@ export const spiritExtensions = [
     HTMLAttributes: { class: 'spirit-link-node', rel: null },
   }),
   TextStyle.configure(),
-  Underline.configure(),       // 如果警告重复，可尝试删除此行（StarterKit 可能已包含）
+  Underline.configure(),
   BubbleMenuExtension,
   Color.configure({ types: [TextStyle.name, 'listing'] }),
   Highlight.configure({ multicolor: true }),
@@ -274,7 +553,6 @@ export const slashCommands = [
     icon: '☑️',
     command: (editor: any) => {
       const { from, to } = editor.state.selection
-      // 删除触发指令的 '/' 符号，并切换为待办事项列表
       editor.chain().focus().deleteRange({ from: from - 1, to }).toggleTaskList().run()
     }
   },
@@ -299,11 +577,10 @@ export const slashCommands = [
       const { from, to } = editor.state.selection
       editor.chain()
         .focus()
-        .deleteRange({ from: from - 1, to }) // 擦除 '/'
+        .deleteRange({ from: from - 1, to })
         .insertContent({
           type: 'panelGraph',
           attrs: {
-            // 初始只给 3 个基础轴，剩下的交给用户肆意设计
             attributesList: [
               { name: '力量', value: 10, min: 0, max: 100 },
               { name: '敏捷', value: 10, min: 0, max: 100 },
@@ -314,15 +591,14 @@ export const slashCommands = [
         .run()
     }
   },
+  
   {
     label: '插入原图',
     icon: '🖼️',
     command: (editor: any) => {
-      // 1. 获取当前输入斜杠 '/' 的位置并将其删掉，保持行文干净
       const { from, to } = editor.state.selection
       editor.chain().focus().deleteRange({ from: from - 1, to }).run()
 
-      // 2. 创建隐藏的 file input 触发原生文件选择器
       const input = document.createElement('input')
       input.type = 'file'
       input.accept = 'image/*'
@@ -330,11 +606,7 @@ export const slashCommands = [
       input.onchange = async () => {
         if (input.files && input.files[0]) {
           const file = input.files[0]
-          
-          // 3. 获取删除 '/' 后光标所在的新位置
           const currentPos = editor.state.selection.$from.pos
-          
-          // 4. 向编辑器的 DOM 节点派发一个自定义事件，将文件和位置传给宿主 Vue 组件
           const event = new CustomEvent('spirit-insert-image', {
             detail: { file, pos: currentPos }
           })
@@ -342,6 +614,55 @@ export const slashCommands = [
         }
       }
       
+      input.click()
+    }
+  },
+  {
+    label: '数学公式块',
+    icon: '∑',
+    command: (editor: any) => {
+      const { from, to } = editor.state.selection
+      editor.chain()
+        .focus()
+        .deleteRange({ from: from - 1, to })
+        .insertContent({ type: 'mathBlock', attrs: { latex: '' } })
+        .run()
+    }
+  },
+  {
+    label: '行内公式',
+    icon: 'ƒ',
+    command: (editor: any) => {
+      const { from, to } = editor.state.selection
+      editor.chain()
+        .focus()
+        .deleteRange({ from: from - 1, to })
+        .insertContent({ type: 'mathInline', attrs: { latex: '' } })
+        .run()
+    }
+  },
+    {
+    label: '插入 PDF',
+    icon: '📄',
+    command: (editor: any) => {
+      const { from, to } = editor.state.selection
+      editor.chain().focus().deleteRange({ from: from - 1, to }).run()
+
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = 'application/pdf'
+
+      input.onchange = async () => {
+        if (input.files && input.files[0]) {
+          const file = input.files[0]
+          const currentPos = editor.state.selection.$from.pos
+          const event = new CustomEvent('spirit-insert-pdf', {
+            detail: { file, pos: currentPos }
+          })
+          editor.view.dom.dispatchEvent(event)
+        }
+      }
+
       input.click()
     }
   }

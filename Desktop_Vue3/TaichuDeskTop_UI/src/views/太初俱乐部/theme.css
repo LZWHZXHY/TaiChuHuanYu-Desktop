@@ -1,0 +1,51 @@
+/* theme.css — 太初俱乐部专属主题（作用域限定在 .page-shell 内） */
+
+/* ===== 主题变量：只挂在 .page-shell 上，不影响其他模块 ===== */
+.page-shell {
+  --bg: #070a0f;
+  --bg-soft: #0a0f15;
+  --panel: #0c131b;
+  --panel-light: #101923;
+
+  --line: rgba(255, 255, 255, 0.08);
+  --line-bright: rgba(255, 255, 255, 0.14);
+
+  --text: #f2f5f7;
+  --text-soft: #9aa6b2;
+  --text-muted: #596673;
+
+  --orange: #ff6b1a;
+  --orange-bright: #ff7e32;
+  --cyan: #78d7ce;
+
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 70% 10%, rgba(255, 107, 26, 0.045), transparent 28%),
+    radial-gradient(circle at 20% 40%, rgba(80, 130, 150, 0.035), transparent 30%),
+    var(--bg);
+  color: var(--text);
+  font-family: Inter, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* ===== 通用容器 / 板块间距（同样限定在 .page-shell 内） ===== */
+.page-shell .section-container {
+  width: min(1200px, calc(100% - 56px));
+  margin: 0 auto;
+}
+
+.page-shell .section-block {
+  padding: 100px 0;
+}
+
+.page-shell .section-block.alt {
+  background: var(--bg-soft);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+@media (max-width: 768px) {
+  .page-shell .section-block { padding: 70px 0; }
+  .page-shell .section-container { width: calc(100% - 40px); }
+}

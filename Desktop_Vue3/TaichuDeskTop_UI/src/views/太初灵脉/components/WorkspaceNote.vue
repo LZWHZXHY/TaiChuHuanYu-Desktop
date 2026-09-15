@@ -31,6 +31,7 @@ defineEmits(['update:title']);
 <style scoped>
 .workspace-note {
   width: 100%;
+  max-width: 900px; 
   margin: 0 auto;
   background: #ffffff;
   padding: 60px;

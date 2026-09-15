@@ -1,11 +1,18 @@
 // useCos.ts
 import COS from 'cos-js-sdk-v5';
-import request from '../utils/request'; // 【关键】引入你封装好的 request 实例
+import request from '../utils/request';
 import { ref } from 'vue';
 
 interface UploadResult {
   url: string;
   location: string;
+}
+
+interface RegisteredAsset {
+  assetId: string;
+  url: string;
+  location: string;
+  kind: string;
 }
 
 interface CosProgressData {
@@ -20,36 +27,35 @@ export function useCos() {
   const cos = new COS({
     getAuthorization: async (options: any, callback: (data: any) => void) => {
       try {
-        // 【关键修改】使用封装好的 request，路径只需要写后缀
-        // 注意：因为你的拦截器返回了 response.data，所以这里直接解构得到的即是后端对象
         const data: any = await request.get('/Cos/get-credential');
-        
         callback({
           TmpSecretId: data.credentials.tmpSecretId,
           TmpSecretKey: data.credentials.tmpSecretKey,
           XCosSecurityToken: data.credentials.sessionToken,
-          StartTime: data.startTime, 
+          StartTime: data.startTime,
           ExpiredTime: data.expiredTime,
         });
       } catch (err: any) {
-        // 这里可以读取你拦截器里封装的 friendlyMessage
         console.error('获取 COS 密钥失败:', err.friendlyMessage || err);
       }
     }
   });
 
+  /**
+   * 只上传，不登记。保留原行为，兼容旧调用点。
+   */
   const uploadFile = async (file: File, folder: string = 'uploads'): Promise<UploadResult> => {
     isUploading.value = true;
     progress.value = 0;
 
-    // 建议：这里的配置也可以尝试通过后端接口动态下发
-    const Bucket = 'tchy-images-1361988423'; 
-    const Region = 'ap-beijing'; 
+    const Bucket = 'tchy-images-1361988423';
+    const Region = 'ap-beijing';
 
     let subFolder = folder;
     if (file.type.startsWith('image/')) subFolder = `${folder}/images`;
     else if (file.type.startsWith('video/')) subFolder = `${folder}/videos`;
     else if (file.type.startsWith('audio/')) subFolder = `${folder}/music`;
+    else if (file.type === 'application/pdf') subFolder = `${folder}/pdfs`;
 
     const fileName = `${Date.now()}-${file.name}`;
     const Key = `${subFolder}/${fileName}`;
@@ -68,7 +74,6 @@ export function useCos() {
         if (err) {
           reject(err);
         } else {
-          // 手动拼接访问地址
           resolve({
             url: `https://img.bianyuzhou.com/${Key}`,
             location: data.Location
@@ -78,9 +83,65 @@ export function useCos() {
     });
   };
 
+  /**
+   * 登记到 assets 表，拿 assetId
+   */
+  const registerAsset = async (payload: {
+    url: string;
+    storageKey?: string;
+    fileName?: string;
+    mimeType?: string;
+    size?: number;
+    kind?: string;
+    width?: number;
+    height?: number;
+    spaceId?: string;
+  }): Promise<{ id: string; url: string; kind: string }> => {
+    return await request.post('/assets/register', {
+      kind: 'image',
+      ...payload,
+    }) as any;
+  };
+
+  /**
+   * 上传 + 登记，推荐用这个。返回 assetId + url + kind。
+   */
+  const uploadAndRegister = async (
+    file: File,
+    folder: string = 'lingmai',
+    spaceId?: string
+  ): Promise<RegisteredAsset> => {
+    const result = await uploadFile(file, folder);
+
+    const kind = file.type.startsWith('image/') ? 'image'
+               : file.type === 'application/pdf' ? 'pdf'
+               : file.type.startsWith('video/') ? 'video'
+               : file.type.startsWith('audio/') ? 'audio'
+               : 'other';
+
+    const asset: any = await registerAsset({
+      url: result.url,
+      storageKey: result.location,
+      fileName: file.name,
+      mimeType: file.type,
+      size: file.size,
+      kind,
+      spaceId,
+    });
+
+    return {
+      assetId: asset.id,
+      url: asset.url,
+      location: result.location,
+      kind: asset.kind,
+    };
+  };
+
   return {
     uploadFile,
+    registerAsset,
+    uploadAndRegister,
     isUploading,
-    progress
+    progress,
   };
 }

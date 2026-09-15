@@ -14,23 +14,23 @@ const props = defineProps<{
 // 2. 定义要向 index.vue 汇报的事件 (Emits)
 const emit = defineEmits(['update:title', 'change', 'open-sub-drawer', 'editor-auto-sync']);
 
-// 3. 把 12 个异步组件全部粘贴过来！
+// 3. 彻底大瘦身：仅保留 6 个核心多态组件，剔除所有世界观设定与冗余功能
 const WorkspaceNote = defineAsyncComponent(() => import('./WorkspaceNote.vue'));
 const WorkspaceWiki = defineAsyncComponent(() => import('./WorkspaceWiki.vue'));
-const WorkspaceArt = defineAsyncComponent(() => import('./WorkspaceArt.vue'));
 const WorkspaceCanvas = defineAsyncComponent(() => import('./WorkspaceCanvas.vue'));
-const WorkspaceMap = defineAsyncComponent(() => import('./WorkspaceMap.vue'));
 const WorkspaceBlog = defineAsyncComponent(() => import('./WorkspaceBlog.vue'));
 const WorkspacePost = defineAsyncComponent(() => import('./WorkspacePost.vue'));
-const WorkspaceExcel = defineAsyncComponent(() => import('./WorkspaceExcel.vue'));
-const WorkspaceChar = defineAsyncComponent(() => import('./WorkspaceChar.vue'));
-const WorkspaceDoc = defineAsyncComponent(() => import('./WorkspaceDoc.vue'));
 const WorkspaceSchedule = defineAsyncComponent(() => import('./WorkspaceSchedule.vue'));
 
-// 4. 映射表也搬过来
+// 4. 精简映射表
 const workspaceMap: Record<string, any> = {
-  note: WorkspaceNote, wiki: WorkspaceWiki, art: WorkspaceArt, char: WorkspaceChar, schedule: WorkspaceSchedule,
-  folder: WorkspaceNote, canvas: WorkspaceCanvas, map: WorkspaceMap, blog: WorkspaceBlog, post: WorkspacePost, excel: WorkspaceExcel, doc: WorkspaceDoc, 
+  note: WorkspaceNote, 
+  folder: WorkspaceNote, 
+  blog: WorkspaceBlog, 
+  post: WorkspacePost, 
+  wiki: WorkspaceWiki, 
+  canvas: WorkspaceCanvas, 
+  schedule: WorkspaceSchedule
 };
 
 // 5. 计算当前到底该用哪个组件
