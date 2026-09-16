@@ -84,10 +84,32 @@ const router = createRouter({
       component: TaichuProfile
     },
 
+    {
+      path: '/taichu/orders',
+      name: 'TaichuOrders',
+      component: () => import('@/views/太初俱乐部/MyOrders.vue')
+    },
+    {
+  path: '/taichu/operator/orders',
+  name: 'TaichuOperatorOrders',
+  component: () => import('@/views/太初俱乐部/OperatorOrders.vue')
+},
 
-
-
-
+    {
+  path: '/taichu/operator/orders',
+  name: 'TaichuOperatorOrders',
+  component: () => import('@/views/太初俱乐部/OperatorOrders.vue')
+},
+{
+  path: '/taichu/operator/wallet',
+  name: 'TaichuOperatorWallet',
+  component: () => import('@/views/太初俱乐部/OperatorWallet.vue')
+},
+{
+  path: '/taichu/operator/reviews',
+  name: 'TaichuOperatorReviews',
+  component: () => import('@/views/太初俱乐部/OperatorReviews.vue')
+},
 
 
 

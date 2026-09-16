@@ -1,106 +1,114 @@
 <template>
-  <div class="mc-container">
-    <div class="mc-header">
-      <h2>太虚方块灵境</h2>
-      <p>Fabric {{ serverVersion }} 纯净生存服 · 自由建筑与基建</p>
-    </div>
+  <div class="mc-portal-container">
+    <!-- 顶部主标题横幅 -->
+    <header class="portal-header">
+      <div class="title-glow"></div>
+      <h1 class="main-title">太初寰宇</h1>
+      <p class="sub-title">TAICHU HUANYU · FABRIC {{ serverVersion }} DEV & SURVIVAL REALM</p>
+    </header>
 
-    <!-- 服务器核心状态面板 -->
-    <div class="mc-status-card">
-      <div class="status-row">
-        <span class="label">服务器状态：</span>
-        <span :class="['value-badge', serverInfo.isOnline ? 'online' : 'offline']">
-          {{ serverInfo.isOnline ? '● 灵气充沛 (在线)' : '○ 闭关维护中 (离线)' }}
-        </span>
-      </div>
-      <div class="status-row">
-        <span class="label">当前游戏版本：</span>
-        <span class="value version-tag">Fabric {{ serverVersion }}</span>
-      </div>
-      <div class="status-row">
-        <span class="label">连接地址：</span>
-        <div class="ip-box">
-          <code>{{ serverAddress }}</code>
-          <button class="btn-copy" @click="copyIp">复制地址</button>
-        </div>
-      </div>
-      <div class="status-row">
-        <span class="label">当前在线道友：</span>
-        <span class="value">{{ serverInfo.onlinePlayers }} / {{ serverInfo.maxPlayers }}</span>
-      </div>
-    </div>
-
-    <!-- Mod 下载与客户端指引专区 ✅ 新增 -->
-    <div class="mc-section-card">
-      <h3>📥 客户端与 Mod 传送门</h3>
-      <p class="section-desc">为了保证进入服务器后方块与物品正常同步，请下载指定的客户端整合包或基础 Mod 列表。</p>
-      <div class="download-actions">
-        <a :href="downloadLinks.modpack" target="_blank" class="btn-action">
-          <span>📦 下载完整客户端整合包</span>
-        </a>
-        <a :href="downloadLinks.fabricApi" target="_blank" class="btn-action-line">
-          <span>🔗 Fabric API & 基础依赖</span>
-        </a>
-      </div>
-    </div>
-
-    <!-- 在线玩家列表 -->
-    <div class="mc-section-card" v-if="serverInfo.isOnline">
-      <h3>👤 在线修行者</h3>
-      <div v-if="serverInfo.playerList.length > 0" class="player-grid">
-        <span v-for="player in serverInfo.playerList" :key="player" class="player-tag">
-          {{ player }}
-        </span>
-      </div>
-      <div v-else class="empty-players">当前暂无道友在线，快去抢占先机！</div>
-    </div>
-
-    <!-- 服务器更新日志 ✅ 新增 -->
-    <div class="mc-section-card">
-      <h3>📜 灵境更新日志</h3>
-      <div class="changelog-list">
-        <div v-for="(log, index) in changelogs" :key="index" class="changelog-item">
-          <div class="log-header">
-            <span class="log-version">{{ log.version }}</span>
-            <span class="log-date">{{ log.date }}</span>
+    <!-- 主体双栏网格布局 -->
+    <div class="portal-grid">
+      
+      <!-- 左侧：状态与快速操作区 -->
+      <div class="column-left">
+        <div class="glass-card status-card">
+          <div class="card-header">
+            <h3>灵境核心状态</h3>
+            <span :class="['status-dot', serverInfo.isOnline ? 'online' : 'offline']"></span>
           </div>
-          <p class="log-content">{{ log.content }}</p>
+          
+          <div class="status-list">
+            <div class="status-item">
+              <span class="label">运行端</span>
+              <span class="value">Fabric {{ serverVersion }}</span>
+            </div>
+            <div class="status-item">
+              <span class="label">底层架构</span>
+              <span class="value highlight-java">Java 25 (LTS)</span>
+            </div>
+            <div class="status-item">
+              <span class="label">当前在线</span>
+              <span class="value">{{ serverInfo.onlinePlayers }} / {{ serverInfo.maxPlayers }} 道友</span>
+            </div>
+          </div>
+
+          <!-- IP 直连复制框 -->
+          <div class="ip-action-box">
+            <div class="ip-text">
+              <span class="ip-label">服务器入口</span>
+              <code>{{ serverAddress }}</code>
+            </div>
+            <button class="btn-neon" @click="copyIp">复制入口地址</button>
+          </div>
+        </div>
+
+        <!-- 客户端依赖下载 -->
+        <div class="glass-card download-card">
+          <h3>组件与传送门</h3>
+          <p class="card-desc">适配当前 26.2 架构的前置与客户端支持。</p>
+          <div class="action-buttons">
+            <a :href="downloadLinks.fabricApi" target="_blank" class="btn-sub">
+              <span>Fabric API 26.2</span>
+            </a>
+            <a href="#" class="btn-sub disabled" @click.prevent="alert('内测专用整合包正在加急打包中！')">
+              <span>专用整合包 [内测筹备]</span>
+            </a>
+          </div>
         </div>
       </div>
+
+      <!-- 右侧：世界观介绍与内测指引 -->
+      <div class="column-right">
+        <div class="glass-card lore-card">
+          <div class="lore-badge">CLOSED BETA</div>
+          <h2>核心内测阶段开启</h2>
+          <div class="lore-text">
+            <p>
+              欢迎来到<strong>《太初寰宇》</strong>。本服目前正处于核心内测期，底层已全面跃迁至 <b>Fabric {{ serverVersion }} & Java 25</b> 现代高性能运行环境。
+            </p>
+            <p>
+              当前阶段我们正在进行纯净开荒与底层性能压测。各位道友不仅能抢先体验原版生存的乐趣，未来还将作为核心见证者，逐步接入我们正在独立开发的**《太初寰宇》专属世界观系统**（包含复杂的属性矩阵与特色玩法）。
+            </p>
+          </div>
+
+          <div class="feature-tags">
+            <span class="tag">🌌 长期稳定开荒</span>
+            <span class="tag">⚡ Java 25 满血性能</span>
+            <span class="tag">🛠️ 独立 Mod 深度定制</span>
+          </div>
+        </div>
+
+        <!-- 在线玩家实时面板 -->
+        <div class="glass-card players-card" v-if="serverInfo.isOnline">
+          <h3>当前在线修行者</h3>
+          <div v-if="serverInfo.playerList.length > 0" class="player-chips">
+            <span v-for="player in serverInfo.playerList" :key="player" class="player-chip">
+              {{ player }}
+            </span>
+          </div>
+          <div v-else class="empty-notice">暂无道友在线，寰宇静待开拓。</div>
+        </div>
+      </div>
+
     </div>
 
-    <!-- 底部说明 -->
-    <div class="mc-footer-hint">
-      <p>💡 提示：进入游戏前请核对版本为 <b>Fabric {{ serverVersion }}</b>，若遇阻碍可前往群内寻找阵法师协助。</p>
-    </div>
+    <!-- 底部微型提示 -->
+    <footer class="portal-footer">
+      <p>太初寰宇项目组 · 保持对未知与代码的热忱</p>
+    </footer>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 
-const serverAddress = ref('play.bianyuzhou.com:25565')
-const serverVersion = ref('1.21.1')
+const serverAddress = ref('120.53.224.225')
+const serverVersion = ref('26.2')
 
-// 下载链接配置
 const downloadLinks = ref({
-  modpack: 'https://pan.baidu.com/s/your-modpack-link', // 替换为你的网盘或直链
   fabricApi: 'https://modrinth.com/mod/fabric-api'
 })
-
-// 服务器更新日志数据（后期可以改成由后端接口动态提供）
-const changelogs = ref([
-  {
-    version: 'v1.1.0',
-    date: '2026-03-05',
-    content: '服务器核心平稳升级至 Fabric 1.21.1，修复了部分区块加载延迟的问题，新增基础传送与领地保护插件。'
-  },
-  {
-    version: 'v1.0.0',
-    date: '2026-02-20',
-    content: '太虚方块灵境正式开荒！纯净生存服搭建完毕，欢迎各位道友入驻。'
-  }
-])
 
 const serverInfo = ref({
   isOnline: false,
@@ -131,7 +139,7 @@ const fetchServerStatus = async () => {
 
 const copyIp = () => {
   navigator.clipboard.writeText(serverAddress.value)
-  alert('服务器地址已复制到剪贴板！')
+  alert('服务器入口地址已复制！')
 }
 
 onMounted(() => {
@@ -145,198 +153,276 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.mc-container {
-  max-width: 750px;
+/* 全局容器与重置 */
+.mc-portal-container {
+  max-width: 1100px;
   width: 100%;
   margin: 0 auto;
-  padding: 20px;
-}
-.mc-header {
-  text-align: center;
-  margin-bottom: 30px;
-}
-.mc-header h2 {
-  font-size: 24px;
-  letter-spacing: 0.2em;
-  margin-bottom: 8px;
-  color: var(--ink-black);
-}
-.mc-header p {
-  font-size: 14px;
-  color: var(--ink-gray);
-  letter-spacing: 0.1em;
+  padding: 40px 20px;
+  box-sizing: border-box;
 }
 
-.mc-status-card, .mc-section-card {
-  background: var(--paper-card);
-  border: 1px solid var(--line-raw);
-  padding: 24px;
-  border-radius: 8px;
-  margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+/* 顶部横幅 */
+.portal-header {
+  text-align: center;
+  margin-bottom: 40px;
+  position: relative;
 }
-.status-row {
+.main-title {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: var(--ink-black, #1a1a1a);
+  margin-bottom: 6px;
+}
+.sub-title {
+  font-size: 11px;
+  letter-spacing: 0.25em;
+  color: var(--ink-gray, #666);
+  opacity: 0.8;
+}
+
+/* 双栏网格 */
+.portal-grid {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 24px;
+}
+@media (max-width: 850px) {
+  .portal-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.column-left, .column-right {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 0;
-  border-bottom: 1px dashed var(--line-raw);
-  font-size: 15px;
+  flex-direction: column;
+  gap: 24px;
 }
-.status-row:last-child {
-  border-bottom: none;
+
+/* 毛玻璃卡片风格 */
+.glass-card {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.glass-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.05);
+}
+
+/* 状态卡片 */
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  padding-bottom: 10px;
+}
+.card-header h3 {
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  margin: 0;
+  color: var(--ink-black);
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.status-dot.online {
+  background-color: #2e7d32;
+  box-shadow: 0 0 8px rgba(46, 125, 50, 0.4);
+}
+.status-dot.offline {
+  background-color: #d32f2f;
+  box-shadow: 0 0 8px rgba(211, 47, 47, 0.4);
+}
+
+.status-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
 }
 .label {
   color: var(--ink-gray);
-  letter-spacing: 0.1em;
-}
-.value-badge.online {
-  color: #2e7d32;
-  font-weight: 500;
-}
-.value-badge.offline {
-  color: var(--cinnabar);
-  font-weight: 500;
-}
-.version-tag {
-  background: var(--paper-sub);
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-family: monospace;
-}
-.ip-box {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.ip-box code {
-  background: var(--paper-sub);
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-family: monospace;
-  font-size: 14px;
-}
-.btn-copy {
-  background: none;
-  border: 1px solid var(--line-raw);
-  padding: 4px 12px;
-  font-size: 12px;
-  cursor: pointer;
-  letter-spacing: 0.1em;
-  transition: all 0.2s;
-}
-.btn-copy:hover {
-  border-color: var(--cinnabar);
-  color: var(--cinnabar);
-}
-
-/* 下载区块样式 */
-.mc-section-card h3 {
-  font-size: 16px;
-  letter-spacing: 0.15em;
-  margin-bottom: 10px;
-  color: var(--ink-black);
-}
-.section-desc {
-  font-size: 13px;
-  color: var(--ink-gray);
-  margin-bottom: 16px;
   letter-spacing: 0.05em;
 }
-.download-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.btn-action {
-  background: var(--cinnabar);
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 4px;
-  text-decoration: none;
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  transition: opacity 0.2s;
-}
-.btn-action:hover {
-  opacity: 0.9;
-}
-.btn-action-line {
-  background: none;
-  border: 1px solid var(--line-raw);
+.value {
+  font-weight: 500;
   color: var(--ink-black);
-  padding: 8px 16px;
-  border-radius: 4px;
-  text-decoration: none;
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  transition: all 0.2s;
 }
-.btn-action-line:hover {
-  border-color: var(--cinnabar);
-  color: var(--cinnabar);
+.highlight-java {
+  font-family: monospace;
+  background: rgba(0,0,0,0.04);
+  padding: 1px 6px;
+  border-radius: 4px;
 }
 
-/* 玩家列表 */
-.player-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
-}
-.player-tag {
-  background: var(--paper-sub);
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 13px;
-  letter-spacing: 0.05em;
-}
-.empty-players {
-  color: var(--ink-gray);
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  margin-top: 10px;
-}
-
-/* 更新日志样式 */
-.changelog-list {
+/* IP 复制框样式 */
+.ip-action-box {
+  background: rgba(0,0,0,0.02);
+  border: 1px dashed rgba(0,0,0,0.1);
+  padding: 12px;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  margin-top: 12px;
+  gap: 8px;
 }
-.changelog-item {
-  border-left: 2px solid var(--cinnabar);
-  padding-left: 12px;
-}
-.log-header {
+.ip-text {
   display: flex;
   justify-content: space-between;
   font-size: 13px;
-  margin-bottom: 4px;
 }
-.log-version {
-  font-weight: 500;
+.ip-label {
+  color: var(--ink-gray);
+}
+.ip-action-box code {
+  font-family: monospace;
+  font-weight: bold;
+  color: var(--ink-black);
+}
+.btn-neon {
+  background: var(--ink-black, #1a1a1a);
+  color: #fff;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.btn-neon:hover {
+  opacity: 0.85;
+}
+
+/* 下载区块 */
+.download-card h3 {
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  margin: 0 0 6px 0;
+}
+.card-desc {
+  font-size: 12px;
+  color: var(--ink-gray);
+  margin-bottom: 14px;
+}
+.action-buttons {
+  display: flex;
+  gap: 10px;
+}
+.btn-sub {
+  flex: 1;
+  text-align: center;
+  background: none;
+  border: 1px solid rgba(0,0,0,0.15);
+  color: var(--ink-black);
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  text-decoration: none;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+}
+.btn-sub:hover:not(.disabled) {
+  border-color: var(--ink-black);
+  background: rgba(0,0,0,0.02);
+}
+.btn-sub.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 右侧世界观卡片 */
+.lore-card {
+  position: relative;
+  overflow: hidden;
+}
+.lore-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.15em;
+  background: rgba(211, 47, 47, 0.1);
+  color: #d32f2f;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+.lore-card h2 {
+  font-size: 18px;
+  letter-spacing: 0.1em;
+  margin: 0 0 14px 0;
+  color: var(--ink-black);
+}
+.lore-text {
+  font-size: 14px;
+  color: var(--ink-gray);
+  line-height: 1.7;
+  letter-spacing: 0.03em;
+  margin-bottom: 20px;
+}
+.lore-text p {
+  margin-bottom: 10px;
+}
+.feature-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tag {
+  background: rgba(0,0,0,0.03);
+  border: 1px solid rgba(0,0,0,0.05);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
   color: var(--ink-black);
   letter-spacing: 0.05em;
 }
-.log-date {
-  color: var(--ink-gray);
+
+/* 在线玩家列表 */
+.players-card h3 {
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  margin: 0 0 12px 0;
 }
-.log-content {
+.player-chips {
+  display: flex;
+  flex-wrap: gap;
+  gap: 8px;
+}
+.player-chip {
+  background: rgba(0,0,0,0.04);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+}
+.empty-notice {
   font-size: 13px;
   color: var(--ink-gray);
-  line-height: 1.5;
   letter-spacing: 0.05em;
-  margin: 0;
 }
 
-.mc-footer-hint {
+/* 底部 */
+.portal-footer {
   text-align: center;
-  font-size: 12px;
+  margin-top: 40px;
+  font-size: 11px;
   color: var(--ink-gray);
-  letter-spacing: 0.1em;
-  opacity: 0.8;
-  margin-top: 10px;
+  letter-spacing: 0.15em;
+  opacity: 0.6;
 }
 </style>

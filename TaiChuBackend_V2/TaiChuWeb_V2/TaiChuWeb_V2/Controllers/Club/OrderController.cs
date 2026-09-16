@@ -135,7 +135,9 @@ namespace TaiChuWeb_V2.Controllers.Club
 
             var q = _db.ClubOrders
                 .AsNoTracking()
-                .Where(o => o.OperatorUserId == operatorId);
+                .Where(o => o.OperatorUserId == operatorId)
+                // ⭐ 只展示：客服已确认收款，或订单已进入非 pending 阶段
+                .Where(o => o.PaidConfirmedAt != null || o.Status != "pending");
 
             if (!string.IsNullOrWhiteSpace(status))
                 q = q.Where(o => o.Status == status);
@@ -164,7 +166,6 @@ namespace TaiChuWeb_V2.Controllers.Club
                 .FirstOrDefaultAsync(o => o.OrderNo == orderNo);
             if (order == null) return NotFound(new { message = "订单不存在" });
 
-            // 只有下单的老板或被指定的打手能看
             if (order.CustomerId != userId && order.OperatorUserId != userId)
                 return StatusCode(403, new { message = "无权查看该订单" });
 
@@ -187,6 +188,10 @@ namespace TaiChuWeb_V2.Controllers.Club
                 return StatusCode(403, new { message = "这不是属于你的订单" });
             if (order.Status != "pending")
                 return BadRequest(new { message = $"当前状态 {order.Status}，无法接单" });
+
+            // ⭐ 必须客服已确认收款
+            if (!order.PaidConfirmedAt.HasValue)
+                return BadRequest(new { message = "客服尚未确认收款，暂时无法接单" });
 
             order.Status = "accepted";
             order.AcceptedAt = DateTime.UtcNow;
@@ -237,8 +242,8 @@ namespace TaiChuWeb_V2.Controllers.Club
             order.Status = "completed";
             order.CompletedAt = DateTime.UtcNow;
 
-            // ⭐ 累计统计
             await UpdateOperatorStats(order, success: true);
+            await SettleIncome(order);          // ⭐ 结算收益到冻结余额
 
             await _db.SaveChangesAsync();
             return Ok(new { message = "订单已完成", status = order.Status });
@@ -262,11 +267,10 @@ namespace TaiChuWeb_V2.Controllers.Club
 
             order.Status = "cancelled";
             order.CancelledAt = DateTime.UtcNow;
-            order.Remark = string.IsNullOrWhiteSpace(dto.Reason)
+            order.Remark = string.IsNullOrWhiteSpace(dto?.Reason)
                 ? order.Remark
                 : $"{order.Remark} | 取消原因：{dto.Reason}";
 
-            // 累计失败统计
             await UpdateOperatorStats(order, success: false);
 
             await _db.SaveChangesAsync();
@@ -274,19 +278,51 @@ namespace TaiChuWeb_V2.Controllers.Club
         }
 
         // ==================================================
-        //  内部：订单富化（补充打手/游戏/订单类型信息）
+        //  9. 用户标记"我已扫码并完成付款"
+        // ==================================================
+        [HttpPost("{orderNo}/user-paid")]
+        public async Task<IActionResult> UserPaid(string orderNo)
+        {
+            var userId = GetUserId();
+            var order = await _db.ClubOrders
+                .FirstOrDefaultAsync(o => o.OrderNo == orderNo);
+            if (order == null) return NotFound(new { message = "订单不存在" });
+
+            if (order.CustomerId != userId)
+                return StatusCode(403, new { message = "无权操作" });
+
+            if (order.Status != "pending")
+                return BadRequest(new { message = "订单状态异常，无法标记" });
+
+            if (order.UserPaidAt.HasValue)
+                return Ok(new { message = "已标记", userPaidAt = order.UserPaidAt });
+
+            order.UserPaidAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "已通知客服核对", userPaidAt = order.UserPaidAt });
+        }
+
+        // ==================================================
+        //  内部：订单富化（补充老板/打手/游戏/订单类型信息）
         // ==================================================
         private async Task<List<object>> EnrichOrders(List<ClubOrder> orders)
         {
             if (orders.Count == 0) return new List<object>();
 
             var opIds = orders.Select(o => o.OperatorUserId).Distinct().ToList();
+            var custIds = orders.Select(o => o.CustomerId).Distinct().ToList();
             var gameCodes = orders.Select(o => o.GameCode).Distinct().ToList();
 
             var profiles = await _db.OperatorProfiles
                 .AsNoTracking()
                 .Where(p => opIds.Contains(p.UserId))
                 .ToDictionaryAsync(p => p.UserId);
+
+            var customers = await _db.Users
+                .AsNoTracking()
+                .Where(u => custIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id);
 
             var games = await _db.ClubGames
                 .AsNoTracking()
@@ -302,6 +338,7 @@ namespace TaiChuWeb_V2.Controllers.Club
             return orders.Select(o =>
             {
                 profiles.TryGetValue(o.OperatorUserId, out var p);
+                customers.TryGetValue(o.CustomerId, out var cu);
                 games.TryGetValue(o.GameCode, out var g);
                 orderTypeMap.TryGetValue($"{o.GameCode}|{o.OrderTypeCode}", out var t);
 
@@ -312,6 +349,8 @@ namespace TaiChuWeb_V2.Controllers.Club
                     price = o.Price,
                     remark = o.Remark,
                     createdAt = o.CreatedAt,
+                    userPaidAt = o.UserPaidAt,
+                    paidConfirmedAt = o.PaidConfirmedAt,
                     acceptedAt = o.AcceptedAt,
                     startedAt = o.StartedAt,
                     completedAt = o.CompletedAt,
@@ -321,9 +360,10 @@ namespace TaiChuWeb_V2.Controllers.Club
                     orderTypeCode = o.OrderTypeCode,
                     orderTypeName = t?.Name ?? o.OrderTypeCode,
                     customerId = o.CustomerId,
+                    customerName = cu?.Username ?? "",
                     operatorUserId = o.OperatorUserId,
                     operatorName = p?.Nickname ?? "",
-                    @params = ParseJsonDict(o.ParamsJson)     // ⭐ 加个 @
+                    @params = ParseJsonDict(o.ParamsJson)
                 };
             }).ToList();
         }
@@ -370,10 +410,6 @@ namespace TaiChuWeb_V2.Controllers.Club
 
         // ==================================================
         //  内部：价格计算
-        //  规则：
-        //  1. PricingJson 若只有 default → 直接用它
-        //  2. 否则，找 ParamsSchemaJson 里第一个 select 字段
-        //     用老板填的值作为 key，去 PricingJson 里查价
         // ==================================================
         private static decimal CalculatePrice(
             string? pricingJson,
@@ -388,14 +424,12 @@ namespace TaiChuWeb_V2.Controllers.Club
                 using var priceDoc = JsonDocument.Parse(pricingJson);
                 if (priceDoc.RootElement.ValueKind != JsonValueKind.Object) return -1;
 
-                // 情况 1：只有 default
                 if (priceDoc.RootElement.TryGetProperty("default", out var defEl)
                     && defEl.ValueKind == JsonValueKind.Number)
                 {
                     return defEl.GetDecimal();
                 }
 
-                // 情况 2：从 schema 里找第一个 select 字段
                 if (string.IsNullOrWhiteSpace(schemaJson)) return -1;
 
                 using var schemaDoc = JsonDocument.Parse(schemaJson);
@@ -435,7 +469,6 @@ namespace TaiChuWeb_V2.Controllers.Club
             var today = DateTime.UtcNow.ToString("yyyyMMdd");
             var prefix = $"ORD-{today}-";
 
-            // 当天已有的最大序号
             var maxNo = await _db.ClubOrders
                 .Where(o => o.OrderNo.StartsWith(prefix))
                 .OrderByDescending(o => o.OrderNo)
@@ -471,7 +504,6 @@ namespace TaiChuWeb_V2.Controllers.Club
                 profile.TotalOrders += 1;
                 profile.CompletedOrders += 1;
 
-                // 复购统计：这个老板之前有没有成功下过这个打手的单
                 var previous = await _db.ClubOrders
                     .AsNoTracking()
                     .AnyAsync(o =>
@@ -486,9 +518,6 @@ namespace TaiChuWeb_V2.Controllers.Club
                 }
                 else
                 {
-                    // 上次之后是否已经计入 repeat —— 简化处理：每次复购都+1 再 clamp
-                    // 更严谨需要单独查"首次和重复的时机"，这里采用简化：只要有一次重复就记一次
-                    // 用 UniqueCustomers 与 RepeatCustomers 的关系来判断
                     var repeatAlreadyCounted = profile.RepeatCustomers > 0
                         && profile.RepeatCustomers < profile.UniqueCustomers;
                     if (!repeatAlreadyCounted)
@@ -509,6 +538,53 @@ namespace TaiChuWeb_V2.Controllers.Club
                     skill.FailedOrdersInGame += 1;
                 }
             }
+        }
+
+        // ==================================================
+        //  内部：结算打手收益（完成订单时调用）
+        // ==================================================
+        private static readonly Dictionary<string, decimal> LevelRates = new()
+        {
+            ["L1"] = 0.60m,
+            ["L2"] = 0.68m,
+            ["L3"] = 0.76m,
+            ["L4"] = 0.84m,
+            ["L5"] = 0.92m
+        };
+
+        /// <summary>订单完成后的冻结天数</summary>
+        private const int FROZEN_DAYS = 3;
+
+        private async Task SettleIncome(ClubOrder order)
+        {
+            var profile = await _db.OperatorProfiles
+                .FirstOrDefaultAsync(p => p.UserId == order.OperatorUserId);
+            if (profile == null) return;
+
+            var skill = await _db.OperatorGameSkills
+                .FirstOrDefaultAsync(s =>
+                    s.UserId == order.OperatorUserId &&
+                    s.GameCode == order.GameCode);
+
+            var level = skill?.OperatorLevel ?? "L1";
+            var rate = LevelRates.TryGetValue(level, out var r) ? r : 0.60m;
+            var income = Math.Round(order.Price * rate, 2);
+            if (income <= 0) return;
+
+            profile.FrozenBalance += income;
+
+            _db.OperatorWalletTransactions.Add(new OperatorWalletTransaction
+            {
+                UserId = order.OperatorUserId,
+                Type = "income",
+                Amount = income,
+                OrderNo = order.OrderNo,
+                Status = "completed",
+                Remark = $"订单收益 · {level} · {(rate * 100):0}%",
+                UnfreezeAt = DateTime.UtcNow.AddDays(FROZEN_DAYS),
+                CreatedAt = DateTime.UtcNow,
+                CompletedAt = DateTime.UtcNow
+            });
         }
 
         // ==================================================

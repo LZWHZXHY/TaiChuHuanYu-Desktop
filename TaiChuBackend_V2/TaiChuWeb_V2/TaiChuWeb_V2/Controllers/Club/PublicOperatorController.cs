@@ -181,6 +181,85 @@ namespace TaiChuWeb_V2.Controllers.Club
             });
         }
 
+
+
+
+
+
+        // ==================================================
+        // ⭐ 打手收到的评价列表（公开）
+        // GET /api/club/operators/{userId}/reviews
+        // ==================================================
+        [HttpGet("{userId:guid}/reviews")]
+        public async Task<IActionResult> GetOperatorReviews(
+            Guid userId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 50) pageSize = 20;
+
+            var q = _db.OrderReviews
+                .AsNoTracking()
+                .Where(r => r.ToUserId == userId && r.FromCustomer)
+                .OrderByDescending(r => r.CreatedAt);
+
+            var total = await q.CountAsync();
+
+            var raw = await q
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var orderIds = raw.Select(r => r.OrderId).Distinct().ToList();
+            var orders = await _db.ClubOrders.AsNoTracking()
+                .Where(o => orderIds.Contains(o.Id))
+                .ToDictionaryAsync(o => o.Id);
+
+            var gameCodes = orders.Values.Select(o => o.GameCode).Distinct().ToList();
+            var games = await _db.ClubGames.AsNoTracking()
+                .Where(g => gameCodes.Contains(g.Code))
+                .ToDictionaryAsync(g => g.Code);
+
+            var custIds = raw.Select(r => r.FromUserId).Distinct().ToList();
+            var users = await _db.Users.AsNoTracking()
+                .Where(u => custIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id);
+
+            var items = raw.Select(r =>
+            {
+                orders.TryGetValue(r.OrderId, out var o);
+                games.TryGetValue(o?.GameCode ?? "", out var g);
+                users.TryGetValue(r.FromUserId, out var u);
+
+                return new
+                {
+                    id = r.Id,
+                    orderNo = o?.OrderNo ?? "",
+                    gameCode = o?.GameCode ?? "",
+                    gameName = g?.Name ?? o?.GameCode ?? "",
+                    customerName = u?.Username ?? "匿名老板",
+                    skillScore = r.SkillScore,
+                    attitudeScore = r.AttitudeScore,
+                    punctualScore = r.PunctualScore,
+                    overallScore = r.OverallScore,
+                    comment = r.Comment,
+                    createdAt = r.CreatedAt
+                };
+            }).ToList();
+
+            return Ok(new { total, page, pageSize, items });
+        }
+
+
+
+
+
+
+
+
+
+
         // ==================================================
         //  内部
         // ==================================================

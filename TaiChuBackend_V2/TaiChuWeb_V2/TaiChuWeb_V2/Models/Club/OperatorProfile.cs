@@ -60,6 +60,16 @@ namespace TaiChuWeb_V2.Models.Club
         public int CompletedOrders { get; set; } = 0;
         public int CancelledOrders { get; set; } = 0;
 
+
+        // ===== 钱包 =====
+      /// <summary>可用余额</summary>
+       [Column(TypeName = "decimal(12,2)")]
+       public decimal Balance { get; set; } = 0;
+
+       /// <summary>冻结余额（订单完成后的冻结期）</summary>
+      [Column(TypeName = "decimal(12,2)")]
+       public decimal FrozenBalance { get; set; } = 0;
+
         [ForeignKey("UserId")]
         public virtual UserEntity User { get; set; } = null!;
 

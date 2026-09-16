@@ -30,7 +30,6 @@
             该游戏暂未开放服务项目
           </div>
 
-          <!-- ⭐ 关键：把 commonRules 传进去 -->
           <PriceBoard
             v-else
             :groups="orderTypes"
@@ -42,6 +41,14 @@
     </main>
 
     <Footer />
+
+    <!-- ⭐ 下单弹窗 -->
+    <OrderModal
+      :visible="showOrderModal"
+      :order-data="pendingOrder"
+      @close="closeOrderModal"
+      @success="handleOrderSuccess"
+    />
   </div>
 </template>
 
@@ -50,23 +57,28 @@ import Navbar         from './Navbar.vue'
 import Footer         from './Footer.vue'
 import SectionHeading from './SectionHeading.vue'
 import PriceBoard     from './PriceBoard.vue'
+import OrderModal     from './OrderModal.vue'
 import request        from '@/utils/request'
 
 export default {
   name: 'PricingView',
-  components: { Navbar, Footer, SectionHeading, PriceBoard },
+  components: { Navbar, Footer, SectionHeading, PriceBoard, OrderModal },
 
   data() {
     return {
       games: [],
       activeGameCode: '',
       orderTypes: [],
-      loading: true
+      loading: true,
+
+      // ⭐ 下单弹窗状态
+      showOrderModal: false,
+      pendingOrder: null
     }
   },
 
   computed: {
-    // ⭐ 当前选中的游戏对象（含 commonRulesText）
+    // 当前选中的游戏对象（含 commonRulesText）
     activeGame() {
       return this.games.find(g => g.code === this.activeGameCode) || null
     }
@@ -116,8 +128,34 @@ export default {
       }
     },
 
+    // ⭐ 点"下单" → 打开弹窗
     handleOrder(payload) {
-      console.log('下单:', payload)
+      if (!localStorage.getItem('token')) {
+        alert('请先登录')
+        return
+      }
+
+      this.pendingOrder = {
+        gameCode: this.activeGameCode,
+        gameName: this.activeGame?.name || '',
+        orderTypeCode: payload.orderTypeCode,
+        orderTypeName: payload.orderTypeName,
+        params: payload.params,
+        price: payload.price
+      }
+      this.showOrderModal = true
+    },
+
+    // ⭐ 关闭弹窗
+    closeOrderModal() {
+      this.showOrderModal = false
+      this.pendingOrder = null
+    },
+
+    // ⭐ 下单成功回调
+    handleOrderSuccess(order) {
+      console.log('下单成功:', order)
+      // 订单号已在弹窗内显示，这里只做记录
     }
   }
 }

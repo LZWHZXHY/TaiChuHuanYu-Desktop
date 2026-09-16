@@ -54,6 +54,13 @@ namespace TaiChuWeb_V2.Models.Club
         public DateTime? CompletedAt { get; set; }    // 完成
         public DateTime? CancelledAt { get; set; }    // 取消
 
+        /// <summary>用户点击"我已完成付款"的时间（null = 未标记）</summary>
+        public DateTime? UserPaidAt { get; set; }
+
+        public DateTime? PaidConfirmedAt { get; set; }
+
+
+
         // ===== 导航（可选） =====
         [ForeignKey("OperatorUserId")]
         public virtual OperatorProfile? Operator { get; set; }

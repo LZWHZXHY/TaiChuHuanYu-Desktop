@@ -6,7 +6,7 @@ import request from '../../utils/request'
 import ProfileCard from './ProfileCard.vue'
 import PreferenceSettings from './PreferenceSettings.vue' // 🌟 引入偏好设置组件
 import UserManualViewer from './UserManualViewer.vue' // 🌟 引入用户手册组件
-
+import ClubCard from './ClubCard.vue'
 const userStore = useUserStore()
 const { uploadFile, isUploading } = useCos()
 
@@ -155,6 +155,18 @@ const handleEditProfile = () => {
           </div>
         </div>
 
+
+        
+        <!-- 🌟 我的板块（新增） -->
+        <section class="my-sections">
+          <h3 class="section-title">我的板块</h3>
+          <ClubCard />
+        </section>
+
+
+
+
+
         <!-- 🌟 新增：内容切换 Tab -->
         <div class="content-tabs">
           <button 
@@ -238,7 +250,18 @@ const handleEditProfile = () => {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   color: #fff; font-size: 12px; gap: 8px;
 }
-
+/* 🌟 我的板块 */
+.my-sections {
+  margin-bottom: 40px;
+}
+.section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #8c959f;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin: 0 0 12px;
+}
 .spinner { width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 

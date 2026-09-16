@@ -46,7 +46,7 @@ namespace TaiChuWeb_V2.DbContext
 
 
 
-
+        public DbSet<OperatorWalletTransaction> OperatorWalletTransactions { get; set; } = null!;
         public DbSet<OperatorGameSkill> OperatorGameSkills { get; set; }   // 如果还没有就加
         public DbSet<ClubGame> ClubGames { get; set; }
         public DbSet<ClubGameField> ClubGameFields { get; set; }

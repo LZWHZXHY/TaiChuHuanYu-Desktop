@@ -82,128 +82,172 @@
           <button class="close-icon" @click="closeDetail">×</button>
         </header>
 
-        <!-- 雷达图区 -->
-        <section class="om-block">
-          <h4 class="om-title">能力雷达</h4>
+        <!-- 弹窗 Tab -->
+        <div class="om-tabs">
+          <button
+            class="om-tab"
+            :class="{ on: modalTab === 'radar' }"
+            @click="modalTab = 'radar'"
+          >能力雷达</button>
+          <button
+            class="om-tab"
+            :class="{ on: modalTab === 'reviews' }"
+            @click="switchToReviews"
+          >收到的评价</button>
+        </div>
 
-          <!-- 游戏切换（如果该打手认证了多个游戏） -->
-          <div v-if="detail.games.length > 1" class="radar-game-tabs">
-            <button
-              v-for="g in detail.games"
-              :key="g.gameCode"
-              class="rg-tab"
-              :class="{ on: radarGameCode === g.gameCode }"
-              @click="switchRadarGame(g.gameCode)"
-            >{{ g.gameName }}</button>
-          </div>
+        <!-- ====== Tab 1：能力雷达 ====== -->
+        <template v-if="modalTab === 'radar'">
+          <section class="om-block">
+            <h4 class="om-title">能力雷达</h4>
 
-          <div v-if="radarLoading" class="om-empty">
-            <span class="dot"></span> 正在计算雷达数据…
-          </div>
-
-          <div v-else-if="radarDims.length === 0" class="om-empty">
-            该游戏尚未配置任何评分维度
-          </div>
-
-          <template v-else>
-            <div class="radar-wrap">
-              <svg viewBox="-150 -150 300 300" class="radar-svg">
-                <!-- 网格 4 层 -->
-                <polygon
-                  v-for="lv in 4" :key="'g'+lv"
-                  :points="radarGridPoints(lv)"
-                  class="radar-grid"
-                />
-                <!-- 轴线 -->
-                <line
-                  v-for="(ax, i) in radarAxes" :key="'a'+i"
-                  x1="0" y1="0" :x2="ax.x" :y2="ax.y"
-                  class="radar-axis"
-                />
-                <!-- ⭐ 平均线（灰虚线） -->
-                <polygon :points="radarAvgPoints" class="radar-avg" />
-                <!-- ⭐ 个人数据（橙实线） -->
-                <polygon :points="radarUserPoints" class="radar-user" />
-                <!-- 顶点 -->
-                <circle
-                  v-for="(pt, i) in radarUserVertices" :key="'v'+i"
-                  :cx="pt.x" :cy="pt.y" r="3.5" class="radar-dot"
-                />
-                <!-- 标签 -->
-                <text
-                  v-for="(lb, i) in radarLabels" :key="'l'+i"
-                  :x="lb.x" :y="lb.y"
-                  :text-anchor="lb.anchor"
-                  class="radar-label"
-                >{{ lb.label }}</text>
-              </svg>
+            <div v-if="detail.games.length > 1" class="radar-game-tabs">
+              <button
+                v-for="g in detail.games"
+                :key="g.gameCode"
+                class="rg-tab"
+                :class="{ on: radarGameCode === g.gameCode }"
+                @click="switchRadarGame(g.gameCode)"
+              >{{ g.gameName }}</button>
             </div>
 
-            <!-- 图例 -->
-            <div class="radar-legend">
-              <span class="lg-user"><i></i>个人</span>
-              <span class="lg-avg"><i></i>平台平均</span>
+            <div v-if="radarLoading" class="om-empty">
+              <span class="dot"></span> 正在计算雷达数据…
             </div>
 
-            <!-- 明细表 -->
-            <div class="radar-metrics">
-              <div v-for="d in radarDims" :key="d.key" class="rm-row">
-                <span class="rm-label">{{ d.label }}</span>
-                <span class="rm-raw">{{ d.rawValue }}</span>
-                <div class="rm-bar">
-                  <em :style="{ width: d.userScore + '%' }"></em>
-                  <i :style="{ left: d.avgScore + '%' }"></i>
+            <div v-else-if="radarDims.length === 0" class="om-empty">
+              该游戏尚未配置任何评分维度
+            </div>
+
+            <template v-else>
+              <div class="radar-wrap">
+                <svg viewBox="-150 -150 300 300" class="radar-svg">
+                  <polygon
+                    v-for="lv in 4" :key="'g'+lv"
+                    :points="radarGridPoints(lv)"
+                    class="radar-grid"
+                  />
+                  <line
+                    v-for="(ax, i) in radarAxes" :key="'a'+i"
+                    x1="0" y1="0" :x2="ax.x" :y2="ax.y"
+                    class="radar-axis"
+                  />
+                  <polygon :points="radarAvgPoints" class="radar-avg" />
+                  <polygon :points="radarUserPoints" class="radar-user" />
+                  <circle
+                    v-for="(pt, i) in radarUserVertices" :key="'v'+i"
+                    :cx="pt.x" :cy="pt.y" r="3.5" class="radar-dot"
+                  />
+                  <text
+                    v-for="(lb, i) in radarLabels" :key="'l'+i"
+                    :x="lb.x" :y="lb.y"
+                    :text-anchor="lb.anchor"
+                    class="radar-label"
+                  >{{ lb.label }}</text>
+                </svg>
+              </div>
+
+              <div class="radar-legend">
+                <span class="lg-user"><i></i>个人</span>
+                <span class="lg-avg"><i></i>平台平均</span>
+              </div>
+
+              <div class="radar-metrics">
+                <div v-for="d in radarDims" :key="d.key" class="rm-row">
+                  <span class="rm-label">{{ d.label }}</span>
+                  <span class="rm-raw">{{ d.rawValue }}</span>
+                  <div class="rm-bar">
+                    <em :style="{ width: d.userScore + '%' }"></em>
+                    <i :style="{ left: d.avgScore + '%' }"></i>
+                  </div>
+                  <b class="rm-score">{{ d.userScore }}</b>
+                  <span class="rm-avg">均 {{ d.avgScore }}</span>
                 </div>
-                <b class="rm-score">{{ d.userScore }}</b>
-                <span class="rm-avg">均 {{ d.avgScore }}</span>
+              </div>
+            </template>
+          </section>
+
+          <!-- 综合表现 -->
+          <section class="om-block">
+            <h4 class="om-title">综合表现</h4>
+            <div class="om-grid">
+              <div class="om-cell">
+                <span>信誉分</span>
+                <b>{{ detail.reputation }}</b>
+              </div>
+              <div class="om-cell">
+                <span>累计接单</span>
+                <b>{{ detail.totalOrders }}</b>
+              </div>
+              <div class="om-cell">
+                <span>完成订单</span>
+                <b>{{ detail.completedOrders }}</b>
+              </div>
+              <div class="om-cell">
+                <span>取消订单</span>
+                <b>{{ detail.cancelledOrders }}</b>
               </div>
             </div>
-          </template>
-        </section>
+          </section>
 
-        <!-- 综合表现 -->
-        <section class="om-block">
-          <h4 class="om-title">综合表现</h4>
-          <div class="om-grid">
-            <div class="om-cell">
-              <span>信誉分</span>
-              <b>{{ detail.reputation }}</b>
+          <!-- 认证游戏 -->
+          <section class="om-block">
+            <h4 class="om-title">认证游戏（{{ detail.gameCount }}）</h4>
+            <div v-for="g in detail.games" :key="g.gameCode" class="om-game">
+              <div class="og-head">
+                <b>{{ g.gameName }}</b>
+                <span class="og-level" v-if="g.level">{{ g.level }}</span>
+                <span class="og-code">{{ g.code }}</span>
+              </div>
+              <div class="og-orders">
+                接单 <b>{{ g.ordersInGame }}</b>
+                · 完成 <b>{{ g.completedOrdersInGame }}</b>
+                · 失败 <b>{{ g.failedOrdersInGame }}</b>
+              </div>
             </div>
-            <div class="om-cell">
-              <span>累计接单</span>
-              <b>{{ detail.totalOrders }}</b>
-            </div>
-            <div class="om-cell">
-              <span>完成订单</span>
-              <b>{{ detail.completedOrders }}</b>
-            </div>
-            <div class="om-cell">
-              <span>取消订单</span>
-              <b>{{ detail.cancelledOrders }}</b>
+          </section>
+
+          <section v-if="detail.intro" class="om-block">
+            <h4 class="om-title">自我介绍</h4>
+            <p class="om-intro">{{ detail.intro }}</p>
+          </section>
+        </template>
+
+        <!-- ====== Tab 2：收到的评价 ====== -->
+        <section v-if="modalTab === 'reviews'" class="om-block">
+          <h4 class="om-title">收到的评价（{{ reviewsTotal }}）</h4>
+
+          <div v-if="reviewsLoading" class="om-empty">
+            <span class="dot"></span> 正在读取评价…
+          </div>
+
+          <div v-else-if="reviews.length === 0" class="om-empty">
+            暂无评价
+          </div>
+
+          <div v-else class="rv-list">
+            <div v-for="r in reviews" :key="r.id" class="rv-item">
+              <div class="rv-item-head">
+                <span class="rv-item-name">{{ r.customerName }}</span>
+                <span class="rv-item-score">
+                  {{ r.overallScore }}.0
+                  <span class="rv-item-stars">
+                    {{ '★'.repeat(r.overallScore) }}{{ '☆'.repeat(5 - r.overallScore) }}
+                  </span>
+                </span>
+              </div>
+              <div class="rv-item-meta">
+                <span>{{ r.gameName }}</span>
+                <span>{{ fmtDate(r.createdAt) }}</span>
+              </div>
+              <div v-if="r.comment" class="rv-item-comment">{{ r.comment }}</div>
+              <div class="rv-item-dims">
+                <span>技术 {{ r.skillScore }}</span>
+                <span>态度 {{ r.attitudeScore }}</span>
+                <span>准时 {{ r.punctualScore }}</span>
+              </div>
             </div>
           </div>
-        </section>
-
-        <!-- 认证游戏 -->
-        <section class="om-block">
-          <h4 class="om-title">认证游戏（{{ detail.gameCount }}）</h4>
-          <div v-for="g in detail.games" :key="g.gameCode" class="om-game">
-            <div class="og-head">
-              <b>{{ g.gameName }}</b>
-              <span class="og-level" v-if="g.level">{{ g.level }}</span>
-              <span class="og-code">{{ g.code }}</span>
-            </div>
-            <div class="og-orders">
-              接单 <b>{{ g.ordersInGame }}</b>
-              · 完成 <b>{{ g.completedOrdersInGame }}</b>
-              · 失败 <b>{{ g.failedOrdersInGame }}</b>
-            </div>
-          </div>
-        </section>
-
-        <section v-if="detail.intro" class="om-block">
-          <h4 class="om-title">自我介绍</h4>
-          <p class="om-intro">{{ detail.intro }}</p>
         </section>
 
         <footer class="om-foot">
@@ -233,10 +277,15 @@ export default {
         { label: '单量优先', value: 'totalOrders' },
         { label: '等级优先', value: 'topLevel' }
       ],
-      // ⭐ 雷达图状态
+      // 雷达图
       radarGameCode: '',
       radarDims: [],
-      radarLoading: false
+      radarLoading: false,
+      // 弹窗 Tab
+      modalTab: 'radar',
+      reviews: [],
+      reviewsTotal: 0,
+      reviewsLoading: false
     }
   },
 
@@ -250,7 +299,6 @@ export default {
       return [...this.remoteList].sort(cmp[this.sort])
     },
 
-    // 顶点坐标
     radarUserVertices() {
       const n = this.radarDims.length
       if (n === 0) return []
@@ -329,7 +377,9 @@ export default {
 
     openDetail(op) {
       this.detail = op
-      // 默认第一个游戏
+      this.modalTab = 'radar'
+      this.reviews = []
+      this.reviewsTotal = 0
       const first = op.games?.[0]?.gameCode
       if (first) {
         this.radarGameCode = first
@@ -341,12 +391,22 @@ export default {
       this.detail = null
       this.radarDims = []
       this.radarGameCode = ''
+      this.modalTab = 'radar'
+      this.reviews = []
+      this.reviewsTotal = 0
     },
 
     switchRadarGame(code) {
       if (code === this.radarGameCode) return
       this.radarGameCode = code
       this.loadRadar()
+    },
+
+    switchToReviews() {
+      this.modalTab = 'reviews'
+      if (this.reviews.length === 0 && !this.reviewsLoading) {
+        this.loadReviews()
+      }
     },
 
     async loadRadar() {
@@ -366,6 +426,25 @@ export default {
       }
     },
 
+    async loadReviews() {
+      if (!this.detail?.userId) return
+      this.reviewsLoading = true
+      try {
+        const res = await request.get(`/club/operators/${this.detail.userId}/reviews`, {
+          params: { pageSize: 20 }
+        })
+        const data = res?.data ?? res
+        this.reviews = data?.items ?? []
+        this.reviewsTotal = data?.total ?? 0
+      } catch (e) {
+        console.error('加载评价失败', e)
+        this.reviews = []
+        this.reviewsTotal = 0
+      } finally {
+        this.reviewsLoading = false
+      }
+    },
+
     handleOrderFromDetail() {
       if (!this.detail) return
       this.$emit('order', this.detail.userId)
@@ -380,6 +459,12 @@ export default {
         const angle = (Math.PI * 2 * i) / n - Math.PI / 2
         return `${(Math.cos(angle) * r).toFixed(2)},${(Math.sin(angle) * r).toFixed(2)}`
       }).join(' ')
+    },
+
+    fmtDate(iso) {
+      if (!iso) return '—'
+      const d = new Date(iso)
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
     }
   }
 }
@@ -543,7 +628,7 @@ export default {
 }
 .op-btn.solid:hover { background: var(--orange-bright); }
 
-/* ====== 弹窗（自包含颜色） ====== */
+/* ====== 弹窗 ====== */
 .op-modal-mask {
   position: fixed; inset: 0; z-index: 9999;
   background: rgba(0, 0, 0, 0.78);
@@ -563,8 +648,7 @@ export default {
 }
 .om-head {
   display: flex; align-items: flex-start; justify-content: space-between;
-  gap: 20px; padding: 22px 26px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 20px; padding: 22px 26px 14px;
 }
 .om-head h3 { margin: 0 0 6px; font-size: 20px; font-weight: 700; letter-spacing: 1px; color: #f2f6fa; }
 .om-guid { margin: 0; font-family: monospace; font-size: 10px; letter-spacing: 1px; color: #6b7a8a; }
@@ -574,6 +658,30 @@ export default {
   cursor: pointer; line-height: 1; transition: color 0.2s;
 }
 .close-icon:hover { color: #e8eef4; }
+
+/* 弹窗 Tab */
+.om-tabs {
+  display: flex;
+  gap: 0;
+  padding: 0 26px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.om-tab {
+  padding: 12px 20px;
+  font-size: 13px; letter-spacing: 1px;
+  color: #8b9aab;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: 0.2s;
+  margin-bottom: -1px;
+}
+.om-tab:hover { color: #e8eef4; }
+.om-tab.on {
+  color: #ff6b1a;
+  border-bottom-color: #ff6b1a;
+}
 
 .om-block { padding: 22px 26px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); }
 .om-block:last-of-type { border-bottom: none; }
@@ -752,6 +860,46 @@ export default {
   background: rgba(255, 255, 255, 0.025);
   border-left: 2px solid rgba(255, 255, 255, 0.15);
   border-radius: 2px;
+}
+
+/* ====== 收到的评价 ====== */
+.rv-list { display: flex; flex-direction: column; gap: 14px; }
+.rv-item {
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: 3px;
+}
+.rv-item-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+}
+.rv-item-name { font-size: 13px; font-weight: 600; color: #f2f6fa; }
+.rv-item-score {
+  display: flex; align-items: center; gap: 8px;
+  font-family: monospace; font-size: 13px;
+  color: #ffb800;
+}
+.rv-item-stars { letter-spacing: 2px; }
+.rv-item-meta {
+  display: flex; gap: 12px;
+  font-family: monospace; font-size: 10px;
+  color: #6b7a8a;
+  margin-bottom: 10px;
+}
+.rv-item-comment {
+  font-size: 12px; line-height: 1.7;
+  color: #c0cbd6;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border-left: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  margin-bottom: 10px;
+}
+.rv-item-dims {
+  display: flex; gap: 14px;
+  font-family: monospace; font-size: 10px;
+  color: #8b9aab;
 }
 
 .om-foot {

@@ -67,19 +67,33 @@ builder.Services.AddScoped<IProjectPermissionService, ProjectPermissionService>(
 
 
 
+// Program.cs
+
 var minioEndpoint = builder.Configuration["MinioSettings:Endpoint"];
 var minioAccessKey = builder.Configuration["MinioSettings:AccessKey"];
 var minioSecretKey = builder.Configuration["MinioSettings:SecretKey"];
 
 builder.Services.AddSingleton<IMinioClient>(sp =>
 {
+    // 强制清理 endpoint，绝对不能带协议前缀，也不能带无关端口
+    var cleanEndpoint = minioEndpoint?
+        .Replace("https://", "")
+        .Replace("http://", "")
+        .TrimEnd('/');
+
+    // 自定义 HttpClient 处理程序，无视 Cloudflare 边缘证书或自签名证书的潜在校验报错
+    var handler = new HttpClientHandler
+    {
+        ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true
+    };
+
     return new MinioClient()
-        .WithEndpoint(minioEndpoint)
+        .WithEndpoint(cleanEndpoint)
         .WithCredentials(minioAccessKey, minioSecretKey)
-        .WithSSL() // 关键修改：去掉 false，开启 SSL
+        .WithSSL() // 🌟 保持开启，因为请求的是 Cloudflare 域名
+        .WithHttpClient(new HttpClient(handler)) // 🌟 挂载自定义 Handler
         .Build();
 });
-
 
 
 

@@ -27,6 +27,7 @@
         <router-link to="/taichu/events"    class="nav-item" active-class="active">
           <span class="nav-index">05</span> 赛事活动
         </router-link>
+      
       </nav>
 
       <router-link to="/taichu/profile" class="btn-apply">
