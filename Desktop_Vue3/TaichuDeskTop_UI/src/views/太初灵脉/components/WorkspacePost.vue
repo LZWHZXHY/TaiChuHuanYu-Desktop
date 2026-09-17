@@ -33,7 +33,7 @@ const props = defineProps<{
   title: string;
   noteId?: string;
   tags?: string[];
-  extraData?: string; // 🌟 补齐对齐项：声明接收可选属性，完全释放给右侧栏
+  extraData?: string; 
 }>();
 
 const emit = defineEmits(['update:title', 'change']);
@@ -41,7 +41,15 @@ const emit = defineEmits(['update:title', 'change']);
 const { activeNote } = useSpiritData();
 const isInitialized = ref(false);
 
-// 深度递归计算当前动态的纯文字总长度（用于动态字数限制高亮）
+const getTiptapBlocks = (note: any) => {
+  if (!note) return [];
+  if (note.content && note.content.type === 'doc' && Array.isArray(note.content.content)) {
+    return note.content.content;
+  }
+  if (Array.isArray(note.content)) return note.content;
+  return [];
+};
+
 const getTextLength = (node: any): number => {
   if (!node) return 0;
   let len = 0;
@@ -54,41 +62,33 @@ const getTextLength = (node: any): number => {
   return len;
 };
 
-// 响应式捕获当前 Tiptap 数据流中的文本总字数
 const currentLength = computed(() => {
-  // 🌟 修复点：加入非空安全链式防御
+  // 🌟 修复：增加非空守卫，解决 activeNote 可能为 null 的 TS 警告
   if (!activeNote.value) return 0;
-  const note = activeNote.value as any;
-  if (!note.blocks || !Array.isArray(note.blocks)) return 0;
+  
+  const blocks = getTiptapBlocks(activeNote.value);
+  if (!blocks.length) return 0;
   
   let totalLen = 0;
-  note.blocks.forEach((block: any) => {
-    if (block.type === 'paragraph' || block.type === 'heading') {
-      try {
-        const blockData = typeof block.data === 'string' ? JSON.parse(block.data) : block.data;
-        totalLen += getTextLength(blockData);
-      } catch (e) {}
-    }
+  blocks.forEach((block: any) => {
+    totalLen += getTextLength(block);
   });
   return totalLen;
 });
 
-// thought/post 类型限制在 500 字内[cite: 12]
 const isOverLimit = computed(() => currentLength.value > 500);
 
-// 自动对齐：短动态不需要标题，自动将正文的前 15 个字同步更新为该 Notes 的 title 方便显示[cite: 12]
 const syncPostTitleToSidebar = () => {
-  // 🌟 修复点：加入非空守卫
-  if (!activeNote.value) return;
-  const note = activeNote.value as any;
-  if (!note.blocks || !Array.isArray(note.blocks)) return;
+  // 🌟 修复：增加非空守卫，确保后续 activeNote.value.content 访问安全
+  if (!activeNote.value) return; 
 
-  const firstPara = note.blocks.find((b: any) => b.type === 'paragraph');
-  if (firstPara) {
+  const blocks = getTiptapBlocks(activeNote.value);
+  if (!blocks.length) return;
+
+  const firstTextNode = blocks.find((b: any) => getTextLength(b) > 0);
+  
+  if (firstTextNode) {
     try {
-      const blockData = typeof firstPara.data === 'string' ? JSON.parse(firstPara.data) : firstPara.data;
-      
-      // 提取纯文本
       const extractPureText = (n: any): string => {
         if (!n) return '';
         if (n.text) return n.text;
@@ -96,24 +96,24 @@ const syncPostTitleToSidebar = () => {
         return '';
       };
       
-      const pureText = extractPureText(blockData).trim();
+      const pureText = extractPureText(firstTextNode).trim();
       
       if (pureText) {
-        // 截取前 15 个字作为侧边栏和数据库里的标题[cite: 12]
         const shortTitle = pureText.length > 15 ? pureText.substring(0, 15) + '...' : pureText;
         if (props.title !== shortTitle) {
           emit('update:title', shortTitle);
-          // 🌟 顺带通过自治协议派发变更，保持 blocks 积木快照同步
-          emit('change', { blocks: note.blocks });
+          // 此时 TS 已确信 activeNote.value 不为空，报错消除
+          emit('change', activeNote.value.content);
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.error('提取标题失败:', e);
+    }
   }
 };
 
-// 监听外界数据变化，实时保持侧边栏标题平滑更新[cite: 12]
 watch(
-  () => activeNote.value?.blocks,
+  () => activeNote.value?.content,
   () => {
     if (isInitialized.value) {
       syncPostTitleToSidebar();
