@@ -7,6 +7,17 @@
         <div class="section-container">
           <SectionHeading index="01" title="PRICE BOARD" subtitle="服务价目 / SERVICE RATE" />
 
+          <!-- ⭐ 指定打手提示 -->
+          <div v-if="preferredOperatorId" class="preferred-hint">
+            <span class="ph-dot"></span>
+            <span class="ph-text">
+              已为你指定打手，下单时将默认选中
+            </span>
+            <button class="ph-clear" @click="clearPreferredOperator">
+              取消指定 ✕
+            </button>
+          </div>
+
           <!-- 游戏切换器 -->
           <div v-if="games.length > 0" class="game-switcher">
             <button
@@ -42,7 +53,6 @@
 
     <Footer />
 
-    <!-- ⭐ 下单弹窗 -->
     <OrderModal
       :visible="showOrderModal"
       :order-data="pendingOrder"
@@ -71,20 +81,24 @@ export default {
       orderTypes: [],
       loading: true,
 
-      // ⭐ 下单弹窗状态
+      // ⭐ 指定打手 ID（来自 URL query）
+      preferredOperatorId: '',
+
       showOrderModal: false,
       pendingOrder: null
     }
   },
 
   computed: {
-    // 当前选中的游戏对象（含 commonRulesText）
     activeGame() {
       return this.games.find(g => g.code === this.activeGameCode) || null
     }
   },
 
   async mounted() {
+    // ⭐ 读 URL 参数
+    this.preferredOperatorId = this.$route.query.operatorUserId || ''
+
     await this.loadGames()
   },
 
@@ -128,34 +142,47 @@ export default {
       }
     },
 
-    // ⭐ 点"下单" → 打开弹窗
     handleOrder(payload) {
-      if (!localStorage.getItem('token')) {
-        alert('请先登录')
-        return
-      }
+  if (!localStorage.getItem('token')) {
+    alert('请先登录')
+    return
+  }
 
-      this.pendingOrder = {
-        gameCode: this.activeGameCode,
-        gameName: this.activeGame?.name || '',
-        orderTypeCode: payload.orderTypeCode,
-        orderTypeName: payload.orderTypeName,
-        params: payload.params,
-        price: payload.price
-      }
-      this.showOrderModal = true
-    },
+  this.pendingOrder = {
+    gameCode: this.activeGameCode,
+    gameName: this.activeGame?.name || '',
+    orderTypeCode: payload.orderTypeCode,
+    orderTypeName: payload.orderTypeName,
+    params: payload.params,
+    price: payload.price,
+    // ⭐ 新增
+    pricingMode: payload.pricingMode,
+    minOperatorCount: payload.minOperatorCount,
+    maxOperatorCount: payload.maxOperatorCount,
+    // 原有
+    preferredOperatorId: this.preferredOperatorId
+  }
+  this.showOrderModal = true
+},
 
-    // ⭐ 关闭弹窗
     closeOrderModal() {
       this.showOrderModal = false
       this.pendingOrder = null
     },
 
-    // ⭐ 下单成功回调
     handleOrderSuccess(order) {
       console.log('下单成功:', order)
-      // 订单号已在弹窗内显示，这里只做记录
+
+      // ⭐ 下单成功后清掉"指定打手"
+      this.clearPreferredOperator()
+    },
+
+    /** ⭐ 清除指定打手 */
+    clearPreferredOperator() {
+      this.preferredOperatorId = ''
+      if (this.$route.query.operatorUserId) {
+        this.$router.replace({ path: '/taichu/pricing' })
+      }
     }
   }
 }
@@ -164,7 +191,40 @@ export default {
 <style scoped>
 .page-hero { padding: 120px 0 60px; border-bottom: 1px solid var(--line); }
 
-/* 游戏切换器 */
+/* ⭐ 指定打手提示条 */
+.preferred-hint {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  margin-top: 20px;
+  border: 1px solid rgba(255, 107, 26, 0.35);
+  background: rgba(255, 107, 26, 0.06);
+  border-radius: 3px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.ph-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--orange);
+  box-shadow: 0 0 8px var(--orange);
+  flex-shrink: 0;
+}
+.ph-text { flex: 1; }
+.ph-clear {
+  background: transparent;
+  border: 1px solid var(--line-bright);
+  color: var(--text-muted);
+  font-family: monospace;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: 0.2s;
+}
+.ph-clear:hover {
+  color: var(--orange);
+  border-color: rgba(255, 107, 26, 0.5);
+}
+
 .game-switcher {
   display: flex;
   flex-wrap: wrap;
@@ -188,7 +248,6 @@ export default {
   background: rgba(255, 107, 26, 0.08);
 }
 
-/* 加载 / 空态 */
 .loading-state,
 .empty-state {
   padding: 60px 32px;

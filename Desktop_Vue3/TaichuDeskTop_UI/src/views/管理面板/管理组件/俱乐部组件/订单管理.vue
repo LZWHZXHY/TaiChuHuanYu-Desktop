@@ -33,6 +33,19 @@
           <option value="completed">已完成</option>
           <option value="cancelled">已取消</option>
         </select>
+
+        <!-- ⭐ 客服筛选 -->
+        <select v-model="csFilter" class="ink-select" @change="loadOrders">
+          <option value="">全部客服</option>
+          <option value="none">未分配客服</option>
+          <option
+            v-for="cs in csList"
+            :key="cs.id"
+            :value="cs.id"
+          >
+            {{ cs.name }}
+          </option>
+        </select>
       </div>
       <button class="btn-refresh" @click="loadOrders" :disabled="loading">
         {{ loading ? '同步中...' : '刷新' }}
@@ -44,13 +57,15 @@
       <table class="ink-table">
         <thead>
           <tr>
-            <th width="180">订单号</th>
-            <th width="140">游戏 / 类型</th>
+            <th width="170">订单号</th>
+            <th width="130">游戏 / 类型</th>
             <th width="140">老板 → 打手</th>
+            <th width="130">客服</th>
             <th width="90">金额</th>
             <th width="100">订单状态</th>
             <th width="100">收款状态</th>
-            <th width="140">创建时间</th>
+            <th width="80">结算图</th>
+            <th width="130">创建时间</th>
             <th width="180" class="text-right">操作</th>
           </tr>
         </thead>
@@ -63,7 +78,17 @@
             </td>
             <td>
               <div class="mono font-sm">{{ shortId(o.customerId) }}</div>
-              <div class="mono font-sm text-muted">→ {{ o.operatorName || shortId(o.operatorUserId) }}</div>
+              <div class="mono font-sm text-muted">
+                → {{ operatorText(o) }}
+              </div>
+            </td>
+            <!-- ⭐ 客服 -->
+            <td>
+              <template v-if="o.customerServiceName">
+                <div class="cs-name">{{ o.customerServiceName }}</div>
+                <div class="cs-wx mono">{{ o.customerServiceWechat || '—' }}</div>
+              </template>
+              <span v-else class="text-muted">未分配</span>
             </td>
             <td class="mono price">¥{{ o.price }}</td>
             <td>
@@ -75,23 +100,49 @@
               <span v-if="o.paidConfirmedAt" class="paid-badge">✓ 已收款</span>
               <span v-else class="unpaid-badge">未确认</span>
             </td>
+            <!-- ⭐ 结算截图 -->
+            <td>
+              <a
+                v-if="o.settlementProofUrl"
+                :href="o.settlementProofUrl"
+                target="_blank"
+                rel="noopener"
+                class="proof-link"
+                title="点击查看结算截图"
+              >查看</a>
+              <span v-else class="text-muted">—</span>
+            </td>
             <td class="mono font-sm">{{ fmtTime(o.createdAt) }}</td>
             <td class="text-right actions">
+              <!-- 待确认收款 -->
               <button
                 v-if="!o.paidConfirmedAt && o.status === 'pending'"
                 class="btn-text"
                 @click="confirmPaid(o)"
               >确认收款</button>
+
+              <!-- ⭐ 代完成（仅服务中） -->
+              <button
+                v-if="o.status === 'processing'"
+                class="btn-text warn"
+                @click="forceComplete(o)"
+              >代完成</button>
+
+              <!-- 取消 -->
               <button
                 v-if="o.status === 'pending'"
                 class="btn-text danger"
                 @click="cancelOrder(o)"
               >取消</button>
-              <span v-if="o.paidConfirmedAt || o.status !== 'pending'" class="text-muted">—</span>
+
+              <span
+                v-if="o.status !== 'pending' && o.status !== 'processing'"
+                class="text-muted"
+              >—</span>
             </td>
           </tr>
           <tr v-if="orders.length === 0 && !loading">
-            <td colspan="8" class="empty-cell">暂无订单</td>
+            <td colspan="10" class="empty-cell">暂无订单</td>
           </tr>
         </tbody>
       </table>
@@ -118,6 +169,7 @@ interface OrderItem {
   remark?: string;
   createdAt: string;
   paidConfirmedAt?: string | null;
+  userPaidAt?: string | null;
   gameCode: string;
   gameName: string;
   orderTypeCode: string;
@@ -126,13 +178,32 @@ interface OrderItem {
   customerName: string;
   operatorUserId: string;
   operatorName: string;
+  // ⭐ 多打手
+  operators?: Array<{ userId: string; name: string; accepted?: boolean }>;
+  // ⭐ 客服
+  customerServiceId?: string | null;
+  customerServiceName?: string | null;
+  customerServiceWechat?: string | null;
+  // ⭐ 结算截图
+  settlementProofUrl?: string | null;
+  settlementProofUploaded?: boolean;
   params?: Record<string, string>;
+}
+
+interface CsOption {
+  id: string;
+  name: string;
+  wechat: string;
+  status?: string;
+  auditStatus?: string;
 }
 
 const orders = ref<OrderItem[]>([]);
 const loading = ref(false);
 const search = ref('');
 const statusFilter = ref('');
+const csFilter = ref('');
+const csList = ref<CsOption[]>([]);
 const page = ref(1);
 const pageSize = 20;
 const total = ref(0);
@@ -157,6 +228,16 @@ const statusLabel = (s: string) => ({
 
 const shortId = (uid: string) => uid ? uid.substring(0, 8).toUpperCase() : '—';
 
+/** ⭐ 打手文本（兼容多打手） */
+const operatorText = (o: OrderItem): string => {
+  if (o.operators && o.operators.length > 0) {
+    return o.operators.map(x => x.name).join('、');
+  }
+  if (o.operatorName) return o.operatorName;
+  if (o.operatorUserId) return shortId(o.operatorUserId);
+  return '未指派';
+};
+
 const fmtTime = (iso: string) => {
   if (!iso) return '—';
   const d = new Date(iso);
@@ -164,17 +245,42 @@ const fmtTime = (iso: string) => {
   return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+/** 加载客服列表 */
+const loadCustomerServices = async () => {
+  try {
+    const res: any = await request.get('/admin/club/customer-services');
+    const payload = res?.data ?? res;
+    const list = Array.isArray(payload) ? payload : (payload?.items ?? []);
+    csList.value = list
+      .filter((c: any) => c.auditStatus === 'approved' || c.isActive)
+      .map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        wechat: c.wechat,
+        status: c.status,
+        auditStatus: c.auditStatus,
+      }));
+  } catch (e) {
+    console.error('拉取客服列表失败', e);
+    csList.value = [];
+  }
+};
+
 const loadOrders = async () => {
   loading.value = true;
   try {
-    const res: any = await request.get('/admin/club/orders', {
-      params: {
-        search: search.value.trim() || undefined,
-        status: statusFilter.value || undefined,
-        page: page.value,
-        pageSize
-      }
-    });
+    const params: any = {
+      search: search.value.trim() || undefined,
+      status: statusFilter.value || undefined,
+      page: page.value,
+      pageSize,
+    };
+
+    if (csFilter.value) {
+      params.customerServiceId = csFilter.value;
+    }
+
+    const res: any = await request.get('/admin/club/orders', { params });
     const payload = res?.data ?? res;
     orders.value = payload?.items ?? [];
     total.value = payload?.total ?? 0;
@@ -207,6 +313,37 @@ const confirmPaid = async (o: OrderItem) => {
   }
 };
 
+/** ⭐ 代完成（客服/管理员手动结单） */
+const forceComplete = async (o: OrderItem) => {
+  if (o.status !== 'processing') return;
+
+  const reason = prompt(
+    `代完成订单【${o.orderNo}】\n\n请填写代完成原因（必填）：`,
+    '老板长时间未在正常时间结单'
+  );
+  if (reason === null) return;
+  if (!reason.trim()) {
+    alert('请填写代完成原因');
+    return;
+  }
+
+  if (!confirm(
+    `确认代完成订单【${o.orderNo}】？\n\n` +
+    `原因：${reason.trim()}\n\n` +
+    `完成后将触发打手结算，此操作不可撤销。`
+  )) return;
+
+  try {
+    await request.post(`/admin/club/order/${o.orderNo}/force-complete`, {
+      reason: reason.trim()
+    });
+    await loadOrders();
+    alert('已代完成');
+  } catch (e: any) {
+    alert(e?.response?.data?.message || e.message || '操作失败');
+  }
+};
+
 const cancelOrder = async (o: OrderItem) => {
   const reason = prompt(`取消订单【${o.orderNo}】？\n请输入取消原因（可留空）:`);
   if (reason === null) return;
@@ -224,7 +361,12 @@ const changePage = (p: number) => {
   loadOrders();
 };
 
-onMounted(loadOrders);
+onMounted(async () => {
+  await Promise.all([
+    loadOrders(),
+    loadCustomerServices(),
+  ]);
+});
 </script>
 
 <style scoped>
@@ -251,7 +393,7 @@ onMounted(loadOrders);
   display: flex; justify-content: space-between; align-items: center;
   gap: 16px;
 }
-.filter-row { display: flex; gap: 12px; flex: 1; max-width: 820px; }
+.filter-row { display: flex; gap: 12px; flex: 1; max-width: 1000px; }
 .filter-row .ink-input { flex: 2; }
 
 .ink-input, .ink-select {
@@ -259,7 +401,7 @@ onMounted(loadOrders);
   font-size: 0.85rem; outline: none; background: #fff; font-family: inherit;
 }
 .ink-input:focus, .ink-select:focus { border-color: #1a1a1a; }
-.ink-select { cursor: pointer; min-width: 140px; }
+.ink-select { cursor: pointer; min-width: 130px; }
 
 .btn-refresh {
   background: #fff; border: 1px solid #e0e0e0; padding: 10px 20px;
@@ -274,11 +416,11 @@ onMounted(loadOrders);
 }
 .ink-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .ink-table th {
-  padding: 14px 16px; background: #fcfcfc; color: #888; text-align: left;
-  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 14px 12px; background: #fcfcfc; color: #888; text-align: left;
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px;
   border-bottom: 2px solid #111;
 }
-.ink-table td { padding: 14px 16px; border-bottom: 1px solid #f7f7f7; vertical-align: middle; }
+.ink-table td { padding: 14px 12px; border-bottom: 1px solid #f7f7f7; vertical-align: middle; }
 .ink-table tr:hover td { background: #fafafa; }
 .text-right { text-align: right; }
 .text-muted { color: #999; }
@@ -289,6 +431,10 @@ onMounted(loadOrders);
 .ot-name { font-weight: 600; color: #111; font-size: 0.85rem; }
 .ot-desc { margin-top: 2px; font-size: 0.72rem; color: #999; }
 .price { color: #c2410c; font-weight: 600; }
+
+/* 客服列 */
+.cs-name { font-weight: 600; color: #111; font-size: 0.85rem; }
+.cs-wx { font-size: 0.72rem; color: #2563eb; margin-top: 2px; }
 
 .status-pill {
   display: inline-block; padding: 3px 10px;
@@ -311,12 +457,30 @@ onMounted(loadOrders);
   color: #c2410c; background: #fff7ed; border-radius: 3px;
 }
 
+/* 结算截图链接 */
+.proof-link {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #2563eb;
+  background: #eff6ff;
+  border-radius: 3px;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+.proof-link:hover {
+  background: #dbeafe;
+  text-decoration: underline;
+}
+
 .btn-text {
   background: none; border: none; color: #2563eb; cursor: pointer;
   font-size: 0.8rem; font-weight: 700; margin-left: 12px; padding: 0;
 }
 .btn-text:hover { text-decoration: underline; }
 .btn-text.danger { color: #dc2626; }
+.btn-text.warn { color: #f97316; }
 
 .pagination {
   display: flex; justify-content: flex-end; align-items: center;
@@ -332,4 +496,10 @@ onMounted(loadOrders);
 .btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 900px) {
+  .filter-row { flex-wrap: wrap; }
+  .filter-row .ink-input { flex: 1 1 100%; }
+  .filter-row .ink-select { flex: 1; }
+}
 </style>

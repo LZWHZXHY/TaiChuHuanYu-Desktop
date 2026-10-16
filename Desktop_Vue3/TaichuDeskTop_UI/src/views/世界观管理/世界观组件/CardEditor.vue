@@ -1,92 +1,112 @@
 <template>
   <div class="card-editor-inline" v-loading="loading">
-    <div v-if="isCreating" class="create-banner">
+    <!-- 新建横幅 -->
+    <div v-if="isCreating" class="editor-banner">
       <span>✨ 新建卡片</span>
-      <button class="cancel-create" @click="cancelCreate">取消</button>
+      <button class="cancel-btn" @click="cancelCreate">取消</button>
     </div>
 
     <!-- 标题 -->
-    <div class="field">
-      <input v-model="form.title" placeholder="卡片名称" class="title-input" />
+    <input
+      v-model="form.title"
+      class="doc-title-input"
+      placeholder="卡片名称"
+    />
+
+    <!-- 类型胶囊 -->
+    <div class="doc-meta-row">
+      <span
+        v-for="type in cardTypeOptions"
+        :key="type.value"
+        class="type-chip"
+        :class="{ active: form.type === type.value }"
+        @click="selectType(type)"
+      >
+        {{ type.label }}
+      </span>
     </div>
 
-    <!-- 配额提示 -->
-    <div class="field">
-      <div class="quota-hint" :class="quotaStatus">
-        <span>📄 当前世界词汇量：{{ quotaInfo.currentCount }} / {{ quotaInfo.maxCount }}</span>
-        <span v-if="quotaInfo.remaining > 0" class="quota-remaining">
-          剩余 {{ quotaInfo.remaining }} 张
-        </span>
-        <span v-else class="quota-full">⚠️ 已满，请扩容</span>
+    <!-- 封面 -->
+    <div class="doc-section">
+      <div v-if="form.coverImage" class="cover-preview">
+        <img :src="form.coverImage" @click="triggerFileInput" />
+        <button class="cover-remove" @click.stop="form.coverImage = ''">×</button>
       </div>
-    </div>
-
-    <!-- 类型选择 -->
-    <div class="field">
-      <div class="type-tabs">
-        <button
-          v-for="type in cardTypeOptions"
-          :key="type.value"
-          class="type-tab"
-          :class="{ active: form.type === type.value }"
-          @click="selectType(type)"
-        >
-          {{ type.label }}
-        </button>
-      </div>
-    </div>
-
-    <!-- 封面图 -->
-    <div class="field cover-field">
-      <div v-if="form.coverImage" class="cover-preview-mini">
-        <img :src="form.coverImage" />
-        <button class="remove-cover-mini" @click="form.coverImage = ''">×</button>
-      </div>
-      <button v-else class="upload-cover-btn" @click="triggerFileInput">+ 封面图</button>
+      <button v-else class="add-btn-ghost" @click="triggerFileInput">
+        <span>🖼️</span> 添加封面
+      </button>
       <input ref="fileInput" type="file" accept="image/*" style="display:none" @change="handleFileUpload" />
-      <div v-if="uploadingCover" class="upload-progress-mini">上传中...</div>
-    </div>
-
-    <!-- 图库 -->
-    <div class="field gallery-field">
-      <label class="field-label">图库</label>
-      <div class="gallery-upload">
-        <div v-if="form.galleryImages && form.galleryImages.length" class="gallery-grid">
-          <div v-for="(img, idx) in form.galleryImages" :key="idx" class="gallery-item">
-            <img :src="img" :alt="`图 ${idx + 1}`" />
-            <button class="remove-gallery-btn" @click="removeGalleryImage(idx)">✕</button>
-          </div>
-        </div>
-        <button class="upload-gallery-btn" @click="triggerGalleryUpload">+ 添加图片</button>
-        <input ref="galleryInput" type="file" accept="image/*" multiple style="display:none" @change="handleGalleryUpload" />
-        <span v-if="uploadingGallery" class="upload-progress">上传中...</span>
-      </div>
-      <p class="hint">支持多张图片，展示卡片的多个视角</p>
-    </div>
-
-    <!-- 属性 -->
-    <div class="field">
-      <AttributeList v-model="form.attributes" />
+      <div v-if="uploadingCover" class="upload-hint">上传中...</div>
     </div>
 
     <!-- 描述 -->
-    <div class="field">
-      <textarea v-model="form.description" rows="3" placeholder="描述..." class="desc-area"></textarea>
+    <div class="doc-section">
+      <textarea
+        v-model="form.description"
+        class="doc-desc-input"
+        placeholder="描述这个卡片..."
+        rows="5"
+      ></textarea>
     </div>
 
-    <!-- 类型专属编辑器 -->
-    <div v-if="currentTypeEditor" class="field type-editor-wrapper">
-      <component
-        :is="currentTypeEditor"
-        v-model="form"
-      />
-    </div>
-    <div v-else class="field type-editor-placeholder">
-      <p class="placeholder-text">📝 该类型暂无专属编辑器，使用通用字段</p>
+    <!-- 图库 -->
+    <div class="doc-section">
+      <h2 class="section-title">图库</h2>
+      <div v-if="form.galleryImages && form.galleryImages.length" class="gallery-grid">
+        <div
+          v-for="(img, idx) in form.galleryImages"
+          :key="idx"
+          class="gallery-item"
+        >
+          <img :src="img" :alt="`图 ${idx + 1}`" />
+          <button class="gallery-remove" @click="removeGalleryImage(idx)">×</button>
+        </div>
+      </div>
+      <button class="add-btn-ghost" @click="triggerGalleryUpload">
+        <span>+</span> 添加图片
+      </button>
+      <input ref="galleryInput" type="file" accept="image/*" multiple style="display:none" @change="handleGalleryUpload" />
+      <div v-if="uploadingGallery" class="upload-hint">上传中...</div>
     </div>
 
-    <!-- 关联内容（已抽离为独立组件） -->
-    <div class="field">
+    <!-- 类型专属属性 -->
+    <div class="doc-section">
+      <h2 class="section-title">{{ currentTypeLabel }}属性</h2>
+      <DynamicForm v-model="form.content" :type="form.type">
+        <template #location-coordinate="{ value, onChange }">
+          <div class="coord-group">
+            <div class="coord-item">
+              <span class="coord-label">X</span>
+              <input
+                type="number"
+                step="0.01"
+                :value="value?.x ?? 0"
+                @input="onChange({ ...(value || {}), x: Number(($event.target as HTMLInputElement).value) })"
+              />
+            </div>
+            <div class="coord-item">
+              <span class="coord-label">Y</span>
+              <input
+                type="number"
+                step="0.01"
+                :value="value?.y ?? 0"
+                @input="onChange({ ...(value || {}), y: Number(($event.target as HTMLInputElement).value) })"
+              />
+            </div>
+          </div>
+        </template>
+      </DynamicForm>
+    </div>
+
+    <!-- 自定义属性 -->
+    <div class="doc-section">
+      <h2 class="section-title">自定义属性</h2>
+      <AttributeList v-model="form.attributes" />
+    </div>
+
+    <!-- 关联内容 -->
+    <div class="doc-section">
+      <h2 class="section-title">关联内容</h2>
       <ContentBlockManager
         v-model="form.contentBlocks"
         :project-id="routeProjectId"
@@ -96,37 +116,47 @@
       />
     </div>
 
-    <!-- 标签 -->
-    <div class="field">
-      <TagInput v-model="form.tags" />
+    <!-- 关联卡片（出度） -->
+    <div class="doc-section">
+      <h2 class="section-title">关联卡片</h2>
+      <RelationSelector v-model="form.relations" :project-id="projectId" />
     </div>
 
-    <!-- 关联卡片（出度，可编辑） -->
-    <div class="field">
-      <RelationSelector
-        v-model="form.relations"
-        :project-id="projectId"
-      />
-    </div>
-
-    <!-- 🔗 入度关系（只读） -->
-    <div class="field" v-if="incomingRelations.length">
+    <!-- 被以下卡片关联（只读） -->
+    <div v-if="incomingRelations.length" class="doc-section">
+      <h2 class="section-title">被以下卡片关联</h2>
       <RelationList
         :relations="incomingRelations"
         type="in"
         :project-id="projectId"
         :card-id="routeCardId"
-        label="📌 被以下卡片关联（只读）"
         @card-click="goToCard"
       />
     </div>
 
-    <!-- 操作按钮 -->
-    <div class="editor-actions">
-      <button class="btn-primary" @click="handleSave" :disabled="saving || loading">
-        {{ saving ? '保存中...' : '保存' }}
-      </button>
-      <button v-if="!isCreating" class="btn-danger" @click="handleDelete">删除</button>
+    <!-- 标签 -->
+    <div class="doc-section">
+      <h2 class="section-title">标签</h2>
+      <TagInput v-model="form.tags" />
+    </div>
+
+    <!-- 底部操作栏 -->
+    <div class="editor-footer">
+      <div class="footer-left">
+        <div class="quota-info" :class="quotaStatus">
+          <span>📄 {{ quotaInfo.currentCount }} / {{ quotaInfo.maxCount }}</span>
+          <span v-if="quotaInfo.remaining > 0" class="quota-remaining">
+            剩余 {{ quotaInfo.remaining }} 张
+          </span>
+          <span v-else class="quota-full-text">⚠️ 已满，请扩容</span>
+        </div>
+      </div>
+      <div class="footer-actions">
+        <button class="btn-primary" @click="handleSave" :disabled="saving || loading">
+          {{ saving ? '保存中...' : '保存' }}
+        </button>
+        <button v-if="!isCreating" class="btn-danger" @click="handleDelete">删除</button>
+      </div>
     </div>
   </div>
 </template>
@@ -153,20 +183,7 @@ import TagInput from './TagInput.vue'
 import RelationSelector from './RelationSelector.vue'
 import RelationList from './RelationList.vue'
 import ContentBlockManager from './ContentBlockManager.vue'
-
-// ===== 导入所有类型专属编辑器 =====
-import CharacterEditor from '../type-editors/CharacterEditor.vue'
-import LocationEditor from '../type-editors/LocationEditor.vue'
-import ItemEditor from '../type-editors/ItemEditor.vue'
-import EventEditor from '../type-editors/EventEditor.vue'
-import FactionEditor from '../type-editors/FactionEditor.vue'
-import SpeciesEditor from '../type-editors/SpeciesEditor.vue'
-import OccupationEditor from '../type-editors/OccupationEditor.vue'
-import OrganizationEditor from '../type-editors/OrganizationEditor.vue'
-import CreatureEditor from '../type-editors/CreatureEditor.vue'
-import SkillEditor from '../type-editors/SkillEditor.vue'
-import ClimateEditor from '../type-editors/ClimateEditor.vue'
-import ConceptEditor from '../type-editors/ConceptEditor.vue'
+import DynamicForm from './DynamicForm.vue'
 
 // ===== Router & Route =====
 const route = useRoute()
@@ -188,23 +205,17 @@ const emit = defineEmits<{
 const store = useWorldStore()
 
 // ============================================================
-//  1. 使用 Composables
+//  1. Composables
 // ============================================================
-
-// 表单管理
 const { form, resetForm, setFormData } = useCardForm()
 
-// 配额管理
 const routeProjectId = computed(() => (route.params.projectId as string) || props.projectId)
 const { quotaInfo, quotaStatus, checkCanCreate } = useCardQuota(routeProjectId)
 
-// 卡片类型选项
 const { cardTypeOptions } = useCardTypeOptions()
 
-// 图片上传
 const { uploadingCover, uploadingGallery, uploadCover, uploadGallery } = useCardUpload()
 
-// 编辑器核心逻辑
 const {
   saving,
   loading,
@@ -215,42 +226,24 @@ const {
   handleDelete: editorHandleDelete,
 } = useCardEditor(form, resetForm, setFormData, checkCanCreate, props.projectId)
 
-// 关系差异计算
 const { computeDiff } = useRelationDiff()
 
 // ============================================================
-//  2. 组件内部状态（仅 UI 相关）
+//  2. 计算属性
 // ============================================================
-const fileInput = ref<HTMLInputElement | null>(null)
-const galleryInput = ref<HTMLInputElement | null>(null)
-const tagInput = ref('')
-const newRelation = ref({ targetId: '', relationType: '' })
-const searchResults = ref<any[]>([])
-
-// ============================================================
-//  3. 编辑器映射
-// ============================================================
-const editorMap: Record<CardType, any> = {
-  character: CharacterEditor,
-  location: LocationEditor,
-  item: ItemEditor,
-  event: EventEditor,
-  faction: FactionEditor,
-  species: SpeciesEditor,
-  occupation: OccupationEditor,
-  organization: OrganizationEditor,
-  creature: CreatureEditor,
-  skill: SkillEditor,
-  climate: ClimateEditor,
-  concept: ConceptEditor,
-}
-
-const currentTypeEditor = computed(() => {
-  return editorMap[form.value.type as CardType] || null
+const currentTypeLabel = computed(() => {
+  const meta = CardTypeMeta[form.value.type as CardType]
+  return meta?.label || form.value.type
 })
 
 // ============================================================
-//  4. UI 事件处理
+//  3. 组件内部状态
+// ============================================================
+const fileInput = ref<HTMLInputElement | null>(null)
+const galleryInput = ref<HTMLInputElement | null>(null)
+
+// ============================================================
+//  4. UI 事件
 // ============================================================
 const selectType = (type: any) => {
   form.value.type = type.value
@@ -306,7 +299,7 @@ const handleDelete = async () => {
 }
 
 // ============================================================
-//  5. 入度关系展示（新增）
+//  5. 入度关系
 // ============================================================
 const incomingRelations = computed(() => {
   return store.currentCard?.inRelations || []
@@ -318,7 +311,7 @@ const goToCard = (targetId: string) => {
 }
 
 // ============================================================
-//  6. 监听路由变化
+//  6. 监听路由
 // ============================================================
 watch(
   () => route.params.cardId,
@@ -339,7 +332,7 @@ watch(
 )
 
 // ============================================================
-//  8. 生命周期
+//  7. 生命周期
 // ============================================================
 onMounted(() => {
   loadCardData(props.cardData)
@@ -355,8 +348,6 @@ onMounted(() => {
   )
 })
 </script>
-
-
 
 <style scoped>
 @import './CardEditor.css';

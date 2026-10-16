@@ -26,12 +26,16 @@
         <thead>
           <tr>
             <th width="60">上架</th>
-            <th width="120">代码</th>
-            <th width="200">显示名</th>
-            <th width="100">状态</th>
-            <th width="140">价格档位</th>
-            <th width="160">有效期</th>
-            <th width="220" class="text-right">操作</th>
+            <th width="110">代码</th>
+            <th width="180">显示名</th>
+            <th width="90">状态</th>
+            <!-- ⭐ 新增「计价」列 -->
+            <th width="110">计价</th>
+            <!-- ⭐ 新增「打手数」列 -->
+            <th width="90">打手数</th>
+            <th width="120">价格档位</th>
+            <th width="140">有效期</th>
+            <th width="200" class="text-right">操作</th>
           </tr>
         </thead>
         <tbody>
@@ -54,6 +58,16 @@
             <td>
               <span :class="['status-pill', getStatus(t)]">{{ statusLabel(getStatus(t)) }}</span>
             </td>
+            <!-- ⭐ 新增：计价方式 -->
+            <td>
+              <span :class="['mode-pill', t.pricingMode]">
+                {{ modeLabel(t.pricingMode) }}
+              </span>
+            </td>
+            <!-- ⭐ 新增：打手人数 -->
+            <td class="mono op-count-cell">
+              {{ t.minOperatorCount }}-{{ t.maxOperatorCount }} 人
+            </td>
             <td class="mono price-preview">{{ priceRange(t) }}</td>
             <td>
               <span class="editable-time" @click="openTimeModal(t)">
@@ -67,7 +81,8 @@
             </td>
           </tr>
           <tr v-if="orderTypes.length === 0">
-            <td colspan="7" class="empty-cell">
+            <!-- ⭐ colspan 7 → 9 -->
+            <td colspan="9" class="empty-cell">
               {{ gameCode ? '该游戏暂无订单类型，点击右上角新增' : '请先选择一款游戏' }}
             </td>
           </tr>
@@ -91,7 +106,7 @@
                 v-model="form.code"
                 :disabled="form.isEdit"
                 class="ink-input"
-                placeholder="如 escort / fun / gamble"
+                placeholder="如 escort / hourly"
               />
             </div>
             <div class="field">
@@ -102,10 +117,13 @@
               <label>说明</label>
               <textarea v-model="form.description" class="ink-input" rows="2"></textarea>
             </div>
+
+            <!-- ⭐ 计价方式：加了 level-based -->
             <div class="field">
               <label>计价方式</label>
               <select v-model="form.pricingMode" class="ink-input">
-                <option value="fixed">fixed 一口价</option>
+                <option value="fixed">fixed 一口价（护航单等）</option>
+                <option value="level-based">level-based 等级增幅（陪玩单等）</option>
                 <option value="per-round">per-round 按局</option>
                 <option value="per-hour">per-hour 按小时</option>
                 <option value="tiered">tiered 阶梯价</option>
@@ -115,6 +133,39 @@
               <label>排序权重</label>
               <input type="number" v-model.number="form.sortOrder" class="ink-input" />
             </div>
+
+            <!-- ⭐ 新增：打手数量 -->
+            <div class="field full">
+              <label>打手数量 *</label>
+              <div class="op-count-row">
+                <div class="op-count-input">
+                  <span>最少</span>
+                  <input
+                    type="number"
+                    v-model.number="form.minOperatorCount"
+                    class="ink-input"
+                    min="1"
+                    max="5"
+                  />
+                  <span>人</span>
+                </div>
+                <div class="op-count-input">
+                  <span>最多</span>
+                  <input
+                    type="number"
+                    v-model.number="form.maxOperatorCount"
+                    class="ink-input"
+                    min="1"
+                    max="5"
+                  />
+                  <span>人</span>
+                </div>
+              </div>
+              <p class="score-hint">
+                护航单通常填 <code>2-2</code>（必须双人）；陪玩单通常 <code>1-2</code>（可选单/双）。
+              </p>
+            </div>
+
             <div class="field full">
               <label>下单参数结构 (JSON Schema)</label>
               <textarea
@@ -131,10 +182,11 @@
                 v-model="form.pricingJson"
                 class="ink-input mono"
                 rows="3"
-                placeholder='{"2588W":388,"4588W":688}'
+                :placeholder="pricingPlaceholder"
               ></textarea>
               <p class="score-hint">
-                把"下拉选项 → 价格"对应起来。只有 <code>default</code> 一个 key 时表示无参数、固定价。
+                <b>fixed 类型：</b>写 <code>{"default": 388}</code>（基础价）<br/>
+                <b>level-based：</b>写 <code>{"default": 30}</code>（基础价，会按打手等级加价）
               </p>
             </div>
             <div class="field full">
@@ -227,6 +279,9 @@ interface ClubOrderType {
   sortOrder: number;
   startAt?: string | null;
   endAt?: string | null;
+  // ⭐ 新增
+  minOperatorCount: number;
+  maxOperatorCount: number;
 }
 
 interface OrderTypeFormState {
@@ -243,6 +298,9 @@ interface OrderTypeFormState {
   sortOrder: number;
   startAt: string;
   endAt: string;
+  // ⭐ 新增
+  minOperatorCount: number;
+  maxOperatorCount: number;
 }
 
 const games = ref<ClubGame[]>([]);
@@ -265,7 +323,26 @@ const form = reactive<OrderTypeFormState>({
   sortOrder: 0,
   startAt: '',
   endAt: '',
+  // ⭐ 新增
+  minOperatorCount: 1,
+  maxOperatorCount: 1,
 });
+
+// ⭐ 新增
+const pricingPlaceholder = computed(() => {
+  return form.pricingMode === 'level-based'
+    ? '{"default": 30}'
+    : '{"default": 388}  或  {"2588W":388,"4588W":688}'
+});
+
+// ⭐ 新增
+const modeLabel = (mode: string) => ({
+  'fixed': '固定价',
+  'level-based': '等级增幅',
+  'per-round': '按局',
+  'per-hour': '按小时',
+  'tiered': '阶梯',
+}[mode] || mode);
 
 const toLocalInput = (iso?: string | null): string => {
   if (!iso) return '';
@@ -345,7 +422,8 @@ const loadOrderTypes = async () => {
     const res: any = await request.get('/admin/club/order-types', {
       params: { gameCode: gameCode.value },
     });
-    orderTypes.value = res.data || res || [];
+    const payload = res.data ?? res;
+    orderTypes.value = Array.isArray(payload) ? payload : (payload?.items ?? []);
   } catch (e) {
     console.error('拉取订单类型失败', e);
   }
@@ -370,6 +448,9 @@ const openModal = (t?: ClubOrderType) => {
     form.sortOrder = t.sortOrder;
     form.startAt = toLocalInput(t.startAt);
     form.endAt = toLocalInput(t.endAt);
+    // ⭐ 新增
+    form.minOperatorCount = t.minOperatorCount ?? 1;
+    form.maxOperatorCount = t.maxOperatorCount ?? 1;
   } else {
     form.isEdit = false;
     form.id = undefined;
@@ -384,6 +465,9 @@ const openModal = (t?: ClubOrderType) => {
     form.sortOrder = orderTypes.value.length + 1;
     form.startAt = '';
     form.endAt = '';
+    // ⭐ 新增
+    form.minOperatorCount = 1;
+    form.maxOperatorCount = 1;
   }
   showModal.value = true;
 };
@@ -395,6 +479,21 @@ const save = async () => {
     alert('请填写代码与显示名');
     return;
   }
+
+  // ⭐ 新增：打手数量校验
+  if (form.minOperatorCount < 1) {
+    alert('最少打手数不能小于 1');
+    return;
+  }
+  if (form.maxOperatorCount < form.minOperatorCount) {
+    alert('最多打手数不能小于最少打手数');
+    return;
+  }
+  if (form.maxOperatorCount > 5) {
+    alert('最多打手数不能超过 5');
+    return;
+  }
+
   if (form.paramsSchemaJson.trim()) {
     try { JSON.parse(form.paramsSchemaJson); }
     catch { alert('下单参数结构不是合法的 JSON'); return; }
@@ -403,6 +502,7 @@ const save = async () => {
     try { JSON.parse(form.pricingJson); }
     catch { alert('价格映射不是合法的 JSON'); return; }
   }
+
   saving.value = true;
   try {
     await request.post('/admin/club/order-type', {
@@ -419,11 +519,14 @@ const save = async () => {
       sortOrder: form.sortOrder,
       startAt: toIso(form.startAt),
       endAt: toIso(form.endAt),
+      // ⭐ 新增
+      minOperatorCount: form.minOperatorCount,
+      maxOperatorCount: form.maxOperatorCount,
     });
     await loadOrderTypes();
     closeModal();
   } catch (e: any) {
-    alert(e.message || '保存失败');
+    alert(e?.response?.data?.message || e.message || '保存失败');
   } finally {
     saving.value = false;
   }
@@ -545,11 +648,11 @@ onMounted(loadGames);
 }
 .ink-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .ink-table th {
-  padding: 16px; background: #fcfcfc; color: #888; text-align: left;
-  font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;
+  padding: 14px 12px; background: #fcfcfc; color: #888; text-align: left;
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px;
   border-bottom: 2px solid #111;
 }
-.ink-table td { padding: 16px; border-bottom: 1px solid #f7f7f7; vertical-align: middle; }
+.ink-table td { padding: 14px 12px; border-bottom: 1px solid #f7f7f7; vertical-align: middle; }
 .ink-table tr:hover td { background: #fafafa; }
 .text-right { text-align: right; }
 .text-muted { color: #999; }
@@ -582,6 +685,22 @@ onMounted(loadGames);
 .status-pill.upcoming { background: #fff7ed; color: #c2410c; }
 .status-pill.expired  { background: #f5f5f5; color: #888; }
 .status-pill.disabled { background: #fef2f2; color: #dc2626; }
+
+/* ⭐ 新增：计价方式 pill */
+.mode-pill {
+  display: inline-block; padding: 3px 8px;
+  font-size: 0.72rem; font-weight: 600; border-radius: 3px;
+  background: #f1f5f9; color: #475569;
+}
+.mode-pill.level-based {
+  background: #eff6ff; color: #2563eb;
+}
+.mode-pill.fixed {
+  background: #f0fdf4; color: #16a34a;
+}
+
+/* ⭐ 新增：打手数量列 */
+.op-count-cell { color: #333; }
 
 .price-preview { color: #c2410c; font-weight: 600; }
 
@@ -623,6 +742,22 @@ onMounted(loadGames);
 .field label { font-size: 0.7rem; text-transform: uppercase; color: #aaa; font-weight: 700; }
 .field textarea.ink-input { resize: vertical; font-family: inherit; }
 .switch-label { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; padding-top: 8px; }
+
+/* ⭐ 新增：打手数量输入行 */
+.op-count-row {
+  display: flex; gap: 16px; align-items: center;
+}
+.op-count-input {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1;
+}
+.op-count-input span {
+  font-size: 0.85rem; color: #666;
+  white-space: nowrap;
+}
+.op-count-input input {
+  flex: 1; min-width: 0;
+}
 
 .score-hint { margin: 4px 0 0; font-size: 0.72rem; color: #888; line-height: 1.6; }
 .score-hint code {

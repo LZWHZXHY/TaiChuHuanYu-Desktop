@@ -2,12 +2,13 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Text.Json;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Models.Club;
 
 namespace TaiChuWeb_V2.Controllers.Club
 {
-    /// <summary>订单评价（双向：老板 ↔ 打手）</summary>
+    /// <summary>订单评价（仅老板评打手，支持多打手分开评）</summary>
     [ApiController]
     [Route("api/club")]
     [Authorize]
@@ -16,8 +17,11 @@ namespace TaiChuWeb_V2.Controllers.Club
         private readonly AppDbContext _db;
         public OrderReviewController(AppDbContext db) => _db = db;
 
+        // ⭐ 评价有效期：订单完成后多少天内可评价
+        private const int REVIEW_WINDOW_DAYS = 1;
+
         // ==================================================
-        //  1. 提交评价
+        //  1. 提交评价（老板评打手）
         // ==================================================
         [HttpPost("orders/{orderNo}/review")]
         public async Task<IActionResult> Submit(string orderNo, [FromBody] ReviewDto dto)
@@ -29,32 +33,62 @@ namespace TaiChuWeb_V2.Controllers.Club
                 .FirstOrDefaultAsync(o => o.OrderNo == orderNo);
             if (order == null) return NotFound(new { message = "订单不存在" });
 
-            if (order.CustomerId != userId && order.OperatorUserId != userId)
-                return StatusCode(403, new { message = "无权评价该订单" });
+            // ⭐ 只允许老板评价
+            if (order.CustomerId != userId)
+                return StatusCode(403, new { message = "只有下单老板才能评价" });
 
             if (order.Status != "completed")
                 return BadRequest(new { message = "订单未完成，无法评价" });
+
+            // ⭐ 评价有效期
+            if (order.CompletedAt.HasValue)
+            {
+                var deadline = order.CompletedAt.Value.AddDays(REVIEW_WINDOW_DAYS);
+                if (DateTime.UtcNow > deadline)
+                    return BadRequest(new { message = $"评价已过期（订单完成后 {REVIEW_WINDOW_DAYS} 天内有效）" });
+            }
+
+            // 解析该订单的所有打手
+            var opIds = ParseOperatorUserIds(order.OperatorUserIdsJson);
+            if (opIds.Count == 0 && order.OperatorUserId != Guid.Empty)
+                opIds.Add(order.OperatorUserId);
+
+            if (opIds.Count == 0)
+                return BadRequest(new { message = "该订单没有打手，无法评价" });
+
+            // ⭐ 确定被评打手
+            Guid toOperatorId;
+            if (dto.ToOperatorUserId.HasValue && dto.ToOperatorUserId.Value != Guid.Empty)
+            {
+                if (!opIds.Contains(dto.ToOperatorUserId.Value))
+                    return BadRequest(new { message = "被评打手不属于该订单" });
+                toOperatorId = dto.ToOperatorUserId.Value;
+            }
+            else
+            {
+                if (opIds.Count > 1)
+                    return BadRequest(new { message = "多打手订单请指定要评价的打手" });
+                toOperatorId = opIds[0];
+            }
 
             if (!InRange(dto.SkillScore) || !InRange(dto.AttitudeScore)
                 || !InRange(dto.PunctualScore) || !InRange(dto.OverallScore))
                 return BadRequest(new { message = "评分必须在 1-5 之间" });
 
-            var isCustomer = order.CustomerId == userId;
-            var toUserId = isCustomer ? order.OperatorUserId : order.CustomerId;
-
+            // ⭐ 唯一性：(OrderId, FromUserId, ToUserId) 三元组
             var exists = await _db.OrderReviews.AnyAsync(r =>
                 r.OrderId == order.Id &&
                 r.FromUserId == userId &&
-                r.FromCustomer == isCustomer);
+                r.ToUserId == toOperatorId);
             if (exists)
-                return BadRequest(new { message = "你已经评价过这个订单了" });
+                return BadRequest(new { message = "你已经评价过这位打手了" });
 
             var review = new OrderReview
             {
                 OrderId = order.Id,
                 FromUserId = userId,
-                ToUserId = toUserId,
-                FromCustomer = isCustomer,
+                ToUserId = toOperatorId,
+                FromCustomer = true,
                 SkillScore = dto.SkillScore,
                 AttitudeScore = dto.AttitudeScore,
                 PunctualScore = dto.PunctualScore,
@@ -64,15 +98,11 @@ namespace TaiChuWeb_V2.Controllers.Club
             };
             _db.OrderReviews.Add(review);
 
-            // 只有"老板评打手"才重算打手统计 + 调信誉
-            if (isCustomer)
-            {
-                await RecalcOperatorStats(order.OperatorUserId);
-                await AdjustReputation(order.OperatorUserId, dto.OverallScore);
-            }
+            await RecalcOperatorStats(toOperatorId);
+            await AdjustReputation(toOperatorId, dto.OverallScore);
 
             await _db.SaveChangesAsync();
-            return Ok(new { message = "评价已提交" });
+            return Ok(new { message = "评价已提交", toOperatorId });
         }
 
         // ==================================================
@@ -88,7 +118,13 @@ namespace TaiChuWeb_V2.Controllers.Club
                 .FirstOrDefaultAsync(o => o.OrderNo == orderNo);
             if (order == null) return NotFound(new { message = "订单不存在" });
 
-            if (order.CustomerId != userId && order.OperatorUserId != userId)
+            var opIds = ParseOperatorUserIds(order.OperatorUserIdsJson);
+            if (opIds.Count == 0 && order.OperatorUserId != Guid.Empty)
+                opIds.Add(order.OperatorUserId);
+
+            var isCustomer = order.CustomerId == userId;
+            var isOperator = opIds.Contains(userId);
+            if (!isCustomer && !isOperator)
                 return StatusCode(403, new { message = "无权查看" });
 
             var reviews = await _db.OrderReviews
@@ -97,7 +133,12 @@ namespace TaiChuWeb_V2.Controllers.Club
                 .OrderBy(r => r.CreatedAt)
                 .ToListAsync();
 
-            var userIds = reviews.Select(r => r.FromUserId).Distinct().ToList();
+            var userIds = reviews
+                .Select(r => r.FromUserId)
+                .Concat(reviews.Select(r => r.ToUserId))
+                .Distinct()
+                .ToList();
+
             var users = await _db.Users
                 .AsNoTracking()
                 .Where(u => userIds.Contains(u.Id))
@@ -107,9 +148,9 @@ namespace TaiChuWeb_V2.Controllers.Club
             {
                 id = r.Id,
                 fromUserId = r.FromUserId,
-                fromCustomer = r.FromCustomer,
-                fromUserName = users.TryGetValue(r.FromUserId, out var u)
-                    ? (u.Username ?? "") : "",
+                fromUserName = users.TryGetValue(r.FromUserId, out var fu) ? (fu.Username ?? "") : "",
+                toUserId = r.ToUserId,
+                toUserName = users.TryGetValue(r.ToUserId, out var tu) ? (tu.Username ?? "") : "",
                 skillScore = r.SkillScore,
                 attitudeScore = r.AttitudeScore,
                 punctualScore = r.PunctualScore,
@@ -122,41 +163,118 @@ namespace TaiChuWeb_V2.Controllers.Club
         }
 
         // ==================================================
-        //  3. 待我评价的订单
+        //  3. 待我评价的订单（每个未评打手独立一条）
         // ==================================================
         [HttpGet("orders/reviews/pending")]
         public async Task<IActionResult> GetPending()
         {
             var userId = GetUserId();
 
-            var asBoss = await _db.ClubOrders
+            var orders = await _db.ClubOrders
                 .AsNoTracking()
                 .Where(o => o.CustomerId == userId && o.Status == "completed")
-                .Where(o => !_db.OrderReviews.Any(r =>
-                    r.OrderId == o.Id && r.FromUserId == userId && r.FromCustomer))
+                .Where(o => o.CompletedAt.HasValue
+                         && o.CompletedAt.Value.AddDays(REVIEW_WINDOW_DAYS) >= DateTime.UtcNow)
                 .OrderByDescending(o => o.CompletedAt)
-                .Take(50)
+                .Take(100)
                 .ToListAsync();
 
-            var asOperator = await _db.ClubOrders
+            if (orders.Count == 0)
+                return Ok(new { asBoss = Array.Empty<object>() });
+
+            var orderIds = orders.Select(o => o.Id).ToList();
+
+            var myReviews = await _db.OrderReviews
                 .AsNoTracking()
-                .Where(o => o.OperatorUserId == userId && o.Status == "completed")
-                .Where(o => !_db.OrderReviews.Any(r =>
-                    r.OrderId == o.Id && r.FromUserId == userId && !r.FromCustomer))
-                .OrderByDescending(o => o.CompletedAt)
-                .Take(50)
+                .Where(r => orderIds.Contains(r.OrderId) && r.FromUserId == userId)
+                .Select(r => new { r.OrderId, r.ToUserId })
                 .ToListAsync();
 
-            var all = asBoss.Concat(asOperator).ToList();
-            var enriched = await EnrichBrief(all);
+            var reviewedMap = myReviews
+                .GroupBy(r => r.OrderId)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.ToUserId).ToHashSet());
 
-            var bossIds = asBoss.Select(o => o.Id).ToHashSet();
-
-            return Ok(new
+            var allOpIds = new HashSet<Guid>();
+            foreach (var o in orders)
             {
-                asBoss = enriched.Where(x => bossIds.Contains(x.orderId)).ToList(),
-                asOperator = enriched.Where(x => !bossIds.Contains(x.orderId)).ToList()
-            });
+                foreach (var id in ParseOperatorUserIds(o.OperatorUserIdsJson))
+                    allOpIds.Add(id);
+                if (o.OperatorUserId != Guid.Empty)
+                    allOpIds.Add(o.OperatorUserId);
+            }
+
+            var profiles = await _db.OperatorProfiles.AsNoTracking()
+                .Where(p => allOpIds.Contains(p.UserId))
+                .ToDictionaryAsync(p => p.UserId);
+
+            var gameCodes = orders.Select(o => o.GameCode).Distinct().ToList();
+            var games = await _db.ClubGames.AsNoTracking()
+                .Where(g => gameCodes.Contains(g.Code))
+                .ToDictionaryAsync(g => g.Code);
+
+            var types = await _db.ClubOrderTypes.AsNoTracking()
+                .Where(t => gameCodes.Contains(t.GameCode))
+                .ToListAsync();
+            var typeMap = types.ToDictionary(t => $"{t.GameCode}|{t.Code}");
+
+            var result = new List<object>();
+            foreach (var o in orders)
+            {
+                var opIds = ParseOperatorUserIds(o.OperatorUserIdsJson);
+                if (opIds.Count == 0 && o.OperatorUserId != Guid.Empty)
+                    opIds.Add(o.OperatorUserId);
+                if (opIds.Count == 0) continue;
+
+                reviewedMap.TryGetValue(o.Id, out var reviewed);
+                reviewed ??= new HashSet<Guid>();
+
+                games.TryGetValue(o.GameCode, out var g);
+                typeMap.TryGetValue($"{o.GameCode}|{o.OrderTypeCode}", out var t);
+
+                foreach (var opId in opIds)
+                {
+                    if (reviewed.Contains(opId)) continue;
+
+                    profiles.TryGetValue(opId, out var p);
+
+                    result.Add(new
+                    {
+                        orderId = o.Id,
+                        orderNo = o.OrderNo,
+                        gameName = g?.Name ?? o.GameCode,
+                        orderTypeName = t?.Name ?? o.OrderTypeCode,
+                        price = o.Price,
+                        completedAt = o.CompletedAt,
+                        operatorUserId = opId,
+                        operatorName = p?.Nickname ?? "",
+                        operatorCount = opIds.Count
+                    });
+                }
+            }
+
+            return Ok(new { asBoss = result, asOperator = Array.Empty<object>() });
+        }
+
+        // ==================================================
+        //  3.5 我（老板）已提交的评价
+        // ==================================================
+        [HttpGet("orders/reviews/mine")]
+        public async Task<IActionResult> GetMyReviews()
+        {
+            var userId = GetUserId();
+
+            var rows = await (from r in _db.OrderReviews.AsNoTracking()
+                              join o in _db.ClubOrders.AsNoTracking()
+                                  on r.OrderId equals o.Id
+                              where r.FromUserId == userId
+                              select new
+                              {
+                                  orderNo = o.OrderNo,       // ⭐ 改 camelCase
+                                  toUserId = r.ToUserId      // ⭐ 改 camelCase
+                              })
+                             .ToListAsync();
+
+            return Ok(rows);
         }
 
         // ==================================================
@@ -209,53 +327,21 @@ namespace TaiChuWeb_V2.Controllers.Club
             profile.Reputation = Math.Clamp(profile.Reputation + delta, 0, 100);
         }
 
-        private async Task<List<PendingItem>> EnrichBrief(List<ClubOrder> orders)
-        {
-            if (orders.Count == 0) return new();
-
-            var gameCodes = orders.Select(o => o.GameCode).Distinct().ToList();
-            var opIds = orders.Select(o => o.OperatorUserId).Distinct().ToList();
-            var custIds = orders.Select(o => o.CustomerId).Distinct().ToList();
-
-            var games = await _db.ClubGames.AsNoTracking()
-                .Where(g => gameCodes.Contains(g.Code))
-                .ToDictionaryAsync(g => g.Code);
-
-            var profiles = await _db.OperatorProfiles.AsNoTracking()
-                .Where(p => opIds.Contains(p.UserId))
-                .ToDictionaryAsync(p => p.UserId);
-
-            var users = await _db.Users.AsNoTracking()
-                .Where(u => custIds.Contains(u.Id))
-                .ToDictionaryAsync(u => u.Id);
-
-            var types = await _db.ClubOrderTypes.AsNoTracking()
-                .Where(t => gameCodes.Contains(t.GameCode))
-                .ToListAsync();
-            var typeMap = types.ToDictionary(t => $"{t.GameCode}|{t.Code}");
-
-            return orders.Select(o =>
-            {
-                games.TryGetValue(o.GameCode, out var g);
-                profiles.TryGetValue(o.OperatorUserId, out var p);
-                users.TryGetValue(o.CustomerId, out var u);
-                typeMap.TryGetValue($"{o.GameCode}|{o.OrderTypeCode}", out var t);
-
-                return new PendingItem
-                {
-                    orderId = o.Id,
-                    orderNo = o.OrderNo,
-                    gameName = g?.Name ?? o.GameCode,
-                    orderTypeName = t?.Name ?? o.OrderTypeCode,
-                    price = o.Price,
-                    completedAt = o.CompletedAt,
-                    operatorName = p?.Nickname ?? "",
-                    customerName = u?.Username ?? ""
-                };
-            }).ToList();
-        }
-
         private static bool InRange(int s) => s >= 1 && s <= 5;
+
+        private static List<Guid> ParseOperatorUserIds(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return new List<Guid>();
+            try
+            {
+                var arr = JsonSerializer.Deserialize<List<Guid>>(json);
+                return arr ?? new List<Guid>();
+            }
+            catch
+            {
+                return new List<Guid>();
+            }
+        }
 
         private Guid GetUserId()
         {
@@ -265,25 +351,19 @@ namespace TaiChuWeb_V2.Controllers.Club
             return Guid.Parse(sub);
         }
 
+        // ==================================================
+        //  DTO
+        // ==================================================
         public class ReviewDto
         {
+            /// <summary>⭐ 被评打手（多打手时必须指定）</summary>
+            public Guid? ToOperatorUserId { get; set; }
+
             public int SkillScore { get; set; }
             public int AttitudeScore { get; set; }
             public int PunctualScore { get; set; }
             public int OverallScore { get; set; }
             public string? Comment { get; set; }
-        }
-
-        private class PendingItem
-        {
-            public long orderId { get; set; }
-            public string orderNo { get; set; } = "";
-            public string gameName { get; set; } = "";
-            public string orderTypeName { get; set; } = "";
-            public decimal price { get; set; }
-            public DateTime? completedAt { get; set; }
-            public string operatorName { get; set; } = "";
-            public string customerName { get; set; } = "";
         }
     }
 }

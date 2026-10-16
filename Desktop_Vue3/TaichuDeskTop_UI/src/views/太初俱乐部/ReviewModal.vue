@@ -11,6 +11,9 @@
           <div v-if="order" class="rm-order">
             <span class="rm-order-no mono">{{ order.orderNo }}</span>
             <span class="rm-order-game">{{ order.gameName }} · {{ order.orderTypeName }}</span>
+            <span v-if="order.operatorName" class="rm-order-target">
+              评价对象：<b>{{ order.operatorName }}</b>
+            </span>
           </div>
 
           <div class="rm-stars">
@@ -113,7 +116,9 @@ export default {
       if (!this.order?.orderNo || this.submitting) return
       this.submitting = true
       try {
+        // ⭐ 带上被评打手的 ID
         await request.post(`/club/orders/${this.order.orderNo}/review`, {
+          toOperatorUserId: this.order.operatorUserId || null,
           skillScore: this.form.skillScore,
           attitudeScore: this.form.attitudeScore,
           punctualScore: this.form.punctualScore,
@@ -167,6 +172,14 @@ export default {
 }
 .rm-order-no { font-size: 13px; color: #ff6b1a; }
 .rm-order-game { font-size: 11px; color: #8b9aab; }
+.rm-order-target {
+  font-size: 12px;
+  color: #8b9aab;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+.rm-order-target b { color: #78d7ce; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 
 .rm-stars { display: flex; flex-direction: column; gap: 14px; margin-bottom: 22px; }

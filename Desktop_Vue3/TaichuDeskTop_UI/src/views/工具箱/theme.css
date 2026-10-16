@@ -1,0 +1,24 @@
+.toolbox {
+  /* ===== UI 骨架 ===== */
+  --tb-bg: #f7f8fa;
+  --tb-card-bg: #ffffff;
+  --tb-text: #1f2328;
+  --tb-text-muted: #57606a;
+  --tb-text-dim: #8b949e;
+  --tb-border: #d8dee4;
+  --tb-accent: #2f6feb;
+  --tb-accent-hover: #1f5bd6;
+
+  /* ===== 数据色（Okabe-Ito 色盲友好色板） ===== */
+  --tb-data-1: #0072b2;
+  --tb-data-2: #e69f00;
+  --tb-data-3: #009e73;
+  --tb-data-4: #cc79a7;
+  --tb-data-5: #56b4e9;
+  --tb-data-6: #d55e00;
+
+  /* ===== 状态色 ===== */
+  --tb-success: #1a7f37;
+  --tb-warning: #bf8700;
+  --tb-danger: #cf222e;
+}

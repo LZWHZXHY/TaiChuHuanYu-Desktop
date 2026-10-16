@@ -1,25 +1,60 @@
 <template>
   <div class="price-board">
-    <div v-for="group in groups" :key="group.code" class="price-group">
+
+    <!-- ⭐ 游戏通用规则（置顶，一眼可见） -->
+    <section v-if="commonRules" class="game-common-rules">
+      <div class="gcr-head">
+        <span class="gcr-icon">📋</span>
+        <span class="gcr-title">通用规则 · 所有订单适用</span>
+        <button type="button" class="gcr-toggle" @click="rulesOpen = !rulesOpen">
+          {{ rulesOpen ? '收起' : '展开' }}
+        </button>
+      </div>
+      <div v-if="rulesOpen" class="gcr-body">
+        <div
+          v-for="(line, i) in splitRules(commonRules)"
+          :key="i"
+          class="gcr-line"
+        >{{ line }}</div>
+      </div>
+    </section>
+
+    <!-- ⭐ 分组切换标签（吸顶） -->
+    <nav v-if="groups.length" ref="tabs" class="pg-tabs">
+      <button
+        v-for="g in groupsWithRows"
+        :key="g.code"
+        type="button"
+        class="pg-tab"
+        :class="{ active: g.code === activeCode }"
+        @click="selectGroup(g.code)"
+      >
+        <span class="tab-name">{{ g.name }}</span>
+        <span class="tab-count">{{ g.rows.length }}</span>
+      </button>
+    </nav>
+
+    <!-- ⭐ 只渲染当前分组 -->
+    <div v-if="activeGroup" class="price-group">
 
       <!-- 头部 -->
       <div class="pg-head">
         <div>
-          <h3>{{ group.name }}</h3>
-          <span class="pg-code">{{ group.code.toUpperCase() }}</span>
+          <h3>{{ activeGroup.name }}</h3>
+          <span class="pg-code">{{ activeGroup.code.toUpperCase() }}</span>
         </div>
-        <span class="pg-count">{{ expandRows(group).length }} 档</span>
+        <span class="pg-count">{{ activeGroup.rows.length }} 档</span>
       </div>
 
       <!-- 说明 -->
-      <p v-if="group.description" class="pg-desc">{{ group.description }}</p>
+      <p v-if="activeGroup.description" class="pg-desc">{{ activeGroup.description }}</p>
 
-      <!-- ⭐ 订单特有规则 -->
-      <div v-if="group.specificRulesText" class="pg-rules">
+      <!-- 订单特有规则 -->
+      <div v-if="activeGroup.specificRulesText" class="pg-rules">
         <div class="rules-title">⚡ 本单特有规则</div>
         <div class="rules-body">
           <div
-            v-for="(line, i) in splitRules(group.specificRulesText)"
+            v-for="(line, i) in splitRules(activeGroup.specificRulesText)"
             :key="i"
             class="rules-line"
           >{{ line }}</div>
@@ -30,13 +65,13 @@
       <table class="price-table">
         <thead>
           <tr>
-            <th v-for="label in fieldLabels(group)" :key="label">{{ label }}</th>
+            <th v-for="label in fieldLabels(activeGroup)" :key="label">{{ label }}</th>
             <th class="ta-r col-price">价格</th>
             <th class="ta-r col-action">操作</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in expandRows(group)" :key="row.key">
+          <tr v-for="row in activeGroup.rows" :key="row.key">
             <td v-for="(val, k) in row.values" :key="k" class="pi-muted">
               {{ val }}
             </td>
@@ -44,7 +79,7 @@
               <b class="pi-price">¥{{ row.price }}</b>
             </td>
             <td class="ta-r col-action">
-              <button class="pi-order" @click="handleOrder(group, row)">
+              <button class="pi-order" @click="handleOrder(activeGroup, row)">
                 下单
               </button>
             </td>
@@ -53,20 +88,6 @@
       </table>
     </div>
 
-    <!-- ⭐ 游戏通用规则（页面最底部，只显示一次） -->
-    <div v-if="commonRules" class="game-common-rules">
-      <div class="gcr-head">
-        <span class="gcr-icon">📋</span>
-        <span class="gcr-title">通用规则 · 所有订单适用</span>
-      </div>
-      <div class="gcr-body">
-        <div
-          v-for="(line, i) in splitRules(commonRules)"
-          :key="i"
-          class="gcr-line"
-        >{{ line }}</div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -79,7 +100,55 @@ export default {
   },
   emits: ['order'],
 
+  data() {
+    return {
+      activeCode: '',
+      rulesOpen: true
+    }
+  },
+
+  computed: {
+    /** 预计算每个分组的展开行，避免模板里反复调用 */
+    groupsWithRows() {
+      return this.groups.map(g => ({ ...g, rows: this.expandRows(g) }))
+    },
+    activeGroup() {
+      return (
+        this.groupsWithRows.find(g => g.code === this.activeCode) ||
+        this.groupsWithRows[0] ||
+        null
+      )
+    }
+  },
+
+  watch: {
+    groups: {
+      immediate: true,
+      handler(val) {
+        if (!val.length) {
+          this.activeCode = ''
+          return
+        }
+        if (!val.some(g => g.code === this.activeCode)) {
+          this.activeCode = val[0].code
+        }
+      }
+    }
+  },
+
   methods: {
+    selectGroup(code) {
+      if (code === this.activeCode) return
+      this.activeCode = code
+      // 切换后如果页面已滚到下方，拉回到标签栏位置
+      this.$nextTick(() => {
+        const el = this.$refs.tabs
+        if (!el) return
+        const top = el.getBoundingClientRect().top
+        if (top < 0) window.scrollBy({ top, behavior: 'smooth' })
+      })
+    },
+
     parseSchema(group) {
       if (!group.paramsSchemaJson) return []
       try {
@@ -147,7 +216,6 @@ export default {
       })
     },
 
-    // ⭐ 按换行切规则
     splitRules(text) {
       if (!text) return []
       return text.split('\n').map(s => s.trim()).filter(Boolean)
@@ -158,7 +226,10 @@ export default {
         orderTypeCode: group.code,
         orderTypeName: group.name,
         params: row.params,
-        price: row.price
+        price: row.price,
+        pricingMode: group.pricingMode || 'fixed',
+        minOperatorCount: group.minOperatorCount || 1,
+        maxOperatorCount: group.maxOperatorCount || 1
       })
     }
   }
@@ -166,8 +237,103 @@ export default {
 </script>
 
 <style scoped>
-.price-group + .price-group { margin-top: 42px; }
+/* ══ 顶部通用规则 ══ */
+.game-common-rules {
+  margin-bottom: 24px;
+  padding: 16px 20px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--cyan);
+  background: rgba(16, 25, 35, 0.55);
+  border-radius: 4px;
+}
+.gcr-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.gcr-icon { font-size: 16px; }
+.gcr-title {
+  flex: 1;
+  font-family: monospace;
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  color: var(--cyan);
+  font-weight: 600;
+}
+.gcr-toggle {
+  padding: 4px 12px;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.gcr-toggle:hover { color: var(--orange); border-color: var(--orange); }
+.gcr-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line);
+}
+.gcr-line {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-soft);
+  padding-left: 4px;
+}
 
+/* ══ 分组切换标签（吸顶） ══ */
+.pg-tabs {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 10px 0;
+  margin-bottom: 22px;
+  background: var(--bg, #0e1620);
+  border-bottom: 1px solid var(--line);
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.pg-tabs::-webkit-scrollbar { display: none; }
+
+.pg-tab {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.pg-tab:hover {
+  color: var(--text-soft);
+  border-color: var(--line-bright);
+}
+.pg-tab.active {
+  color: #fff;
+  background: var(--orange);
+  border-color: var(--orange);
+}
+.tab-count {
+  font-family: monospace;
+  font-size: 9px;
+  opacity: 0.75;
+}
+
+/* ══ 分组头部 ══ */
 .pg-head {
   display: flex;
   align-items: flex-end;
@@ -197,11 +363,12 @@ export default {
   font-size: 12px;
   line-height: 1.7;
   color: var(--text-muted);
+  white-space: pre-line;
 }
 
-/* ⭐ 订单特有规则 */
+/* ══ 订单特有规则 ══ */
 .pg-rules {
-  margin: 12px 0 12px;
+  margin: 12px 0;
   padding: 12px 16px;
   border-left: 3px solid var(--orange);
   background: rgba(255, 107, 26, 0.05);
@@ -225,7 +392,7 @@ export default {
   color: var(--text-soft);
 }
 
-/* 表格 */
+/* ══ 表格 ══ */
 .price-table {
   width: 100%;
   border-collapse: collapse;
@@ -275,46 +442,13 @@ export default {
   border-color: var(--orange);
 }
 
-/* ⭐ 游戏通用规则 */
-.game-common-rules {
-  margin-top: 50px;
-  padding: 20px 24px;
-  border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.4);
-  border-radius: 4px;
-}
-.gcr-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px dashed var(--line);
-}
-.gcr-icon { font-size: 16px; }
-.gcr-title {
-  font-family: monospace;
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  color: var(--cyan);
-  font-weight: 600;
-}
-.gcr-body {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.gcr-line {
-  font-size: 12px;
-  line-height: 1.7;
-  color: var(--text-soft);
-  padding-left: 4px;
-}
-
-/* 移动端 */
+/* ══ 移动端 ══ */
 @media (max-width: 640px) {
+  .game-common-rules { padding: 14px 16px; }
+  .pg-tab { padding: 7px 13px; font-size: 11px; }
+
   .price-table thead { display: none; }
-  .price-table tr {
+  .price-table tr { 
     display: flex;
     flex-wrap: wrap;
     align-items: center;

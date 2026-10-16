@@ -12,7 +12,6 @@
       <section class="section-block alt">
         <div class="section-container">
 
-          <!-- 状态筛选 -->
           <div class="order-tabs">
             <button
               v-for="t in TABS"
@@ -66,7 +65,23 @@
                   </div>
                   <div class="oc-row">
                     <span>打手</span>
-                    <b>{{ o.operatorName || '—' }}</b>
+                    <b>{{ operatorText(o) }}</b>
+                  </div>
+
+                  <div v-if="o.customerServiceName" class="oc-row">
+                    <span>客服</span>
+                    <b>
+                      {{ o.customerServiceName }}
+                      <span v-if="o.customerServiceWechat" class="cs-wechat mono">
+                        · {{ o.customerServiceWechat }}
+                      </span>
+                    </b>
+                  </div>
+
+                  <!-- ⭐ 炸单次数 -->
+                  <div v-if="o.failedCount > 0" class="oc-row">
+                    <span>炸单</span>
+                    <b class="oc-failed">{{ o.failedCount }} 次</b>
                   </div>
                 </div>
 
@@ -76,11 +91,98 @@
                 </div>
               </div>
 
+              <!-- ⭐ 接单进度（多打手时显示） -->
+              <div v-if="showProgress(o)" class="oc-progress">
+                <div class="op-progress-head">
+                  <span class="oph-label">接单进度</span>
+                  <b class="oph-count" :class="{ done: isAllAccepted(o) }">
+                    {{ o.acceptedCount || 0 }} / {{ o.totalOperatorCount || 0 }}
+                  </b>
+                  <span v-if="isAllAccepted(o)" class="oph-tag done">✓ 全员已接</span>
+                </div>
+                <div class="op-progress-list">
+                  <div
+                    v-for="op in (o.operators || [])"
+                    :key="op.userId"
+                    class="op-chip"
+                    :class="{ accepted: op.accepted }"
+                  >
+                    <span class="chip-status">{{ op.accepted ? '✓' : '·' }}</span>
+                    <span class="chip-name">{{ op.name }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ⭐ 换人历史 -->
+              <div v-if="o.reassignHistory && o.reassignHistory.length > 0" class="oc-reassign">
+                <div class="ocr-title">🔄 换人记录</div>
+                <div
+                  v-for="(h, i) in o.reassignHistory"
+                  :key="'rh-' + i"
+                  class="ocr-item"
+                >
+                  <div class="ocr-note">{{ h.note }}</div>
+                  <div class="ocr-time">{{ fmtTime(h.at) }}</div>
+                </div>
+              </div>
+
               <div v-if="statusHint(o)" class="oc-hint">
                 {{ statusHint(o) }}
               </div>
 
+              <!-- ⭐ 评价已过期提示 -->
+              <div
+                v-if="o.status === 'completed' && !o.canReview"
+                class="oc-review-expired"
+              >
+                ⏰ 评价已过期（订单完成后 24 小时内可评价）
+              </div>
+
+              <!-- ⭐ 我的评价（已评的打手） -->
+              <div v-if="o.myReviews && o.myReviews.length > 0" class="oc-my-reviews">
+                <div class="omr-title">📝 我的评价</div>
+                <div
+                  v-for="rv in o.myReviews"
+                  :key="'mr-' + rv.id"
+                  class="omr-item"
+                >
+                  <div class="omr-head">
+                    <span class="omr-op">{{ rv.toOperatorName }}</span>
+                    <span class="omr-overall" :class="scoreClass(rv.overallScore)">
+                      {{ rv.overallScore }}.0 星
+                    </span>
+                  </div>
+                  <div class="omr-dims">
+                    <span>技术 {{ rv.skillScore }}</span>
+                    <span>态度 {{ rv.attitudeScore }}</span>
+                    <span>准时 {{ rv.punctualScore }}</span>
+                    <span>综合 {{ rv.overallScore }}</span>
+                  </div>
+                  <div v-if="rv.comment" class="omr-comment">{{ rv.comment }}</div>
+                  <div class="omr-time">{{ fmtTime(rv.createdAt) }}</div>
+                </div>
+              </div>
+
               <footer class="oc-foot">
+                <!-- ⭐ 完成订单（服务中时老板可主动结单） -->
+                <button
+                  v-if="o.status === 'processing'"
+                  class="oc-btn primary"
+                  @click="openCompleteModal(o)"
+                >
+                  ✓ 完成订单
+                </button>
+
+                <!-- ⭐ 上传/更换结算截图（服务中 或 已完成 都能传） -->
+                <button
+                  v-if="(o.status === 'processing' || o.status === 'completed')"
+                  class="oc-btn"
+                  :class="o.settlementProofUploaded ? 'ghost' : 'upload'"
+                  @click="openUploadModal(o)"
+                >
+                  {{ o.settlementProofUploaded ? '📎 更换结算截图' : '📎 上传结算截图' }}
+                </button>
+
                 <button
                   v-if="showPayAction(o)"
                   class="oc-btn primary"
@@ -89,16 +191,45 @@
                   查看收款码
                 </button>
 
+                <!-- ⭐ 评价打手（仅 24 小时有效期内显示） -->
+                <template v-if="o.status === 'completed' && o.canReview">
+                  <button
+                    v-for="op in reviewableOperators(o)"
+                    :key="'rv-' + op.userId"
+                    class="oc-btn primary"
+                    @click="openReviewFor(o, op)"
+                  >
+                    评价 {{ op.name }}
+                  </button>
+                  <button
+                    v-if="(!o.operators || o.operators.length === 0)"
+                    class="oc-btn primary"
+                    @click="openReview(o)"
+                  >
+                    评价打手
+                  </button>
+                </template>
+
+                <!-- ⭐ 评价客服 -->
                 <button
-                  v-if="o.status === 'completed'"
-                  class="oc-btn primary"
-                  @click="openReview(o)"
+                  v-if="canReviewCs(o)"
+                  class="oc-btn cs-btn"
+                  @click="openCsReview(o)"
                 >
-                  去评价
+                  评价客服
+                </button>
+
+                <!-- ⭐ 投诉（completed 或 abandoned，24h 内，未投过） -->
+                <button
+                  v-if="canComplain(o)"
+                  class="oc-btn complain-btn"
+                  @click="openComplaintModal(o)"
+                >
+                  ⚠ 投诉
                 </button>
 
                 <button
-                  v-if="o.status === 'pending'"
+                  v-if="o.status === 'pending' || o.status === 'accepted'"
                   class="oc-btn ghost"
                   @click="cancelOrder(o)"
                 >
@@ -126,15 +257,16 @@
             <p class="pm-no">订单号：<b class="mono">{{ payOrder.orderNo }}</b></p>
             <p class="pm-amount">应付金额 <b>¥{{ payOrder.price }}</b></p>
 
+            <p v-if="payOrder.customerServiceName" class="pm-cs-assigned">
+              本单由 <b>{{ payOrder.customerServiceName }}</b> 跟进
+            </p>
+
             <div class="pm-qr-grid">
               <div class="pm-qr-item">
                 <div class="pm-qr-label wechat">💚 微信支付</div>
                 <img src="/payment-wechat.png" alt="微信收款码" />
               </div>
-              <div class="pm-qr-item">
-                <div class="pm-qr-label alipay">💙 支付宝</div>
-                <img src="/payment-alipay.png" alt="支付宝收款码" />
-              </div>
+              
             </div>
 
             <div class="pm-tip">⚠ 付款后请点击下方按钮通知客服核对</div>
@@ -152,34 +284,66 @@
             </button>
 
             <p class="pm-cs">
-              客服微信：<b>{{ customerServiceWechat }}</b>
+              客服微信：<b>{{ payOrder.customerServiceWechat || customerServiceWechat }}</b>
             </p>
           </div>
         </div>
       </div>
     </Teleport>
 
-    <!-- 评价弹窗 -->
+    <!-- ⭐ 打手评价弹窗 -->
     <ReviewModal
       :visible="showReview"
       :order="reviewOrder"
       :from-customer="reviewFromCustomer"
       @close="showReview = false"
-      @success="loadOrders"
+      @success="handleReviewSuccess"
+    />
+
+    <!-- ⭐ 客服评价弹窗 -->
+    <CsReviewModal
+      :visible="showCsReview"
+      :order="csReviewOrder"
+      :cs-name="csReviewOrder?.customerServiceName || ''"
+      @close="showCsReview = false"
+      @success="handleCsReviewSuccess"
+    />
+
+    <!-- ⭐ 结单 / 上传截图弹窗 -->
+    <CompleteOrderModal
+      :visible="showCompleteModal"
+      :order="completeOrder"
+      :mode="completeModalMode"
+      @close="showCompleteModal = false"
+      @success="handleCompleteSuccess"
+    />
+
+    <!-- ⭐ 客诉弹窗 -->
+    <ComplaintModal
+      :visible="showComplaintModal"
+      :order="complaintOrder"
+      @close="showComplaintModal = false"
+      @success="handleComplaintSuccess"
     />
   </div>
 </template>
 
 <script>
-import Navbar         from './Navbar.vue'
-import Footer         from './Footer.vue'
-import SectionHeading from './SectionHeading.vue'
-import ReviewModal    from './ReviewModal.vue'
-import request        from '@/utils/request'
+import Navbar             from './Navbar.vue'
+import Footer             from './Footer.vue'
+import SectionHeading     from './SectionHeading.vue'
+import ReviewModal        from './ReviewModal.vue'
+import CsReviewModal      from './CsReviewModal.vue'
+import CompleteOrderModal from './CompleteOrderModal.vue'
+import ComplaintModal     from './ComplaintModal.vue'
+import request            from '@/utils/request'
 
 export default {
   name: 'MyOrders',
-  components: { Navbar, Footer, SectionHeading, ReviewModal },
+  components: {
+    Navbar, Footer, SectionHeading,
+    ReviewModal, CsReviewModal, CompleteOrderModal, ComplaintModal
+  },
 
   data() {
     return {
@@ -190,9 +354,26 @@ export default {
       markingPaid: false,
       customerServiceWechat: 'taichu_service',
 
+      // 打手评价
       showReview: false,
       reviewOrder: null,
       reviewFromCustomer: true,
+      reviewedMap: {},
+
+      // 客服评价
+      showCsReview: false,
+      csReviewOrder: null,
+      pendingCsOrderNos: new Set(),
+
+      // 结单 / 上传弹窗
+      showCompleteModal: false,
+      completeOrder: null,
+      completeModalMode: 'complete',
+
+      // ⭐ 客诉
+      showComplaintModal: false,
+      complaintOrder: null,
+      complaintOrderNos: new Set(),
 
       TABS: [
         { label: '全部',        value: 'all' },
@@ -201,6 +382,7 @@ export default {
         { label: '待接单',      value: 'waiting' },
         { label: '服务中',      value: 'processing' },
         { label: '已完成',      value: 'completed' },
+        { label: '已弃单',      value: 'abandoned' },
         { label: '已取消',      value: 'cancelled' }
       ]
     }
@@ -223,7 +405,12 @@ export default {
       this.loading = false
       return
     }
-    await this.loadOrders()
+    await Promise.all([
+      this.loadOrders(),
+      this.loadPendingCsReviews(),
+      this.loadMyReviews(),
+      this.loadComplaintStatus()
+    ])
     this.loading = false
   },
 
@@ -239,8 +426,71 @@ export default {
       }
     },
 
+    async loadPendingCsReviews() {
+      try {
+        const res = await request.get('/club/cs/reviews/pending')
+        const list = res?.data ?? res
+        const arr = Array.isArray(list) ? list : []
+        this.pendingCsOrderNos = new Set(arr.map(o => o.orderNo))
+      } catch (e) {
+        console.error('拉取待评价客服失败', e)
+        this.pendingCsOrderNos = new Set()
+      }
+    },
+
+    async loadMyReviews() {
+      try {
+        const res = await request.get('/club/orders/reviews/mine')
+        const payload = res?.data ?? res
+        const list = Array.isArray(payload) ? payload : (payload?.items ?? [])
+        const map = {}
+        for (const r of list) {
+          if (!r.orderNo || !r.toUserId) continue
+          if (!map[r.orderNo]) map[r.orderNo] = new Set()
+          map[r.orderNo].add(r.toUserId)
+        }
+        this.reviewedMap = map
+      } catch (e) {
+        this.reviewedMap = {}
+      }
+    },
+
+    /** ⭐ 加载有客诉记录的订单号 */
+    async loadComplaintStatus() {
+      try {
+        const res = await request.get('/club/complaints/my', { params: { pageSize: 50 } })
+        const payload = res?.data ?? res
+        const items = payload?.items ?? []
+        const set = new Set()
+        for (const c of items) {
+          if (c.orderNo) set.add(c.orderNo)
+        }
+        this.complaintOrderNos = set
+      } catch (e) {
+        this.complaintOrderNos = new Set()
+      }
+    },
+
+    isReviewed(o, opUserId) {
+      const set = this.reviewedMap[o.orderNo]
+      return set ? set.has(opUserId) : false
+    },
+
+    reviewableOperators(o) {
+      const list = o.operators || []
+      return list.filter(op => !this.isReviewed(o, op.userId))
+    },
+
+    operatorText(o) {
+      if (o.operators && o.operators.length > 0) {
+        return o.operators.map(x => x.name).join('、')
+      }
+      return o.operatorName || '—'
+    },
+
     deriveStatus(o) {
       if (o.status === 'cancelled') return 'cancelled'
+      if (o.status === 'abandoned') return 'abandoned'
       if (o.status === 'completed') return 'completed'
       if (o.status === 'processing' || o.status === 'accepted') return 'processing'
       if (o.status === 'pending') {
@@ -258,19 +508,31 @@ export default {
         waiting: '待打手接单',
         processing: '服务中',
         completed: '已完成',
+        abandoned: '已弃单',
         cancelled: '已取消'
       }[this.deriveStatus(o)] || o.status
     },
 
     statusHint(o) {
+      const csName = o.customerServiceName || '客服'
+      const st = this.deriveStatus(o)
+
+      if (st === 'processing') {
+        return '打手服务中。如服务结束，可点击下方【✓ 完成订单】结单'
+      }
+      if (st === 'completed') {
+        return '订单已完成，感谢使用'
+      }
+      if (st === 'abandoned') {
+        return '订单已弃单，退款将由客服线下处理'
+      }
+
       return {
-        unpaid: '请扫码付款，付款后点击【查看收款码】→【我已扫码并完成付款】',
-        payConfirming: '已通知客服核对收款，请耐心等待（一般 5-30 分钟）',
-        waiting: '客服已确认收款，正在等待打手接单',
-        processing: '打手已接单，服务进行中',
-        completed: '订单已完成，感谢使用',
+        unpaid: `请扫码付款，付款后点击【查看收款码】→【我已扫码并完成付款】`,
+        payConfirming: `已通知 ${csName} 核对收款，请耐心等待（一般 5-30 分钟）`,
+        waiting: `${csName} 已确认收款，正在等待打手接单`,
         cancelled: '订单已取消'
-      }[this.deriveStatus(o)] || ''
+      }[st] || ''
     },
 
     tabCount(val) {
@@ -280,6 +542,43 @@ export default {
 
     showPayAction(o) {
       return o.status === 'pending' && !o.userPaidAt
+    },
+
+    showProgress(o) {
+      const total = o.totalOperatorCount || 0
+      const accepted = o.acceptedCount || 0
+      return total > 1 || (accepted > 0 && total > 0)
+    },
+
+    isAllAccepted(o) {
+      if (!o.totalOperatorCount) return false
+      return (o.acceptedCount || 0) >= o.totalOperatorCount
+    },
+
+    canReviewCs(o) {
+      if (o.status !== 'completed') return false
+      if (!o.customerServiceId) return false
+      return this.pendingCsOrderNos.has(o.orderNo)
+    },
+
+    /** ⭐ 能否投诉 */
+    canComplain(o) {
+      if (o.status !== 'completed' && o.status !== 'abandoned') return false
+      if (this.complaintOrderNos.has(o.orderNo)) return false
+
+      const endTime = o.status === 'completed' ? o.completedAt : o.cancelledAt
+      if (!endTime) return false
+
+      const deadline = new Date(endTime).getTime() + 24 * 60 * 60 * 1000
+      return Date.now() <= deadline
+    },
+
+    scoreClass(score) {
+      if (score >= 5) return 's5'
+      if (score === 4) return 's4'
+      if (score === 3) return 's3'
+      if (score === 2) return 's2'
+      return 's1'
     },
 
     openPayment(o) {
@@ -310,10 +609,77 @@ export default {
       }
     },
 
+    // ==================================================
+    //  完成订单
+    // ==================================================
+    openCompleteModal(o) {
+      this.completeOrder = o
+      this.completeModalMode = 'complete'
+      this.showCompleteModal = true
+    },
+
+    openUploadModal(o) {
+      this.completeOrder = o
+      this.completeModalMode = 'upload'
+      this.showCompleteModal = true
+    },
+
+    async handleCompleteSuccess() {
+      await this.loadOrders()
+    },
+
+    // ==================================================
+    //  评价打手
+    // ==================================================
     openReview(o) {
       this.reviewOrder = o
       this.reviewFromCustomer = true
       this.showReview = true
+    },
+
+    openReviewFor(o, operator) {
+      this.reviewOrder = {
+        ...o,
+        operatorUserId: operator.userId,
+        operatorName: operator.name
+      }
+      this.reviewFromCustomer = true
+      this.showReview = true
+    },
+
+    async handleReviewSuccess() {
+      await Promise.all([
+        this.loadOrders(),
+        this.loadMyReviews()
+      ])
+    },
+
+    // ==================================================
+    //  评价客服
+    // ==================================================
+    openCsReview(o) {
+      this.csReviewOrder = o
+      this.showCsReview = true
+    },
+
+    async handleCsReviewSuccess() {
+      await Promise.all([
+        this.loadOrders(),
+        this.loadPendingCsReviews()
+      ])
+    },
+
+    // ==================================================
+    //  ⭐ 客诉
+    // ==================================================
+    openComplaintModal(o) {
+      this.complaintOrder = o
+      this.showComplaintModal = true
+    },
+
+    async handleComplaintSuccess() {
+      await this.loadComplaintStatus()
+      alert('客诉已提交，客服会尽快处理')
     },
 
     fmtTime(iso) {
@@ -341,8 +707,7 @@ export default {
   color: var(--text-soft);
   background: transparent;
   border: 1px solid var(--line);
-  cursor: pointer;
-  transition: 0.2s;
+  cursor: pointer; transition: 0.2s;
   display: inline-flex; align-items: center; gap: 6px;
 }
 .order-tab:hover { color: var(--text); border-color: var(--line-bright); }
@@ -401,12 +766,13 @@ export default {
   letter-spacing: 1px;
   border-radius: 3px;
 }
-.oc-status.unpaid         { background: #fff7ed; color: #c2410c; }
-.oc-status.payConfirming  { background: #eff6ff; color: #2563eb; }
-.oc-status.waiting        { background: #f3e8ff; color: #a855f7; }
-.oc-status.processing     { background: #e0f2fe; color: #0369a1; }
-.oc-status.completed      { background: #e3fcef; color: #00875a; }
-.oc-status.cancelled      { background: #f5f5f5; color: #888; }
+.oc-status.unpaid         { background: rgba(255, 140, 74, 0.12); color: #ff8c4a; }
+.oc-status.payConfirming  { background: rgba(74, 158, 255, 0.12); color: #4a9eff; }
+.oc-status.waiting        { background: rgba(165, 165, 255, 0.12); color: #a5a5ff; }
+.oc-status.processing     { background: rgba(120, 215, 206, 0.12); color: var(--cyan); }
+.oc-status.completed      { background: rgba(80, 200, 120, 0.12); color: #4ecb71; }
+.oc-status.abandoned      { background: rgba(255, 140, 74, 0.15); color: #ff8c4a; }
+.oc-status.cancelled      { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
 
 .oc-body {
   display: flex; justify-content: space-between; gap: 20px;
@@ -416,6 +782,14 @@ export default {
 .oc-row { display: flex; gap: 12px; font-size: 13px; }
 .oc-row span { color: var(--text-muted); min-width: 60px; }
 .oc-row b { color: var(--text); }
+.oc-failed { color: #ff8c4a !important; }
+
+.cs-wechat {
+  font-size: 11px;
+  color: var(--cyan);
+  font-weight: 400;
+  margin-left: 4px;
+}
 
 .oc-side {
   flex-shrink: 0;
@@ -429,6 +803,101 @@ export default {
 }
 .oc-time { font-size: 11px; color: var(--text-muted); }
 
+/* ⭐ 接单进度 */
+.oc-progress {
+  padding: 12px 20px;
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.op-progress-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.oph-label {
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+.oph-count {
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--orange);
+}
+.oph-count.done { color: #4ecb71; }
+.oph-tag.done {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-family: monospace;
+  font-size: 10px;
+  border-radius: 2px;
+  color: #4ecb71;
+  border: 1px solid rgba(80, 200, 120, 0.5);
+  background: rgba(80, 200, 120, 0.1);
+}
+.op-progress-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.op-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
+}
+.op-chip.accepted {
+  color: var(--cyan);
+  border-color: rgba(120, 215, 206, 0.4);
+  background: rgba(120, 215, 206, 0.06);
+}
+.chip-status {
+  font-family: monospace;
+  font-weight: 700;
+}
+
+/* ⭐ 换人历史 */
+.oc-reassign {
+  padding: 12px 20px;
+  background: rgba(255, 140, 74, 0.04);
+  border-top: 1px solid rgba(255, 140, 74, 0.2);
+}
+.ocr-title {
+  font-family: monospace; font-size: 10px;
+  letter-spacing: 2px; color: #ff8c4a;
+  margin-bottom: 10px;
+}
+.ocr-item {
+  padding: 8px 12px;
+  border-left: 2px solid rgba(255, 140, 74, 0.4);
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 0 3px 3px 0;
+  margin-bottom: 6px;
+}
+.ocr-item:last-child { margin-bottom: 0; }
+.ocr-note {
+  font-size: 12px;
+  color: var(--text-soft);
+  line-height: 1.6;
+  margin-bottom: 4px;
+}
+.ocr-time {
+  font-family: monospace; font-size: 10px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
 .oc-hint {
   padding: 10px 20px;
   font-size: 12px; line-height: 1.6;
@@ -437,10 +906,79 @@ export default {
   border-top: 1px solid var(--line);
 }
 
+.oc-review-expired {
+  padding: 8px 20px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: rgba(0, 0, 0, 0.2);
+  border-top: 1px solid var(--line);
+  font-family: monospace;
+}
+
+/* ⭐ 我的评价区块 */
+.oc-my-reviews {
+  padding: 14px 20px;
+  background: rgba(0, 0, 0, 0.15);
+  border-top: 1px solid var(--line);
+}
+.omr-title {
+  font-family: monospace; font-size: 10px;
+  letter-spacing: 2px; color: var(--cyan);
+  margin-bottom: 10px;
+}
+.omr-item {
+  padding: 12px 14px;
+  border-left: 2px solid rgba(120, 215, 206, 0.4);
+  background: rgba(120, 215, 206, 0.03);
+  border-radius: 0 3px 3px 0;
+  margin-bottom: 10px;
+}
+.omr-item:last-child { margin-bottom: 0; }
+.omr-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-bottom: 8px;
+}
+.omr-op {
+  font-size: 13px; font-weight: 600;
+  color: var(--text);
+}
+.omr-overall {
+  font-family: monospace; font-size: 13px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+.omr-overall.s5 { color: #ffb800; background: rgba(255, 184, 0, 0.1); }
+.omr-overall.s4 { color: #78d7ce; background: rgba(120, 215, 206, 0.1); }
+.omr-overall.s3 { color: #ff8c4a; background: rgba(255, 140, 74, 0.1); }
+.omr-overall.s2 { color: #ff8c4a; background: rgba(255, 140, 74, 0.15); }
+.omr-overall.s1 { color: #ff5050; background: rgba(255, 80, 80, 0.15); }
+
+.omr-dims {
+  display: flex; gap: 14px;
+  font-family: monospace; font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.omr-comment {
+  font-size: 12px; line-height: 1.7;
+  color: var(--text-soft);
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  margin-bottom: 6px;
+}
+.omr-time {
+  font-family: monospace; font-size: 10px;
+  color: var(--text-muted);
+  text-align: right;
+}
+
 .oc-foot {
   display: flex; gap: 10px; justify-content: flex-end;
   padding: 14px 20px;
   border-top: 1px solid var(--line);
+  flex-wrap: wrap;
 }
 .oc-btn {
   padding: 8px 20px;
@@ -460,6 +998,40 @@ export default {
 }
 .oc-btn.ghost:hover { color: var(--text); border-color: var(--text-soft); }
 
+/* ⭐ 上传/更换结算截图按钮 */
+.oc-btn.upload {
+  color: var(--cyan);
+  background: rgba(120, 215, 206, 0.06);
+  border: 1px solid rgba(120, 215, 206, 0.35);
+}
+.oc-btn.upload:hover {
+  background: rgba(120, 215, 206, 0.12);
+  border-color: rgba(120, 215, 206, 0.6);
+}
+
+/* ⭐ 客服评价按钮（紫色） */
+.oc-btn.cs-btn {
+  color: #fff;
+  background: #a5a5ff;
+  border: 1px solid #a5a5ff;
+}
+.oc-btn.cs-btn:hover {
+  background: #b8b8ff;
+  box-shadow: 0 4px 16px rgba(165, 165, 255, 0.25);
+}
+
+/* ⭐ 投诉按钮（橙色） */
+.oc-btn.complain-btn {
+  color: #fff;
+  background: #ff8c4a;
+  border: 1px solid #ff8c4a;
+}
+.oc-btn.complain-btn:hover {
+  background: #ffa266;
+  box-shadow: 0 4px 16px rgba(255, 140, 74, 0.25);
+}
+
+/* ================= 收款码弹窗 ================= */
 .pay-modal-mask {
   position: fixed; inset: 0; z-index: 9999;
   background: rgba(0, 0, 0, 0.78);
@@ -490,8 +1062,18 @@ export default {
 .pm-body { padding: 24px; text-align: center; }
 .pm-no { margin: 0 0 6px; font-size: 13px; color: var(--text-soft); }
 .pm-no b { color: var(--orange); }
-.pm-amount { margin: 0 0 22px; font-size: 13px; color: var(--text-soft); }
+.pm-amount { margin: 0 0 12px; font-size: 13px; color: var(--text-soft); }
 .pm-amount b { color: var(--orange); font-size: 20px; margin-left: 6px; font-family: monospace; }
+
+.pm-cs-assigned {
+  margin: 0 0 18px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+.pm-cs-assigned b {
+  color: var(--cyan);
+  font-family: monospace;
+}
 
 .pm-qr-grid {
   display: grid; grid-template-columns: 1fr 1fr;
@@ -556,5 +1138,7 @@ export default {
   .oc-side { align-items: flex-start; }
   .pm-qr-grid { grid-template-columns: 1fr; }
   .page-hero { padding: 80px 0 40px; }
+  .oc-foot { flex-direction: column; }
+  .oc-btn { width: 100%; text-align: center; }
 }
 </style>

@@ -38,7 +38,15 @@ import TaichuProfile    from '@/views/太初俱乐部/MyProfile.vue'
 
 
 
+//获取工具箱里的模型路径
+const toolModules = import.meta.glob('../views/工具箱/*/index.vue')
+//console.log('router里 glob 找到的: ', toolModules)
+const toolsRoutes = Object.entries(toolModules).map(([path, component]) => {
+  const name = path.split('/')[3]
+  return {path: name, name:name, component:component}
+})
 
+console.log('自动生成的路由：', toolsRoutes)
 
 const router = createRouter({
   history: createWebHashHistory(),
@@ -47,6 +55,18 @@ const router = createRouter({
       path: '/',
       name: 'root',
       component: () => import('../views/推送首页/index.vue')
+    },
+
+
+    {
+
+
+      path: '/toolBox',
+      component: () => import('@/views/工具箱/index.vue'),
+      children: [
+        { path: '', name: 'toolBox', component: () => import('@/views/工具箱/Home.vue') },
+        ...toolsRoutes,
+      ]
     },
 
 
@@ -83,7 +103,26 @@ const router = createRouter({
       name: 'TaichuProfile',
       component: TaichuProfile
     },
-
+        {
+      path: '/taichu/cs/register',
+      name: 'CsRegister',
+      component: () => import('@/views/太初俱乐部/CsRegister.vue')
+    },
+    {
+  path: '/taichu/cs/wallet',
+  name: 'CsWallet',
+  component: () => import('@/views/太初俱乐部/CsWallet.vue')
+},
+    {
+      path: '/taichu/cs/dashboard',
+      name: 'CsDashboard',
+      component: () => import('@/views/太初俱乐部/CsDashboard.vue')
+    },
+      {
+  path: '/taichu/my-complaints',
+  name: 'MyComplaints',
+  component: () => import('@/views/太初俱乐部/MyComplaints.vue')
+},
     {
       path: '/taichu/orders',
       name: 'TaichuOrders',

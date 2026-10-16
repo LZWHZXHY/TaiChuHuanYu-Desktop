@@ -17,6 +17,9 @@ namespace TaiChuWeb_V2.Controllers.Club
         private readonly AppDbContext _db;
         public OperatorController(AppDbContext db) => _db = db;
 
+        // ==================================================
+        //  我的打手状态
+        // ==================================================
         [HttpGet("me")]
         public async Task<IActionResult> GetMyStatus()
         {
@@ -47,7 +50,6 @@ namespace TaiChuWeb_V2.Controllers.Club
                 recheckStatus = s.RecheckStatus,
                 appliedAt = s.AppliedAt,
                 reviewedAt = s.ReviewedAt,
-                // ⭐ 新增
                 ordersInGame = s.OrdersInGame,
                 completedOrdersInGame = s.CompletedOrdersInGame,
                 failedOrdersInGame = s.FailedOrdersInGame
@@ -61,7 +63,13 @@ namespace TaiChuWeb_V2.Controllers.Club
                 contactValue = profile.ContactValue,
                 onlineTime = profile.OnlineTime,
                 intro = profile.Intro,
-                // ⭐ 新增：自己的统计
+
+                // ⭐ 新增：在线状态
+                status = profile.Status,
+                lastSeenAt = profile.LastSeenAt,
+                activeOrderCount = profile.ActiveOrderCount,
+
+                // ⭐ 自己的统计
                 reputation = profile.Reputation,
                 totalOrders = profile.TotalOrders,
                 reviewCount = profile.ReviewCount,
@@ -77,9 +85,91 @@ namespace TaiChuWeb_V2.Controllers.Club
             });
         }
 
-        // Apply / ApplyGame / ValidateMetrics / ParseMetrics / GetUserId 全部保持不变
-        // 直接保留你原来那几段
+        // ==================================================
+        //  ⭐ 手动切换在线状态
+        //  POST /api/club/operators/me/status
+        //  body: { "status": "online" | "resting" | "offline" }
+        // ==================================================
+        [HttpPost("me/status")]
+        public async Task<IActionResult> UpdateStatus([FromBody] UpdateStatusDto dto)
+        {
+            var userId = GetUserId();
 
+            // 只允许这三个状态手动切
+            var valid = new[] { "online", "resting", "offline" };
+            if (string.IsNullOrWhiteSpace(dto?.Status) || !valid.Contains(dto.Status))
+                return BadRequest(new { message = "状态无效，仅支持 online / resting / offline" });
+
+            var profile = await _db.OperatorProfiles
+                .FirstOrDefaultAsync(p => p.UserId == userId);
+            if (profile == null)
+                return BadRequest(new { message = "打手档案不存在" });
+
+            // 有进行中的订单时：不能下线
+            if (dto.Status == "offline" && profile.ActiveOrderCount > 0)
+                return BadRequest(new
+                {
+                    message = $"你还有 {profile.ActiveOrderCount} 个进行中的订单，无法下线"
+                });
+
+            // 有进行中的订单时：状态强制保持 busy
+            if (profile.ActiveOrderCount > 0)
+            {
+                profile.Status = "busy";
+            }
+            else
+            {
+                profile.Status = dto.Status;
+            }
+
+            profile.LastSeenAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "状态已更新",
+                status = profile.Status,
+                lastSeenAt = profile.LastSeenAt
+            });
+        }
+
+        // ==================================================
+        //  ⭐ 打手心跳（每 30s ping 一次）
+        //  POST /api/club/operators/me/heartbeat
+        // ==================================================
+        [HttpPost("me/heartbeat")]
+        public async Task<IActionResult> Heartbeat()
+        {
+            var userId = GetUserId();
+
+            var profile = await _db.OperatorProfiles
+                .FirstOrDefaultAsync(p => p.UserId == userId);
+            if (profile == null)
+                return Ok(new { ok = false, status = (string?)null });
+
+            profile.LastSeenAt = DateTime.UtcNow;
+
+            // 心跳自动上线：之前是 offline 且没有进行中的单
+            if (profile.Status == "offline" && profile.ActiveOrderCount == 0)
+                profile.Status = "online";
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                ok = true,
+                status = profile.Status,
+                activeOrderCount = profile.ActiveOrderCount
+            });
+        }
+
+        // ==================================================
+        //  申请成为打手
+        // ==================================================
+        // ==================================================
+        //  申请成为打手
+        // ==================================================
         [HttpPost("apply")]
         public async Task<IActionResult> Apply([FromBody] OperatorApplyDto dto)
         {
@@ -101,6 +191,12 @@ namespace TaiChuWeb_V2.Controllers.Club
             if (existingProfile != null)
                 return BadRequest(new { message = "你已提交过打手申请，如需增加游戏请使用追加申请" });
 
+            // ⭐ 打手 ↔ 客服互斥
+            var isCs = await _db.CustomerServices
+                .AnyAsync(c => c.UserId == userId && c.AuditStatus != "rejected");
+            if (isCs)
+                return BadRequest(new { message = "你已是客服，无法同时申请成为打手" });
+
             var fieldError = await ValidateMetrics(dto.GameCode, dto.Metrics);
             if (fieldError != null) return BadRequest(new { message = fieldError });
 
@@ -113,7 +209,11 @@ namespace TaiChuWeb_V2.Controllers.Club
                 OnlineTime = dto.OnlineTime,
                 Intro = dto.Intro?.Trim(),
                 AuditStatus = "pending",
-                AppliedAt = DateTime.UtcNow
+                AppliedAt = DateTime.UtcNow,
+
+                // ⭐ 新申请默认离线
+                Status = "offline",
+                ActiveOrderCount = 0
             };
             _db.OperatorProfiles.Add(profile);
 
@@ -132,6 +232,9 @@ namespace TaiChuWeb_V2.Controllers.Club
             return Ok(new { message = "申请已提交，请等待审核" });
         }
 
+        // ==================================================
+        //  追加申请新游戏
+        // ==================================================
         [HttpPost("games/apply")]
         public async Task<IActionResult> ApplyGame([FromBody] OperatorGameApplyDto dto)
         {
@@ -193,7 +296,7 @@ namespace TaiChuWeb_V2.Controllers.Club
         }
 
         // ==================================================
-        // 内部
+        //  内部
         // ==================================================
 
         private async Task<string?> ValidateMetrics(string gameCode, Dictionary<string, string> metrics)
@@ -237,6 +340,15 @@ namespace TaiChuWeb_V2.Controllers.Club
                    ?? User.FindFirstValue("sub")
                    ?? throw new UnauthorizedAccessException();
             return Guid.Parse(sub);
+        }
+
+        // ==================================================
+        //  ⭐ 新增 DTO
+        // ==================================================
+        public class UpdateStatusDto
+        {
+            /// <summary>online / resting / offline</summary>
+            public string Status { get; set; } = "";
         }
     }
 }

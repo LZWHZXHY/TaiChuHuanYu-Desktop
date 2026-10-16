@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using TaiChuWeb_V2.DbContext;
@@ -12,6 +13,7 @@ namespace TaiChuWeb_V2.Controllers.Club
     /// </summary>
     [ApiController]
     [Route("api/admin/club")]
+    [Authorize]
     public class AdminClubController : ControllerBase
     {
         private readonly AppDbContext _db;
@@ -33,7 +35,7 @@ namespace TaiChuWeb_V2.Controllers.Club
                     name = g.Name,
                     description = g.Description,
                     commonRulesText = g.CommonRulesText,
-                    radarSystemDimsJson = g.RadarSystemDimsJson,   // ⭐ 新增
+                    radarSystemDimsJson = g.RadarSystemDimsJson,
                     isActive = g.IsActive,
                     sortOrder = g.SortOrder,
                     createdAt = g.CreatedAt
@@ -67,7 +69,7 @@ namespace TaiChuWeb_V2.Controllers.Club
             entity.IsActive = dto.IsActive;
             entity.SortOrder = dto.SortOrder;
             entity.CommonRulesText = dto.CommonRulesText;
-            entity.RadarSystemDimsJson = dto.RadarSystemDimsJson;   // ⭐ 新增
+            entity.RadarSystemDimsJson = dto.RadarSystemDimsJson;
 
             await _db.SaveChangesAsync();
             return Ok(new { message = "保存成功", code = entity.Code });
@@ -90,7 +92,7 @@ namespace TaiChuWeb_V2.Controllers.Club
         }
 
         // ==================================================
-        //  ⭐ 新增：系统评分维度清单（前端展示勾选项用）
+        //  系统评分维度清单
         // ==================================================
         [HttpGet("radar-system-dims")]
         public IActionResult GetRadarSystemDimOptions()
@@ -272,6 +274,7 @@ namespace TaiChuWeb_V2.Controllers.Club
                         auditNote = s.AuditNote,
                         code = s.Code,
                         operatorLevel = s.OperatorLevel,
+                        levelSurchargeRate = s.LevelSurchargeRate,   // ⭐ 顺便返回
                         recheckStatus = s.RecheckStatus,
                         ordersInGame = s.OrdersInGame,
                         completedOrdersInGame = s.CompletedOrdersInGame,
@@ -324,6 +327,9 @@ namespace TaiChuWeb_V2.Controllers.Club
                         ? null : item.Code.Trim();
                     skill.OperatorLevel = item.OperatorLevel;
 
+                    // ⭐ 新增：同步价格增幅
+                    skill.LevelSurchargeRate = GetLevelSurchargeRate(item.OperatorLevel);
+
                     if (oldStatus != "approved"
                         && item.AuditStatus == "approved"
                         && string.IsNullOrWhiteSpace(skill.Code))
@@ -341,6 +347,328 @@ namespace TaiChuWeb_V2.Controllers.Club
 
             await _db.SaveChangesAsync();
             return Ok(new { message = "审核结论已写入" });
+        }
+
+        // ==================================================
+        //  4. 客服管理
+        // ==================================================
+
+        /// <summary>客服列表</summary>
+        [HttpGet("customer-services")]
+        public async Task<IActionResult> GetCustomerServices(
+            [FromQuery] string? search,
+            [FromQuery] bool? isActive)
+        {
+            var q = _db.CustomerServices.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim();
+                q = q.Where(c =>
+                    c.Name.Contains(s) ||
+                    c.Wechat.Contains(s));
+            }
+
+            if (isActive.HasValue)
+                q = q.Where(c => c.IsActive == isActive.Value);
+
+            var list = await q
+                .OrderBy(c => c.SortOrder).ThenBy(c => c.CreatedAt)
+                .Select(c => new
+                {
+                    id = c.Id,
+                    userId = c.UserId,
+                    name = c.Name,
+                    wechat = c.Wechat,
+                    avatar = c.Avatar,
+                    status = c.Status,
+                    currentLoad = c.CurrentLoad,
+                    capacity = c.Capacity,
+                    isAssignable = c.IsAssignable,
+                    isActive = c.IsActive,
+                    auditStatus = c.AuditStatus,       // ⭐ 顺便返回
+                    sortOrder = c.SortOrder,
+                    createdAt = c.CreatedAt
+                })
+                .ToListAsync();
+
+            return Ok(list);
+        }
+
+        /// <summary>新增 / 更新客服</summary>
+        [HttpPost("customer-service")]
+        public async Task<IActionResult> SaveCustomerService([FromBody] CustomerServiceDto dto)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                return BadRequest(new { message = "客服名称不能为空" });
+            if (string.IsNullOrWhiteSpace(dto.Wechat))
+                return BadRequest(new { message = "客服微信不能为空" });
+
+            CustomerService entity;
+
+            if (dto.Id.HasValue && dto.Id.Value != Guid.Empty)
+            {
+                entity = await _db.CustomerServices
+                    .FirstOrDefaultAsync(c => c.Id == dto.Id.Value);
+                if (entity == null) return NotFound(new { message = "客服不存在" });
+            }
+            else
+            {
+                if (!dto.UserId.HasValue || dto.UserId.Value == Guid.Empty)
+                    return BadRequest(new { message = "新增客服必须指定关联用户 UserId" });
+
+                var existsUser = await _db.CustomerServices
+                    .AnyAsync(c => c.UserId == dto.UserId.Value);
+                if (existsUser)
+                    return BadRequest(new { message = "该用户已绑定客服身份" });
+
+                // 打手 ↔ 客服互斥
+                var isOperator = await _db.OperatorProfiles
+                    .AnyAsync(p => p.UserId == dto.UserId.Value);
+                if (isOperator)
+                    return BadRequest(new { message = "该用户已是打手，无法同时成为客服" });
+
+                entity = new CustomerService
+                {
+                    Id = Guid.NewGuid(),
+                    UserId = dto.UserId.Value,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = "offline",
+                    CurrentLoad = 0
+                };
+                _db.CustomerServices.Add(entity);
+            }
+
+            entity.Name = dto.Name.Trim();
+            entity.Wechat = dto.Wechat.Trim();
+            entity.Avatar = dto.Avatar;
+            entity.Capacity = dto.Capacity > 0 ? dto.Capacity : 10;
+            entity.IsAssignable = dto.IsAssignable;
+            entity.IsActive = dto.IsActive;
+            entity.SortOrder = dto.SortOrder;
+
+            await _db.SaveChangesAsync();
+            return Ok(new { message = "保存成功", id = entity.Id });
+        }
+
+        /// <summary>删除客服（软删除）</summary>
+        [HttpDelete("customer-service/{id:guid}")]
+        public async Task<IActionResult> DeleteCustomerService(Guid id)
+        {
+            var entity = await _db.CustomerServices
+                .FirstOrDefaultAsync(c => c.Id == id);
+            if (entity == null) return NotFound(new { message = "客服不存在" });
+
+            entity.IsActive = false;
+            entity.IsAssignable = false;
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "已停用" });
+        }
+
+        /// <summary>切换是否参与自动分配</summary>
+        [HttpPatch("customer-service/{id:guid}/toggle-assignable")]
+        public async Task<IActionResult> ToggleCustomerServiceAssignable(Guid id)
+        {
+            var entity = await _db.CustomerServices
+                .FirstOrDefaultAsync(c => c.Id == id);
+            if (entity == null) return NotFound(new { message = "客服不存在" });
+
+            entity.IsAssignable = !entity.IsAssignable;
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = entity.IsAssignable ? "已开启自动分配" : "已关闭自动分配",
+                isAssignable = entity.IsAssignable
+            });
+        }
+
+        /// <summary>手动修改客服在线状态</summary>
+        [HttpPatch("customer-service/{id:guid}/status")]
+        public async Task<IActionResult> UpdateCustomerServiceStatus(
+            Guid id,
+            [FromBody] CsStatusDto dto)
+        {
+            var valid = new[] { "online", "busy", "offline" };
+            if (string.IsNullOrWhiteSpace(dto?.Status) || !valid.Contains(dto.Status))
+                return BadRequest(new { message = "状态无效，仅支持 online / busy / offline" });
+
+            var entity = await _db.CustomerServices
+                .FirstOrDefaultAsync(c => c.Id == id);
+            if (entity == null) return NotFound(new { message = "客服不存在" });
+
+            entity.Status = dto.Status;
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "状态已更新", status = entity.Status });
+        }
+
+        // ==================================================
+        //  5. 客服申请审核
+        // ==================================================
+
+        /// <summary>客服申请列表</summary>
+        [HttpGet("cs-applications")]
+        public async Task<IActionResult> GetCsApplications(
+            [FromQuery] string status = "pending",
+            [FromQuery] string? search = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20)
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 20;
+
+            var q = _db.CustomerServices.AsNoTracking().AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(status) && status != "all")
+            {
+                q = q.Where(c => c.AuditStatus == status);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var s = search.Trim();
+                q = q.Where(c =>
+                    c.Name.Contains(s) ||
+                    c.Wechat.Contains(s) ||
+                    c.UserId.ToString().Contains(s));
+            }
+
+            var total = await q.CountAsync();
+
+            var raw = await q
+                .OrderByDescending(c => c.AppliedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var userIds = raw.Select(c => c.UserId).Distinct().ToList();
+            var users = await _db.Users.AsNoTracking()
+                .Where(u => userIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id);
+
+            var items = raw.Select(c =>
+            {
+                users.TryGetValue(c.UserId, out var u);
+                return new
+                {
+                    id = c.Id,
+                    userId = c.UserId,
+                    username = u?.Username ?? "",
+                    email = u?.Email ?? "",
+
+                    name = c.Name,
+                    wechat = c.Wechat,
+                    avatar = c.Avatar,
+
+                    onlineTime = c.OnlineTime,
+                    intro = c.Intro,
+                    capacity = c.Capacity,
+
+                    status = c.Status,
+                    currentLoad = c.CurrentLoad,
+                    isAssignable = c.IsAssignable,
+                    isActive = c.IsActive,
+
+                    auditStatus = c.AuditStatus,
+                    auditNote = c.AuditNote,
+                    appliedAt = c.AppliedAt,
+                    reviewedAt = c.ReviewedAt,
+
+                    reviewCount = c.ReviewCount,
+                    avgOverall = Math.Round(c.AvgOverall, 2),
+                    createdAt = c.CreatedAt
+                };
+            }).ToList();
+
+            return Ok(new { total, page, pageSize, status, items });
+        }
+
+        /// <summary>审核通过</summary>
+        [HttpPost("cs-application/{id:guid}/approve")]
+        public async Task<IActionResult> ApproveCsApplication(Guid id, [FromBody] CsApproveDto? dto)
+        {
+            var cs = await _db.CustomerServices
+                .FirstOrDefaultAsync(c => c.Id == id);
+            if (cs == null) return NotFound(new { message = "客服申请不存在" });
+
+            if (cs.AuditStatus == "approved")
+                return BadRequest(new { message = "该申请已通过" });
+            if (cs.AuditStatus == "banned")
+                return BadRequest(new { message = "该账号已被封禁" });
+
+            var isOperator = await _db.OperatorProfiles
+                .AnyAsync(p => p.UserId == cs.UserId);
+            if (isOperator)
+                return BadRequest(new { message = "该用户已是打手，无法通过客服审核" });
+
+            cs.AuditStatus = "approved";
+            cs.AuditNote = string.IsNullOrWhiteSpace(dto?.Note) ? null : dto.Note.Trim();
+            cs.ReviewedAt = DateTime.UtcNow;
+
+            cs.IsActive = true;
+            cs.IsAssignable = true;
+
+            if (dto?.Capacity != null && dto.Capacity > 0)
+                cs.Capacity = dto.Capacity.Value;
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "已通过审核",
+                id = cs.Id,
+                name = cs.Name,
+                capacity = cs.Capacity
+            });
+        }
+
+        /// <summary>审核拒绝</summary>
+        [HttpPost("cs-application/{id:guid}/reject")]
+        public async Task<IActionResult> RejectCsApplication(Guid id, [FromBody] CsRejectDto dto)
+        {
+            var cs = await _db.CustomerServices
+                .FirstOrDefaultAsync(c => c.Id == id);
+            if (cs == null) return NotFound(new { message = "客服申请不存在" });
+
+            if (cs.AuditStatus == "approved")
+                return BadRequest(new { message = "该申请已通过，无法再拒绝" });
+
+            if (string.IsNullOrWhiteSpace(dto?.Reason))
+                return BadRequest(new { message = "请填写拒绝原因" });
+
+            cs.AuditStatus = "rejected";
+            cs.AuditNote = dto.Reason.Trim();
+            cs.ReviewedAt = DateTime.UtcNow;
+
+            cs.IsActive = false;
+            cs.IsAssignable = false;
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "已拒绝", reason = cs.AuditNote });
+        }
+
+        /// <summary>封禁客服</summary>
+        [HttpPost("cs-application/{id:guid}/ban")]
+        public async Task<IActionResult> BanCsApplication(Guid id, [FromBody] CsRejectDto dto)
+        {
+            var cs = await _db.CustomerServices
+                .FirstOrDefaultAsync(c => c.Id == id);
+            if (cs == null) return NotFound(new { message = "客服不存在" });
+
+            cs.AuditStatus = "banned";
+            cs.AuditNote = string.IsNullOrWhiteSpace(dto?.Reason) ? "违规封禁" : dto.Reason.Trim();
+            cs.ReviewedAt = DateTime.UtcNow;
+
+            cs.IsActive = false;
+            cs.IsAssignable = false;
+            cs.Status = "offline";
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = "已封禁" });
         }
 
         // ==================================================
@@ -366,6 +694,17 @@ namespace TaiChuWeb_V2.Controllers.Club
             return $"{prefix}{next:D4}";
         }
 
+        /// <summary>⭐ 等级 → 价格增幅率</summary>
+        private static decimal GetLevelSurchargeRate(string? level) => level switch
+        {
+            "L1" => 0.10m,
+            "L2" => 0.20m,
+            "L3" => 0.30m,
+            "L4" => 0.40m,
+            "L5" => 0.50m,
+            _ => 0.10m
+        };
+
         // ==================================================
         //  DTO
         // ==================================================
@@ -376,7 +715,7 @@ namespace TaiChuWeb_V2.Controllers.Club
             public string Name { get; set; } = "";
             public string? Description { get; set; }
             public string? CommonRulesText { get; set; }
-            public string? RadarSystemDimsJson { get; set; }   // ⭐ 新增
+            public string? RadarSystemDimsJson { get; set; }
             public bool IsActive { get; set; } = true;
             public int SortOrder { get; set; }
         }
@@ -411,6 +750,37 @@ namespace TaiChuWeb_V2.Controllers.Club
             public string? AuditNote { get; set; }
             public string? Code { get; set; }
             public string? OperatorLevel { get; set; }
+        }
+
+        // ===== 客服相关 DTO =====
+        public class CustomerServiceDto
+        {
+            public Guid? Id { get; set; }
+            public Guid? UserId { get; set; }
+            public string Name { get; set; } = "";
+            public string Wechat { get; set; } = "";
+            public string? Avatar { get; set; }
+            public int Capacity { get; set; } = 10;
+            public bool IsAssignable { get; set; } = true;
+            public bool IsActive { get; set; } = true;
+            public int SortOrder { get; set; } = 0;
+        }
+
+        public class CsStatusDto
+        {
+            public string Status { get; set; } = "";
+        }
+
+        // ===== 客服申请审核 DTO =====
+        public class CsApproveDto
+        {
+            public string? Note { get; set; }
+            public int? Capacity { get; set; }
+        }
+
+        public class CsRejectDto
+        {
+            public string? Reason { get; set; }
         }
     }
 }

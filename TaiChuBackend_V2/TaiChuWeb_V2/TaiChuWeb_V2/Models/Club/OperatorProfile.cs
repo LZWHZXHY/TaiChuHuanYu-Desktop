@@ -20,6 +20,17 @@ namespace TaiChuWeb_V2.Models.Club
         [MaxLength(20)]
         public string ContactType { get; set; } = "";
 
+        // OperatorProfile.cs 新增
+        /// <summary>在线状态：online / busy / resting / offline</summary>
+        [MaxLength(10)]
+        public string Status { get; set; } = "offline";
+
+        /// <summary>最后一次心跳 / 上线时间</summary>
+        public DateTime? LastSeenAt { get; set; }
+
+        /// <summary>当前进行中的订单数（>0 时自动置 busy）</summary>
+        public int ActiveOrderCount { get; set; } = 0;
+
         [MaxLength(100)]
         public string ContactValue { get; set; } = "";
 

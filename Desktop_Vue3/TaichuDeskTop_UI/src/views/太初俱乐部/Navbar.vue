@@ -27,19 +27,62 @@
         <router-link to="/taichu/events"    class="nav-item" active-class="active">
           <span class="nav-index">05</span> 赛事活动
         </router-link>
-      
       </nav>
 
-      <router-link to="/taichu/profile" class="btn-apply">
-        <span>我的</span><i>↗</i>
-      </router-link>
+      <div class="nav-actions">
+        <!-- ⭐ 客服工作台入口（仅审核通过的客服显示） -->
+        <router-link
+          v-if="isApprovedCs"
+          to="/taichu/cs/dashboard"
+          class="btn-cs"
+          active-class="active"
+        >
+          <span>客服工作台</span>
+          <i>🎧</i>
+        </router-link>
+
+        <router-link to="/taichu/profile" class="btn-apply">
+          <span>我的</span><i>↗</i>
+        </router-link>
+      </div>
 
     </div>
   </header>
 </template>
 
 <script>
-export default { name: 'Navbar' }
+import request from '@/utils/request'
+
+export default {
+  name: 'Navbar',
+
+  data() {
+    return {
+      isApprovedCs: false
+    }
+  },
+
+  async mounted() {
+    await this.detectCsIdentity()
+  },
+
+  methods: {
+    /** ⭐ 检测当前用户是否为审核通过的客服 */
+    async detectCsIdentity() {
+      const token = localStorage.getItem('token')
+      if (!token) return
+
+      try {
+        const res = await request.get('/club/cs/me')
+        const data = res?.data ?? res
+        this.isApprovedCs = !!data?.hasApplied && data?.auditStatus === 'approved'
+      } catch (e) {
+        // 静默失败：用户不是客服或网络问题，不显示入口
+        this.isApprovedCs = false
+      }
+    }
+  }
+}
 </script>
 
 <style scoped>
@@ -105,6 +148,46 @@ export default { name: 'Navbar' }
   box-shadow: 0 0 12px rgba(255, 107, 26, 0.7);
 }
 
+/* ⭐ 右侧按钮区 */
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* ⭐ 客服工作台按钮 */
+.btn-cs {
+  height: 38px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 16px;
+  border: 1px solid rgba(165, 165, 255, 0.4);
+  background: rgba(165, 165, 255, 0.08);
+  color: #a5a5ff;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+.btn-cs i {
+  font-style: normal;
+  font-size: 13px;
+  line-height: 1;
+}
+.btn-cs:hover {
+  background: #a5a5ff;
+  color: #fff;
+  border-color: #a5a5ff;
+  box-shadow: 0 0 24px rgba(165, 165, 255, 0.3);
+}
+.btn-cs.active {
+  background: #a5a5ff;
+  color: #fff;
+  border-color: #a5a5ff;
+}
+
+/* 我的按钮 */
 .btn-apply {
   height: 38px;
   display: flex; align-items: center; gap: 16px;
@@ -135,5 +218,9 @@ export default { name: 'Navbar' }
   .logo-subtitle, .logo-divider { display: none; }
   .nav-links { display: none; }
   .btn-apply { height: 34px; padding: 0 12px; }
+  /* ⭐ 移动端：客服入口只显示图标 */
+  .btn-cs { height: 34px; padding: 0 10px; }
+  .btn-cs span { display: none; }
+  .btn-cs i { font-size: 15px; }
 }
 </style>

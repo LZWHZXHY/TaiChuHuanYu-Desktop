@@ -54,6 +54,12 @@ namespace TaiChuWeb_V2.Controllers.Club
                 {
                     userId = p.UserId,
                     name = p.Nickname,
+
+                    // ⭐ 新增：在线状态
+                    status = p.Status,
+                    lastSeenAt = p.LastSeenAt,
+                    activeOrderCount = p.ActiveOrderCount,
+
                     intro = p.Intro,
                     reputation = p.Reputation,
                     totalOrders = p.TotalOrders,
@@ -82,7 +88,9 @@ namespace TaiChuWeb_V2.Controllers.Club
                     }).ToList()
                 };
             })
-            .OrderByDescending(x => x.reviewCount > 0 ? x.avgOverall : 0)
+            // ⭐ 排序：在线优先 → 评分 → 信誉 → 单量
+            .OrderBy(x => OnlineRank(x.status))
+            .ThenByDescending(x => x.reviewCount > 0 ? x.avgOverall : 0)
             .ThenByDescending(x => x.reputation)
             .ThenByDescending(x => x.totalOrders)
             .ToList();
@@ -181,11 +189,6 @@ namespace TaiChuWeb_V2.Controllers.Club
             });
         }
 
-
-
-
-
-
         // ==================================================
         // ⭐ 打手收到的评价列表（公开）
         // GET /api/club/operators/{userId}/reviews
@@ -251,18 +254,19 @@ namespace TaiChuWeb_V2.Controllers.Club
             return Ok(new { total, page, pageSize, items });
         }
 
-
-
-
-
-
-
-
-
-
         // ==================================================
         //  内部
         // ==================================================
+
+        /// <summary>⭐ 在线状态排序权重（越小越靠前）</summary>
+        private static int OnlineRank(string? status) => status switch
+        {
+            "online" => 0,
+            "busy" => 1,
+            "resting" => 2,
+            "offline" => 3,
+            _ => 4
+        };
 
         private static async Task<object?> BuildSystemDim(
             string code,
@@ -277,7 +281,6 @@ namespace TaiChuWeb_V2.Controllers.Club
                     {
                         if (profile == null) return null;
 
-                        // ⭐ 修复：先取列表，内存里平均（避免空集合 AverageAsync 抛异常）
                         var reputations = await db.OperatorProfiles
                             .AsNoTracking()
                             .Where(p => p.AuditStatus == "approved")
@@ -350,7 +353,6 @@ namespace TaiChuWeb_V2.Controllers.Club
                             ? (double)profile.RepeatCustomers / profile.UniqueCustomers
                             : 0;
 
-                        // ⭐ 修复：先取列表，内存里平均
                         var rateRows = await db.OperatorProfiles
                             .AsNoTracking()
                             .Where(p => p.AuditStatus == "approved" && p.UniqueCustomers > 0)

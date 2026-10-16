@@ -1,3 +1,4 @@
+<!-- src/views/世界观管理/世界观组件/ContentBlockManager.vue -->
 <template>
   <div class="content-block-manager">
     <!-- 头部工具栏 -->
@@ -17,36 +18,24 @@
 
     <!-- 已插入的卡片列表 -->
     <div class="blocks-list">
-      <div v-for="(block, idx) in localValue" :key="block.id" class="block-card">
-        <div class="block-preview-wrapper">
-          <div v-if="getBlockCover(block)" class="block-cover-small">
-            <img :src="getBlockCover(block)" />
-          </div>
-          <div class="block-info">
-            <div class="block-title-row">
-              <span class="block-type-badge">{{ getBlockTypeLabel(block) }}</span>
-              <span v-if="block.contextLabel" class="block-context-label">
-                {{ block.contextLabel }} →
-              </span>
-              <span class="block-title">{{ getBlockTitle(block) }}</span>
-            </div>
-            <p class="block-summary">{{ getBlockSummary(block) }}</p>
-            <div v-if="getBlockAttributes(block).length" class="block-attr-tags">
-              <span
-                v-for="attr in getBlockAttributes(block).slice(0, 4)"
-                :key="attr.key"
-                class="block-attr-tag"
-              >
-                {{ attr.key }}: {{ attr.value }}
-              </span>
-              <span v-if="getBlockAttributes(block).length > 4" class="block-attr-more">
-                +{{ getBlockAttributes(block).length - 4 }}
-              </span>
-            </div>
-          </div>
-          <button class="remove-block-btn" @click="removeBlock(idx)">✕</button>
-        </div>
-      </div>
+      <EmbeddedCard
+        v-for="(block, idx) in localValue"
+        :key="block.id"
+        :card="getBlockDetail(block.cardId)"
+        :context-label="block.contextLabel"
+        :fallback-title="getBlockTitle(block)"
+        :fallback-type="block.cardType"
+        :fallback-cover="block.cardCover"
+        :fallback-attributes="block.cardAttributes"
+        :loading="!getBlockDetail(block.cardId)"
+        :project-id="projectId"
+        collapsible
+        :expanded="isExpanded(block.id)"
+        removable
+        @update:expanded="(v: boolean) => toggleExpand(block.id, v)"
+        @remove="removeBlock(idx)"
+      />
+
       <div v-if="!localValue.length" class="blocks-empty">
         点击上方按钮插入关联卡片
       </div>
@@ -96,11 +85,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { v4 as uuidv4 } from 'uuid';
 import { useWorldStore } from '@/stores/world';
 import { CardTypeMeta, type CardType } from '../card_type';
+import type { CardDetail } from '@/api/worldApi';
+import EmbeddedCard from './EmbeddedCard.vue';
 
 // ===== Props =====
 const props = defineProps<{
@@ -121,6 +112,12 @@ const store = useWorldStore();
 // ===== 本地状态 =====
 const localValue = ref([...props.modelValue]);
 
+// 展开状态集合（blockId 集合）
+const expandedIds = ref<Set<string>>(new Set());
+
+// 详情缓存（cardId → CardDetail）
+const detailMap = ref<Record<string, CardDetail>>({});
+
 // 选择器状态
 const showPicker = ref(false);
 const pickerType = ref<CardType>('character');
@@ -135,38 +132,57 @@ const pickerTypeLabel = computed(() => {
   return found?.label || pickerType.value;
 });
 
-// ===== 方法：获取卡片信息 =====
-const getBlockTitle = (block: any) => {
+// ===== 展开/收起 =====
+const isExpanded = (blockId: string): boolean => {
+  return expandedIds.value.has(blockId);
+};
+
+const toggleExpand = (blockId: string, value?: boolean) => {
+  const next = new Set(expandedIds.value);
+  const shouldExpand = value === undefined ? !next.has(blockId) : value;
+  if (shouldExpand) {
+    next.add(blockId);
+  } else {
+    next.delete(blockId);
+  }
+  expandedIds.value = next;
+};
+
+// ===== 详情加载 =====
+const loadDetails = async (cardIds: string[]) => {
+  const ids = [...new Set(cardIds)].filter(Boolean);
+  if (!ids.length) return;
+
+  await Promise.all(
+    ids.map(async (id) => {
+      const cached = store.getCardDetailById(id);
+      if (cached) {
+        detailMap.value[id] = cached;
+        return;
+      }
+      try {
+        const detail = await store.fetchCardDetail(props.projectId, id);
+        if (detail) {
+          detailMap.value[id] = detail;
+        }
+      } catch (err) {
+        console.warn(`拉取卡片详情失败: ${id}`, err);
+      }
+    })
+  );
+};
+
+const getBlockDetail = (cardId: string): CardDetail | null => {
+  return detailMap.value[cardId] || store.getCardDetailById(cardId) || null;
+};
+
+// ===== 兜底标题 =====
+const getBlockTitle = (block: any): string => {
+  const detail = getBlockDetail(block.cardId);
+  if (detail) return detail.title;
   if (block.cardTitle) return block.cardTitle;
   const card = store.cards.find((c: any) => c.id === block.cardId);
   return card?.title || '已删除的卡片';
-};
-
-const getBlockTypeLabel = (block: any) => {
-  if (block.cardType) {
-    const meta = CardTypeMeta[block.cardType as CardType];
-    return meta?.label || block.cardType;
-  }
-  const card = store.cards.find((c: any) => c.id === block.cardId);
-  if (card) {
-    const meta = CardTypeMeta[card.type as CardType];
-    return meta?.label || card.type;
-  }
-  return '未知';
-};
-
-const getBlockCover = (block: any) => {
-  if (block.cardCover) return block.cardCover;
-  const card = store.cards.find((c: any) => c.id === block.cardId);
-  return card?.coverImage || '';
-};
-
-const getBlockSummary = (block: any) => {
-  return block.cardSummary || '';
-};
-
-const getBlockAttributes = (block: any) => {
-  return block.cardAttributes || [];
 };
 
 const getTypeLabel = (type: string) => {
@@ -181,7 +197,7 @@ const openPicker = (type: string) => {
   pickerSearch.value = '';
   pickerContextLabel.value = '';
   showPicker.value = true;
-  loadPickerCards(cardType);  // ✅ 传入 CardType
+  loadPickerCards(cardType);
 };
 
 const closePicker = () => {
@@ -197,7 +213,7 @@ const loadPickerCards = (type: CardType) => {
   pickerLoading.value = false;
 };
 
-const insertBlock = (card: any) => {
+const insertBlock = async (card: any) => {
   if (localValue.value.some((b: any) => b.cardId === card.id)) {
     ElMessage.warning('已插入');
     return;
@@ -205,8 +221,9 @@ const insertBlock = (card: any) => {
 
   const contextLabel = pickerContextLabel.value.trim() || undefined;
 
+  const blockId = uuidv4();
   localValue.value.push({
-    id: uuidv4(),
+    id: blockId,
     cardId: card.id,
     cardType: card.type,
     order: localValue.value.length,
@@ -220,6 +237,9 @@ const insertBlock = (card: any) => {
   pickerContextLabel.value = '';
   closePicker();
   ElMessage.success(`已插入：${card.title}`);
+
+  await loadDetails([card.id]);
+  toggleExpand(blockId, true);
 };
 
 const removeBlock = (idx: number) => {
@@ -265,6 +285,20 @@ watch(
   { deep: true }
 );
 
+watch(
+  () => localValue.value.map((b: any) => b.cardId).join(','),
+  (key) => {
+    if (!key) return;
+    loadDetails(localValue.value.map((b: any) => b.cardId));
+  }
+);
+
+onMounted(() => {
+  if (localValue.value.length) {
+    loadDetails(localValue.value.map((b: any) => b.cardId));
+  }
+});
+
 defineExpose({
   openPicker,
   closePicker,
@@ -272,7 +306,7 @@ defineExpose({
 </script>
 
 <style scoped>
-/* ===== 关联内容样式 ===== */
+/* ===== 头部工具栏 ===== */
 .blocks-header {
   display: flex;
   justify-content: space-between;
@@ -306,126 +340,15 @@ defineExpose({
   color: #4f46e5;
 }
 
+/* ===== 卡片列表 ===== */
 .blocks-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 4px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-.blocks-list::-webkit-scrollbar {
-  width: 4px;
-}
-.blocks-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.blocks-list::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 4px;
+  gap: 10px;
+  margin-top: 8px;
+  /* ✅ 删掉了 max-height: 500px 和 overflow-y: auto，让内容自然撑开 */
 }
 
-.block-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: #fafbfc;
-  transition: border-color 0.2s;
-}
-.block-card:hover {
-  border-color: #cbd5e1;
-}
-
-.block-preview-wrapper {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-.block-cover-small {
-  flex-shrink: 0;
-  width: 60px;
-  height: 60px;
-  border-radius: 6px;
-  overflow: hidden;
-  background: #f1f5f9;
-}
-.block-cover-small img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.block-info {
-  flex: 1;
-  min-width: 0;
-}
-.block-title-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.block-type-badge {
-  font-size: 10px;
-  color: #4f46e5;
-  background: #eef2ff;
-  padding: 1px 8px;
-  border-radius: 10px;
-  font-weight: 500;
-  flex-shrink: 0;
-}
-.block-context-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #4f46e5;
-  background: #eef2ff;
-  padding: 0 8px;
-  border-radius: 4px;
-  flex-shrink: 0;
-}
-.block-title {
-  font-weight: 500;
-  font-size: 14px;
-  color: #0f172a;
-}
-.block-summary {
-  font-size: 13px;
-  color: #64748b;
-  margin: 2px 0 4px 0;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-height: 1.4;
-}
-.block-attr-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-.block-attr-tag {
-  font-size: 11px;
-  color: #94a3b8;
-  background: #f1f5f9;
-  padding: 0 8px;
-  border-radius: 4px;
-}
-.block-attr-more {
-  font-size: 11px;
-  color: #c0c4cc;
-}
-.remove-block-btn {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
-  transition: color 0.2s;
-}
-.remove-block-btn:hover {
-  color: #ef4444;
-}
 .blocks-empty {
   padding: 12px;
   text-align: center;

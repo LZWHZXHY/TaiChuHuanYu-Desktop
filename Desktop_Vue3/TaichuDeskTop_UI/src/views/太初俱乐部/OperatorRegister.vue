@@ -141,7 +141,7 @@
           </div>
 
           <div v-for="f in currentFields" :key="f.key" class="reg-field">
-            <label>{{ f.label }} <em v-if="f.required">*</em></label>
+            <label>绝密{{ f.label }} <em v-if="f.required">*</em></label>
             <select v-if="f.type === 'select'" v-model="metrics[f.key]">
               <option value="" disabled>请选择</option>
               <option v-for="o in f.options" :key="o" :value="o">{{ o }}</option>

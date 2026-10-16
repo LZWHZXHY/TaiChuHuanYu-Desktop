@@ -9,7 +9,7 @@
 
     <!-- 主体双栏网格布局 -->
     <div class="portal-grid">
-      
+
       <!-- 左侧：状态与快速操作区 -->
       <div class="column-left">
         <div class="glass-card status-card">
@@ -17,7 +17,7 @@
             <h3>灵境核心状态</h3>
             <span :class="['status-dot', serverInfo.isOnline ? 'online' : 'offline']"></span>
           </div>
-          
+
           <div class="status-list">
             <div class="status-item">
               <span class="label">运行端</span>
@@ -46,15 +46,29 @@
         <!-- 客户端依赖下载 -->
         <div class="glass-card download-card">
           <h3>组件与传送门</h3>
-          <p class="card-desc">适配当前 26.2 架构的前置与客户端支持。</p>
+          <p class="card-desc">适配当前 {{ serverVersion }} 架构的前置与客户端支持。</p>
           <div class="action-buttons">
-            <a :href="downloadLinks.fabricApi" target="_blank" class="btn-sub">
-              <span>Fabric API 26.2</span>
+            <a :href="downloadLinks.fabricApi" target="_blank" rel="noopener" class="btn-sub">
+              <span>Fabric API {{ serverVersion }}</span>
             </a>
             <a href="#" class="btn-sub disabled" @click.prevent="alert('内测专用整合包正在加急打包中！')">
               <span>专用整合包 [内测筹备]</span>
             </a>
           </div>
+        </div>
+
+        <!-- 自制 Mod 下载 -->
+        <div class="glass-card mod-card">
+          <div class="mod-badge">ORIGINAL MOD</div>
+          <h3>太初寰宇 · 原创模组</h3>
+          <p class="card-desc">
+            项目组独立开发的世界观核心模组，持续更新中，建议搭配 Fabric {{ serverVersion }} 使用。
+          </p>
+          <a :href="downloadLinks.customMod" target="_blank" rel="noopener" class="btn-mod">
+            <span class="btn-mod-icon">⤓</span>
+            <span>前往下载页</span>
+          </a>
+          <p class="mod-note">下载页由项目组统一维护，链接更新后此处自动生效。</p>
         </div>
       </div>
 
@@ -68,7 +82,7 @@
               欢迎来到<strong>《太初寰宇》</strong>。本服目前正处于核心内测期，底层已全面跃迁至 <b>Fabric {{ serverVersion }} & Java 25</b> 现代高性能运行环境。
             </p>
             <p>
-              当前阶段我们正在进行纯净开荒与底层性能压测。各位道友不仅能抢先体验原版生存的乐趣，未来还将作为核心见证者，逐步接入我们正在独立开发的**《太初寰宇》专属世界观系统**（包含复杂的属性矩阵与特色玩法）。
+              当前阶段我们正在进行纯净开荒与底层性能压测。各位道友不仅能抢先体验原版生存的乐趣，未来还将作为核心见证者，逐步接入我们正在独立开发的<strong>《太初寰宇》专属世界观系统</strong>（包含复杂的属性矩阵与特色玩法）。
             </p>
           </div>
 
@@ -107,7 +121,9 @@ const serverAddress = ref('120.53.224.225')
 const serverVersion = ref('26.2')
 
 const downloadLinks = ref({
-  fabricApi: 'https://modrinth.com/mod/fabric-api'
+  fabricApi: 'https://modrinth.com/mod/fabric-api',
+  // 自制 Mod 下载地址（项目组文件管理分享页）
+  customMod: 'https://ug.link/TaiChuHuanYu/filemgr/share-download/?id=5a2e739ffee24885afc967fb19869b9a'
 })
 
 const serverInfo = ref({
@@ -345,6 +361,73 @@ onUnmounted(() => {
   cursor: not-allowed;
 }
 
+/* 自制 Mod 卡片 */
+.mod-card {
+  position: relative;
+  overflow: hidden;
+  padding-left: 28px;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(245,245,245,0.7) 100%);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+.mod-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg, #1a1a1a 0%, rgba(26, 26, 26, 0.08) 100%);
+}
+.mod-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.15em;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--ink-black, #1a1a1a);
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+.mod-card h3 {
+  font-size: 15px;
+  letter-spacing: 0.1em;
+  margin: 0 0 6px 0;
+  color: var(--ink-black);
+}
+.btn-mod {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--ink-black, #1a1a1a);
+  color: #fff;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-decoration: none;
+  box-sizing: border-box;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.btn-mod:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+.btn-mod-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+.mod-note {
+  font-size: 11px;
+  color: var(--ink-gray);
+  opacity: 0.75;
+  margin: 10px 0 0 0;
+  letter-spacing: 0.03em;
+}
+
 /* 右侧世界观卡片 */
 .lore-card {
   position: relative;
@@ -400,7 +483,7 @@ onUnmounted(() => {
 }
 .player-chips {
   display: flex;
-  flex-wrap: gap;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .player-chip {

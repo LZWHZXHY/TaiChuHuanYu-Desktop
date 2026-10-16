@@ -5,6 +5,314 @@
 
     <main>
 
+      <!-- ==================== 太初寰宇俱乐部（页面顶部） ==================== -->
+      <section class="club-hero-section">
+
+        <div class="club-grid-bg"></div>
+        <div class="scan-line"></div>
+
+        <div class="section-container club-hero-inner">
+
+          <!-- ---------- 俱乐部介绍 ---------- -->
+          <div class="club-intro">
+
+            <div class="club-intro-text">
+
+              <span class="club-eyebrow">
+                CLUB PROFILE / 太初寰宇俱乐部
+              </span>
+
+              <h1 class="club-title">
+                太初寰宇俱乐部
+              </h1>
+
+              <p class="club-lead">
+                太初寰宇俱乐部 - 一个不太一样的俱乐部。
+                我们积极与社区互动，听取用户意见
+              </p>
+
+              <p class="club-lead-sub">
+                从游戏陪玩，到社区服务器，再到我们正在开发的自研游戏——
+                每一位板板，都可以在这个社区里里留下属于自己的痕迹。
+              </p>
+
+            </div>
+
+            <div class="club-meta">
+
+              <div class="club-meta-item">
+                <span>TACTICAL</span>
+                <strong>战术协同</strong>
+              </div>
+
+              <div class="club-meta-item">
+                <span>MULTI-GAME</span>
+                <strong>多游戏覆盖</strong>
+              </div>
+
+              <div class="club-meta-item">
+                <span>COMMUNITY</span>
+                <strong>社区共建</strong>
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <!-- ---------- 专属福利 ---------- -->
+          <div class="perk-heading">
+            <span class="perk-heading-label">EARLY ACCESS PRIVILEGE</span>
+            <span class="perk-heading-line"></span>
+            <span class="perk-heading-count">社区早期开发福利</span>
+          </div>
+
+
+          <div class="perk-intro">
+
+            <p>
+              这是太初社区<strong>早期开发阶段</strong>推出的专属福利。
+              累计消费满 <strong>¥2000</strong>，老板即可在下方两种彩蛋中
+              <strong>任选其一</strong>，作为你在太初世界里的永久纪念。
+            </p>
+
+            <span class="perk-note">
+              <i></i>
+              福利前置条件后续可能调整，以最新公告为准
+            </span>
+
+          </div>
+
+
+          <div class="perk-grid">
+
+            <article class="perk-card">
+
+              <span class="perk-card-line"></span>
+
+              <div class="perk-top">
+                <span class="perk-index">OPTION 01</span>
+                <span class="perk-tag">MINECRAFT</span>
+              </div>
+
+              <h3 class="perk-title">
+                社区服务器
+                <br />
+                MOD 彩蛋
+              </h3>
+
+              <p class="perk-desc">
+                我们会在太初社区 Minecraft 服务器里，
+                为老板制作一个专属 MOD 彩蛋，
+                作为你在服务器中的纪念。
+              </p>
+
+              <ul class="perk-list">
+                <li>社区服内专属 MOD 彩蛋</li>
+                <li>可留下你的署名 / 昵称</li>
+                <li>服务器内长期保留</li>
+              </ul>
+
+            </article>
+
+
+            <article class="perk-card">
+
+              <span class="perk-card-line"></span>
+
+              <div class="perk-top">
+                <span class="perk-index">OPTION 02</span>
+                <span class="perk-tag">TAICHU GAME</span>
+              </div>
+
+              <h3 class="perk-title">
+                自研游戏
+                <br />
+                游戏彩蛋
+              </h3>
+
+              <p class="perk-desc">
+                也可以把这份纪念放进我们正在开发的自研游戏里，
+                成为一个只属于你的游戏彩蛋。
+              </p>
+
+              <ul class="perk-list">
+                <li>自研游戏内专属彩蛋</li>
+                <li>可留下你的署名 / 昵称</li>
+                <li>随游戏版本更新长期保留</li>
+              </ul>
+
+            </article>
+
+          </div>
+
+
+          <div class="perk-foot-bar">
+            <span class="perk-cond">
+              <i></i>
+              累计消费 ≥ ¥2000 · 二选一
+            </span>
+            <span class="perk-foot-note">
+              两项福利不可叠加，具体形式以实际制作为准
+            </span>
+          </div>
+
+
+          <!-- ---------- 周边福利（研发中） ---------- -->
+          <div class="merch-block">
+
+            <div class="merch-head">
+
+              <div>
+                <span class="merch-eyebrow">IN DEVELOPMENT</span>
+                <h3>周边福利</h3>
+              </div>
+
+              <span class="merch-status">
+                <i></i>
+                研发 / 设计阶段
+              </span>
+
+            </div>
+
+            <p class="merch-desc">
+              我们正在为太初社区设计一整套专属周边。
+              目前仍处于<strong>概念设计与研发阶段</strong>，
+              具体形式、获取条件与上线时间均未确定，
+              完成后会第一时间在社区与官网公布。
+            </p>
+
+            <div class="merch-list">
+
+              <div class="merch-item">
+                <span class="merch-phase">CONCEPT 01</span>
+                <h4>实体周边</h4>
+                <p>
+                  徽章、钥匙扣、贴纸等社区纪念物，
+                  仍在筛选风格与材质方案。
+                </p>
+              </div>
+
+              <div class="merch-item">
+                <span class="merch-phase">CONCEPT 02</span>
+                <h4>联名设计</h4>
+                <p>
+                  与社区画师、设计师联动，
+                  打造太初专属视觉周边。
+                </p>
+              </div>
+
+              <div class="merch-item">
+                <span class="merch-phase">CONCEPT 03</span>
+                <h4>获取方式</h4>
+                <p>
+                  可能以社区活动、累计消费或积分兑换形式发放，
+                  方案仍在设计中。
+                </p>
+              </div>
+
+            </div>
+
+            <span class="merch-note">
+              <i></i>
+              以上内容均为设计方向示意，不代表最终方案
+            </span>
+
+          </div>
+
+
+          <!-- ---------- 未来活动 ---------- -->
+          <div class="event-block">
+
+            <div class="event-head">
+
+              <div>
+                <span class="event-eyebrow">INCOMING</span>
+                <h3>未来的太初活动</h3>
+              </div>
+
+              <span class="event-note">持续筹备中 · 敬请期待</span>
+
+            </div>
+
+
+            <div class="event-list">
+
+              <div class="event-item">
+                <span class="event-phase">PHASE 01</span>
+                <h4>社区建造活动</h4>
+                <p>
+                  围绕社区 MC 服务器展开的主题建造赛，
+                  玩家与打手同场协作，共建太初地图。
+                </p>
+                <span class="event-status is-planning">筹备中</span>
+              </div>
+
+              <div class="event-item">
+                <span class="event-phase">PHASE 02</span>
+                <h4>自研游戏内测</h4>
+                <p>
+                  优先邀请长期板板参与内测，
+                  共同打磨游戏内容。
+                </p>
+                <span class="event-status is-dev">开发中</span>
+              </div>
+
+              <div class="event-item">
+                <span class="event-phase">PHASE 03</span>
+                <h4>战术对抗赛</h4>
+                <p>
+                  线上线下联动的俱乐部对抗赛，
+                  开放观战、应援与专属奖励。
+                </p>
+                <span class="event-status is-planning">规划中</span>
+              </div>
+
+              <div class="event-item">
+                <span class="event-phase">PHASE 04</span>
+                <h4>节庆限定活动</h4>
+                <p>
+                  春节、周年庆等节点推出限定任务、
+                  限定福利与社区联动内容。
+                </p>
+                <span class="event-status is-planning">规划中</span>
+              </div>
+
+              <div class="event-item">
+                <span class="event-phase">PHASE 05</span>
+                <h4>跨游戏联动赛</h4>
+                <p>
+                  多款陪玩游戏同场联动，
+                  板板与打手自由组队，赢取专属奖励。
+                </p>
+                <span class="event-status is-planning">筹备中</span>
+              </div>
+
+              <div class="event-item">
+                <span class="event-phase">PHASE 06</span>
+                <h4>社区共创计划</h4>
+                <p>
+                  邀请板板参与太初社区建设，
+                  共同决定活动与内容方向。
+                </p>
+                <span class="event-status is-planning">规划中</span>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <div class="club-hero-bottom">
+          <span>TAICHU CLUB PROFILE</span>
+          <div class="club-hero-line"></div>
+          <span>EST. 2025</span>
+        </div>
+
+      </section>
+
+
       <!-- ==================== Hero ==================== -->
       <section class="hero-section">
 
@@ -287,172 +595,7 @@
         </div>
       </section>
 
-
-      <!-- ==================== 情报 ==================== -->
-      <section class="intel-section">
-
-        <div class="section-container">
-
-          <div class="intel-heading">
-
-            <div class="section-heading-left">
-              <span class="section-index">03 /</span>
-
-              <div>
-                <h2>INTEL</h2>
-                <span>情报速递 / INTERNAL INFORMATION</span>
-              </div>
-            </div>
-
-            <button class="view-all">
-              VIEW ALL
-              <span>→</span>
-            </button>
-
-          </div>
-
-
-          <div class="intel-list">
-
-            <article class="intel-item" @click="readNews(1)">
-
-              <div class="intel-number">01</div>
-
-              <div class="intel-date">
-                <span>09</span>
-                <small>SEP / 2026</small>
-              </div>
-
-              <div class="intel-content">
-
-                <div class="intel-topline">
-                  <span class="intel-tag match">MATCH</span>
-                  <span class="intel-code">OP-0926-01</span>
-                </div>
-
-                <h3>秋季联赛八强赛程公布</h3>
-
-                <p>
-                  本周五晚 20:00，对阵老牌劲旅。
-                  请各位干员准时上线完成战前集结。
-                </p>
-
-              </div>
-
-              <div class="intel-action">
-                <span>查看详情</span>
-                <strong>↗</strong>
-              </div>
-
-            </article>
-
-
-            <article class="intel-item" @click="readNews(2)">
-
-              <div class="intel-number">02</div>
-
-              <div class="intel-date">
-                <span>08</span>
-                <small>SEP / 2026</small>
-              </div>
-
-              <div class="intel-content">
-
-                <div class="intel-topline">
-                  <span class="intel-tag recruit">RECRUIT</span>
-                  <span class="intel-code">RC-0926-02</span>
-                </div>
-
-                <h3>二队狙击手 / 医疗兵招募</h3>
-
-                <p>
-                  要求段位达到钻石以上，每周在线时长不低于
-                  20 小时，通过试训后正式编入作战序列。
-                </p>
-
-              </div>
-
-              <div class="intel-action">
-                <span>查看详情</span>
-                <strong>↗</strong>
-              </div>
-
-            </article>
-
-
-            <article class="intel-item" @click="readNews(3)">
-
-              <div class="intel-number">03</div>
-
-              <div class="intel-date">
-                <span>05</span>
-                <small>SEP / 2026</small>
-              </div>
-
-              <div class="intel-content">
-
-                <div class="intel-topline">
-                  <span class="intel-tag system">SYSTEM</span>
-                  <span class="intel-code">SYS-0926-03</span>
-                </div>
-
-                <h3>俱乐部内部战术板系统上线</h3>
-
-                <p>
-                  后端技术组完成新一代战术沙盘系统部署，
-                  已向内部网络开放访问权限。
-                </p>
-
-              </div>
-
-              <div class="intel-action">
-                <span>查看详情</span>
-                <strong>↗</strong>
-              </div>
-
-            </article>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      <!-- ==================== Join CTA ==================== -->
-      <section class="join-section">
-
-        <div class="join-grid"></div>
-
-        <div class="join-container">
-
-          <div class="join-left">
-
-            <span class="join-eyebrow">
-              JOIN THE UNIT / 03
-            </span>
-
-            <h2>
-              下一场任务
-              <br />
-              <span>等你加入。</span>
-            </h2>
-
-            <p>
-              如果你拥有战术意识、团队精神以及不断突破自己的欲望，
-              太初俱乐部正在寻找你。
-            </p>
-
-          </div>
-
-          <button class="join-button" @click="handleJoin">
-            <span>申请加入太初</span>
-            <strong>↗</strong>
-          </button>
-
-        </div>
-
-      </section>
+    
 
     </main>
 
@@ -460,7 +603,6 @@
 
   </div>
 </template>
-
 
 <script>
 import Navbar           from './Navbar.vue'
@@ -519,10 +661,6 @@ export default {
       console.log('点击了解我们')
     },
 
-    readNews(id) {
-      console.log('查看资讯ID:', id)
-    },
-
     handleRegister(payload) {
       console.log('提交注册:', payload)
     },
@@ -536,8 +674,598 @@ export default {
 </script>
 
 
-
 <style scoped>
+
+/* =========================================================
+   CLUB HERO（页面顶部 · 介绍 + 福利 + 周边 + 活动）
+========================================================= */
+
+.club-hero-section {
+  position: relative;
+
+  max-width: 1440px;
+
+  margin: 0 auto;
+
+  padding:
+    80px
+    max(40px, 5vw)
+    80px;
+
+  overflow: hidden;
+
+  border-bottom: 1px solid var(--line);
+
+  background:
+    radial-gradient(
+      circle at 85% 20%,
+      rgba(255,107,26,0.06),
+      transparent 40%
+    );
+}
+
+.club-grid-bg {
+  position: absolute;
+  inset: 0;
+
+  background-image:
+    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+
+  background-size: 50px 50px;
+
+  mask-image: linear-gradient(to bottom, black, transparent 92%);
+
+  pointer-events: none;
+}
+
+.club-hero-inner {
+  position: relative;
+  z-index: 2;
+}
+
+/* ---------- 俱乐部介绍 ---------- */
+
+.club-intro {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 60px;
+  padding-bottom: 70px;
+  margin-bottom: 60px;
+  border-bottom: 1px solid var(--line);
+}
+
+.club-intro-text {
+  max-width: 720px;
+}
+
+.club-eyebrow {
+  display: block;
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--orange);
+  margin-bottom: 20px;
+}
+
+.club-title {
+  margin: 0 0 28px;
+  font-size: clamp(42px, 5.5vw, 76px);
+  line-height: 0.98;
+  font-weight: 850;
+  letter-spacing: -2px;
+}
+
+.club-lead {
+  margin: 0 0 22px;
+  font-size: 17px;
+  line-height: 1.9;
+  color: var(--text-soft);
+}
+
+.club-lead strong {
+  color: var(--orange);
+  font-weight: 600;
+}
+
+.club-lead-sub {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--text-muted);
+}
+
+.club-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  flex-shrink: 0;
+  padding-top: 12px;
+}
+
+.club-meta-item {
+  border-left: 1px solid var(--line-bright);
+  padding-left: 14px;
+  min-width: 130px;
+}
+
+.club-meta-item span {
+  display: block;
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.club-meta-item strong {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ---------- 福利小标题 ---------- */
+
+.perk-heading {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin: 0 0 28px;
+}
+
+.perk-heading-label {
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--orange);
+}
+
+.perk-heading-line {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+.perk-heading-count {
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+/* ---------- 福利说明 ---------- */
+
+.perk-intro {
+  max-width: 820px;
+  margin-bottom: 40px;
+}
+
+.perk-intro p {
+  margin: 0 0 16px;
+  font-size: 15px;
+  line-height: 1.9;
+  color: var(--text-soft);
+}
+
+.perk-intro p strong {
+  color: var(--orange);
+  font-weight: 600;
+}
+
+.perk-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.perk-note i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  box-shadow: 0 0 6px rgba(255,255,255,0.3);
+}
+
+/* ---------- 福利卡片 ---------- */
+
+.perk-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 30px;
+  margin-bottom: 30px;
+}
+
+.perk-card {
+  position: relative;
+  padding: 38px 32px 32px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.015);
+  transition: border-color 0.3s ease, background 0.3s ease;
+  overflow: hidden;
+}
+
+.perk-card:hover {
+  border-color: rgba(255,107,26,0.35);
+  background: rgba(255,107,26,0.03);
+}
+
+.perk-card-line {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--orange), transparent);
+  opacity: 0.5;
+}
+
+.perk-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.perk-index {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--orange);
+  letter-spacing: 1px;
+}
+
+.perk-tag {
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  border: 1px solid var(--line);
+  padding: 4px 10px;
+}
+
+.perk-title {
+  margin: 0 0 20px;
+  font-size: 24px;
+  line-height: 1.35;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.perk-desc {
+  margin: 0 0 22px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: var(--text-soft);
+}
+
+.perk-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.perk-list li {
+  position: relative;
+  padding-left: 16px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+
+.perk-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 5px;
+  height: 1px;
+  background: var(--orange);
+}
+
+/* ---------- 福利底部条 ---------- */
+
+.perk-foot-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 24px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.01);
+  margin-bottom: 70px;
+}
+
+.perk-cond {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--cyan);
+}
+
+.perk-cond i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+}
+
+.perk-foot-note {
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+
+/* =========================================================
+   MERCH（周边福利 · 研发中）
+========================================================= */
+
+.merch-block {
+  position: relative;
+  padding: 40px 36px 34px;
+  border: 1px dashed rgba(255,107,26,0.35);
+  background:
+    repeating-linear-gradient(
+      135deg,
+      rgba(255,107,26,0.02) 0,
+      rgba(255,107,26,0.02) 12px,
+      transparent 12px,
+      transparent 24px
+    ),
+    rgba(255,255,255,0.008);
+  margin-bottom: 70px;
+}
+
+.merch-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 24px;
+  margin-bottom: 22px;
+}
+
+.merch-eyebrow {
+  display: block;
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--orange);
+  margin-bottom: 8px;
+}
+
+.merch-head h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.merch-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--orange);
+  border: 1px dashed rgba(255,107,26,0.5);
+  padding: 6px 12px;
+}
+
+.merch-status i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--orange);
+  box-shadow: 0 0 8px var(--orange);
+  animation: pulse 2s infinite;
+}
+
+.merch-desc {
+  max-width: 820px;
+  margin: 0 0 32px;
+  font-size: 14px;
+  line-height: 1.9;
+  color: var(--text-muted);
+}
+
+.merch-desc strong {
+  color: var(--text-soft);
+  font-weight: 600;
+}
+
+.merch-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.merch-item {
+  padding: 22px 20px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.008);
+  transition: border-color 0.3s ease;
+}
+
+.merch-item:hover {
+  border-color: rgba(255,107,26,0.25);
+}
+
+.merch-phase {
+  display: block;
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--orange);
+  margin-bottom: 12px;
+}
+
+.merch-item h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.merch-item p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--text-muted);
+}
+
+.merch-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.merch-note i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+
+/* ---------- 未来活动 ---------- */
+
+.event-block {
+  border-top: 1px solid var(--line);
+  padding-top: 50px;
+}
+
+.event-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 38px;
+}
+
+.event-eyebrow {
+  display: block;
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--orange);
+  margin-bottom: 8px;
+}
+
+.event-head h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.event-note {
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+}
+
+.event-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 30px;
+}
+
+.event-item {
+  position: relative;
+  padding: 28px 24px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.01);
+  transition: border-color 0.3s ease;
+}
+
+.event-item:hover {
+  border-color: rgba(255,107,26,0.3);
+}
+
+.event-phase {
+  display: block;
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--orange);
+  margin-bottom: 16px;
+}
+
+.event-item h4 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.event-item p {
+  margin: 0 0 22px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--text-muted);
+}
+
+.event-status {
+  display: inline-block;
+  font-family: monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 5px 10px;
+  border: 1px solid var(--line-bright);
+  color: var(--text-soft);
+}
+
+.event-status.is-planning {
+  border-color: rgba(255,107,26,0.35);
+  color: var(--orange);
+}
+
+.event-status.is-dev {
+  border-color: rgba(0, 200, 255, 0.35);
+  color: var(--cyan);
+}
+
+/* ---------- 底部条 ---------- */
+
+.club-hero-bottom {
+  position: relative;
+  z-index: 2;
+
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  margin-top: 70px;
+
+  color: var(--text-muted);
+
+  font-family: monospace;
+  font-size: 8px;
+  letter-spacing: 2px;
+}
+
+.club-hero-line {
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
 
 /* =========================================================
    HERO
@@ -1356,8 +2084,7 @@ export default {
   letter-spacing: 1px;
 }
 
-.operations-heading h2,
-.intel-heading h2 {
+.operations-heading h2 {
   margin: 0;
 
   font-size: 21px;
@@ -1485,276 +2212,6 @@ export default {
   font-family: monospace;
 
   font-size: 9px;
-}
-
-
-/* =========================================================
-   INTEL
-========================================================= */
-
-.intel-section {
-  padding: 100px 0;
-}
-
-.intel-heading {
-  display: flex;
-
-  align-items: center;
-
-  justify-content: space-between;
-
-  margin-bottom: 40px;
-}
-
-.section-heading-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.section-heading-left > div span {
-  display: block;
-
-  color: var(--text-muted);
-
-  font-family: monospace;
-
-  font-size: 8px;
-
-  letter-spacing: 1px;
-
-  margin-top: 5px;
-}
-
-.view-all {
-  border: none;
-
-  background: none;
-
-  color: var(--text-muted);
-
-  font-family: monospace;
-
-  font-size: 9px;
-
-  letter-spacing: 1px;
-
-  cursor: pointer;
-
-  transition: color 0.2s ease;
-}
-
-.view-all span {
-  color: var(--orange);
-
-  margin-left: 8px;
-}
-
-.view-all:hover {
-  color: var(--text);
-}
-
-
-/* Intel item */
-
-.intel-list {
-  border-top: 1px solid var(--line);
-}
-
-.intel-item {
-  position: relative;
-
-  display: grid;
-
-  grid-template-columns:
-    55px
-    120px
-    1fr
-    100px;
-
-  gap: 25px;
-
-  align-items: center;
-
-  min-height: 155px;
-
-  padding: 22px 15px;
-
-  border-bottom: 1px solid var(--line);
-
-  cursor: pointer;
-
-  transition:
-    background 0.25s ease,
-    padding 0.25s ease;
-}
-
-.intel-item::before {
-  content: "";
-
-  position: absolute;
-
-  left: 0;
-  top: 0;
-  bottom: 0;
-
-  width: 2px;
-
-  background: var(--orange);
-
-  transform: scaleY(0);
-
-  transform-origin: center;
-
-  transition: transform 0.25s ease;
-}
-
-.intel-item:hover {
-  background:
-    linear-gradient(
-      90deg,
-      rgba(255,107,26,0.05),
-      transparent 60%
-    );
-
-  padding-left: 25px;
-}
-
-.intel-item:hover::before {
-  transform: scaleY(1);
-}
-
-.intel-number {
-  color: var(--text-muted);
-
-  font-family: monospace;
-
-  font-size: 10px;
-}
-
-.intel-date span {
-  display: block;
-
-  font-size: 27px;
-
-  font-weight: 600;
-
-  line-height: 1;
-}
-
-.intel-date small {
-  display: block;
-
-  margin-top: 6px;
-
-  color: var(--text-muted);
-
-  font-family: monospace;
-
-  font-size: 8px;
-
-  letter-spacing: 1px;
-}
-
-.intel-topline {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  margin-bottom: 10px;
-}
-
-.intel-tag {
-  padding: 3px 7px;
-
-  font-family: monospace;
-
-  font-size: 8px;
-
-  letter-spacing: 1px;
-}
-
-.intel-tag.match {
-  color: var(--cyan);
-
-  border: 1px solid rgba(120,215,206,0.18);
-
-  background: rgba(120,215,206,0.04);
-}
-
-.intel-tag.recruit {
-  color: var(--orange);
-
-  border: 1px solid rgba(255,107,26,0.2);
-
-  background: rgba(255,107,26,0.04);
-}
-
-.intel-tag.system {
-  color: #a9b6c2;
-
-  border: 1px solid var(--line-bright);
-
-  background: rgba(255,255,255,0.025);
-}
-
-.intel-code {
-  color: var(--text-muted);
-
-  font-family: monospace;
-
-  font-size: 8px;
-
-  letter-spacing: 1px;
-}
-
-.intel-content h3 {
-  margin: 0 0 8px;
-
-  font-size: 18px;
-
-  font-weight: 600;
-
-  letter-spacing: 0.3px;
-}
-
-.intel-content p {
-  margin: 0;
-
-  max-width: 650px;
-
-  color: var(--text-muted);
-
-  font-size: 12px;
-
-  line-height: 1.7;
-}
-
-.intel-action {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-
-  color: var(--text-muted);
-
-  font-family: monospace;
-
-  font-size: 9px;
-
-  transition: color 0.25s ease;
-}
-
-.intel-action strong {
-  color: var(--orange);
-
-  font-size: 17px;
-
-  font-weight: 400;
-}
-
-.intel-item:hover .intel-action {
-  color: var(--text);
 }
 
 
@@ -1926,6 +2383,27 @@ export default {
 
 @media (max-width: 1000px) {
 
+  .club-hero-section {
+    padding:
+      70px
+      40px
+      70px;
+  }
+
+  .club-intro {
+    flex-direction: column;
+    gap: 35px;
+    padding-bottom: 50px;
+    margin-bottom: 50px;
+  }
+
+  .club-meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding-top: 0;
+  }
+
   .hero-section {
     min-height: 720px;
 
@@ -1954,12 +2432,47 @@ export default {
     border-bottom: 1px solid var(--line);
   }
 
+  /* club */
+  .perk-grid {
+    gap: 20px;
+  }
+
+  .event-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .perk-foot-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  /* merch */
+  .merch-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
 }
 
 
 /* Tablet */
 
 @media (max-width: 768px) {
+
+  .club-hero-section {
+    padding:
+      60px
+      24px
+      60px;
+  }
+
+  .club-title {
+    font-size: 46px;
+  }
+
+  .club-lead {
+    font-size: 15px;
+  }
 
   .hero-section {
     min-height: 700px;
@@ -2017,28 +2530,8 @@ export default {
     right: 24px;
   }
 
-  .operations-section,
-  .intel-section {
+  .operations-section {
     padding: 70px 0;
-  }
-
-  .intel-item {
-    grid-template-columns:
-      35px
-      80px
-      1fr;
-
-    gap: 12px;
-
-    padding: 22px 0;
-  }
-
-  .intel-action {
-    display: none;
-  }
-
-  .intel-content h3 {
-    font-size: 16px;
   }
 
   .join-container {
@@ -2060,12 +2553,82 @@ export default {
     height: 125px;
   }
 
+  /* club */
+  .perk-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .event-list {
+    grid-template-columns: 1fr;
+  }
+
+  .event-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  /* merch */
+  .merch-block {
+    padding: 32px 24px 28px;
+  }
+
+  .merch-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .merch-list {
+    grid-template-columns: 1fr;
+  }
+
 }
 
 
 /* Mobile */
 
 @media (max-width: 520px) {
+
+  .club-hero-section {
+    padding:
+      50px
+      20px
+      50px;
+  }
+
+  .club-title {
+    font-size: 34px;
+    letter-spacing: -1px;
+  }
+
+  .club-meta {
+    width: 100%;
+  }
+
+  .club-meta-item {
+    min-width: calc(50% - 10px);
+  }
+
+  .perk-card {
+    padding: 30px 24px 26px;
+  }
+
+  .perk-title {
+    font-size: 20px;
+  }
+
+  .perk-foot-bar {
+    padding: 16px 18px;
+  }
+
+  .merch-block {
+    padding: 26px 18px 22px;
+  }
+
+  .merch-head h3 {
+    font-size: 20px;
+  }
 
   .hero-title {
     font-size: 48px;
@@ -2124,34 +2687,6 @@ export default {
     flex-direction: column;
   }
 
-  .intel-heading {
-    align-items: flex-start;
-
-    gap: 20px;
-
-    flex-direction: column;
-  }
-
-  .intel-item {
-    grid-template-columns:
-      30px
-      1fr;
-
-    align-items: start;
-  }
-
-  .intel-date {
-    display: none;
-  }
-
-  .intel-number {
-    padding-top: 5px;
-  }
-
-  .intel-content p {
-    font-size: 11px;
-  }
-
 }
 
 
@@ -2175,4 +2710,4 @@ export default {
 
 }
 
-</style>
+</style>  

@@ -10,7 +10,10 @@
           @click="sort = f.value"
         >{{ f.label }}</button>
       </div>
-      <span class="op-total">{{ list.length }} OPERATORS</span>
+      <span class="op-total">
+        {{ list.length }} OPERATORS
+        <em v-if="onlineCount > 0" class="op-online-count">· {{ onlineCount }} ONLINE</em>
+      </span>
     </div>
 
     <div v-if="loading" class="op-state">
@@ -22,10 +25,15 @@
     </div>
 
     <div v-else class="op-grid">
-      <article v-for="op in list" :key="op.userId" class="op-card">
+      <article
+        v-for="op in list"
+        :key="op.userId"
+        class="op-card"
+        :class="{ 'is-offline': (op.status || 'offline') === 'offline' }"
+      >
         <header class="op-head">
           <span class="op-id">{{ shortId(op.userId) }}</span>
-          <span class="op-status"><i></i>已认证</span>
+          <OnlineStatusBadge :status="op.status || 'offline'" class="op-status-badge" />
           <span
             class="op-rank"
             :class="`rank-${(op.topLevel || 'L1').toLowerCase()}`"
@@ -33,7 +41,7 @@
         </header>
 
         <div class="op-identity">
-          <div class="op-avatar">{{ op.name.charAt(0) }}</div>
+          <div class="op-avatar">{{ (op.name || '?').charAt(0) }}</div>
           <div class="op-name-wrap">
             <h3 class="op-name">{{ op.name }}</h3>
             <div class="op-roles">
@@ -66,7 +74,13 @@
 
         <footer class="op-foot">
           <button class="op-btn ghost" @click="openDetail(op)">查看档案</button>
-          <button class="op-btn solid" @click="$emit('order', op.userId)">指定下单</button>
+          <button
+            class="op-btn solid"
+            :disabled="(op.status || 'offline') === 'offline'"
+            @click="$emit('order', op.userId)"
+          >
+            {{ (op.status || 'offline') === 'offline' ? '离线中' : '指定下单' }}
+          </button>
         </footer>
       </article>
     </div>
@@ -76,7 +90,13 @@
       <div class="op-modal">
         <header class="om-head">
           <div>
-            <h3>{{ detail.name }}</h3>
+            <h3>
+              {{ detail.name }}
+              <OnlineStatusBadge
+                :status="detail.status || 'offline'"
+                class="om-head-status"
+              />
+            </h3>
             <p class="om-guid">GUID: {{ shortId(detail.userId) }}</p>
           </div>
           <button class="close-icon" @click="closeDetail">×</button>
@@ -252,7 +272,13 @@
 
         <footer class="om-foot">
           <button class="om-btn ghost" @click="closeDetail">关闭</button>
-          <button class="om-btn solid" @click="handleOrderFromDetail">指定下单</button>
+          <button
+            class="om-btn solid"
+            :disabled="(detail.status || 'offline') === 'offline'"
+            @click="handleOrderFromDetail"
+          >
+            {{ (detail.status || 'offline') === 'offline' ? '离线中' : '指定下单' }}
+          </button>
         </footer>
       </div>
     </div>
@@ -261,9 +287,13 @@
 
 <script>
 import request from '@/utils/request'
+import OnlineStatusBadge from './OnlineStatusBadge.vue'
+
+const ONLINE_RANK = { online: 0, busy: 1, resting: 2, offline: 3 }
 
 export default {
   name: 'OperatorsSection',
+  components: { OnlineStatusBadge },
   emits: ['view', 'order'],
 
   data() {
@@ -296,7 +326,20 @@ export default {
         totalOrders: (a, b) => b.totalOrders - a.totalOrders,
         topLevel:    (a, b) => (b.topLevel || '').localeCompare(a.topLevel || '')
       }
-      return [...this.remoteList].sort(cmp[this.sort])
+      return [...this.remoteList].sort((a, b) => {
+        // ⭐ 在线优先
+        const ra = ONLINE_RANK[a.status] ?? 9
+        const rb = ONLINE_RANK[b.status] ?? 9
+        if (ra !== rb) return ra - rb
+        // 同状态内按所选维度排序
+        return cmp[this.sort](a, b)
+      })
+    },
+
+    onlineCount() {
+      return this.remoteList.filter(op =>
+        op.status === 'online' || op.status === 'busy'
+      ).length
     },
 
     radarUserVertices() {
@@ -447,6 +490,8 @@ export default {
 
     handleOrderFromDetail() {
       if (!this.detail) return
+      // ⭐ 离线打手禁止指定下单
+      if ((this.detail.status || 'offline') === 'offline') return
       this.$emit('order', this.detail.userId)
       this.closeDetail()
     },
@@ -494,6 +539,11 @@ export default {
   flex-shrink: 0; font-family: monospace;
   font-size: 9px; letter-spacing: 1px; color: var(--text-muted);
 }
+.op-online-count {
+  font-style: normal;
+  color: var(--cyan);
+  margin-left: 4px;
+}
 
 .op-state {
   padding: 60px 32px; text-align: center;
@@ -522,7 +572,7 @@ export default {
   padding: 20px;
   border: 1px solid var(--line);
   background: linear-gradient(160deg, rgba(16, 25, 35, 0.75), rgba(10, 15, 21, 0.6));
-  transition: border-color 0.25s, transform 0.25s, background 0.25s;
+  transition: border-color 0.25s, transform 0.25s, background 0.25s, opacity 0.25s;
 }
 .op-card::before {
   content: ''; position: absolute; left: -1px; top: -1px;
@@ -537,19 +587,19 @@ export default {
 }
 .op-card:hover::before { opacity: 1; }
 
+/* ⭐ 离线卡片淡化 */
+.op-card.is-offline { opacity: 0.62; }
+.op-card.is-offline:hover { opacity: 0.85; transform: none; }
+
 .op-head {
   display: flex; align-items: center; gap: 10px;
   padding-bottom: 14px; border-bottom: 1px solid var(--line);
   font-family: monospace; font-size: 9px; letter-spacing: 1px;
 }
 .op-id { color: var(--text-muted); }
-.op-status { display: flex; align-items: center; gap: 5px; color: var(--cyan); }
-.op-status i {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: var(--cyan); box-shadow: 0 0 8px var(--cyan);
-}
+.op-status-badge { margin-left: auto; }
 .op-rank {
-  margin-left: auto; padding: 2px 7px;
+  padding: 2px 7px;
   font-weight: 700; border: 1px solid;
 }
 .op-rank.rank-l5 { color: var(--orange); border-color: rgba(255, 107, 26, 0.5); background: rgba(255, 107, 26, 0.1); }
@@ -617,6 +667,7 @@ export default {
   font-size: 11px; letter-spacing: 1px;
   cursor: pointer; transition: all 0.22s ease;
 }
+.op-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .op-btn.ghost {
   color: var(--text-soft); background: transparent;
   border: 1px solid var(--line-bright);
@@ -626,7 +677,8 @@ export default {
   color: #fff; background: var(--orange);
   border: 1px solid var(--orange);
 }
-.op-btn.solid:hover { background: var(--orange-bright); }
+.op-btn.solid:hover:not(:disabled) { background: var(--orange-bright); }
+.op-btn.solid:disabled { background: var(--line); border-color: var(--line); color: var(--text-muted); }
 
 /* ====== 弹窗 ====== */
 .op-modal-mask {
@@ -650,7 +702,12 @@ export default {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 20px; padding: 22px 26px 14px;
 }
-.om-head h3 { margin: 0 0 6px; font-size: 20px; font-weight: 700; letter-spacing: 1px; color: #f2f6fa; }
+.om-head h3 {
+  margin: 0 0 6px; font-size: 20px; font-weight: 700;
+  letter-spacing: 1px; color: #f2f6fa;
+  display: flex; align-items: center; gap: 10px;
+}
+.om-head-status { transform: translateY(1px); }
 .om-guid { margin: 0; font-family: monospace; font-size: 10px; letter-spacing: 1px; color: #6b7a8a; }
 .close-icon {
   background: none; border: none;
@@ -913,6 +970,7 @@ export default {
   cursor: pointer; transition: all 0.2s;
   border-radius: 3px;
 }
+.om-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .om-btn.ghost {
   color: #8b9aab; background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -922,7 +980,8 @@ export default {
   color: #fff; background: #ff6b1a;
   border: 1px solid #ff6b1a;
 }
-.om-btn.solid:hover { background: #ff7e32; }
+.om-btn.solid:hover:not(:disabled) { background: #ff7e32; }
+.om-btn.solid:disabled { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.08); color: #6b7a8a; }
 
 @media (max-width: 520px) {
   .op-toolbar { flex-direction: column; align-items: flex-start; }

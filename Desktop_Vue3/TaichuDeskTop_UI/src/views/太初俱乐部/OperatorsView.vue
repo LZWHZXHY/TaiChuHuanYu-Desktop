@@ -11,7 +11,6 @@
 
       <section class="section-block alt">
         <div class="section-container">
-          <!-- ✅ 不再传 operators，子组件自己去拉 -->
           <OperatorsSection
             @view="handleView"
             @order="handleOrder"
@@ -29,15 +28,28 @@ import Navbar            from './Navbar.vue'
 import Footer            from './Footer.vue'
 import SectionHeading    from './SectionHeading.vue'
 import OperatorsSection  from './OperatorsSection.vue'
-// ❌ 删掉这一行：import { operators } from './mock'
 
 export default {
   name: 'OperatorsView',
   components: { Navbar, Footer, SectionHeading, OperatorsSection },
-  // ❌ 删掉 data() { return { operators } }
+
   methods: {
-    handleView(uid)  { console.log('查看档案:', uid) },
-    handleOrder(uid) { console.log('指定下单:', uid) }
+    handleView(uid) {
+      // 目前 OperatorsSection 内部自己处理弹窗，外部不用管
+      console.log('查看档案:', uid)
+    },
+
+    /** ⭐ 指定下单：跳到定价页，带上打手 ID */
+    handleOrder(uid) {
+      if (!localStorage.getItem('token')) {
+        alert('请先登录')
+        return
+      }
+      this.$router.push({
+        path: '/taichu/pricing',
+        query: { operatorUserId: uid }
+      })
+    }
   }
 }
 </script>

@@ -55,43 +55,21 @@
         <div class="description-body" v-html="renderedDescription"></div>
       </div>
 
-      <!-- 关联卡片展开显示 -->
+      <!-- ✅ 关联内容：使用 EmbeddedCard 组件渲染 -->
       <div v-if="embeddedCards.length" class="section embedded-section">
         <div class="embedded-header">
           <span class="embedded-label">关联内容</span>
           <span class="embedded-count">{{ embeddedCards.length }}</span>
         </div>
         <div class="embedded-list">
-          <div
+          <EmbeddedCard
             v-for="item in embeddedCards"
             :key="item.id"
-            class="embedded-card-block"
+            :card="item"
+            :project-id="projectId"
+            clickable
             @click="goToCard(item.id)"
-          >
-            <div class="block-left">
-              <span class="block-type">{{ getTypeLabel(item.type) }}</span>
-              <span class="block-title">{{ item.title }}</span>
-            </div>
-            <div class="block-right">
-              <span class="block-updated">{{ formatDate(item.updatedAt) }}</span>
-              <span class="block-arrow">→</span>
-            </div>
-            <!-- 展开的内容预览 -->
-            <div class="block-preview">
-              <div v-if="item.coverImage" class="block-cover">
-                <img :src="item.coverImage" />
-              </div>
-              <div class="block-detail">
-                <p class="block-desc">{{ getCardSummary(item.id) }}</p>
-                <div v-if="item.attributes?.length" class="block-attrs">
-                  <span v-for="attr in item.attributes.slice(0, 3)" :key="attr.key" class="block-attr">
-                    {{ attr.key }}: {{ attr.value }}
-                  </span>
-                  <span v-if="item.attributes.length > 3" class="block-attr-more">+{{ item.attributes.length - 3 }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
+          />
         </div>
       </div>
 
@@ -117,12 +95,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox, ElImageViewer } from 'element-plus';
 import { useWorldStore } from '@/stores/world';
 import { useUserStore } from '@/stores/user';
 import type { CardDetail, CardSummary } from '@/api/worldApi';
+// ✅ 正确的 import 路径
+import EmbeddedCard from '@/views/世界观管理/世界观组件/EmbeddedCard.vue';
 
 // ===== 类型标签映射 =====
 const TYPE_LABELS: Record<string, string> = {
@@ -151,7 +131,6 @@ const cardId = route.params.cardId as string;
 const projectId = route.params.projectId as string;
 const loading = ref(false);
 
-// ✅ 使用 ref 存储当前卡片（因为是本地详情）
 const card = ref<CardDetail | null>(null);
 const embeddedCardDetails = ref<Map<string, CardDetail>>(new Map());
 
@@ -202,14 +181,14 @@ const cardTags = computed(() => {
   if (!tags) return [];
   if (Array.isArray(tags)) return tags;
   try {
-    const parsed = JSON.parse(tags);
+    const parsed = JSON.parse(tags as any);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 });
 
-// ✅ 关联卡片列表（从 store.cards 获取精简数据，再从详情缓存获取完整数据）
+// ✅ 关联卡片列表（从 store 的详情缓存获取完整数据）
 const embeddedCards = computed<CardDetail[]>(() => {
   if (!card.value) return [];
   const ids = extractEmbeddedCardIds(card.value);
@@ -255,28 +234,6 @@ const embeddedCards = computed<CardDetail[]>(() => {
   return result;
 });
 
-// ✅ 获取卡片摘要（优先从详情缓存获取）
-const getCardSummary = (targetId: string): string => {
-  const detail = store.getCardDetailById(targetId);
-  if (detail) {
-    if (detail.description) return detail.description;
-    try {
-      const data = JSON.parse(detail.content || '{}');
-      return data.description || data.summary || '';
-    } catch {
-      return '';
-    }
-  }
-
-  // 从 store.cards 获取精简数据
-  const summary = store.getCardById(targetId);
-  if (summary) {
-    // CardSummary 没有 description，返回空
-    return '';
-  }
-  return '';
-};
-
 // 渲染描述（将 {CARD:xxx} 替换为内联标签）
 const renderedDescription = computed(() => {
   const desc = card.value?.description || '';
@@ -314,19 +271,25 @@ const loadData = async () => {
     const detail = await store.fetchCardDetail(projectId, cardId);
     card.value = detail;
 
-    // 3. 加载所有关联卡片的详情
+    // 3. 加载所有关联卡片的详情（确保进入详情缓存）
     if (card.value) {
       const ids = extractEmbeddedCardIds(card.value);
       if (ids.length > 0) {
-        const existingIds: string[] = [];
-        for (const id of ids) {
-          if (store.getCardDetailById(id)) {
-            existingIds.push(id);
-          }
-        }
-        const missingIds = ids.filter(id => !existingIds.includes(id));
+        // 过滤出还没进详情缓存的卡片
+        const missingIds = ids.filter(id => !store.getCardDetailById(id));
+
         if (missingIds.length > 0) {
-          await store.fetchCardsByIds(projectId, missingIds);
+          // ✅ 并发拉取每张卡片的详情
+          // 注意：用 fetchCardDetail 而不是 fetchCardsByIds，
+          // 因为只有 fetchCardDetail 会把数据放进"详情缓存"
+          await Promise.all(
+            missingIds.map(id =>
+              store.fetchCardDetail(projectId, id).catch(err => {
+                console.warn(`加载卡片详情失败: ${id}`, err);
+                return null;
+              })
+            )
+          );
         }
       }
     }
@@ -371,7 +334,6 @@ onMounted(loadData);
 </script>
 
 <style scoped>
-/* ===== 样式保持不变 ===== */
 .card-detail {
   min-height: 100vh;
   background: #fafbfc;
@@ -549,6 +511,7 @@ onMounted(loadData);
   color: #ef4444;
 }
 
+/* ===== 关联内容：外层容器（内层由 EmbeddedCard 组件渲染） ===== */
 .embedded-section {
   padding: 0;
   border: 1px solid #eef2f6;
@@ -575,107 +538,9 @@ onMounted(loadData);
 .embedded-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
-}
-
-.embedded-card-block {
-  padding: 14px 20px;
-  cursor: pointer;
-  border-bottom: 1px solid #f4f6f8;
-  transition: background 0.12s;
-}
-.embedded-card-block:last-child {
-  border-bottom: none;
-}
-.embedded-card-block:hover {
-  background: #fafbfc;
-}
-
-.block-left {
-  display: flex;
-  align-items: center;
   gap: 10px;
-  margin-bottom: 6px;
-}
-.block-type {
-  font-size: 11px;
-  color: #4f46e5;
-  background: #eef2ff;
-  padding: 1px 10px;
-  border-radius: 4px;
-}
-.block-title {
-  font-weight: 500;
-  font-size: 15px;
-  color: #0f172a;
-}
-
-.block-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  float: right;
-}
-.block-updated {
-  font-size: 12px;
-  color: #94a3b8;
-}
-.block-arrow {
-  color: #c0c4cc;
-}
-
-.block-preview {
-  display: flex;
-  gap: 14px;
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px solid #f4f6f8;
-}
-
-.block-cover {
-  flex-shrink: 0;
-  width: 80px;
-  height: 60px;
-  border-radius: 4px;
-  overflow: hidden;
-  background: #f1f5f9;
-}
-.block-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.block-detail {
-  flex: 1;
-  min-width: 0;
-}
-.block-desc {
-  font-size: 13px;
-  color: #64748b;
-  margin: 0 0 4px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-height: 1.5;
-}
-
-.block-attrs {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.block-attr {
-  font-size: 12px;
-  color: #94a3b8;
-  background: #f1f5f9;
-  padding: 0 8px;
-  border-radius: 4px;
-}
-.block-attr-more {
-  font-size: 12px;
-  color: #c0c4cc;
+  padding: 14px 16px;
+  background: #fafbfc;
 }
 
 .tag-list {
@@ -734,19 +599,12 @@ onMounted(loadData);
   .attr-value {
     border-bottom: none;
   }
-  .block-preview {
-    flex-direction: column;
-  }
-  .block-cover {
-    width: 100%;
-    height: 100px;
-  }
-  .block-right {
-    display: none;
-  }
   .gallery-grid {
     grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
     gap: 8px;
+  }
+  .embedded-list {
+    padding: 10px 12px;
   }
 }
 </style>

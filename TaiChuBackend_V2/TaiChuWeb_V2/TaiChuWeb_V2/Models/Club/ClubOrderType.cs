@@ -12,6 +12,12 @@ namespace TaiChuWeb_V2.Models.Club
         [MaxLength(20)]
         public string GameCode { get; set; } = "";
 
+        /// <summary>最少打手数（护航单=2，陪玩单=1）</summary>
+        public int MinOperatorCount { get; set; } = 1;
+
+        /// <summary>最多打手数（陪玩单=2，部分单=1）</summary>
+        public int MaxOperatorCount { get; set; } = 1;
+
         [MaxLength(30)]
         public string Code { get; set; } = "";
 

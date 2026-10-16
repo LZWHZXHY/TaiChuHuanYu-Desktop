@@ -33,11 +33,13 @@ import 订单类型组件 from './俱乐部组件/订单类型组件.vue';
 import 打手审核组件 from './俱乐部组件/打手审核组件.vue';
 import 订单管理 from './俱乐部组件/订单管理.vue';
 import 钱包审核组件 from './俱乐部组件/钱包审核组件.vue';
+import 客服审核组件 from './俱乐部组件/客服审核组件.vue';  // ⭐ 新增
 const TABS = [
   { id: 'games',      label: '游戏库',   component: 游戏库组件 },
   { id: 'fields',     label: '字段编排', component: 字段编排组件 },
   { id: 'orderTypes', label: '订单类型', component: 订单类型组件 },
   { id: 'operators',  label: '打手审核', component: 打手审核组件 },
+  { id: 'cs',         label: '客服审核', component: 客服审核组件 },  // ⭐ 新增
   { id: 'orders',     label: '订单管理', component: 订单管理 },
   { id: 'wallet',     label: '钱包审核', component: 钱包审核组件 },  // ⭐ 新增
 ] as const;
@@ -56,7 +58,13 @@ const currentComponent = computed(() =>
 .page-title { font-size: 1.6rem; font-weight: 700; color: #111; margin: 0; }
 .md-subtitle { font-size: 0.85rem; color: #888; margin: 6px 0 0; }
 
-.md-tabs { display: flex; gap: 32px; border-bottom: 1px solid #f2f2f7; margin-bottom: 24px; }
+.md-tabs {
+  display: flex;
+  gap: 32px;
+  border-bottom: 1px solid #f2f2f7;
+  margin-bottom: 24px;
+  flex-wrap: wrap;   /* ⭐ 加这行 */
+}
 .tab-item {
   cursor: pointer; color: #86868b; padding-bottom: 12px;
   font-size: 0.95rem; font-weight: 600;

@@ -1,418 +1,459 @@
+/* ============================================================
+   CardEditor.css — 文档流编辑器
+   ============================================================ */
 
 .card-editor-inline {
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
-.create-banner {
-  display: flex;
-  justify-content: space-between;
-  background: #eef2ff;
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-weight: 500;
-  color: #4f46e5;
-}
-
-.cancel-create {
-  background: none;
-  border: none;
-  color: #64748b;
-  cursor: pointer;
-  font-size: 13px;
-  transition: color 0.2s;
-}
-.cancel-create:hover {
-  color: #1e293b;
-}
-
-.title-input {
-  width: 100%;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 16px;
-  font-weight: 500;
-  background: #fafbfc;
-  transition: border-color 0.2s, background 0.2s;
-}
-.title-input:focus {
-  outline: none;
-  border-color: #4f46e5;
-  background: white;
-}
-.title-input::placeholder {
-  color: #a0aec0;
-  font-weight: 400;
-}
-
-/* ===== 配额提示 ===== */
-.quota-hint {
+/* ============================================================
+   新建横幅
+   ============================================================ */
+.editor-banner {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-.quota-normal {
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
   color: #16a34a;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 24px;
 }
-.quota-warning {
-  background: #fefce8;
-  border: 1px solid #fde68a;
-  color: #d97706;
-}
-.quota-full {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #dc2626;
-}
-.quota-remaining {
-  font-weight: 500;
-}
-.quota-full .quota-full {
-  font-weight: 600;
+.editor-banner .cancel-btn {
+  background: none;
+  border: none;
+  color: #16a34a;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
 }
 
-/* ===== 类型选择 ===== */
-.type-tabs {
+/* ============================================================
+   标题输入（像文档标题）
+   ============================================================ */
+.doc-title-input {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  font-size: 32px;
+  font-weight: 600;
+  color: #111;
+  letter-spacing: -0.5px;
+  line-height: 1.25;
+  padding: 4px 8px;
+  margin: 0 0 16px -8px;
+  border-radius: 6px;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+  box-sizing: border-box;
+}
+.doc-title-input:hover {
+  border-color: #f0f0f0;
+  background: #fafafa;
+}
+.doc-title-input:focus {
+  outline: none;
+  border-color: #d0d0d0;
+  background: #fff;
+}
+.doc-title-input::placeholder {
+  color: #ccc;
+  font-weight: 500;
+}
+
+/* ============================================================
+   类型胶囊
+   ============================================================ */
+.doc-meta-row {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
 }
-.type-tab {
-  padding: 4px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  background: white;
+.type-chip {
   font-size: 12px;
+  color: #999;
+  padding: 3px 10px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: all 0.2s;
-  color: #475569;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+  user-select: none;
 }
-.type-tab:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+.type-chip:hover {
+  color: #666;
+  background: #f5f5f5;
 }
-.type-tab.active {
-  border-color: #4f46e5;
-  background: #eef2ff;
+.type-chip.active {
   color: #4f46e5;
+  background: #eef2ff;
+  border-color: #e0e7ff;
+  font-weight: 500;
 }
 
-/* ===== 封面图 ===== */
-.cover-field {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+/* ============================================================
+   通用 section（与只读视图一致）
+   ============================================================ */
+.doc-section {
+  margin-bottom: 40px;
 }
-.cover-preview-mini {
+
+.section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+/* ============================================================
+   描述（像散文，弱边框）
+   ============================================================ */
+.doc-desc-input {
+  width: 100%;
+  border: 1px solid #f0f0f0;
+  background: #fafafa;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 15px;
+  line-height: 1.85;
+  color: #1a1a1a;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 120px;
+  transition: border-color 0.15s, background 0.15s;
+  box-sizing: border-box;
+}
+.doc-desc-input:focus {
+  outline: none;
+  border-color: #d0d0d0;
+  background: #fff;
+}
+.doc-desc-input::placeholder {
+  color: #ccc;
+}
+
+/* ============================================================
+   封面
+   ============================================================ */
+.cover-preview {
   position: relative;
-  width: 80px;
-  height: 60px;
   border-radius: 8px;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
-  flex-shrink: 0;
+  margin-bottom: 8px;
+  max-width: 480px;
 }
-.cover-preview-mini img {
+.cover-preview img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  display: block;
+  cursor: pointer;
+  transition: opacity 0.15s;
 }
-.remove-cover-mini {
+.cover-preview img:hover { opacity: 0.95; }
+
+.cover-remove {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
   border: none;
   border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  width: 26px;
+  height: 26px;
   cursor: pointer;
   font-size: 14px;
+  line-height: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  transition: background 0.15s;
 }
-.remove-cover-mini:hover {
-  background: #ef4444;
-}
-.upload-cover-btn {
-  padding: 4px 16px;
-  border: 1px dashed #d1d5db;
+.cover-remove:hover { background: #ef4444; }
+
+/* ============================================================
+   幽灵按钮（添加封面/图片）
+   ============================================================ */
+.add-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px dashed #e0e0e0;
   border-radius: 8px;
-  background: transparent;
-  color: #64748b;
-  cursor: pointer;
+  padding: 10px 20px;
+  color: #999;
   font-size: 13px;
-  transition: all 0.2s;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
 }
-.upload-cover-btn:hover {
+.add-btn-ghost:hover {
   border-color: #4f46e5;
   color: #4f46e5;
-  background: #f0f4ff;
-}
-.upload-progress-mini {
-  font-size: 12px;
-  color: #94a3b8;
-  animation: pulse 1.2s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  background: #fafbff;
 }
 
-/* ===== 图库 ===== */
-.gallery-field {
-  margin-top: 4px;
-}
-.gallery-field .field-label {
-  display: block;
-  font-weight: 500;
-  font-size: 14px;
-  color: #334155;
-  margin-bottom: 6px;
-}
-.gallery-upload {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+/* ============================================================
+   图库
+   ============================================================ */
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
 }
 .gallery-item {
   position: relative;
   aspect-ratio: 1;
-  border-radius: 10px;
+  border-radius: 6px;
   overflow: hidden;
-  border: 1px solid #eef2f6;
-  background: #f8fafc;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-}
-.gallery-item:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  background: #f5f5f5;
 }
 .gallery-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
   display: block;
 }
-.gallery-item:hover img {
-  transform: scale(1.04);
-}
-.remove-gallery-btn {
+.gallery-remove {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 26px;
-  height: 26px;
-  border: none;
-  border-radius: 50%;
+  top: 4px;
+  right: 4px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 300;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  opacity: 0;
-  line-height: 1;
-  padding: 0;
-}
-.gallery-item:hover .remove-gallery-btn {
-  opacity: 1;
-}
-.remove-gallery-btn:hover {
-  background: #ef4444;
-  transform: scale(1.12);
-}
-.upload-gallery-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px 24px;
-  border: 2px dashed #d1d5db;
-  border-radius: 10px;
-  background: #fafbfc;
-  color: #64748b;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.25s ease;
-  min-height: 56px;
-  width: fit-content;
-  min-width: 140px;
-  user-select: none;
-}
-.upload-gallery-btn:hover {
-  border-color: #4f46e5;
-  color: #4f46e5;
-  background: #f0f4ff;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.12);
-}
-.upload-progress {
-  font-size: 13px;
-  color: #94a3b8;
-  animation: gallery-pulse 1.2s ease-in-out infinite;
-}
-@keyframes gallery-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-.gallery-field .hint {
   font-size: 12px;
-  color: #94a3b8;
-  margin: 4px 0 0 2px;
-  font-style: italic;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s;
+}
+.gallery-item:hover .gallery-remove { opacity: 1; }
+.gallery-remove:hover { background: #ef4444; }
+
+.upload-hint {
+  font-size: 12px;
+  color: #999;
+  margin-top: 6px;
 }
 
-/* ===== 描述 ===== */
-.desc-area {
-  width: 100%;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 8px 12px;
+/* ============================================================
+   坐标
+   ============================================================ */
+.coord-group {
+  display: flex;
+  gap: 12px;
+}
+.coord-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.coord-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #999;
+}
+.coord-item input {
+  width: 100px;
+  border: 1px solid #f0f0f0;
+  background: #fafafa;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
   font-family: inherit;
-  font-size: 14px;
-  resize: vertical;
-  background: #fafbfc;
-  transition: border-color 0.2s, background 0.2s;
-  min-height: 60px;
+  transition: border-color 0.15s, background 0.15s;
 }
-.desc-area:focus {
+.coord-item input:focus {
   outline: none;
-  border-color: #4f46e5;
-  background: white;
-}
-.desc-area::placeholder {
-  color: #a0aec0;
+  border-color: #d0d0d0;
+  background: #fff;
 }
 
-.type-editor-wrapper {
-  margin: 8px 0;
-  padding: 0;
+/* ============================================================
+   底部操作栏
+   ============================================================ */
+.editor-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
 }
-.type-editor-placeholder {
-  padding: 20px;
-  background: #f8fafc;
-  border-radius: 8px;
-  border: 1px dashed #d1d5db;
-  text-align: center;
-  margin: 8px 0;
-}
-.placeholder-text {
-  color: #94a3b8;
-  font-size: 14px;
-  margin: 0;
-}
-
-/* ===== 操作按钮 ===== */
-.editor-actions {
+.footer-left {
   display: flex;
   gap: 8px;
-  margin-top: 8px;
-  padding-top: 12px;
-  border-top: 1px solid #f1f3f5;
-}
-.btn-primary {
-  padding: 6px 20px;
-  background: #4f46e5;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 14px;
-  transition: background 0.2s;
-}
-.btn-primary:hover:not(:disabled) {
-  background: #4338ca;
-}
-.btn-primary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-.btn-danger {
-  padding: 6px 16px;
-  background: #fef2f2;
-  color: #ef4444;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
-}
-.btn-danger:hover {
-  background: #fee2e2;
-  border-color: #fca5a5;
 }
 
-/* ===== 响应式 ===== */
+/* ============================================================
+   配额信息（始终显示）
+   ============================================================ */
+.quota-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-family: inherit;
+}
+
+/* 正常：绿 */
+.quota-info.quota-normal {
+  color: #16a34a;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+/* 警告：黄 */
+.quota-info.quota-warning {
+  color: #d97706;
+  background: #fefce8;
+  border-color: #fde68a;
+}
+
+/* 已满：红 */
+.quota-info.quota-full {
+  color: #dc2626;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.quota-remaining {
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.quota-full-text {
+  font-weight: 600;
+}
+
+/* ============================================================
+   操作按钮
+   ============================================================ */
+.footer-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-primary {
+  padding: 8px 24px;
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-family: inherit;
+}
+.btn-primary:hover:not(:disabled) { background: #333; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-danger {
+  padding: 8px 16px;
+  background: none;
+  color: #999;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.btn-danger:hover {
+  color: #ef4444;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+/* ============================================================
+   ✅ 子组件弱边框覆盖
+   用双类名提高特异性，压过子组件的 scoped 样式
+   ============================================================ */
+.card-editor-inline.card-editor-inline :deep(.df-input),
+.card-editor-inline.card-editor-inline :deep(.df-textarea),
+.card-editor-inline.card-editor-inline :deep(.df-tags-input input),
+.card-editor-inline.card-editor-inline :deep(.attr-key),
+.card-editor-inline.card-editor-inline :deep(.attr-value),
+.card-editor-inline.card-editor-inline :deep(.tag-input-row input),
+.card-editor-inline.card-editor-inline :deep(.relation-input),
+.card-editor-inline.card-editor-inline :deep(.picker-search input),
+.card-editor-inline.card-editor-inline :deep(.picker-context .context-input) {
+  border-color: #f0f0f0;
+  background: #fafafa;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.card-editor-inline.card-editor-inline :deep(.df-input:focus),
+.card-editor-inline.card-editor-inline :deep(.df-textarea:focus),
+.card-editor-inline.card-editor-inline :deep(.df-tags-input input:focus),
+.card-editor-inline.card-editor-inline :deep(.attr-key:focus),
+.card-editor-inline.card-editor-inline :deep(.attr-value:focus),
+.card-editor-inline.card-editor-inline :deep(.tag-input-row input:focus),
+.card-editor-inline.card-editor-inline :deep(.relation-input:focus),
+.card-editor-inline.card-editor-inline :deep(.picker-search input:focus),
+.card-editor-inline.card-editor-inline :deep(.picker-context .context-input:focus) {
+  border-color: #d0d0d0;
+  background: #fff;
+  outline: none;
+}
+
+/* 隐藏 DynamicForm 自带的上下分隔线（外层已有 section 分隔） */
+.card-editor-inline.card-editor-inline :deep(.dynamic-form) {
+  border-top: none;
+  border-bottom: none;
+  padding: 0;
+}
+
+/* 去掉 AttributeList 的空状态提示（外层会显示"暂无"） */
+.card-editor-inline.card-editor-inline :deep(.attr-empty) {
+  display: none;
+}
+
+/* ============================================================
+   响应式
+   ============================================================ */
 @media (max-width: 640px) {
-  .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-    gap: 8px;
+  .doc-title-input {
+    font-size: 24px;
   }
-  .upload-gallery-btn {
+  .doc-section {
+    margin-bottom: 28px;
+  }
+  .editor-footer {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .footer-actions {
     width: 100%;
-    min-height: 48px;
-    padding: 10px 16px;
-    font-size: 13px;
-    justify-content: center;
   }
-  .remove-gallery-btn {
-    opacity: 1;
-    width: 22px;
-    height: 22px;
-    font-size: 12px;
-    top: 4px;
-    right: 4px;
-  }
-  .gallery-item {
-    border-radius: 8px;
-  }
-  .gallery-field .hint {
-    font-size: 11px;
-  }
-  .editor-actions {
-    flex-direction: column;
-  }
-  .editor-actions .btn-primary,
-  .editor-actions .btn-danger {
-    width: 100%;
-    justify-content: center;
+  .footer-actions .btn-primary,
+  .footer-actions .btn-danger {
+    flex: 1;
     text-align: center;
   }
-}
-@media (max-width: 400px) {
-  .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-    gap: 6px;
-  }
-  .type-tabs {
-    gap: 3px;
-  }
-  .type-tab {
-    font-size: 11px;
-    padding: 3px 10px;
+  .cover-preview {
+    max-width: 100%;
   }
 }

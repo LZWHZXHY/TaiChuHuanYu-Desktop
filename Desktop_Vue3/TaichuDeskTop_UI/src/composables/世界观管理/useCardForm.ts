@@ -12,7 +12,7 @@ export function useCardForm() {
     galleryImages: [] as string[],
     attributes: [] as AttributeItem[],
     description: '',
-    content: '{}',
+    content: {} as Record<string, any>,   // ✅ 对象
     tags: [] as string[],
     relations: [] as { targetCardId: string; relationType: string }[],
     contentBlocks: [] as {
@@ -37,7 +37,7 @@ export function useCardForm() {
       galleryImages: [],
       attributes: [],
       description: '',
-      content: '{}',
+      content: {},          // ✅ 对象
       tags: [],
       relations: [],
       contentBlocks: [],

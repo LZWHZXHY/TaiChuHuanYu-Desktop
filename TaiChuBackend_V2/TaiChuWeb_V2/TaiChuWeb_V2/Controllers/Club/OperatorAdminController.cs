@@ -202,12 +202,12 @@ namespace TaiChuWeb_V2.Controllers.Club
             s.AuditNote = null;
             s.Code = code;
             s.OperatorLevel = dto.Level;
+            s.LevelSurchargeRate = GetLevelSurchargeRate(dto.Level);   // ⭐⭐⭐ 补上
             s.RecheckStatus = "none";
             s.LastReviewAt = DateTime.UtcNow;
             s.NextRecheckAt = DateTime.UtcNow.AddMonths(1);
             s.ReviewedAt = DateTime.UtcNow;
 
-            // 把通用档案也标记为已通过（如果有）
             var profile = await _db.OperatorProfiles
                 .FirstOrDefaultAsync(p => p.UserId == userId);
             if (profile != null && profile.AuditStatus != "approved")
@@ -219,6 +219,32 @@ namespace TaiChuWeb_V2.Controllers.Club
             await _db.SaveChangesAsync();
             return Ok(new { message = "考核通过", code, level = dto.Level });
         }
+
+        // ⭐ 在类底部加这个静态方法（如果还没有）
+        private static decimal GetLevelSurchargeRate(string? level) => level switch
+        {
+            "L1" => 0.10m,
+            "L2" => 0.20m,
+            "L3" => 0.30m,
+            "L4" => 0.40m,
+            "L5" => 0.50m,
+            _ => 0.10m
+        };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         [HttpPost("{userId:guid}/games/{gameCode}/reject")]
         public async Task<IActionResult> Reject(Guid userId, string gameCode, [FromBody] OperatorAuditDto dto)

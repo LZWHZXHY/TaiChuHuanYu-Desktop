@@ -45,20 +45,20 @@ namespace TaiChuWeb_V2.DbContext
 
 
 
-
+        public DbSet<CustomerServiceWalletTransaction> CustomerServiceWalletTransactions { get; set; }
         public DbSet<OperatorWalletTransaction> OperatorWalletTransactions { get; set; } = null!;
         public DbSet<OperatorGameSkill> OperatorGameSkills { get; set; }   // 如果还没有就加
         public DbSet<ClubGame> ClubGames { get; set; }
         public DbSet<ClubGameField> ClubGameFields { get; set; }
 
-
+        public DbSet<OrderComplaint> OrderComplaints { get; set; }
         public DbSet<OperatorProfile> OperatorProfiles { get; set; }
         public DbSet<UniversalNode> FinalNodes { get; set; }
         public DbSet<UniversalNodeContent> FinalNodeContents { get; set; }
         public DbSet<UniversalRelation> FinalRelations { get; set; }
 
 
-
+        public DbSet<CsReview> CsReviews { get; set; }
 
 
 
@@ -196,7 +196,8 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<ClubOrder> ClubOrders { get; set; }
         public DbSet<OrderReview> OrderReviews { get; set; }
 
-
+        public DbSet<CustomerService> CustomerServices { get; set; }
+        public DbSet<OrderAssignmentLog> OrderAssignmentLogs { get; set; }
 
 
 
@@ -216,10 +217,12 @@ namespace TaiChuWeb_V2.DbContext
                 .HasIndex(o => o.OrderNo)
                 .IsUnique();
 
-            // ⭐ 评价：同订单 + 同评价人 唯一（一人只能评一次）
+            // ⭐ 评价：同订单 + 同评价人 + 同被评打手 唯一
+            //（支持多打手分开评：同一老板对同一订单，可分别评不同打手）
             modelBuilder.Entity<OrderReview>()
-                .HasIndex(r => new { r.OrderId, r.FromUserId })
-                .IsUnique();
+                .HasIndex(r => new { r.OrderId, r.FromUserId, r.ToUserId })
+                .IsUnique()
+                .HasDatabaseName("IX_OrderReviews_OrderId_FromUserId_ToUserId");
             // ===== 太初俱乐部：游戏注册表 =====
             modelBuilder.Entity<ClubGame>(entity =>
             {
@@ -240,6 +243,16 @@ namespace TaiChuWeb_V2.DbContext
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // ⭐ 客诉索引
+            modelBuilder.Entity<OrderComplaint>(entity =>
+            {
+                entity.HasIndex(c => c.OrderId);
+                entity.HasIndex(c => c.FromUserId);
+                entity.HasIndex(c => c.Status);
+                entity.HasIndex(c => new { c.Status, c.CreatedAt });
+            });
+
+
             // ===== 太初俱乐部：打手每游戏技能 =====
             modelBuilder.Entity<OperatorGameSkill>(entity =>
             {
@@ -255,7 +268,98 @@ namespace TaiChuWeb_V2.DbContext
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
+            // ===== 太初俱乐部：客服评价 =====
+            modelBuilder.Entity<CsReview>(entity =>
+            {
+                entity.ToTable("CsReviews");
+                entity.HasKey(r => r.Id);
 
+                entity.Property(r => r.OrderNo).IsRequired().HasMaxLength(30);
+                entity.Property(r => r.Comment).HasMaxLength(500);
+                entity.Property(r => r.CreatedAt).IsRequired();
+
+                // 同一订单 + 同一评价人 只能评一次
+                entity.HasIndex(r => new { r.OrderId, r.FromUserId }).IsUnique();
+
+                // 客服维度查询
+                entity.HasIndex(r => r.CustomerServiceId);
+                entity.HasIndex(r => new { r.CustomerServiceId, r.CreatedAt });
+            });
+
+            // ⭐ 客服钱包流水索引
+            modelBuilder.Entity<CustomerServiceWalletTransaction>(entity =>
+            {
+                entity.HasIndex(t => t.UserId);
+                entity.HasIndex(t => new { t.UserId, t.Type });
+                entity.HasIndex(t => t.CustomerServiceId);
+            });
+
+
+            // ===== 太初俱乐部：客服表 =====
+            modelBuilder.Entity<CustomerService>(entity =>
+            {
+                entity.ToTable("CustomerServices");
+                entity.HasKey(c => c.Id);
+
+                entity.Property(c => c.Name).IsRequired().HasMaxLength(50);
+                entity.Property(c => c.Wechat).IsRequired().HasMaxLength(100);
+                entity.Property(c => c.Status).HasMaxLength(10).HasDefaultValue("offline");
+                entity.Property(c => c.CurrentLoad).HasDefaultValue(0);
+                entity.Property(c => c.Capacity).HasDefaultValue(10);
+                entity.Property(c => c.IsAssignable).HasDefaultValue(true);
+                entity.Property(c => c.IsActive).HasDefaultValue(true);
+                entity.Property(c => c.CreatedAt).IsRequired();
+
+                // 一个用户只能绑定一个客服身份
+                entity.HasIndex(c => c.UserId);
+                // 常用查询：在线 + 可分配
+                entity.HasIndex(c => new { c.IsActive, c.IsAssignable, c.Status });
+                entity.HasIndex(c => c.SortOrder);
+
+                entity.HasOne(c => c.User)
+                    .WithMany()
+                    .HasForeignKey(c => c.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // ===== 太初俱乐部：订单分配日志 =====
+            modelBuilder.Entity<OrderAssignmentLog>(entity =>
+            {
+                entity.ToTable("OrderAssignmentLogs");
+                entity.HasKey(l => l.Id);
+
+                entity.Property(l => l.OrderNo).IsRequired().HasMaxLength(30);
+                entity.Property(l => l.Action).IsRequired().HasMaxLength(20);
+                entity.Property(l => l.Note).HasMaxLength(500);
+                entity.Property(l => l.CreatedAt).IsRequired();
+
+                entity.HasIndex(l => l.OrderNo);
+                entity.HasIndex(l => l.Action);
+                entity.HasIndex(l => new { l.OrderNo, l.CreatedAt });
+            });
+
+            // ===== 太初俱乐部：打手档案新增索引 =====
+            modelBuilder.Entity<OperatorProfile>(entity =>
+            {
+                entity.HasKey(p => p.UserId);
+
+                // ⭐ 新增：在线状态查询
+                entity.HasIndex(p => p.Status);
+                entity.HasIndex(p => new { p.AuditStatus, p.Status });
+            });
+
+            // ===== 太初俱乐部：订单新增索引 =====
+            modelBuilder.Entity<ClubOrder>(entity =>
+            {
+                // ⭐ 客服工作台：按客服查订单
+                entity.HasIndex(o => o.CustomerServiceId);
+                // ⭐ 老板下单来源统计
+                entity.HasIndex(o => o.Source);
+                // ⭐ 客服端：按客服 + 状态查（高频）
+                entity.HasIndex(o => new { o.CustomerServiceId, o.Status });
+
+                
+            });
 
 
 

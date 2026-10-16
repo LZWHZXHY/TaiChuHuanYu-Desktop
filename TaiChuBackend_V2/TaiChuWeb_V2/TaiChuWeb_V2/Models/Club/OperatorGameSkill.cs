@@ -20,6 +20,10 @@ namespace TaiChuWeb_V2.Models.Club
         [MaxLength(50)]
         public string GameName { get; set; } = "";
 
+        [Column(TypeName = "decimal(4,3)")]
+        public decimal LevelSurchargeRate { get; set; } = 0.10m;
+
+
         // ===== 该游戏的申请信息 =====
         /// <summary>该游戏的指标（JSON），比如 {"kd":"4-5","matches":"1000+"}</summary>
         [Column(TypeName = "json")]

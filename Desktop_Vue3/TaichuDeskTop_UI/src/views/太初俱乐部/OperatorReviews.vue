@@ -4,54 +4,42 @@
     <main>
       <section class="page-hero">
         <div class="section-container">
-          <SectionHeading index="01" title="REVIEWS" subtitle="我的评价 / REVIEWS" />
+          <SectionHeading index="01" title="REVIEWS" subtitle="我的待评价 / PENDING REVIEWS" />
         </div>
       </section>
 
       <section class="section-block alt">
         <div class="section-container">
 
-          <div v-if="!isLoggedIn" class="op-state">请先登录后查看评价</div>
+          <div v-if="!isLoggedIn" class="op-state">请先登录后查看待评价</div>
           <div v-else-if="loading" class="op-state">
-            <span class="dot"></span> 正在读取评价…
+            <span class="dot"></span> 正在读取待评价…
           </div>
 
           <template v-else>
             <!-- 待评价 - 作为老板 -->
             <section v-if="asBoss.length > 0" class="rv-section">
-              <h3 class="rv-title">作为老板 · 待评价（{{ asBoss.length }}）</h3>
+              <h3 class="rv-title">
+                待评价打手（{{ asBoss.length }}）
+              </h3>
               <div class="rv-list">
-                <div v-for="o in asBoss" :key="o.orderNo" class="rv-row">
+                <div v-for="o in asBoss" :key="o.orderNo + '-' + o.operatorUserId" class="rv-row">
                   <div class="rv-info">
                     <div class="rv-no mono">{{ o.orderNo }}</div>
                     <div class="rv-meta">
                       {{ o.gameName }} · {{ o.orderTypeName }} ·
-                      打手 {{ o.operatorName || '—' }}
+                      打手 <b class="rv-op">{{ o.operatorName || '—' }}</b>
+                      <span v-if="o.operatorCount > 1" class="rv-count">
+                        （本单共 {{ o.operatorCount }} 位打手，分别评价）
+                      </span>
                     </div>
                   </div>
-                  <button class="rv-btn primary" @click="openReview(o, true)">去评价</button>
+                  <button class="rv-btn primary" @click="openReview(o)">去评价</button>
                 </div>
               </div>
             </section>
 
-            <!-- 待评价 - 作为打手 -->
-            <section v-if="asOperator.length > 0" class="rv-section">
-              <h3 class="rv-title">作为打手 · 待评价（{{ asOperator.length }}）</h3>
-              <div class="rv-list">
-                <div v-for="o in asOperator" :key="o.orderNo" class="rv-row">
-                  <div class="rv-info">
-                    <div class="rv-no mono">{{ o.orderNo }}</div>
-                    <div class="rv-meta">
-                      {{ o.gameName }} · {{ o.orderTypeName }} ·
-                      老板 {{ o.customerName || '—' }}
-                    </div>
-                  </div>
-                  <button class="rv-btn primary" @click="openReview(o, false)">去评价</button>
-                </div>
-              </div>
-            </section>
-
-            <div v-if="asBoss.length === 0 && asOperator.length === 0" class="op-state">
+            <div v-if="asBoss.length === 0" class="op-state">
               暂无待评价订单
             </div>
           </template>
@@ -64,7 +52,7 @@
     <ReviewModal
       :visible="showReview"
       :order="reviewOrder"
-      :from-customer="reviewFromCustomer"
+      :from-customer="true"
       @close="showReview = false"
       @success="handleReviewSuccess"
     />
@@ -86,10 +74,8 @@ export default {
     return {
       loading: true,
       asBoss: [],
-      asOperator: [],
       showReview: false,
-      reviewOrder: null,
-      reviewFromCustomer: true
+      reviewOrder: null
     }
   },
 
@@ -108,18 +94,18 @@ export default {
       try {
         const res = await request.get('/club/orders/reviews/pending')
         const data = res?.data ?? res
+        // ⭐ 后端返回 { asBoss: [...], asOperator: [...] }，
+        //    但 asOperator 已下线，只读 asBoss
         this.asBoss = data?.asBoss ?? []
-        this.asOperator = data?.asOperator ?? []
       } catch (e) {
         console.error('加载待评价失败', e)
         this.asBoss = []
-        this.asOperator = []
       }
     },
 
-    openReview(order, fromCustomer) {
+    /** ⭐ 直接打开评价弹窗，order 里已带 operatorUserId / operatorName */
+    openReview(order) {
       this.reviewOrder = order
-      this.reviewFromCustomer = fromCustomer
       this.showReview = true
     },
 
@@ -164,6 +150,8 @@ export default {
 .rv-info { min-width: 0; }
 .rv-no { font-size: 13px; color: var(--text); margin-bottom: 6px; }
 .rv-meta { font-size: 11px; color: var(--text-muted); }
+.rv-op { color: var(--cyan); font-weight: 600; }
+.rv-count { color: var(--text-muted); margin-left: 4px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 
 .rv-btn {

@@ -73,6 +73,12 @@ namespace TaiChuWeb_V2.Controllers.Club
                     onlineTime = profile.OnlineTime,
                     intro = profile.Intro,
                     auditStatus = profile.AuditStatus,
+
+                    // ⭐ 新增：在线状态
+                    status = profile.Status,
+                    lastSeenAt = profile.LastSeenAt,
+                    activeOrderCount = profile.ActiveOrderCount,
+
                     reputation = profile.Reputation,
                     totalOrders = profile.TotalOrders,
                     completedOrders = profile.CompletedOrders,

@@ -12,7 +12,6 @@ export function useCardEditor(
   resetForm: () => void,
   setFormData: (data: any) => void,
   checkQuota: () => Promise<boolean>,
-  // 新增：显式传入 projectId，优先使用
   projectId?: string
 ) {
   const route = useRoute()
@@ -22,10 +21,13 @@ export function useCardEditor(
   const loading = ref(false)
   const isCreating = ref(true)
 
+  // ✅ 当前正在编辑的卡片 ID（来自路由或 cardData prop）
+  const currentCardId = ref<string>('')
+
   // 优先使用传入的 projectId，如果没有则从路由获取
   const routeProjectId = computed(() => (route.params.projectId as string) || projectId || '')
   const routeCardId = computed(() => route.params.cardId as string | undefined)
-  const isEditMode = computed(() => !!routeCardId.value || !!projectId)  // 如果有 projectId 表示处于编辑状态
+  const isEditMode = computed(() => !!routeCardId.value || !!projectId)
 
   // ===== 加载卡片数据 =====
   const loadCardData = async (cardData?: any) => {
@@ -33,32 +35,32 @@ export function useCardEditor(
     if (!cardId) {
       resetForm()
       isCreating.value = true
+      currentCardId.value = ''
       return
     }
 
-    // 如果有传入的 projectId，优先使用，否则用路由中的
-    const projectId = routeProjectId.value
-    if (!projectId) {
+    // ✅ 记住当前卡片 ID
+    currentCardId.value = cardId
+
+    const pid = routeProjectId.value
+    if (!pid) {
       throw new Error('缺少 projectId')
     }
 
     loading.value = true
     try {
-      await store.fetchCardDetail(projectId, cardId)
+      await store.fetchCardDetail(pid, cardId)
       const fullCard = store.currentCard
 
       if (!fullCard) {
         throw new Error('卡片数据为空')
       }
 
-      // 🔍 调试日志
-      console.log('🔍 fullCard.outRelations:', fullCard.outRelations)
-
       const rawAttributes = fullCard.attributes || []
       const attributes: AttributeItem[] = rawAttributes.map((attr: any) => ({
         key: attr.key,
         value: attr.value,
-        type: attr.type || 'short'
+        type: attr.type || 'short',
       }))
 
       const relations = (fullCard.outRelations || []).map((r: any) => ({
@@ -66,7 +68,20 @@ export function useCardEditor(
         relationType: r.relationType,
       }))
 
-      console.log('🔍 映射后的 relations:', relations)
+      // ✅ 解析 content 字符串 → 对象
+      let parsedContent: Record<string, any> = {}
+      try {
+        const raw = fullCard.content
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            parsedContent = parsed
+          }
+        }
+      } catch (err) {
+        console.warn('解析 content 失败，使用空对象:', err)
+        parsedContent = {}
+      }
 
       setFormData({
         title: fullCard.title || '',
@@ -75,21 +90,20 @@ export function useCardEditor(
         galleryImages: fullCard.galleryImages || [],
         attributes,
         description: fullCard.description || '',
-        content: fullCard.content || '{}',
+        content: parsedContent,   // ✅ 对象
         tags: Array.isArray(fullCard.tags) ? fullCard.tags : [],
         relations,
         contentBlocks: fullCard.contentBlocks || [],
       })
 
       await nextTick()
-      console.log('✅ form.relations 已设置:', form.value.relations)
-
       isCreating.value = false
     } catch (error) {
       console.error('加载卡片数据失败:', error)
       ElMessage.error('加载卡片数据失败')
       resetForm()
       isCreating.value = true
+      currentCardId.value = ''
     } finally {
       loading.value = false
     }
@@ -102,7 +116,6 @@ export function useCardEditor(
       return
     }
 
-    // 检查配额（仅创建时）
     if (isCreating.value) {
       const canCreate = await checkQuota()
       if (!canCreate) {
@@ -118,20 +131,20 @@ export function useCardEditor(
       galleryImages: form.value.galleryImages,
       attributes: form.value.attributes,
       description: form.value.description.trim(),
-      content: form.value.content || '{}',
+      content: JSON.stringify(form.value.content || {}),   // ✅ 对象 → 字符串
       tags: form.value.tags,
+      contentBlocks: form.value.contentBlocks,
     }
 
     let toRemove: any[] = []
     let toAdd: { targetCardId: string; relationType: string }[] = []
 
     if (!isCreating.value) {
-      const cardId = routeCardId.value
+      const cardId = currentCardId.value
       if (!cardId) throw new Error('缺少卡片 ID')
 
       let existingRelations = store.getCardDetailById(cardId)?.outRelations || []
       if (existingRelations.length === 0) {
-        // 这里需要 projectId，使用 routeProjectId
         await store.fetchCardDetail(routeProjectId.value, cardId)
         existingRelations = store.getCardDetailById(cardId)?.outRelations || []
       }
@@ -150,17 +163,15 @@ export function useCardEditor(
 
     saving.value = true
     try {
-      let cardId = routeCardId.value
-
       if (isCreating.value) {
         const newCard = await store.createCard(routeProjectId.value, cardPayload)
-        cardId = newCard.id
+        const newCardId = newCard.id
         for (const rel of form.value.relations || []) {
-          await store.addRelation(cardId, rel.targetCardId, rel.relationType)
+          await store.addRelation(newCardId, rel.targetCardId, rel.relationType)
         }
         ElMessage.success('已创建')
       } else {
-        const existingCardId = routeCardId.value
+        const existingCardId = currentCardId.value
         if (!existingCardId) throw new Error('缺少卡片 ID')
         await store.updateCard(existingCardId, cardPayload)
         for (const rel of toRemove) {
@@ -194,7 +205,7 @@ export function useCardEditor(
   const handleDelete = async (onDeleted: () => void) => {
     try {
       await ElMessageBox.confirm('确定删除吗？', '提示', { type: 'warning' })
-      const cardId = routeCardId.value
+      const cardId = currentCardId.value
       if (!cardId) {
         throw new Error('缺少卡片 ID')
       }
@@ -212,6 +223,7 @@ export function useCardEditor(
     isCreating,
     routeProjectId,
     routeCardId,
+    currentCardId,
     isEditMode,
     loadCardData,
     handleSave,

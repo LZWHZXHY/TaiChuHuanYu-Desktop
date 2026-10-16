@@ -1,28 +1,34 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Models.Club;
+using TaiChuWeb_V2.Models.User;
 
 namespace TaiChuWeb_V2.Controllers.Club
 {
     /// <summary>
-    /// 订单类型管理（后台配置 + 公开读取）
-    /// 路由前缀：api/admin/club 与 api/club
+    /// 订单类型管理（后台配置）
+    /// 路由前缀：api/admin/club
     /// </summary>
     [ApiController]
+    [Route("api/admin/club")]
+    [Authorize]
     public class AdminOrderTypeController : ControllerBase
     {
         private readonly AppDbContext _db;
         public AdminOrderTypeController(AppDbContext db) => _db = db;
 
         // ==================================================
-        //  后台接口
+        //  列表（含已过期、已停用）
         // ==================================================
-
-        /// <summary>按游戏取订单类型列表（含已过期、已停用）</summary>
-        [HttpGet("api/admin/club/order-types")]
+        [HttpGet("order-types")]
         public async Task<IActionResult> GetList([FromQuery] string gameCode)
         {
+            if (!await HasPermission(AdminPermission.Club_Manage))
+                return StatusCode(403, new { message = "无权限" });
+
             if (string.IsNullOrWhiteSpace(gameCode))
                 return Ok(Array.Empty<object>());
 
@@ -45,17 +51,24 @@ namespace TaiChuWeb_V2.Controllers.Club
                     sortOrder = t.SortOrder,
                     startAt = t.StartAt,
                     endAt = t.EndAt,
-                    createdAt = t.CreatedAt
+                    createdAt = t.CreatedAt,
+                    minOperatorCount = t.MinOperatorCount,
+                    maxOperatorCount = t.MaxOperatorCount
                 })
                 .ToListAsync();
 
             return Ok(list);
         }
 
-        /// <summary>新增 / 更新订单类型</summary>
-        [HttpPost("api/admin/club/order-type")]
+        // ==================================================
+        //  新增 / 更新
+        // ==================================================
+        [HttpPost("order-type")]
         public async Task<IActionResult> Save([FromBody] OrderTypeDto dto)
         {
+            if (!await HasPermission(AdminPermission.Club_Manage))
+                return StatusCode(403, new { message = "无权限" });
+
             if (string.IsNullOrWhiteSpace(dto.GameCode) ||
                 string.IsNullOrWhiteSpace(dto.Code) ||
                 string.IsNullOrWhiteSpace(dto.Name))
@@ -75,6 +88,14 @@ namespace TaiChuWeb_V2.Controllers.Club
             {
                 return BadRequest(new { message = "上架时间不能晚于下架时间" });
             }
+
+            // 打手数量校验
+            if (dto.MinOperatorCount < 1)
+                return BadRequest(new { message = "最少打手数不能小于 1" });
+            if (dto.MaxOperatorCount < dto.MinOperatorCount)
+                return BadRequest(new { message = "最多打手数不能小于最少打手数" });
+            if (dto.MaxOperatorCount > 5)
+                return BadRequest(new { message = "最多打手数不能超过 5" });
 
             ClubOrderType entity;
             if (dto.Id.HasValue && dto.Id.Value > 0)
@@ -109,14 +130,22 @@ namespace TaiChuWeb_V2.Controllers.Club
             entity.StartAt = dto.StartAt;
             entity.EndAt = dto.EndAt;
 
+            entity.MinOperatorCount = dto.MinOperatorCount;
+            entity.MaxOperatorCount = dto.MaxOperatorCount;
+
             await _db.SaveChangesAsync();
             return Ok(new { message = "保存成功", id = entity.Id });
         }
 
-        /// <summary>删除订单类型</summary>
-        [HttpDelete("api/admin/club/order-type/{id:long}")]
+        // ==================================================
+        //  删除
+        // ==================================================
+        [HttpDelete("order-type/{id:long}")]
         public async Task<IActionResult> Delete(long id)
         {
+            if (!await HasPermission(AdminPermission.Club_Manage))
+                return StatusCode(403, new { message = "无权限" });
+
             var entity = await _db.ClubOrderTypes.FindAsync(id);
             if (entity == null) return NotFound(new { message = "订单类型不存在" });
 
@@ -126,11 +155,14 @@ namespace TaiChuWeb_V2.Controllers.Club
         }
 
         // ==================================================
-        //  ⭐ 新增：一键上下架
+        //  一键上下架
         // ==================================================
-        [HttpPatch("api/admin/club/order-type/{id:long}/toggle")]
+        [HttpPatch("order-type/{id:long}/toggle")]
         public async Task<IActionResult> Toggle(long id)
         {
+            if (!await HasPermission(AdminPermission.Club_Manage))
+                return StatusCode(403, new { message = "无权限" });
+
             var entity = await _db.ClubOrderTypes.FindAsync(id);
             if (entity == null) return NotFound(new { message = "订单类型不存在" });
 
@@ -145,17 +177,19 @@ namespace TaiChuWeb_V2.Controllers.Club
         }
 
         // ==================================================
-        //  ⭐ 新增：复制订单类型
+        //  复制
         // ==================================================
-        [HttpPost("api/admin/club/order-type/{id:long}/copy")]
+        [HttpPost("order-type/{id:long}/copy")]
         public async Task<IActionResult> Copy(long id)
         {
+            if (!await HasPermission(AdminPermission.Club_Manage))
+                return StatusCode(403, new { message = "无权限" });
+
             var src = await _db.ClubOrderTypes
                 .AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Id == id);
             if (src == null) return NotFound(new { message = "订单类型不存在" });
 
-            // 生成不重复的 code：escort → escort-copy → escort-copy1 → escort-copy2
             var newCode = src.Code + "-copy";
             var i = 1;
             while (await _db.ClubOrderTypes.AnyAsync(t =>
@@ -174,11 +208,14 @@ namespace TaiChuWeb_V2.Controllers.Club
                 PricingJson = src.PricingJson,
                 SpecificRulesText = src.SpecificRulesText,
                 PricingMode = src.PricingMode,
-                IsActive = false,          // 副本默认停用，避免误上架
+                IsActive = false,
                 SortOrder = src.SortOrder + 1,
-                StartAt = null,             // 副本不继承时效
+                StartAt = null,
                 EndAt = null,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+
+                MinOperatorCount = src.MinOperatorCount,
+                MaxOperatorCount = src.MaxOperatorCount
             };
 
             _db.ClubOrderTypes.Add(copy);
@@ -188,11 +225,14 @@ namespace TaiChuWeb_V2.Controllers.Club
         }
 
         // ==================================================
-        //  ⭐ 新增：快速修改时效
+        //  快速修改时效
         // ==================================================
-        [HttpPatch("api/admin/club/order-type/{id:long}/time")]
+        [HttpPatch("order-type/{id:long}/time")]
         public async Task<IActionResult> UpdateTime(long id, [FromBody] UpdateTimeDto dto)
         {
+            if (!await HasPermission(AdminPermission.Club_Manage))
+                return StatusCode(403, new { message = "无权限" });
+
             var entity = await _db.ClubOrderTypes.FindAsync(id);
             if (entity == null) return NotFound(new { message = "订单类型不存在" });
 
@@ -215,38 +255,18 @@ namespace TaiChuWeb_V2.Controllers.Club
         }
 
         // ==================================================
-        //  公开接口（前台用）
+        //  权限校验
         // ==================================================
-
-        /// <summary>按游戏取当前有效的订单类型（前台展示用，已过期/未生效自动过滤）</summary>
-        [HttpGet("api/club/order-types")]
-        public async Task<IActionResult> GetPublicList([FromQuery] string gameCode)
+        private async Task<bool> HasPermission(AdminPermission perm)
         {
-            if (string.IsNullOrWhiteSpace(gameCode))
-                return Ok(Array.Empty<object>());
+            var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                   ?? User.FindFirstValue("sub");
+            if (string.IsNullOrEmpty(sub) || !Guid.TryParse(sub, out var uid))
+                return false;
 
-            var now = DateTime.UtcNow;
-
-            var list = await _db.ClubOrderTypes
-                .AsNoTracking()
-                .Where(t => t.GameCode == gameCode && t.IsActive)
-                // ⭐ 时间窗口过滤
-                .Where(t => t.StartAt == null || t.StartAt <= now)
-                .Where(t => t.EndAt == null || t.EndAt >= now)
-                .OrderBy(t => t.SortOrder).ThenBy(t => t.Id)
-                .Select(t => new
-                {
-                    code = t.Code,
-                    name = t.Name,
-                    description = t.Description,
-                    paramsSchemaJson = t.ParamsSchemaJson,
-                    pricingJson = t.PricingJson,
-                    specificRulesText = t.SpecificRulesText,
-                    pricingMode = t.PricingMode
-                })
-                .ToListAsync();
-
-            return Ok(list);
+            return await _db.UserPermissions.AnyAsync(p =>
+                p.UserId == uid &&
+                (p.Permission == perm || p.Permission == AdminPermission.SuperAdmin));
         }
 
         // ==================================================
@@ -267,6 +287,9 @@ namespace TaiChuWeb_V2.Controllers.Club
             public int SortOrder { get; set; }
             public DateTime? StartAt { get; set; }
             public DateTime? EndAt { get; set; }
+
+            public int MinOperatorCount { get; set; } = 1;
+            public int MaxOperatorCount { get; set; } = 1;
         }
 
         public class UpdateTimeDto
