@@ -508,4 +508,6 @@ onUnmounted(() => {
   letter-spacing: 0.15em;
   opacity: 0.6;
 }
+
+
 </style>
