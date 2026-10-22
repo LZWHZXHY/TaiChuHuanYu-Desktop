@@ -1,51 +1,151 @@
-/* theme.css — 太初俱乐部专属主题（作用域限定在 .page-shell 内） */
-
-/* ===== 主题变量：只挂在 .page-shell 上，不影响其他模块 ===== */
-.page-shell {
-  --bg: #070a0f;
-  --bg-soft: #0a0f15;
-  --panel: #0c131b;
-  --panel-light: #101923;
-
-  --line: rgba(255, 255, 255, 0.08);
-  --line-bright: rgba(255, 255, 255, 0.14);
-
-  --text: #f2f5f7;
-  --text-soft: #9aa6b2;
-  --text-muted: #596673;
-
-  --orange: #ff6b1a;
-  --orange-bright: #ff7e32;
-  --cyan: #78d7ce;
-
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at 70% 10%, rgba(255, 107, 26, 0.045), transparent 28%),
-    radial-gradient(circle at 20% 40%, rgba(80, 130, 150, 0.035), transparent 30%),
-    var(--bg);
-  color: var(--text);
-  font-family: Inter, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+/* 俱乐部沿用业务组件变量名，统一接入全站日夜主题。 */
+:root {
+  --bg: var(--bg-main);
+  --bg-soft: var(--bg-sub);
+  --panel: var(--paper-card);
+  --panel-light: var(--bg-sub);
+  --line: var(--border-line);
+  --line-bright: var(--border-line);
+  --text: var(--text-primary);
+  --text-soft: var(--text-secondary);
+  --text-muted: var(--text-secondary);
+  --orange: var(--accent-color);
+  --orange-bright: var(--accent-color);
+  --cyan: var(--success);
 }
-
-/* ===== 通用容器 / 板块间距（同样限定在 .page-shell 内） ===== */
+.page-shell {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+}
 .page-shell .section-container {
-  width: min(1200px, calc(100% - 56px));
+  width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
 }
-
 .page-shell .section-block {
-  padding: 100px 0;
+  padding: 36px 0;
 }
-
 .page-shell .section-block.alt {
   background: var(--bg-soft);
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
+  border-block: 1px solid var(--line);
 }
-
-@media (max-width: 768px) {
-  .page-shell .section-block { padding: 70px 0; }
-  .page-shell .section-container { width: calc(100% - 40px); }
+.page-shell input, .page-shell textarea, .page-shell select {
+  color: var(--text);
+  background: var(--panel);
+}
+.page-shell .page-hero {
+  padding: 32px 0;
+}
+@media(max-width: 768px) {
+  .page-shell .section-block {
+    padding: 24px 0;
+  }
+}
+/* 订单、客服与个人业务页面使用一致的内容宽度和表单节奏。 */
+.page-shell.page-shell .page-hero {
+  padding: 24px;
+  margin: 20px 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+.page-shell.page-shell .page-hero .sec-head {
+  margin-bottom: 0;
+}
+.page-shell.page-shell :is(.identity-card,.entry-card,.stat-cell,.cs-entry-card,.reg-form,.applied-info) {
+  border-radius: var(--radius-md);
+}
+.page-shell.page-shell :is(.ec-title,.sc-label,.ss-title) {
+  font-size: 14px;
+  letter-spacing: normal;
+}
+.page-shell.page-shell .reg-form {
+  max-width: 960px;
+  margin: auto;
+  padding: clamp(20px,3vw,32px);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+.page-shell.page-shell .reg-field label {
+  font-size: 14px;
+  letter-spacing: normal;
+}
+.page-shell.page-shell .section-block {
+  padding: 20px 0;
+}
+.page-shell.page-shell .section-block.alt {
+  background: transparent;
+  border: 0;
+}
+.page-shell.page-shell :is(.order-tabs,.filter-tabs,.cs-tabs,.profile-tabs) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  background: var(--bg-soft);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+.page-shell.page-shell :is(.order-card,.profile-card,.wallet-card,.register-card,.cs-guard,.cs-header) {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: none;
+  padding: 24px;
+}
+.page-shell.page-shell :is(.oc-head,.oc-footer,.cs-header,.header-actions) {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.page-shell.page-shell .oc-body {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(200px,320px);
+  gap: 24px;
+}
+.page-shell.page-shell :is(.oc-info,.oc-row b,.oc-code,.profile-main) {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.page-shell.page-shell :is(.entry-grid,.stat-grid) {
+  display: grid;
+  grid-template-columns: repeat(auto-fit,minmax(min(100%,180px),1fr));
+  gap: 16px;
+}
+.page-shell.page-shell :is(.form-row,.form-grid) {
+  gap: 20px;
+}
+.page-shell.page-shell :is(button,input,select,textarea) {
+  font-family: inherit;
+  border-radius: 8px;
+}
+.page-shell.page-shell :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select,textarea) {
+  min-width: 0;
+  max-width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--line);
+}
+.page-shell.page-shell :is(button,a,input,textarea,select):focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 3px;
+}
+.page-shell.page-shell button:disabled {
+  cursor: not-allowed;
+}
+.page-shell.page-shell :is(.table-wrap,.table-wrapper,.table-container) {
+  overflow-x: auto;
+  max-width: 100%;
+}
+@media(max-width:700px) {
+  .page-shell.page-shell .oc-body {
+    grid-template-columns: minmax(0,1fr);
+  }
+  .page-shell.page-shell :is(.page-hero,.order-card,.profile-card,.wallet-card,.register-card,.cs-guard,.cs-header) {
+    padding: 16px;
+  }
+  .page-shell.page-shell :is(.form-row,.form-grid) {
+    grid-template-columns: minmax(0,1fr);
+  }
 }

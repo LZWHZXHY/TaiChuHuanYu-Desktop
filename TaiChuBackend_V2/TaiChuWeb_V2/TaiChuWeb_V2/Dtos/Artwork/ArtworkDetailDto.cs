@@ -1,12 +1,16 @@
 ﻿namespace TaiChuWeb_V2.Dtos.Artwork
 {
-    public class ArtworkDetailDto
+    public class ArtworkDetailDto : ArtworkStatsDto
     {
+        public List<string> Tags { get; set; } = new();
         public int Id { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
         public DateTime UploadAt { get; set; }
 
+        public bool CanInteract { get; set; }
+        public bool CanEdit { get; set; }
+        public Guid? OriginalNoteId { get; set; }
         public AuthorDto? Author { get; set; }
         public List<ArtworkImageDto> Images { get; set; } = new();
 
@@ -39,6 +43,7 @@
 
     public class ArtworkImageDto
     {
+        public bool IsCover { get; set; }
         public string Url { get; set; } = string.Empty;
         public string? Caption { get; set; }
     }

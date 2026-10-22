@@ -1,413 +1,137 @@
 <template>
-  <article class="curated-gallery-container animate-fade-in">
-    <header class="curated-nav">
-      <div class="nav-left">
-        <div class="brand-group">
-          <h1 class="brand-title" @click="changeFilter('all')">太初视界</h1>
-          <span class="brand-sub">TAICHU CURATED STREAM</span>
-        </div>
-        <div class="mode-selectors">
-          <button 
-            @click="changeFilter('all')" 
-            :class="['mode-item', { active: currentFilter === 'all' }]"
-          >
-            全部
-          </button>
-          <button 
-            @click="changeFilter('blog')" 
-            :class="['mode-item', { active: currentFilter === 'blog' }]"
-          >
-            长文随笔
-          </button>
-          <button 
-            @click="changeFilter('post')" 
-            :class="['mode-item', { active: currentFilter === 'post' }]"
-          >
-            短篇简语
-          </button>
-        </div>
-      </div>
-      
+  <main class="stream-page content-page">
+    <header class="content-header">
+      <div><p class="eyebrow">社区创作 · 太初视界</p><h1>博客与帖子</h1><p class="intro">读一篇长文，分享一个想法，与社区一起交流。</p></div>
+      <nav class="content-actions" aria-label="创作入口"><RouterLink class="primary" :to="composeRoute('blog')">写博客</RouterLink><RouterLink :to="composeRoute('post')">发帖子</RouterLink></nav>
     </header>
-
-    <main class="curated-view">
-      <div v-if="loading && posts.length === 0" class="curated-loading">
-        <div class="loading-pulse"></div>
-        <span class="loading-text">正在共鸣太初视界...</span>
+    <div class="section-toolbar">
+      <div class="content-filters" aria-label="内容类型">
+        <button v-for="(label, key) in filters" :key="key" :aria-pressed="currentFilter === key" @click="changeFilter(key)">{{ label }}</button>
       </div>
-
-      <div v-else-if="posts.length === 0" class="curated-empty">
-        <p class="empty-text">视界中空无一物，待你落笔生花。</p>
-      </div>
-
-      <div v-else class="curated-stream-grid">
-        <div 
-          v-for="item in posts" :key="item.id" 
-          class="stream-card" 
-          :class="[(item.type === 'note' || item.type === 'blog') ? 'is-blog' : 'is-post', { 'has-image-hero': item.cardCover }]"
-          @click="openArtwork(item.id)"
-        >
-          <!-- 🌟 模式 A：长文随笔/深度博客 (大版面双栏自适应设计) -->
-          <template v-if="item.type === 'note' || item.type === 'blog'">
-            <div class="blog-card-layout-flex">
-              <!-- 左侧：文字描述区 -->
-              <div class="blog-text-side">
-                <div class="card-meta">
-                  <span class="meta-tag">{{ item.type === 'blog' ? 'BLOG' : 'ESSAY' }}</span>
-                  <span class="meta-dot">/</span>
-                  <span class="meta-author">{{ item.author }}</span>
-                </div>
-                <div class="card-body">
-                  <h2 class="blog-title">{{ item.title || '无标题随笔' }}</h2>
-                  <p class="blog-excerpt">
-                    {{ getSnippet(item.content, 140) || '暂无摘要' }}
-                  </p>
-                </div>
-                <div class="card-footer">
-                  <time class="post-time">{{ formatTime(item.publishedAt || item.createdAt) }}</time>
-                  <div class="resonance-stat">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                    <span>{{ item.resonance || 0 }}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 右侧：高级侧边封面图 (仅当有封面图时才渲染，达成弹性自适应) -->
-              <div v-if="item.cardCover" class="blog-cover-side">
-                <img :src="item.cardCover" alt="文章封面" class="blog-side-img" loading="lazy" />
-              </div>
-            </div>
-          </template>
-
-          <!-- 🌟 模式 B：微言短动态 -->
-<template v-else-if="item.type === 'post'">
-  <div v-if="item.cardCover" class="post-card-hero">
-    <img :src="item.cardCover" alt="动态配图" class="hero-img" loading="lazy" />
-  </div>
-
-  <div class="post-card-content-wrapper">
-    <div class="card-meta">
-      <span class="meta-tag post-tag">FRAGMENT</span>
-      <span class="meta-dot">/</span>
-      <span class="meta-author">{{ item.author }}</span>
+      <label class="topic-filter">分类<select aria-label="讨论分类" :value="currentTag" @change="changeTag(($event.target as HTMLSelectElement).value)"><option value="">全部分类</option><option value="我的世界">我的世界</option><option v-if="currentTag && currentTag !== '我的世界'" :value="currentTag">{{ currentTag }}</option></select></label>
     </div>
-    
-    <!-- 修改点：不再使用 getSnippet 截断，直接展示内容 -->
-    <div class="card-body">
-      <div class="post-text">
-        <!-- 如果 item.content 就是纯文本，直接显示；如果是 Tiptap JSON，依然可以用 extractTiptapText 转换 -->
-        {{ extractTiptapText(item.content) || item.title || '灵脉波动中...' }}
-      </div>
-    </div>
-
-    <div class="card-footer">
-      <time class="post-time">{{ formatTime(item.publishedAt || item.createdAt) }}</time>
-      <div class="resonance-stat">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-        <span>{{ item.resonance || 0 }}</span>
-      </div>
-    </div>
-  </div>
-</template>
+    <p v-if="currentTag" class="topic-context">{{ currentTag }} · 博客与帖子<RouterLink v-if="currentTag === '我的世界'" to="/games?game=MinecraftServer">服务器与下载 →</RouterLink><button @click="changeTag('')">查看全部分类</button></p>
+    <p v-if="loading" class="content-state" role="status">正在加载社区内容…</p>
+    <div v-else-if="!posts.length && !error" class="content-state"><h2>这里还没有内容</h2><p>写一篇博客，或分享你的第一条帖子。</p></div>
+    <div v-else class="stream-grid">
+      <article v-for="item in posts" :key="item.id" class="stream-card">
+        <RouterLink v-if="item.cardCover" class="card-cover" :to="detailRoute(item.id)" tabindex="-1" aria-hidden="true"><img :src="item.cardCover" alt="" loading="lazy" @error="($event.target as HTMLImageElement).hidden = true" /></RouterLink>
+        <div class="card-content">
+          <div class="card-meta"><span class="content-badge">{{ item.type === 'post' ? '帖子' : '博客' }}</span><span>{{ item.authorName || '太初隐者' }}</span></div>
+          <h2><RouterLink :to="detailRoute(item.id)">{{ item.title || (item.type === 'post' ? '社区动态' : '无标题随笔') }}</RouterLink></h2>
+          <p class="card-excerpt">{{ wikiText(item.content) || '打开内容继续阅读。' }}</p>
+          <footer><time>{{ formatTime(item.publishedAt || item.createdAt) }}</time><span>{{ item.resonance || 0 }} 灵动</span></footer>
         </div>
-      </div>
-
-      <div v-if="posts.length > 0" ref="loadMoreTrigger" class="load-more-trigger">
-        <div v-if="loadingMore" class="loading-pulse-small"></div>
-        <span v-else-if="!hasMore" class="end-text">—— 视界已达边界 ——</span>
-      </div>
-    </main>
-
-    <transition name="fade">
-      <PublicNoteDetail
-        v-if="activePostId"
-        :id="activePostId"
-        @close="closeArtwork"
-      />
-    </transition>
-  </article>
+      </article>
+    </div>
+    <div v-if="error" class="content-state" role="alert"><p>{{ error }}</p><button @click="fetchStream(posts.length > 0)">重新加载</button></div>
+    <div ref="loadMoreTrigger" class="load-more" role="status">
+      <span v-if="loadingMore">正在加载更多…</span>
+      <button v-else-if="hasMore && posts.length && !error" @click="fetchStream(true)">加载更多</button>
+      <span v-else-if="posts.length && !error && !hasMore">已显示全部内容</span>
+    </div>
+    <PublicNoteDetail v-if="activePostId" :key="activePostId" :id="activePostId" @close="closeArtwork" />
+  </main>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
-import { useRouter } from 'vue-router';
-
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import PublicNoteDetail from './PublicNoteDetail.vue';
-import type { PublishedNoteItem } from '../../api/NotePublish';
-import { notePublishApi } from '../../api/NotePublish';
+import { notePublishApi, type PublishedNoteItem } from '../../api/NotePublish';
+import { wikiText } from '@/utils/wikiContent';
 
-interface FrontMixedPost extends PublishedNoteItem {
-  content?: string;
-  author: string;
-  cardCover?: string; 
-}
-
-const router = useRouter();
-const currentFilter = ref<'all' | 'post' | 'blog'>('all');
-const posts = ref<FrontMixedPost[]>([]);
-const loading = ref(false);
-const activePostId = ref<string | null>(null);
-
-const page = ref(1);
-const pageSize = ref(20);
-const hasMore = ref(true);
-const loadingMore = ref(false);
+const route = useRoute(), router = useRouter();
+const filters = { all: '全部内容', blog: '博客', post: '帖子' };
+type Filter = keyof typeof filters;
+const currentFilter = computed<Filter>(() => route.query.type === 'blog' || route.query.type === 'post' ? route.query.type : 'all');
+const currentTag = computed(() => typeof route.query.tag === 'string' ? route.query.tag.trim().slice(0, 50) : '');
+const composeRoute = (type: 'blog' | 'post') => ({ path: `/write/${type}`, query: currentTag.value ? { tag: currentTag.value } : {} });
+const changeTag = (tag: string) => router.push({ query: { ...route.query, tag: tag || undefined, post: undefined } });
+const activePostId = computed(() => typeof route.query.post === 'string' ? route.query.post : null);
+const posts = ref<(PublishedNoteItem & { content: string; cardCover: string })[]>([]);
+const loading = ref(false), loadingMore = ref(false), hasMore = ref(true), error = ref('');
 const loadMoreTrigger = ref<HTMLElement | null>(null);
+let page = 1, generation = 0;
 let observer: IntersectionObserver | null = null;
+const pageSize = 20;
 
-const fetchStream = async (isLoadMore = false) => {
-  if (isLoadMore) {
+// 兼容旧博客的 JSON 摘要和帖子的配图元数据。
+function formatPost(item: PublishedNoteItem & { extraData?: string }) {
+  let content = item.excerpt || '', cardCover = '';
+  try {
+    if (item.type === 'post') cardCover = JSON.parse(item.extraData || '{}').cardCover || '';
+    else if (content.trim().startsWith('{')) {
+      const excerpt = JSON.parse(content);
+      if ('text' in excerpt || 'coverUrl' in excerpt) {
+        content = excerpt.text || '';
+        cardCover = excerpt.coverUrl || '';
+      }
+    }
+  } catch { /* 旧的纯文本摘要保持可读。 */ }
+  return { ...item, content, cardCover };
+}
+async function fetchStream(more = false) {
+  if (more && (loading.value || loadingMore.value || !hasMore.value)) return;
+  const current = more ? generation : ++generation;
+  if (more) {
     loadingMore.value = true;
   } else {
-    loading.value = true;
-    page.value = 1; 
+    page = 1;
+    posts.value = [];
     hasMore.value = true;
-  }
-
-  try {
-    const typeQuery = currentFilter.value === 'all' ? undefined : currentFilter.value;
-
-    const res = await notePublishApi.getPublicStream({
-      type: typeQuery,
-      page: page.value,
-      pageSize: pageSize.value
-    });
-    
-    if (res && Array.isArray(res)) {
-      const formattedData = res.map((item: any) => {
-        let extractedCover = '';
-        let finalSnippet = '';
-
-        // 🌟 1. 处理长文博客与老数据的摘要清洗规则
-        if ((item.type === 'blog' || item.type === 'note') && item.excerpt) {
-          if (item.excerpt.startsWith('{')) {
-            try {
-              // 精准反序列化 Excerpt 内嵌的 JSON 结构，绝不触碰 ExtraData
-              const parsedExcerpt = JSON.parse(item.excerpt);
-              extractedCover = parsedExcerpt.coverUrl || '';
-              finalSnippet = parsedExcerpt.text || '';
-            } catch (e) {
-              finalSnippet = item.excerpt;
-            }
-          } else {
-            finalSnippet = item.excerpt;
-          }
-        } 
-        // 🌟 2. 处理微言短动态的摘要清洗规则
-        else if (item.type === 'post') {
-          finalSnippet = item.excerpt;
-          if (item.extraData && item.extraData.startsWith('{')) {
-            try {
-              const meta = JSON.parse(item.extraData);
-              extractedCover = meta.cardCover || '';
-            } catch(e) {}
-          }
-        } else {
-          finalSnippet = item.excerpt;
-        }
-
-        return {
-          ...item,
-          author: item.authorName || '太初隐者', 
-          content: finalSnippet,
-          cardCover: extractedCover 
-        }
-      });
-
-      if (isLoadMore) {
-        posts.value.push(...formattedData); 
-      } else {
-        posts.value = formattedData; 
-      }
-
-      if (res.length < pageSize.value) {
-        hasMore.value = false;
-      } else {
-        page.value++; 
-      }
-    } else {
-      hasMore.value = false;
-    }
-  } catch (err) {
-    console.error('广场数据感应失败:', err);
-    hasMore.value = false;
-  } toggleLoadingStates: { 
-    loading.value = false;
+    loading.value = true;
     loadingMore.value = false;
   }
-};
-
-const setupObserver = () => {
-  if (observer) observer.disconnect();
-
-  observer = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting && !loading.value && !loadingMore.value && hasMore.value) {
-      fetchStream(true);
-    }
-  }, {
-    rootMargin: '200px', 
-  });
-
-  if (loadMoreTrigger.value) {
-    observer.observe(loadMoreTrigger.value);
-  }
-};
-
-const extractTiptapText = (rawStr: string | undefined): string => {
-  if (!rawStr) return '';
-  const trimmed = rawStr.trim();
-  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return rawStr;
+  error.value = '';
   try {
-    const obj = JSON.parse(rawStr);
-    const parseNode = (node: any): string => {
-      if (!node) return '';
-      if (typeof node === 'string') return node;
-      if (node.type === 'text') return node.text || '';
-      if (Array.isArray(node.content)) return node.content.map(parseNode).join('');
-      return '';
-    };
-    return parseNode(obj);
-  } catch (e) { return rawStr; }
-};
-
-const getSnippet = (rawStr: string | undefined, maxLength: number): string => {
-  const plainText = extractTiptapText(rawStr);
-  if (!plainText) return '';
-  if (plainText.length <= maxLength) return plainText;
-  return plainText.substring(0, maxLength) + '...';
-};
-
-const openArtwork = (id: string) => {
-  activePostId.value = id;
-  window.history.pushState(null, '', `/posts/${id}`);
-};
-
-const closeArtwork = () => {
-  activePostId.value = null;
-  window.history.pushState(null, '', '/posts');
-};
-
-const goToLingMai = () => { router.push('/lingmai'); };
-
-const changeFilter = (type: 'all' | 'post' | 'blog') => {
-  if (currentFilter.value === type) return; 
-  currentFilter.value = type;
-  window.scrollTo({ top: 0, behavior: 'smooth' }); 
-  fetchStream(false); 
-};
-
-const formatTime = (timeStr: string | undefined) => {
-  if (!timeStr) return '刚刚';
-  const date = new Date(timeStr);
-  return `${date.getMonth() + 1}月${date.getDate()}日`;
-};
-
-onMounted(async () => {
-  await fetchStream(false);
-  setupObserver(); 
-  const path = window.location.pathname;
-  if (path.startsWith('/posts/')) {
-    const directId = path.split('/').pop();
-    if (directId && directId !== 'posts') activePostId.value = directId;
+    const result = await notePublishApi.getPublicStream({ type: currentFilter.value === 'all' ? undefined : currentFilter.value, tag: currentTag.value || undefined, page, pageSize });
+    if (current !== generation) return;
+    const existing = new Set(posts.value.map(item => item.id));
+    posts.value.push(...result.filter(item => !existing.has(item.id)).map(formatPost));
+    hasMore.value = result.length === pageSize;
+    page++;
+  } catch {
+    if (current === generation) error.value = '内容加载失败，请重试；已加载的内容仍保留。';
+  } finally {
+    if (current === generation) {
+      loading.value = false;
+      loadingMore.value = false;
+    }
   }
+}
+const detailRoute = (id: string) => ({ path: route.path, query: { ...route.query, post: id } });
+const closeArtwork = () => router.replace({ query: { ...route.query, post: undefined } });
+const changeFilter = (type: Filter) => router.push({ query: { ...route.query, type: type === 'all' ? undefined : type, post: undefined } });
+const formatTime = (value?: string) => value ? new Date(value).toLocaleDateString('zh-CN') : '时间未知';
+watch([currentFilter, currentTag], () => void fetchStream(), { immediate: true });
+onMounted(() => {
+  observer = new IntersectionObserver(entries => {
+    if (entries[0]?.isIntersecting && posts.value.length && !error.value) void fetchStream(true);
+  }, { rootMargin: '200px' });
+  if (loadMoreTrigger.value) observer.observe(loadMoreTrigger.value);
 });
-
-onUnmounted(() => { if (observer) observer.disconnect(); });
+onUnmounted(() => { generation++; observer?.disconnect(); });
 </script>
 
 <style scoped>
-.curated-gallery-container {
-  --font-serif: "Georgia", "Nimbus Roman No9 L", "Songti SC", "Noto Serif CJK SC", serif;
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
-  --color-ink: #111111;
-  --color-slate: #6e6e73;
-  --color-bg-ivory: #ffffff;
-  --color-card-bg: #fafafa;
-  --color-line: #ededf0;
-
-  width: 100%;
-  min-height: 100vh;
-  background: var(--color-bg-ivory);
-  color: var(--color-ink);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-}
-
-.curated-nav {
-  display: flex; justify-content: space-between; align-items: center; height: 104px; padding: 0 5%;
-  border-bottom: 1px solid var(--color-line); position: sticky; top: 0; z-index: 100;
-  background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px) saturate(180%);
-}
-
-.nav-left { display: flex; align-items: center; gap: 64px; }
-.brand-group { display: flex; flex-direction: column; flex-shrink: 0; }
-.brand-title { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.05em; margin: 0; cursor: pointer; }
-.brand-sub { font-size: 10px; font-weight: 700; letter-spacing: 0.2em; color: var(--color-slate); margin-top: 2px; }
-
-.mode-selectors { display: flex; gap: 32px; }
-.mode-item { background: none; border: none; padding: 0; font-size: 0.92rem; font-weight: 500; color: var(--color-slate); cursor: pointer; white-space: nowrap; transition: color 0.25s ease; }
-.mode-item:hover, .mode-item.active { color: var(--color-ink); }
-.mode-item.active { font-weight: 600; }
-.lingmai-link { background: var(--color-ink); color: #ffffff; border: none; padding: 10px 24px; border-radius: 40px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
-
-.curated-view { max-width: 1400px; margin: 0 auto; padding: 72px 5% 120px; }
-.curated-stream-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 40px 32px; }
-
-.stream-card { display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; border-bottom: 1px solid var(--color-line); padding-bottom: 40px; }
-
-.card-meta { display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.15em; margin-bottom: 18px; }
-.meta-tag { color: #0066cc; text-transform: uppercase; }
-.post-tag { color: #86868b; }
-.meta-dot { color: var(--color-line); }
-.meta-author { color: var(--color-ink); opacity: 0.85; }
-
-/* 长文博客大版面双栏高级布局 */
-.is-blog { grid-column: span 8; }
-.blog-card-layout-flex { display: flex; width: 100%; gap: 32px; align-items: flex-start; }
-.blog-text-side { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
-
-.is-blog .blog-title { font-family: var(--font-serif); font-size: 1.8rem; font-weight: 700; color: var(--color-ink); margin: 0 0 12px 0; letter-spacing: -0.02em; line-height: 1.3; }
-.is-blog .blog-excerpt { font-family: var(--font-serif); font-size: 1.05rem; line-height: 1.8; color: #333336; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-
-/* 博客高级右侧边封面样式 */
-.blog-cover-side { width: 220px; aspect-ratio: 16 / 10; border-radius: 12px; overflow: hidden; background: #f5f5f7; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.02); }
-.blog-side-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
-.stream-card:hover .blog-side-img { transform: scale(1.03); }
-
-/* 短篇简语卡片配置 */
-.is-post { grid-column: span 4; background: var(--color-card-bg); border-radius: 16px; border-bottom: none; overflow: hidden; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease; }
-.is-post:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.04); }
-.post-card-content-wrapper { padding: 32px; display: flex; flex-direction: column; justify-content: space-between; flex: 1; }
-.post-card-hero { width: 100%; aspect-ratio: 16 / 10; overflow: hidden; background: #f5f5f7; }
-.hero-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
-.is-post:hover .hero-img { transform: scale(1.02); }
-.is-post .post-text { font-size: 1.05rem; font-weight: 400; line-height: 1.75; color: #2c2c2e; margin: 0; }
-
-.card-footer { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 500; color: var(--color-slate); margin-top: 24px; }
-.resonance-stat { display: flex; align-items: center; gap: 4px; }
-
-@media (max-width: 768px) {
-  .curated-nav { height: 72px; padding: 0 20px; }
-  .nav-left { gap: 20px; width: 70%; }
-  .brand-sub { display: none; }
-  .brand-title { font-size: 1.2rem; }
-  .mode-selectors { gap: 20px; overflow-x: auto; padding-bottom: 4px; }
-  .mode-selectors::-webkit-scrollbar { display: none; }
-  .mode-item { font-size: 0.85rem; }
-  .lingmai-link { padding: 8px 14px; font-size: 0.75rem; }
-  .lingmai-link span { display: none; }
-  .curated-view { padding: 32px 20px 80px; }
-  .curated-stream-grid { display: flex; flex-direction: column; gap: 40px; }
-  .is-blog, .is-post { width: 100%; grid-column: auto; }
-  .blog-card-layout-flex { flex-direction: column-reverse; gap: 16px; }
-  .blog-cover-side { width: 100%; aspect-ratio: 21 / 9; }
-  .is-blog .blog-title { font-size: 1.4rem; }
-  .post-card-content-wrapper { padding: 24px; }
-}
-
-.curated-loading, .curated-empty { padding: 120px 0; text-align: center; color: var(--color-slate); }
-.loading-pulse { width: 28px; height: 28px; border: 2px solid var(--color-line); border-top-color: var(--color-ink); border-radius: 50%; margin: 0 auto 16px; animation: spin 0.85s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.topic-filter, .topic-context { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: var(--text-secondary); font-size: 14px; }
+.topic-filter select, .topic-context button { padding: 8px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); }
+.topic-context { margin: 0 0 24px; }
+.topic-context a { color: var(--accent-color); }
+.stream-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
+.stream-card { display: flex; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--content-radius); overflow: hidden; transition: border-color .2s; }
+.stream-card:hover, .stream-card:focus-within { border-color: var(--accent-color); }
+.card-cover { display: block; width: 30%; flex-shrink: 0; background: var(--paper-sub); }
+.card-cover img { width: 100%; height: 100%; object-fit: cover; }
+.card-content { padding: 24px; min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.card-meta, footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; color: var(--text-secondary); font-size: .82rem; }
+h2 { font-size: 1.35rem; line-height: 1.5; margin: 16px 0 12px; overflow-wrap: anywhere; }
+h2 a { color: var(--text-primary); text-decoration: none; }
+h2 a:hover { color: var(--accent-color); }
+.card-excerpt { margin-bottom: 24px; color: var(--text-secondary); line-height: 1.85; white-space: pre-line; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+footer { border-top: 1px solid var(--border-line); margin-top: auto; padding-top: 16px; }
+footer a { margin-left: auto; color: var(--accent-color); text-decoration: none; }
+.load-more { text-align: center; padding: 32px 0; color: var(--text-secondary); }
+@media(max-width: 720px) { .stream-grid { grid-template-columns: 1fr; gap: 16px; } .card-content { padding: 20px; } .stream-card { display: block; } .card-cover { width: 100%; aspect-ratio: 21 / 9; } }
 </style>

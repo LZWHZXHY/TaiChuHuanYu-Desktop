@@ -159,6 +159,7 @@
 </template>
 
 <script>
+import { useUserStore } from '@/stores/user'
 import Navbar         from './Navbar.vue'
 import Footer         from './Footer.vue'
 import SectionHeading from './SectionHeading.vue'
@@ -195,7 +196,7 @@ export default {
   },
 
   computed: {
-    isLoggedIn() { return !!localStorage.getItem('token') },
+    isLoggedIn() { return useUserStore().isLoggedIn },
 
     canSubmitWithdraw() {
       return this.canWithdraw && this.balance >= this.minWithdrawAmount
@@ -308,7 +309,7 @@ export default {
   font-family: monospace; font-size: 12px;
   letter-spacing: 1px; color: var(--text-muted);
   border: 1px dashed var(--line);
-  background: rgba(16, 25, 35, 0.3);
+  background: var(--panel);
 }
 .dot {
   display: inline-block; width: 6px; height: 6px;
@@ -325,10 +326,10 @@ export default {
   padding: 30px 34px;
   margin-bottom: 20px;
   border: 1px solid var(--line);
-  background: linear-gradient(135deg, rgba(16, 25, 35, 0.8), rgba(10, 15, 21, 0.6));
+  background: linear-gradient(135deg, var(--panel), var(--panel));
 }
 .wc-label {
-  display: block; font-family: monospace; font-size: 10px;
+  display: block; font-family: monospace; font-size: 12px;
   letter-spacing: 2px; color: var(--text-muted); margin-bottom: 10px;
 }
 .wc-amount { display: flex; align-items: baseline; gap: 6px; }
@@ -346,7 +347,7 @@ export default {
 .wc-side-row b { font-family: monospace; color: var(--text-soft); }
 .wc-withdraw {
   padding: 12px 24px; font-size: 13px; letter-spacing: 1px;
-  color: #fff; background: var(--orange);
+  color: var(--on-accent); background: var(--orange);
   border: 1px solid var(--orange); cursor: pointer; transition: 0.2s;
   white-space: nowrap;
 }
@@ -359,7 +360,7 @@ export default {
   padding: 12px 16px;
   margin-bottom: 40px;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.35);
+  background: var(--panel);
   font-size: 12px;
   color: var(--text-soft);
 }
@@ -368,11 +369,11 @@ export default {
 
 .ss-title {
   margin: 0 0 16px;
-  font-family: monospace; font-size: 11px; letter-spacing: 2px;
+  font-family: monospace; font-size: 12px; letter-spacing: 2px;
   color: var(--orange); font-weight: 600;
 }
 
-.tx-list { border: 1px solid var(--line); background: rgba(16, 25, 35, 0.4); }
+.tx-list { border: 1px solid var(--line); background: var(--panel); }
 .tx-row {
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; padding: 16px 22px;
@@ -391,22 +392,22 @@ export default {
 .tx-info { min-width: 0; }
 .tx-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
 .tx-sub {
-  font-size: 11px; color: var(--text-muted); margin-bottom: 4px;
+  font-size: 12px; color: var(--text-muted); margin-bottom: 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.tx-time { font-family: monospace; font-size: 10px; color: var(--text-muted); }
+.tx-time { font-family: monospace; font-size: 12px; color: var(--text-muted); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 .tx-right { flex-shrink: 0; text-align: right; display: flex; flex-direction: column; gap: 4px; }
 .tx-amount { font-family: monospace; font-size: 16px; font-weight: 700; }
 .tx-amount.in  { color: var(--cyan); }
 .tx-amount.out { color: var(--orange); }
 .tx-status {
-  font-family: monospace; font-size: 10px; letter-spacing: 1px;
+  font-family: monospace; font-size: 12px; letter-spacing: 1px;
   color: var(--text-muted);
 }
-.tx-status.pending { color: #ff8c4a; }
-.tx-status.rejected { color: #ff5050; }
-.tx-status.frozen { color: #a5a5ff; }
+.tx-status.pending { color: var(--accent-color); }
+.tx-status.rejected { color: var(--danger); }
+.tx-status.frozen { color: var(--accent-color); }
 
 .tx-pager {
   display: flex; align-items: center; justify-content: center;
@@ -414,7 +415,7 @@ export default {
   font-family: monospace; font-size: 12px; color: var(--text-muted);
 }
 .tx-pager button {
-  padding: 6px 14px; font-size: 11px;
+  padding: 6px 14px; font-size: 12px;
   color: var(--text-soft); background: transparent;
   border: 1px solid var(--line-bright); cursor: pointer;
 }
@@ -423,18 +424,18 @@ export default {
 
 .modal-mask {
   position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0, 0, 0, 0.78);
+  background: var(--overlay);
   backdrop-filter: blur(8px);
   display: grid; place-items: center; padding: 24px;
 }
 .modal {
   width: min(460px, 100%);
   border: 1px solid var(--line-bright);
-  background: #0e1720; color: #e8eef4; border-radius: 4px;
+  background: var(--paper-card); color: var(--text-primary); border-radius: 4px;
 }
 .modal-head {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 18px 24px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 18px 24px; border-bottom: 1px solid var(--bg-soft);
 }
 .modal-head h3 { margin: 0; font-size: 16px; letter-spacing: 1px; }
 .close-icon {
@@ -447,34 +448,34 @@ export default {
 /* ⭐ 弹窗顶部提示 */
 .modal-tip {
   padding: 10px 12px;
-  font-family: monospace; font-size: 11px;
-  color: #ff8c4a;
+  font-family: monospace; font-size: 12px;
+  color: var(--accent-color);
   background: rgba(255, 140, 74, 0.08);
   border-radius: 3px;
   letter-spacing: 0.5px;
 }
 .form-row { display: flex; flex-direction: column; gap: 8px; }
 .form-row label {
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 1px; color: var(--text-muted);
 }
 .form-row input, .form-row select {
   height: 40px; padding: 0 12px;
   font-size: 13px; font-family: inherit;
-  color: var(--text); background: rgba(0, 0, 0, 0.35);
+  color: var(--text); background: var(--panel);
   border: 1px solid var(--line-bright); outline: none;
 }
 .form-row input:focus, .form-row select:focus { border-color: rgba(255, 107, 26, 0.5); }
 .modal-foot {
   display: flex; gap: 12px; padding: 18px 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--bg-soft);
 }
 .btn-ghost, .btn-solid {
   flex: 1; height: 42px; font-size: 12px; letter-spacing: 1px;
   cursor: pointer; border-radius: 3px;
 }
 .btn-ghost { color: var(--text-soft); background: transparent; border: 1px solid var(--line-bright); }
-.btn-solid { color: #fff; background: var(--orange); border: 1px solid var(--orange); }
+.btn-solid { color: var(--on-accent); background: var(--orange); border: 1px solid var(--orange); }
 .btn-solid:hover:not(:disabled) { background: var(--orange-bright); }
 .btn-solid:disabled { opacity: 0.5; cursor: not-allowed; }
 

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.Utils;
@@ -55,7 +55,7 @@ namespace TaiChuWeb_V2.Services.World
                 return (false, "项目不存在", 0, 0);
             }
 
-            if (project.OwnerId != userId)
+            if (!WorldAccess.IsOwner(project.OwnerId, userId))
             {
                 return (false, "无权操作此项目", 0, 0);
             }
@@ -90,6 +90,7 @@ namespace TaiChuWeb_V2.Services.World
 
         public async Task<QuotaUpgradeResult> UpgradeQuotaAsync(Guid userId, QuotaUpgradeType upgradeType)
         {
+            WorldValidation.Validate(new TaiChuWeb_V2.Dtos.World.UpgradeQuotaRequest { UpgradeType = upgradeType });
             var stats = await GetUserStatsAsync(userId);
 
             int costExp;
@@ -179,6 +180,8 @@ namespace TaiChuWeb_V2.Services.World
 
         public async Task<List<QuotaUpgradeRecord>> GetUpgradeHistoryAsync(Guid userId, int limit = 20)
         {
+            if (limit < 0)
+                throw new WorldValidationException(new() { [nameof(limit)] = ["limit 不能小于 0"] });
             return await _context.QuotaUpgradeRecords
                 .Where(r => r.UserId == userId)
                 .OrderByDescending(r => r.CreatedAt)

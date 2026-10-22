@@ -123,7 +123,7 @@ const formatDisplayDate = (dateString: string) => {
    ========================================== */
 .latest-news-wrapper {
   margin-bottom: 56px;
-  color: #1d1d1f;
+  color: var(--text-primary);
 }
 
 .md-header {
@@ -146,14 +146,14 @@ const formatDisplayDate = (dateString: string) => {
   justify-content: space-between;
   align-items: flex-start;
   padding: 32px 0;
-  border-bottom: 1px solid #f2f2f2;
+  border-bottom: 1px solid var(--bg-sub);
   cursor: pointer;
   transition: border-color 0.4s ease;
   gap: 24px;
 }
 
 .md-news-item:hover {
-  border-bottom-color: #000;
+  border-bottom-color: var(--text-primary);
 }
 
 .item-content { flex: 1; min-width: 0; }
@@ -167,8 +167,8 @@ const formatDisplayDate = (dateString: string) => {
 }
 
 .item-tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
-.item-dot { width: 4px; height: 4px; background: #d2d2d7; border-radius: 50%; }
-.item-date { font-size: 0.8rem; color: #86868b; }
+.item-dot { width: 4px; height: 4px; background: var(--border-line); border-radius: 50%; }
+.item-date { font-size: 0.8rem; color: var(--text-secondary); }
 
 .item-title {
   font-size: 1.25rem;
@@ -178,12 +178,12 @@ const formatDisplayDate = (dateString: string) => {
   transition: color 0.3s;
 }
 
-.md-news-item:hover .item-title { color: #86868b; }
+.md-news-item:hover .item-title { color: var(--text-secondary); }
 
 /* 列表缩略图 */
 .item-visual { flex-shrink: 0; }
 .img-wrapper {
-  width: 140px; height: 88px; overflow: hidden; background: #f5f5f7;
+  width: 140px; height: 88px; overflow: hidden; background: var(--bg-sub);
   transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .md-cover-img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(100%); transition: filter 0.6s; }
@@ -191,13 +191,13 @@ const formatDisplayDate = (dateString: string) => {
 
 /* 加载动画 */
 .md-pulse-loader {
-  width: 30px; height: 2px; background: #000;
+  width: 30px; height: 2px; background: var(--text-primary);
   animation: md-load 1s infinite ease-in-out alternate;
 }
 @keyframes md-load { from { opacity: 0; transform: scaleX(0.2); } to { opacity: 1; transform: scaleX(1); } }
 
 /* 空状态 */
-.md-empty-state { padding: 40px 0; color: #ccc; font-style: italic; }
+.md-empty-state { padding: 40px 0; color: var(--border-line); font-style: italic; }
 
 /* ==========================================
    🌟 侧边抽屉样式 (抽离出文档流)
@@ -205,7 +205,7 @@ const formatDisplayDate = (dateString: string) => {
 .md-drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(255, 255, 255, 0.7); /* 半透明白底 */
+  background: var(--overlay); /* 半透明白底 */
   backdrop-filter: blur(8px); /* 毛玻璃 */
   z-index: 2000;
 }
@@ -217,7 +217,7 @@ const formatDisplayDate = (dateString: string) => {
   width: 100%;
   max-width: 650px; /* 抽屉宽度 */
   height: 100vh;
-  background: #fff;
+  background: var(--paper-card);
   z-index: 2001;
   box-shadow: -10px 0 40px rgba(0, 0, 0, 0.08); /* 极度柔和的左侧阴影 */
   display: flex;
@@ -228,14 +228,14 @@ const formatDisplayDate = (dateString: string) => {
   padding: 24px 32px;
   display: flex;
   justify-content: flex-end;
-  background: #fff; /* 确保不透明 */
+  background: var(--paper-card); /* 确保不透明 */
 }
 
 .close-btn {
-  background: none; border: none; font-size: 1.5rem; color: #a1aebb;
+  background: none; border: none; font-size: 1.5rem; color: var(--text-secondary);
   cursor: pointer; font-weight: 200; transition: color 0.2s, transform 0.2s;
 }
-.close-btn:hover { color: #000; transform: rotate(90deg); }
+.close-btn:hover { color: var(--text-primary); transform: rotate(90deg); }
 
 .drawer-scroll-body {
   flex: 1;
@@ -246,7 +246,7 @@ const formatDisplayDate = (dateString: string) => {
 .drawer-scroll-body::-webkit-scrollbar { display: none; }
 
 .detail-header { margin-bottom: 40px; }
-.detail-meta { display: flex; gap: 16px; margin-bottom: 16px; font-family: monospace; color: #86868b; }
+.detail-meta { display: flex; gap: 16px; margin-bottom: 16px; font-family: monospace; color: var(--text-secondary); }
 .detail-title { font-size: 2.2rem; font-weight: 300; line-height: 1.3; margin: 0; letter-spacing: -0.5px; }
 
 .detail-hero { margin-bottom: 40px; }
@@ -254,13 +254,13 @@ const formatDisplayDate = (dateString: string) => {
 
 /* 🌟 富文本正文 */
 .md-rich-text {
-  font-size: 1.05rem; line-height: 2; color: #333; font-weight: 400;
+  font-size: 1.05rem; line-height: 2; color: var(--text-primary); font-weight: 400;
 }
 .md-rich-text :deep(img) { max-width: 100%; height: auto; margin: 30px 0; border-radius: 6px; }
 .md-rich-text :deep(p) { margin-bottom: 24px; }
 
-.detail-footer { margin-top: 80px; text-align: center; color: #ccc; }
-.footer-line { width: 40px; height: 1px; background: #eee; margin: 0 auto 20px; }
+.detail-footer { margin-top: 80px; text-align: center; color: var(--border-line); }
+.footer-line { width: 40px; height: 1px; background: var(--border-line); margin: 0 auto 20px; }
 
 /* ==========================================
    动画特效

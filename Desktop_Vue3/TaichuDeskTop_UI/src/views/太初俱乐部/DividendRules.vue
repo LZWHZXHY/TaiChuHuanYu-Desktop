@@ -288,7 +288,7 @@ export default {
 }
 .dvd-idx {
   font-family: monospace;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 1px;
   color: var(--orange);
 }
@@ -300,7 +300,7 @@ export default {
 }
 .dvd-code {
   font-family: monospace;
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 2px;
   color: var(--text-muted);
 }
@@ -326,7 +326,7 @@ export default {
 .dv-table th {
   padding: 12px 14px;
   font-family: monospace;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 400;
   letter-spacing: 1px;
   text-align: left;
@@ -348,7 +348,7 @@ export default {
   display: inline-block;
   padding: 3px 9px;
   font-family: monospace;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--orange);
   border: 1px solid rgba(255, 107, 26, 0.35);
@@ -368,7 +368,7 @@ export default {
   color: var(--cyan);
 }
 .dv-rate.up { color: var(--cyan); }
-.dv-rate.out { color: #ff8c4a; }
+.dv-rate.out { color: var(--accent-color); }
 
 /* ==================================================
    押金政策
@@ -384,7 +384,7 @@ export default {
   gap: 10px;
   padding: 22px 24px;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.5);
+  background: var(--panel);
   transition: border-color 0.2s;
 }
 .dp-card:hover { border-color: var(--line-bright); }
@@ -434,7 +434,7 @@ export default {
   display: grid;
   place-items: center;
   font-family: monospace;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: var(--orange);
   border: 1px solid rgba(255, 107, 26, 0.5);
@@ -459,7 +459,7 @@ export default {
   margin-top: 56px;
   max-width: 680px;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.5);
+  background: var(--panel);
 }
 .calc-head {
   display: flex;
@@ -476,7 +476,7 @@ export default {
 }
 .calc-code {
   font-family: monospace;
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 2px;
   color: var(--text-muted);
 }
@@ -489,7 +489,7 @@ export default {
 .calc-field { display: flex; flex-direction: column; gap: 8px; }
 .calc-field label {
   font-family: monospace;
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 1px;
   color: var(--text-muted);
 }
@@ -499,7 +499,7 @@ export default {
   padding: 0 12px;
   font-size: 13px;
   color: var(--text);
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--panel);
   border: 1px solid var(--line-bright);
   outline: none;
   transition: border-color 0.2s ease;
@@ -518,7 +518,7 @@ export default {
   font-family: monospace;
   font-size: 15px;
   font-weight: 700;
-  color: #ff8c4a;
+  color: var(--accent-color);
   background: rgba(255, 140, 74, 0.06);
   border: 1px dashed rgba(255, 140, 74, 0.35);
 }
@@ -558,7 +558,7 @@ export default {
 .cr-split {
   font-style: normal;
   font-family: monospace;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--text-muted);
   margin-left: 4px;
 }

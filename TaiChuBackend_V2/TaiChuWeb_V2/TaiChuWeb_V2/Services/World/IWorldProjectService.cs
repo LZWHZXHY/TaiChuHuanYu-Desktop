@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TaiChuWeb_V2.Dtos.World;
@@ -29,12 +29,12 @@ namespace TaiChuWeb_V2.Services.World
         /// <summary>
         /// 获取项目详情（轻量级，不含卡片列表）
         /// </summary>
-        Task<ProjectResponseDto> GetProjectByIdAsync(Guid projectId, Guid userId);
+        Task<ProjectResponseDto?> GetProjectByIdAsync(Guid projectId, Guid userId);
 
         /// <summary>
         /// 获取项目详情（含卡片列表）- 用于管理页面
         /// </summary>
-        Task<ProjectResponseDto> GetProjectWithCardsAsync(Guid projectId, Guid userId);
+        Task<ProjectResponseDto?> GetProjectWithCardsAsync(Guid projectId, Guid userId);
 
         // ============================================================
         //  3. 项目 CRUD
@@ -48,7 +48,7 @@ namespace TaiChuWeb_V2.Services.World
         /// <summary>
         /// 更新项目
         /// </summary>
-        Task<ProjectResponseDto> UpdateProjectAsync(Guid projectId, Guid userId, UpdateProjectDto dto);
+        Task<ProjectResponseDto?> UpdateProjectAsync(Guid projectId, Guid userId, UpdateProjectDto dto);
 
         /// <summary>
         /// 删除项目

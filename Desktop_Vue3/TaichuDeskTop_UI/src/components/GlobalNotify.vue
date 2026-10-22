@@ -77,18 +77,18 @@ onUnmounted(() => {
   top: 24px;
   right: 24px;
   z-index: 10000;
-  background: #ffffff;
+  background: var(--paper-card);
   border-radius: 8px;
   box-shadow: 0 6px 16px -8px rgba(0,0,0,0.08), 0 9px 28px 0 rgba(0,0,0,0.05), 0 12px 48px 16px rgba(0,0,0,0.03);
   padding: 16px;
-  width: 380px;
+  width: min(380px, calc(100vw - 32px));
   overflow: hidden;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--border-line);
 }
 
 /* 类型区分 */
-.error-toast.error { border-left: 4px solid #ff4d4f; background: #fff2f0; }
-.error-toast.success { border-left: 4px solid #52c41a; background: #f6ffed; }
+.error-toast.error { border-left: 4px solid #ff4d4f; background: var(--accent-soft); }
+.error-toast.success { border-left: 4px solid #52c41a; background: var(--success-soft); }
 
 /* 头部样式 */
 .error-header {
@@ -98,21 +98,21 @@ onUnmounted(() => {
   margin-bottom: 8px;
 }
 .header-left { display: flex; align-items: center; gap: 8px; }
-.title { font-weight: 600; font-size: 14px; color: #262626; }
+.title { font-weight: 600; font-size: 14px; color: var(--text-primary); }
 .close-btn {
   background: transparent;
   border: none;
   font-size: 18px;
   cursor: pointer;
-  color: #8c8c8c;
+  color: var(--text-secondary);
   line-height: 1;
 }
-.close-btn:hover { color: #262626; }
+.close-btn:hover { color: var(--text-primary); }
 
 /* 主体样式 */
 .main-msg {
   font-size: 14px;
-  color: #595959;
+  color: var(--text-secondary);
   line-height: 1.5;
   margin: 0 0 12px 0;
 }
@@ -120,9 +120,9 @@ onUnmounted(() => {
 /* Debug 详情面板 */
 .error-details {
   margin-top: 8px;
-  border: 1px solid #ffccc7;
+  border: 1px solid var(--border-line);
   border-radius: 4px;
-  background: #ffffff;
+  background: var(--paper-card);
 }
 .error-details summary {
   padding: 4px 8px;
@@ -130,7 +130,7 @@ onUnmounted(() => {
   color: #ff4d4f;
   cursor: pointer;
   user-select: none;
-  background: #fff1f0;
+  background: var(--accent-soft);
 }
 .pre-wrapper {
   max-height: 200px;

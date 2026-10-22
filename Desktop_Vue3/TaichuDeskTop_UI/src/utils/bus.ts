@@ -1,6 +1,7 @@
 import mitt from 'mitt';
 
 type Events = {
+  'auth-expired': string;
   'api-error': { 
     msg: string; 
     detail?: string; 

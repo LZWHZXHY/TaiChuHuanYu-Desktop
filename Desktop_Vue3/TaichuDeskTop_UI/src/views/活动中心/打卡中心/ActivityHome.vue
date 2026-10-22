@@ -151,21 +151,21 @@ const statusClass = (status: string) => ({
   font-size: 1.4rem;
   font-weight: 600;
   letter-spacing: -0.2px;
-  color: #1f2937;
+  color: var(--text-primary);
 }
-.square-header h2 i { color: #6366f1; margin-right: 6px; }
+.square-header h2 i { color: var(--info); margin-right: 6px; }
 .square-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .search-box {
   display: flex;
   align-items: center;
-  background: #fff;
-  border: 1px solid #e5e7eb;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   border-radius: 30px;
   padding: 0 14px;
   transition: border 0.2s;
 }
-.search-box:focus-within { border-color: #6366f1; }
-.search-box i { color: #9ca3af; font-size: 0.8rem; }
+.search-box:focus-within { border-color: var(--info); }
+.search-box i { color: var(--text-secondary); font-size: 0.8rem; }
 .search-box input {
   border: none;
   outline: none;
@@ -173,13 +173,13 @@ const statusClass = (status: string) => ({
   font-size: 0.85rem;
   background: transparent;
   min-width: 140px;
-  color: #1f2937;
+  color: var(--text-primary);
 }
-.search-box input::placeholder { color: #b0bac9; }
+.search-box input::placeholder { color: var(--text-secondary); }
 
 .btn-primary {
-  background: #1f2937;
-  color: #fff;
+  background: var(--bg-sub);
+  color: var(--text-primary);
   border: none;
   padding: 8px 18px;
   border-radius: 30px;
@@ -191,7 +191,7 @@ const statusClass = (status: string) => ({
   align-items: center;
   gap: 6px;
 }
-.btn-primary:hover { background: #374151; }
+.btn-primary:hover { background: var(--bg-sub); }
 
 /* 筛选标签 */
 .filter-tabs {
@@ -199,7 +199,7 @@ const statusClass = (status: string) => ({
   gap: 4px;
   flex-wrap: wrap;
   margin-bottom: 20px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border-line);
   padding-bottom: 8px;
 }
 .filter-tab {
@@ -209,14 +209,14 @@ const statusClass = (status: string) => ({
   background: transparent;
   font-size: 0.8rem;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: background 0.2s, color 0.2s;
 }
-.filter-tab:hover { background: #f3f4f6; color: #1f2937; }
+.filter-tab:hover { background: var(--bg-sub); color: var(--text-primary); }
 .filter-tab.active {
-  background: #1f2937;
-  color: #fff;
+  background: var(--bg-sub);
+  color: var(--text-primary);
 }
 
 /* 卡片网格 */
@@ -226,15 +226,15 @@ const statusClass = (status: string) => ({
   gap: 24px;
 }
 .card {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-line);
   transition: transform 0.2s, border-color 0.2s;
   cursor: pointer;
 }
-.card:hover { transform: translateY(-3px); border-color: #d1d5db; }
-.card.selected { border-color: #6366f1; }
+.card:hover { transform: translateY(-3px); border-color: var(--border-line); }
+.card.selected { border-color: var(--info); }
 
 .card-cover {
   height: 140px;
@@ -247,9 +247,9 @@ const statusClass = (status: string) => ({
   padding: 10px 14px;
 }
 .type-tag {
-  background: rgba(0,0,0,0.5);
+  background: var(--overlay);
   backdrop-filter: blur(2px);
-  color: #fff;
+  color: var(--on-overlay);
   padding: 2px 10px;
   border-radius: 20px;
   font-size: 0.6rem;
@@ -260,18 +260,18 @@ const statusClass = (status: string) => ({
   border-radius: 20px;
   font-size: 0.6rem;
   font-weight: 500;
-  color: #fff;
+  color: var(--text-primary);
 }
-.status-badge.recruiting { background: #10b981; }
-.status-badge.ongoing { background: #6366f1; }
-.status-badge.ended { background: #9ca3af; }
+.status-badge.recruiting { background: var(--success); }
+.status-badge.ongoing { background: var(--info); }
+.status-badge.ended { background: var(--bg-sub); }
 
 .card-body { padding: 16px 18px 12px; }
 .card-meta {
   display: flex;
   gap: 12px;
   font-size: 0.65rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   margin-bottom: 6px;
 }
 .card-meta span { display: flex; align-items: center; gap: 4px; }
@@ -279,11 +279,11 @@ const statusClass = (status: string) => ({
   font-size: 1rem;
   font-weight: 600;
   margin: 0 0 4px;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 .card-body .desc {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -293,7 +293,7 @@ const statusClass = (status: string) => ({
 }
 .card-body .author {
   font-size: 0.7rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -301,7 +301,7 @@ const statusClass = (status: string) => ({
 
 .card-footer {
   padding: 10px 18px 16px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--border-line);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -310,35 +310,35 @@ const statusClass = (status: string) => ({
   padding: 6px 14px;
   border-radius: 20px;
   border: none;
-  background: #f3f4f6;
+  background: var(--bg-sub);
   font-weight: 500;
   font-size: 0.7rem;
-  color: #374151;
+  color: var(--text-primary);
   cursor: pointer;
   transition: background 0.2s;
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
-.card-footer .action-btn:hover { background: #e5e7eb; }
+.card-footer .action-btn:hover { background: var(--bg-sub); }
 .card-footer .participant-count {
   font-size: 0.7rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .empty-state {
   grid-column: 1 / -1;
   text-align: center;
   padding: 60px 20px;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
-.empty-state i { font-size: 2.5rem; color: #d1d5db; margin-bottom: 12px; display: block; }
+.empty-state i { font-size: 2.5rem; color: var(--text-secondary); margin-bottom: 12px; display: block; }
 
 /* 详情展开区域 */
 .detail-wrapper {
   margin-top: 40px;
   padding-top: 20px;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--border-line);
 }
 .detail-divider {
   display: flex;
@@ -346,21 +346,21 @@ const statusClass = (status: string) => ({
   align-items: center;
   margin-bottom: 20px;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-primary);
   font-size: 0.9rem;
 }
-.detail-divider span i { margin-right: 6px; color: #6366f1; }
+.detail-divider span i { margin-right: 6px; color: var(--info); }
 .close-detail {
   background: none;
   border: none;
   font-size: 1rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 2px 6px;
   border-radius: 6px;
   transition: 0.2s;
 }
-.close-detail:hover { background: #f3f4f6; color: #1f2937; }
+.close-detail:hover { background: var(--bg-sub); color: var(--text-primary); }
 
 @media (max-width: 768px) {
   .square-header { flex-direction: column; align-items: stretch; }

@@ -249,30 +249,30 @@ onMounted(fetchStats)
 }
 
 .result-header {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 12px;
   padding: 24px 32px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-line);
   margin-bottom: 24px;
 }
 
 .btn-back {
   background: none;
   border: none;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.9rem;
   margin-bottom: 12px;
 }
 
 .btn-back:hover {
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .result-header h1 {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 16px;
 }
 
@@ -290,12 +290,12 @@ onMounted(fetchStats)
 .stat-number {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #6366f1;
+  color: var(--info);
 }
 
 .stat-label {
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .questions-stats {
@@ -305,16 +305,16 @@ onMounted(fetchStats)
 }
 
 .question-stat-card {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 12px;
   padding: 20px 24px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-line);
 }
 
 .question-stat-card h3 {
   font-size: 1rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 4px;
   display: flex;
   align-items: center;
@@ -323,13 +323,13 @@ onMounted(fetchStats)
 }
 
 .q-number {
-  color: #6366f1;
+  color: var(--info);
 }
 
 .q-type {
   font-size: 0.7rem;
-  background: #e5e7eb;
-  color: #6b7280;
+  background: var(--bg-sub);
+  color: var(--text-secondary);
   padding: 2px 10px;
   border-radius: 12px;
   font-weight: 400;
@@ -337,7 +337,7 @@ onMounted(fetchStats)
 
 .q-meta {
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   margin: 0 0 16px;
 }
 
@@ -356,20 +356,20 @@ onMounted(fetchStats)
 .bar-label {
   min-width: 80px;
   font-size: 0.85rem;
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .bar-track {
   flex: 1;
   height: 24px;
-  background: #f3f4f6;
+  background: var(--bg-sub);
   border-radius: 4px;
   overflow: hidden;
 }
 
 .bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  background: linear-gradient(90deg, var(--info), var(--accent-color));
   border-radius: 4px;
   transition: width 0.6s ease;
 }
@@ -377,7 +377,7 @@ onMounted(fetchStats)
 .bar-value {
   min-width: 100px;
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   text-align: right;
 }
 
@@ -397,12 +397,12 @@ onMounted(fetchStats)
 .big-number {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #f59e0b;
+  color: var(--warning);
 }
 
 .avg-label {
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .score-distribution {
@@ -421,20 +421,20 @@ onMounted(fetchStats)
 .score-label {
   min-width: 40px;
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .score-track {
   flex: 1;
   height: 16px;
-  background: #f3f4f6;
+  background: var(--bg-sub);
   border-radius: 4px;
   overflow: hidden;
 }
 
 .score-fill {
   height: 100%;
-  background: #10b981;
+  background: var(--success);
   border-radius: 4px;
   transition: width 0.6s ease;
 }
@@ -442,7 +442,7 @@ onMounted(fetchStats)
 .score-count {
   min-width: 40px;
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .text-answers {
@@ -455,18 +455,18 @@ onMounted(fetchStats)
 
 .text-item {
   font-size: 0.9rem;
-  color: #374151;
+  color: var(--text-primary);
   padding: 4px 0;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border-line);
 }
 
 .text-index {
-  color: #9ca3af;
+  color: var(--text-secondary);
   margin-right: 8px;
 }
 
 .empty-text {
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   padding: 12px 0;
 }
@@ -486,20 +486,20 @@ onMounted(fetchStats)
 .rank-label {
   min-width: 100px;
   font-size: 0.85rem;
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .rank-track {
   flex: 1;
   height: 20px;
-  background: #f3f4f6;
+  background: var(--bg-sub);
   border-radius: 4px;
   overflow: hidden;
 }
 
 .rank-fill {
   height: 100%;
-  background: linear-gradient(90deg, #10b981, #34d399);
+  background: linear-gradient(90deg, var(--success), var(--success));
   border-radius: 4px;
   transition: width 0.6s ease;
 }
@@ -507,7 +507,7 @@ onMounted(fetchStats)
 .rank-value {
   min-width: 100px;
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   text-align: right;
 }
 
@@ -520,31 +520,31 @@ onMounted(fetchStats)
 .matrix-table th,
 .matrix-table td {
   padding: 8px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   text-align: center;
 }
 
 .matrix-table thead th {
-  background: #f9fafb;
+  background: var(--paper-card);
   font-weight: 600;
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .matrix-label {
   font-weight: 500;
-  color: #374151;
+  color: var(--text-primary);
   text-align: left !important;
 }
 
 .matrix-cell {
-  color: #1f2937;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
 .loading-state {
   text-align: center;
   padding: 60px;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .loading-state i {

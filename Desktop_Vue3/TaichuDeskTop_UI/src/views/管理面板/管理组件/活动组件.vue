@@ -240,7 +240,7 @@ const getStatusClass = (status: number) => {
   margin: 0 auto;
   padding: 2rem 1rem;
   font-family: system-ui, -apple-system, sans-serif;
-  color: #1a1f2c;
+  color: var(--text-primary);
 }
 
 .admin-header {
@@ -258,8 +258,8 @@ const getStatusClass = (status: number) => {
 
 /* 极简按钮 */
 .primary-btn {
-  background: #1a1f2c;
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--on-accent);
   border: none;
   padding: 0.5rem 1.25rem;
   border-radius: 6px;
@@ -272,19 +272,19 @@ const getStatusClass = (status: number) => {
 
 .cancel-btn {
   background: transparent;
-  color: #6c7e97;
-  border: 1px solid #d4dae2;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-line);
   padding: 0.5rem 1.25rem;
   border-radius: 6px;
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s;
 }
-.cancel-btn:hover { background: #f4f6f9; color: #1a1f2c; }
+.cancel-btn:hover { background: var(--bg-main); color: var(--text-primary); }
 
 /* 表格设计: 极简线条，大量留白 */
 .table-wrapper {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.02);
   overflow-x: auto;
@@ -299,30 +299,30 @@ const getStatusClass = (status: number) => {
 
 .minimal-table th {
   padding: 1rem;
-  color: #8b98a9;
+  color: var(--text-secondary);
   font-weight: 500;
-  border-bottom: 1px solid #e9ecef;
-  background: #f8fafc;
+  border-bottom: 1px solid var(--border-line);
+  background: var(--bg-main);
 }
 
 .minimal-table td {
   padding: 1rem;
-  border-bottom: 1px solid #f0f2f5;
+  border-bottom: 1px solid var(--border-line);
   vertical-align: middle;
 }
 
 .data-row:hover {
-  background-color: #fcfcfd;
+  background-color: var(--paper-card);
 }
 
 .empty-row td {
   text-align: center;
-  color: #8b98a9;
+  color: var(--text-secondary);
   padding: 3rem 0;
 }
 
 .font-medium { font-weight: 500; }
-.text-secondary { color: #6c7e97; font-size: 0.85rem; }
+.text-secondary { color: var(--text-secondary); font-size: 0.85rem; }
 
 /* 操作列与按钮 */
 .actions-col { text-align: right; }
@@ -334,8 +334,8 @@ const getStatusClass = (status: number) => {
   margin-left: 0.75rem;
   padding: 0;
 }
-.action-btn.edit { color: #4b6bfb; }
-.action-btn.delete { color: #ef4444; }
+.action-btn.edit { color: var(--accent-color); }
+.action-btn.delete { color: var(--danger); }
 .action-btn:hover { text-decoration: underline; }
 
 /* 状态下拉框设计 */
@@ -351,11 +351,11 @@ const getStatusClass = (status: number) => {
   outline: none;
 }
 .status-select:hover { filter: brightness(0.95); }
-.status-normal { background: #f0f4fe; color: #4b6bfb; }
-.status-ongoing { background: #fff5e6; color: #e68a2e; }
-.status-completed { background: #f0f9f0; color: #4c9f70; }
-.status-cancelled { background: #f1f5f9; color: #64748b; }
-.status-draft { background: #f3f4f6; color: #475569; border: 1px dashed #cbd5e1; }
+.status-normal { background: var(--bg-sub); color: var(--accent-color); }
+.status-ongoing { background: var(--bg-sub); color: #e68a2e; }
+.status-completed { background: var(--bg-sub); color: #4c9f70; }
+.status-cancelled { background: var(--bg-sub); color: var(--text-secondary); }
+.status-draft { background: var(--bg-sub); color: var(--text-secondary); border: 1px dashed var(--border-line); }
 
 /* 表单内部布局 */
 .admin-form {
@@ -380,28 +380,28 @@ const getStatusClass = (status: number) => {
 
 .form-group label {
   font-size: 0.85rem;
-  color: #6c7e97;
+  color: var(--text-secondary);
   font-weight: 500;
 }
-.required { color: #ef4444; }
+.required { color: var(--danger); }
 
 .form-group input, 
 .form-group select, 
 .form-group textarea {
   padding: 0.6rem;
-  border: 1px solid #d4dae2;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   font-size: 0.9rem;
-  color: #1a1f2c;
+  color: var(--text-primary);
   outline: none;
   transition: border-color 0.2s;
-  background: #fff;
+  background: var(--paper-card);
   font-family: inherit;
 }
 .form-group input:focus, 
 .form-group select:focus, 
 .form-group textarea:focus {
-  border-color: #1a1f2c;
+  border-color: var(--border-line);
 }
 
 .form-actions {
@@ -410,7 +410,7 @@ const getStatusClass = (status: number) => {
   gap: 1rem;
   margin-top: 1rem;
   padding-top: 1.5rem;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid var(--border-line);
 }
 
 /* ==========================================
@@ -434,11 +434,13 @@ const getStatusClass = (status: number) => {
 }
 
 .modal-content {
-  background: #fff;
+  background: var(--paper-card);
   width: 90%;
   border-radius: 16px;
   position: relative;
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+
+  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
 }
 
 .modal-close-btn {
@@ -448,12 +450,12 @@ const getStatusClass = (status: number) => {
   background: none;
   border: none;
   font-size: 1.5rem;
-  color: #8b98a9;
+  color: var(--text-secondary);
   cursor: pointer;
   line-height: 1;
   transition: color 0.2s;
 }
-.modal-close-btn:hover { color: #1a1f2c; }
+.modal-close-btn:hover { color: var(--text-primary); }
 
 .modal-title {
   margin-top: 0;

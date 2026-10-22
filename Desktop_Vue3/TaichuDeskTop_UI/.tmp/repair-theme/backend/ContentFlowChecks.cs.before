@@ -1,0 +1,25 @@
+using Microsoft.EntityFrameworkCore;
+using TaiChuWeb_V2.DbContext;
+using TaiChuWeb_V2.Controllers.knowledgeBase;
+using TaiChuWeb_V2.Controllers.Wiki;
+using TaiChuWeb_V2.Services.Project;
+using TaiChuWeb_V2.Services.Artworks;
+
+static class ContentFlowChecks
+{
+    public static Task<int> Run()
+    {
+        int checks = 0;
+        void Check(bool value, string message) { checks++; if (!value) throw new Exception(message); }
+        using var db = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>().UseMySql("Server=localhost;Database=tests;User=test;", new MySqlServerVersion(new Version(8, 0, 31))).Options);
+        foreach (var type in new[] { "blog", "post", "artwork", "world", "character", "wiki", "document", "all" }) {
+            var sql = CatalogController.Query(db, type).Where(i => i.Title.Contains("test")).OrderByDescending(i => i.UpdatedAt).ThenBy(i => i.Type).ThenBy(i => i.Id).Skip(24).Take(24).ToQueryString();
+            Check(sql.Contains("LIMIT"), "catalog database pagination " + type);
+        }
+        Check(WikiController.ValidContent("{\"type\":\"doc\",\"content\":[]}"), "valid wiki doc");
+        foreach (var invalid in new[] { "", "<script></script>", "{}", "[]", "null", "{\"type\":1,\"content\":[]}" }) Check(!WikiController.ValidContent(invalid), "reject invalid wiki doc");
+        Check(ProjectPermissionService.ReadPermissions("{").Count == 0, "broken role permissions fail closed");
+        Check(ArtworkPublicationService.NormalizeTags(new[] { "风景", " 风景 ", "Art", "art", "" }).Length == 2, "artwork tag normalization");
+        return Task.FromResult(checks);
+    }
+}

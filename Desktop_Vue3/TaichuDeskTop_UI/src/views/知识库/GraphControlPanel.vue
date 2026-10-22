@@ -7,12 +7,12 @@
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-        <input 
-          type="text" 
-          :value="searchQuery" 
+        <input
+          type="text"
+          :value="searchQuery"
           @input="$emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
           @keyup.enter="$emit('search')"
-          placeholder="检索寰宇节点 (Enter)..." 
+          placeholder="检索寰宇节点 (Enter)..."
         />
       </div>
       <button class="search-btn" @click="$emit('search')">锁定</button>
@@ -23,8 +23,8 @@
         <span class="main-label">斥力场引擎</span>
         <span class="sub-label">REPULSION FIELD</span>
       </div>
-      <input 
-        type="range" 
+      <input
+        type="range"
         :value="repulsionForce"
         @input="$emit('update:repulsionForce', Number(($event.target as HTMLInputElement).value))"
         min="10" max="800" step="10"
@@ -74,12 +74,12 @@ defineEmits<{
 
 .panel-item {
   position: relative;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(2, 6, 23, 0.85) 100%);
+  background: linear-gradient(135deg, var(--paper-card) 0%, var(--paper-card) 100%);
   border: 1px solid rgba(56, 189, 248, 0.15);
   border-radius: 12px;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
   overflow: hidden;
@@ -99,7 +99,7 @@ defineEmits<{
 
 .panel-item:hover {
   border-color: rgba(56, 189, 248, 0.3);
-  box-shadow: 
+  box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.5),
     0 0 15px rgba(56, 189, 248, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.08);
@@ -118,7 +118,7 @@ defineEmits<{
   align-items: center;
   gap: 10px;
   padding: 8px 12px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--overlay);
   border-radius: 8px;
   border: 1px solid transparent;
   transition: all 0.3s ease;
@@ -126,30 +126,30 @@ defineEmits<{
 
 .search-input-wrapper:focus-within {
   border-color: rgba(56, 189, 248, 0.4);
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--overlay);
   box-shadow: inset 0 0 10px rgba(56, 189, 248, 0.1);
 }
 
 .search-icon {
-  color: #64748b;
+  color: var(--info);
   transition: color 0.3s ease;
 }
 .search-input-wrapper:focus-within .search-icon {
-  color: #38bdf8;
+  color: var(--info);
 }
 
 .search-input-wrapper input {
   width: 100%;
   background: transparent;
   border: none;
-  color: #f8fafc;
+  color: var(--text-primary);
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.5px;
   outline: none;
 }
 .search-input-wrapper input::placeholder {
-  color: #475569;
+  color: var(--text-primary);
 }
 
 .search-btn {
@@ -158,7 +158,7 @@ defineEmits<{
   background: rgba(56, 189, 248, 0.1);
   border: 1px solid rgba(56, 189, 248, 0.3);
   border-radius: 8px;
-  color: #38bdf8;
+  color: var(--info);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 2px;
@@ -167,8 +167,8 @@ defineEmits<{
 }
 .search-btn:hover {
   background: rgba(56, 189, 248, 0.2);
-  border-color: #38bdf8;
-  color: #fff;
+  border-color: var(--info);
+  color: var(--text-primary);
   box-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
 }
 .search-btn:active {
@@ -187,7 +187,7 @@ defineEmits<{
   -webkit-appearance: none;
   width: 100%;
   height: 4px;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--overlay);
   border: 1px solid rgba(56, 189, 248, 0.2);
   border-radius: 2px;
   outline: none;
@@ -202,7 +202,7 @@ defineEmits<{
   -webkit-appearance: none;
   width: 14px;
   height: 14px;
-  background: #38bdf8;
+  background: var(--info);
   border-radius: 50%;
   cursor: pointer;
   box-shadow: 0 0 10px #38bdf8, 0 0 20px rgba(56, 189, 248, 0.4);
@@ -211,7 +211,7 @@ defineEmits<{
 
 .cyber-slider::-webkit-slider-thumb:hover {
   transform: scale(1.4);
-  background: #fff;
+  background: var(--paper-card);
 }
 
 .switch-box {
@@ -228,13 +228,13 @@ defineEmits<{
 }
 .main-label {
   font-size: 13px;
-  color: #e2e8f0;
+  color: var(--text-secondary);
   font-weight: 500;
   letter-spacing: 1px;
 }
 .sub-label {
   font-size: 9px;
-  color: #64748b;
+  color: var(--info);
   letter-spacing: 1.5px;
 }
 
@@ -250,7 +250,7 @@ defineEmits<{
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--overlay);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 12px;
   transition: all 0.3s ease;
@@ -261,7 +261,7 @@ defineEmits<{
   left: 3px;
   width: 16px;
   height: 16px;
-  background: #64748b;
+  background: var(--info);
   border-radius: 50%;
   transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.3s;
 }
@@ -271,7 +271,7 @@ defineEmits<{
 }
 .hud-switch.active .switch-thumb {
   transform: translateX(22px);
-  background: #38bdf8;
+  background: var(--info);
   box-shadow: 0 0 10px #38bdf8, 0 0 20px rgba(56, 189, 248, 0.5);
 }
 </style>

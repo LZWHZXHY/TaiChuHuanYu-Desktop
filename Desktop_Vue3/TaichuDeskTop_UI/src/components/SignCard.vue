@@ -14,7 +14,7 @@
           class="sign-action-btn"
           :disabled="loading || isTodaySigned"
         >
-          {{ isTodaySigned ? '已签到' : (loading ? '...' : '签到') }}
+          {{ !userStore.isLoggedIn ? '登录后签到' : isTodaySigned ? '已签到' : (loading ? '...' : '签到') }}
         </button>
         <span class="stats-label">累计 {{ monthlyCount }} 天</span>
       </div>
@@ -132,6 +132,9 @@ import { signApi, type SignData } from '../api/sign'
 import { eventApi, type EventDto, EventStatus } from '../api/event' // 🌟 引入真实的活动API
 import { useExpNotify } from '../composables/useExpNotify'
 import { useUserStore } from '../stores/user'
+import { useRouter } from 'vue-router'
+import { LOGIN_PATH } from '@/router/auth'
+const router = useRouter()
 
 const userStore = useUserStore()
 const { notify } = useExpNotify()
@@ -179,6 +182,7 @@ const handleDateClick = (date: number) => { selectedDate.value = date }
 
 // 获取签到数据
 const fetchSignData = async () => {
+  if (!userStore.isLoggedIn) { signData.value = {}; return }
   try {
     signData.value = await signApi.getMonthData(viewYear.value, viewMonth.value + 1)
   } catch (e) { console.error(e) }
@@ -204,12 +208,18 @@ const loadAll = async () => {
 }
 
 const handleSignIn = async () => {
+  if (!userStore.isLoggedIn) { router.push({ path: LOGIN_PATH, query: { redirect: '/' } }); return }
   if (loading.value) return
   loading.value = true
   try {
     const res = await signApi.doSign()
     notify(res.experienceAdded)
-    if (userStore.userInfo) userStore.userInfo.experience += res.experienceAdded
+    if (userStore.userInfo) {
+      userStore.setUser({
+        ...userStore.userInfo,
+        experience: (userStore.userInfo.experience ?? 0) + res.experienceAdded,
+      })
+    }
     await fetchSignData()
   } catch (err: any) {
     alert(err.response?.data?.message || '签到失败')
@@ -217,7 +227,7 @@ const handleSignIn = async () => {
 }
 
 onMounted(loadAll)
-watch([viewYear, viewMonth], loadAll)
+watch([viewYear, viewMonth, () => userStore.isLoggedIn], loadAll)
 
 const changeMonth = (delta: number) => {
   const d = new Date(viewYear.value, viewMonth.value + delta, 1)
@@ -275,39 +285,39 @@ const getStatusClass = (status?: number) => {
   margin: 0 auto;
   padding: 2rem 1rem;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-  color: #1a1f2c;
-  background: #fff;
+  color: var(--text-primary);
+  background: var(--paper-card);
 }
 
-.calendar-header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; margin-bottom: 2rem; padding-bottom: 0.5rem; border-bottom: 1px solid #e9ecef; }
+.calendar-header { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; margin-bottom: 2rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-line); }
 .current-month { display: flex; align-items: baseline; gap: 0.5rem; }
-.nav-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #8b98a9; padding: 0 0.25rem; transition: color 0.1s; }
-.nav-btn:hover:not(:disabled) { color: #1a1f2c; }
+.nav-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-secondary); padding: 0 0.25rem; transition: color 0.1s; }
+.nav-btn:hover:not(:disabled) { color: var(--text-primary); }
 .nav-btn:disabled { opacity: 0.3; cursor: default; }
 .month-display { font-size: 1.2rem; font-weight: 450; letter-spacing: -0.2px; }
 .sign-stats { display: flex; align-items: baseline; gap: 1rem; }
-.sign-action-btn { background: none; border: 1px solid #d4dae2; padding: 0.2rem 1rem; font-size: 0.85rem; border-radius: 20px; cursor: pointer; color: #2c3e4e; transition: all 0.1s; }
-.sign-action-btn:hover:not(:disabled) { background: #f4f6f9; border-color: #b9c3ce; }
-.sign-action-btn:disabled { color: #b9c3ce; cursor: default; }
-.stats-label { font-size: 0.85rem; color: #6c7e97; }
+.sign-action-btn { background: none; border: 1px solid var(--border-line); padding: 0.2rem 1rem; font-size: 0.85rem; border-radius: 20px; cursor: pointer; color: var(--text-primary); transition: all 0.1s; }
+.sign-action-btn:hover:not(:disabled) { background: var(--bg-sub); border-color: var(--text-secondary); }
+.sign-action-btn:disabled { color: var(--text-secondary); cursor: default; }
+.stats-label { font-size: 0.85rem; color: var(--text-secondary); }
 
-.weekday-grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.75rem; color: #8b98a9; margin-bottom: 0.5rem; letter-spacing: 0.3px; }
+.weekday-grid { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 0.5rem; letter-spacing: 0.3px; }
 .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem; }
 .day-cell { aspect-ratio: 1 / 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: pointer; font-size: 0.9rem; border-radius: 0; background: transparent; transition: background 0.1s; }
 .day-cell.empty { cursor: default; }
-.day-num { font-weight: 400; color: #1e293b; }
-.status-signed { background: #f0f9f0; }
-.status-repay { background: #f0f4fe; }
+.day-num { font-weight: 400; color: var(--text-primary); }
+.status-signed { background: var(--success-soft); }
+.status-repay { background: var(--info-soft); }
 .status-none { background: transparent; }
-.is-today .day-num { font-weight: 500; border-bottom: 1px solid #1a1f2c; }
-.is-selected { background: #f4f7fb; outline: none; }
+.is-today .day-num { font-weight: 500; border-bottom: 1px solid var(--text-primary); }
+.is-selected { background: var(--bg-sub); outline: none; }
 .is-selected .day-num { font-weight: 500; }
 .activity-marker { font-size: 6px; color: #e68a2e; margin-top: 2px; line-height: 1; }
 
-.event-panel { margin-top: 2rem; border-top: 1px solid #e9ecef; padding-top: 1.5rem; }
-.event-panel-header { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: #8b98a9; margin-bottom: 1rem; }
+.event-panel { margin-top: 2rem; border-top: 1px solid var(--border-line); padding-top: 1.5rem; }
+.event-panel-header { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 1rem; }
 .event-panel-content { font-size: 0.9rem; line-height: 1.5; }
-.event-date { font-size: 0.8rem; color: #6c7e97; margin-bottom: 1rem; font-family: monospace; }
+.event-date { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem; font-family: monospace; }
 .event-list { display: flex; flex-direction: column; gap: 0.5rem; } /* 缩小了 gap */
 
 /* 🌟 活动列表项增强交互 */
@@ -319,15 +329,15 @@ const getStatusClass = (status?: number) => {
   transition: background-color 0.2s ease;
 }
 .event-item.clickable { cursor: pointer; }
-.event-item.clickable:hover { background-color: #f8fafc; border-bottom-color: transparent; }
+.event-item.clickable:hover { background-color: var(--bg-sub); border-bottom-color: transparent; }
 
 .event-name { font-weight: 500; }
 .event-time { display: inline-block; font-size: 0.75rem; font-family: monospace; color: #e68a2e; margin-right: 0.75rem; }
-.event-detail { font-size: 0.8rem; color: #6c7e97; margin-top: 0.25rem; }
+.event-detail { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem; }
 .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%; }
-.event-empty { color: #b9c3ce; font-size: 0.85rem; padding: 1rem 0; text-align: center; }
+.event-empty { color: var(--text-secondary); font-size: 0.85rem; padding: 1rem 0; text-align: center; }
 
-.calendar-footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e9ecef; display: flex; gap: 1.5rem; font-size: 0.7rem; color: #8b98a9; }
+.calendar-footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-line); display: flex; gap: 1.5rem; font-size: 0.7rem; color: var(--text-secondary); }
 .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
 .dot.green { background: #4c9f70; }
 .dot.blue { background: #6c8ebf; }
@@ -359,7 +369,7 @@ const getStatusClass = (status?: number) => {
 
 /* 弹窗容器：大圆角，足留白 */
 .modal-content {
-  background: #fff;
+  background: var(--paper-card);
   width: 90%;
   max-width: 440px;
   border-radius: 16px;
@@ -367,7 +377,7 @@ const getStatusClass = (status?: number) => {
   position: relative;
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
   font-family: system-ui, -apple-system, sans-serif;
-  color: #1a1f2c;
+  color: var(--text-primary);
 }
 
 /* 关闭按钮 */
@@ -378,12 +388,12 @@ const getStatusClass = (status?: number) => {
   background: none;
   border: none;
   font-size: 1.5rem;
-  color: #8b98a9;
+  color: var(--text-secondary);
   cursor: pointer;
   line-height: 1;
   transition: color 0.2s;
 }
-.modal-close-btn:hover { color: #1a1f2c; }
+.modal-close-btn:hover { color: var(--text-primary); }
 
 /* 头部排版 */
 .modal-header { margin-bottom: 2rem; }
@@ -395,9 +405,9 @@ const getStatusClass = (status?: number) => {
   margin-bottom: 0.75rem;
   letter-spacing: 0.5px;
 }
-.badge-normal { background: #f0f4fe; color: #4b6bfb; } /* 未开始 */
+.badge-normal { background: var(--info-soft); color: #4b6bfb; } /* 未开始 */
 .badge-ongoing { background: #fff5e6; color: #e68a2e; } /* 进行中 */
-.badge-completed { background: #f0f9f0; color: #4c9f70; } /* 已结束 */
+.badge-completed { background: var(--success-soft); color: #4c9f70; } /* 已结束 */
 .badge-cancelled { background: #f1f5f9; color: #64748b; } /* 已取消/草稿 */
 
 .modal-title {
@@ -412,18 +422,18 @@ const getStatusClass = (status?: number) => {
 .info-row { display: flex; align-items: flex-start; gap: 1rem; }
 .info-label {
   font-size: 0.85rem;
-  color: #8b98a9;
+  color: var(--text-secondary);
   width: 2.5rem;
   flex-shrink: 0;
   padding-top: 0.1rem;
 }
 .info-value {
   font-size: 0.95rem;
-  color: #2c3e4e;
+  color: var(--text-primary);
   line-height: 1.5;
   word-break: break-all;
 }
-.time-divider { color: #b9c3ce; margin: 0 0.4rem; font-size: 0.8rem; }
+.time-divider { color: var(--text-secondary); margin: 0 0.4rem; font-size: 0.8rem; }
 .desc-text { color: #5a6b82; white-space: pre-wrap; }
 
 /* Vue 过渡动画 */

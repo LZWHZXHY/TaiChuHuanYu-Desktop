@@ -1,5 +1,5 @@
 <template>
-  <div class="create-joint">
+  <div class="community-detail create-joint">
     <div class="page-header">
       <div class="header-left">
         <button class="back-btn" @click="goBack">← 返回</button>
@@ -11,7 +11,7 @@
     </div>
 
     <div class="form-wrapper">
-      <JointForm submit-label="发布联合" @submit="handleSubmit" @cancel="goBack" />
+      <JointForm :submitting="store.loading" submit-label="发布联合" @submit="handleSubmit" @cancel="goBack" />
     </div>
   </div>
 </template>
@@ -29,6 +29,7 @@ function goBack() {
 }
 
 async function handleSubmit(data: any) {
+  if (store.loading) return
   try {
     const result = await store.create(data)
     router.push(`/joint/${result.id}`)

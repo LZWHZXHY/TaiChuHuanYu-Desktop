@@ -4,46 +4,46 @@
     <form @submit.prevent="handleSubmit">
       <div class="form-group">
         <label>活动名称 <span class="required">*</span></label>
-        <input type="text" v-model="form.title" placeholder="输入活动名称..." />
+        <input aria-label="活动名称" type="text" v-model="form.title" placeholder="输入活动名称..." />
       </div>
       <div class="form-row">
         <div class="form-group">
           <label>活动类型 <span class="required">*</span></label>
           <div class="type-tags" v-if="!loadingTypes">
-            <span 
-              v-for="type in typeOptions" 
+            <button type="button" v-for="type in typeOptions"
               :key="type.id"
-              class="type-tag-option" 
+              class="type-tag-option"
               :class="{ active: form.typeId === type.id }"
               @click="form.typeId = type.id">
               {{ type.name }}
-            </span>
+            </button>
           </div>
-          <div v-else class="loading-types">
+          <button v-if="!loadingTypes && !typeOptions.length" type="button" class="btn-line" @click="fetchTypes">类型加载失败，重新加载</button>
+          <div v-if="loadingTypes" class="loading-types">
             <i class="fas fa-spinner fa-spin"></i> 加载中...
           </div>
         </div>
         <div class="form-group">
           <label>周期 (天) <span class="required">*</span></label>
-          <input type="number" v-model.number="form.days" min="7" max="100" />
+          <input aria-label="周期 (天)" type="number" v-model.number="form.days" min="7" max="100" />
           <div class="hint">建议 7~100 天</div>
         </div>
       </div>
       <div class="form-group">
         <label>规则说明 <span class="required">*</span></label>
-        <textarea v-model="form.rule" rows="3" placeholder="详细描述打卡要求..."></textarea>
+        <textarea aria-label="规则说明" v-model="form.rule" rows="3" placeholder="详细描述打卡要求..."></textarea>
       </div>
-      
+
       <!-- 封面图区域：支持上传图片或手动输入 URL -->
       <div class="form-group">
         <label>封面图</label>
         <div class="cover-upload-wrapper">
           <!-- 上传按钮 -->
           <div class="upload-area">
-            <input 
-              type="file" 
-              accept="image/*" 
-              @change="handleFileSelect" 
+            <input
+              type="file"
+              accept="image/*"
+              @change="handleFileSelect"
               :disabled="uploading"
               ref="fileInput"
             />
@@ -54,7 +54,7 @@
               <i class="fas fa-spinner fa-spin"></i> 上传中 {{ uploadProgress }}%
             </span>
             <span v-else-if="form.cover" class="upload-success">
-              <i class="fas fa-check-circle" style="color: #10b981;"></i> 已上传
+              <i class="fas fa-check-circle" style="color: var(--success);"></i> 已上传
             </span>
           </div>
           <!-- 预览 -->
@@ -67,11 +67,11 @@
           <!-- 手动输入 URL -->
           <div class="url-input-wrapper">
             <span class="url-prefix">或输入图片 URL：</span>
-            <input 
-              type="text" 
-              v-model="form.cover" 
-              placeholder="https://example.com/cover.jpg" 
-              @input="onUrlInput"
+            <input
+              type="text"
+              v-model="form.cover"
+              placeholder="https://example.com/cover.jpg"
+
             />
           </div>
         </div>
@@ -86,14 +86,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import request from '@/utils/request';
 import { useCos } from '@/composables/useCos';
 
 const router = useRouter();
 
-const { uploadFile, isUploading, progress } = useCos();
+const { uploadFile, isUploading: uploading, progress: uploadProgress } = useCos();
 
 const form = ref({
   title: '',
@@ -106,15 +106,9 @@ const form = ref({
 const typeOptions = ref<{ id: number; name: string }[]>([]);
 const loadingTypes = ref(false);
 const submitting = ref(false);
-const uploading = ref(false);
-const uploadProgress = ref(0);
-const coverPreview = ref(''); // 用于本地预览
-const fileInput = ref<HTMLInputElement | null>(null);
 
-// 监听上传进度
-watch(progress, (val) => {
-  uploadProgress.value = val;
-});
+const coverPreview = computed(() => form.value.cover);
+const fileInput = ref<HTMLInputElement | null>(null);
 
 // 从后端获取活动类型列表
 const fetchTypes = async () => {
@@ -127,15 +121,7 @@ const fetchTypes = async () => {
     }
   } catch (error) {
     console.error('加载活动类型失败:', error);
-    // 降级默认
-    typeOptions.value = [
-      { id: 1, name: '技术精进' },
-      { id: 2, name: '健康生活' },
-      { id: 3, name: '阅读写作' },
-      { id: 4, name: '运动健身' },
-      { id: 5, name: '其他' },
-    ];
-    form.value.typeId = typeOptions.value[0].id;
+    typeOptions.value = []; form.value.typeId = 0;
   } finally {
     loadingTypes.value = false;
   }
@@ -146,11 +132,9 @@ const handleFileSelect = async (event: Event) => {
   const input = event.target as HTMLInputElement;
   if (!input.files || input.files.length === 0) return;
   const file = input.files[0];
-  
-  // 立即显示预览
-  coverPreview.value = URL.createObjectURL(file);
-  uploading.value = true;
-  
+
+
+
   try {
     // 上传到 COS，文件夹使用 activity/covers
     const result = await uploadFile(file, 'activity/covers');
@@ -160,12 +144,10 @@ const handleFileSelect = async (event: Event) => {
   } catch (error) {
     console.error('上传失败:', error);
     // 上传失败时清空预览和 URL
-    coverPreview.value = '';
     form.value.cover = '';
     // 提示用户
     alert('图片上传失败，请重试或手动输入 URL');
   } finally {
-    uploading.value = false;
     // 重置 input，允许重复选择同一文件
     if (fileInput.value) {
       fileInput.value.value = '';
@@ -176,24 +158,14 @@ const handleFileSelect = async (event: Event) => {
 // 移除封面
 const removeCover = () => {
   form.value.cover = '';
-  coverPreview.value = '';
   if (fileInput.value) {
     fileInput.value.value = '';
   }
 };
 
-// 当用户手动输入 URL 时，更新预览（可选）
-const onUrlInput = () => {
-  // 如果用户手动输入了 URL，我们可以将其设置为预览，但无法真正预览外部图片（跨域问题）
-  // 为了简单，仅当用户输入时清空文件预览
-  if (form.value.cover) {
-    // 如果用户输入了 URL，且之前有上传预览，可考虑清除预览
-    // 但为了更好的体验，如果用户手动输入，我们保留预览区域展示该 URL（但这里不强制）
-  }
-};
-
 // 提交表单
 const handleSubmit = async () => {
+  if (submitting.value) return;
   if (!form.value.title || !form.value.rule || !form.value.days) {
     alert('请填写完整信息');
     return;
@@ -217,7 +189,7 @@ const handleSubmit = async () => {
       days: form.value.days,
     });
     alert('活动发布成功！');
-    router.push('/activity');
+    router.push('/activity/checkin');
   } catch (error: any) {
     console.error('发布失败:', error);
   } finally {
@@ -232,11 +204,11 @@ onMounted(() => {
 
 <style scoped>
 .form-card {
-  background: #fff;
+  background: var(--paper-card);
   padding: 32px 36px;
   border-radius: 12px;
   max-width: 600px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-line);
   margin: 0 auto;
 }
 .form-card h2 {
@@ -247,9 +219,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #1f2937;
+  color: var(--text-primary);
 }
-.form-card h2 i { color: #6366f1; }
+.form-card h2 i { color: var(--info); }
 
 .form-group { margin-bottom: 20px; }
 .form-group label {
@@ -257,31 +229,31 @@ onMounted(() => {
   margin-bottom: 4px;
   font-weight: 500;
   font-size: 0.85rem;
-  color: #374151;
+  color: var(--text-primary);
 }
-.form-group label .required { color: #ef4444; margin-left: 2px; }
+.form-group label .required { color: var(--danger); margin-left: 2px; }
 .form-group input,
 .form-group textarea {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   border-radius: 8px;
   font-size: 0.9rem;
   font-family: inherit;
   transition: border 0.2s;
-  background: #fafafa;
-  color: #1f2937;
+  background: var(--paper-card);
+  color: var(--text-primary);
 }
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #6366f1;
-  background: #fff;
+  border-color: var(--info);
+  background: var(--paper-card);
 }
 .form-group textarea { resize: vertical; min-height: 70px; }
 .form-group .hint {
   font-size: 0.7rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
@@ -299,23 +271,23 @@ onMounted(() => {
 .type-tag-option {
   padding: 4px 14px;
   border-radius: 20px;
-  border: 1px solid #e5e7eb;
-  background: #fafafa;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   font-size: 0.75rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.15s;
 }
-.type-tag-option:hover { border-color: #9ca3af; }
+.type-tag-option:hover { border-color: var(--border-line); }
 .type-tag-option.active {
-  background: #1f2937;
-  color: #fff;
-  border-color: #1f2937;
+  background: var(--bg-sub);
+  color: var(--text-primary);
+  border-color: var(--border-line);
 }
 .loading-types {
   padding: 8px 0;
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
@@ -336,10 +308,10 @@ onMounted(() => {
 }
 .upload-btn {
   padding: 6px 16px;
-  border: 1px dashed #d1d5db;
+  border: 1px dashed var(--border-line);
   border-radius: 6px;
-  background: #fafafa;
-  color: #374151;
+  background: var(--paper-card);
+  color: var(--text-primary);
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -348,17 +320,17 @@ onMounted(() => {
   gap: 6px;
 }
 .upload-btn:hover:not(:disabled) {
-  border-color: #6366f1;
-  background: #f3f4f6;
+  border-color: var(--info);
+  background: var(--bg-sub);
 }
 .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .upload-progress {
   font-size: 0.85rem;
-  color: #6366f1;
+  color: var(--info);
 }
 .upload-success {
   font-size: 0.85rem;
-  color: #10b981;
+  color: var(--success);
 }
 .url-input-wrapper {
   display: flex;
@@ -368,7 +340,7 @@ onMounted(() => {
 }
 .url-prefix {
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 .url-input-wrapper input {
   flex: 1;
@@ -385,14 +357,14 @@ onMounted(() => {
   max-height: 160px;
   object-fit: cover;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
 }
 .remove-cover {
   position: absolute;
   top: 4px;
   right: 4px;
-  background: rgba(0,0,0,0.5);
-  color: #fff;
+  background: var(--overlay);
+  color: var(--on-overlay);
   border: none;
   border-radius: 50%;
   width: 24px;
@@ -404,13 +376,13 @@ onMounted(() => {
   font-size: 0.8rem;
   transition: 0.2s;
 }
-.remove-cover:hover { background: #000; }
+.remove-cover:hover { background: var(--bg-sub); }
 
 .submit-btn {
   width: 100%;
   padding: 14px;
-  background: #6366f1;
-  color: #fff;
+  background: var(--info);
+  color: var(--on-accent);
   border: none;
   border-radius: 10px;
   font-weight: 600;
@@ -423,7 +395,7 @@ onMounted(() => {
   gap: 8px;
   margin-top: 6px;
 }
-.submit-btn:hover:not(:disabled) { background: #4f46e5; }
+.submit-btn:hover:not(:disabled) { background: var(--info); }
 .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 @media (max-width: 768px) {

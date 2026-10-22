@@ -13,7 +13,7 @@
         <tr v-for="art in processedArticles" :key="art.id">
           <td>
             <div style="font-weight: 500;">{{ art.title }}</div>
-            <div style="font-size: 0.7rem; color: #888;">
+            <div style="font-size: 0.7rem; color: var(--text-secondary);">
               分类ID: {{ art.categoryId === 0 ? '⚠️ 未设置' : art.categoryId }}
             </div>
           </td>

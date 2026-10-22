@@ -397,54 +397,54 @@ const removeTag = (index: number) => {
 
 <style scoped>
 /* 保持你的精美垂直分层 CSS 样式不变 */
-.spirit-right-panel { width: 310px; border-left: 1px solid #f2f2f7; background: #ffffff; display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }
-.panel-section { display: flex; flex-direction: column; border-bottom: 1px solid #f2f2f7; padding: 16px; box-sizing: border-box; }
+.spirit-right-panel { width: 310px; border-left: 1px solid var(--border-line); background: var(--paper-card); display: flex; flex-direction: column; height: 100%; box-sizing: border-box; }
+.panel-section { display: flex; flex-direction: column; border-bottom: 1px solid var(--border-line); padding: 16px; box-sizing: border-box; }
 .relation-block { flex: 1; min-height: 200px; overflow: hidden; }
 .properties-block { max-height: 350px; overflow-y: auto; }
-.tags-block { border-bottom: none; background: #fafafa; }
+.tags-block { border-bottom: none; background: var(--bg-main); }
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.header-title { font-size: 12px; font-weight: 700; color: #1d1d1f; letter-spacing: 0.05em; }
-.relation-badge-tabs { display: flex; background: #f2f2f7; padding: 2px; border-radius: 6px; }
-.badge-tab { font-size: 11px; padding: 3px 8px; border-radius: 4px; color: #86868b; cursor: pointer; transition: all 0.2s; }
-.badge-tab.active { background: #ffffff; color: #0066cc; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+.header-title { font-size: 12px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.05em; }
+.relation-badge-tabs { display: flex; background: var(--bg-sub); padding: 2px; border-radius: 6px; }
+.badge-tab { font-size: 11px; padding: 3px 8px; border-radius: 4px; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
+.badge-tab.active { background: var(--paper-card); color: var(--accent-color); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .section-content { width: 100%; }
 .section-content.is-scrollable { flex: 1; overflow-y: auto; scrollbar-width: none; }
 .section-content.is-scrollable::-webkit-scrollbar { display: none; }
 .prop-list { display: flex; flex-direction: column; gap: 8px; }
 .prop-row { display: flex; align-items: center; position: relative; gap: 4px; }
 .prop-input { border: 1px solid transparent; background: transparent; padding: 4px 6px; font-size: 12px; width: 42%; border-radius: 4px; }
-.prop-input:hover { background: #f5f5f7; }
-.prop-input:focus { background: #ffffff; border-color: #0066cc; box-shadow: 0 0 0 2px rgba(0,102,204,0.08); }
-.key-input { text-align: right; color: #86868b; font-weight: 500; }
-.val-input { color: #1d1d1f; }
-.colon { color: #d2d2d7; font-size: 12px; }
-.ghost-add-btn { background: none; border: none; color: #0066cc; font-size: 11px; font-weight: 600; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+.prop-input:hover { background: var(--bg-sub); }
+.prop-input:focus { background: var(--paper-card); border-color: var(--accent-color); box-shadow: 0 0 0 2px rgba(0,102,204,0.08); }
+.key-input { text-align: right; color: var(--text-secondary); font-weight: 500; }
+.val-input { color: var(--text-primary); }
+.colon { color: var(--text-secondary); font-size: 12px; }
+.ghost-add-btn { background: none; border: none; color: var(--accent-color); font-size: 11px; font-weight: 600; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
 .ghost-add-btn:hover { background: rgba(0,102,204,0.05); }
-.del-prop-btn { background: none; border: none; color: #c7c7cc; cursor: pointer; opacity: 0; transition: opacity 0.2s; font-size: 12px; }
+.del-prop-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; opacity: 0; transition: opacity 0.2s; font-size: 12px; }
 .prop-row:hover .del-prop-btn { opacity: 1; }
-.del-prop-btn:hover { color: #ff3b30; }
-.link-card { padding: 10px; background: #f9f9fb; border-radius: 8px; margin-bottom: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
-.link-card:hover { border-color: #d2d2d7; background: #ffffff; }
-.link-title { font-size: 12px; font-weight: 600; color: #1d1d1f; }
-.link-excerpt { font-size: 11px; color: #86868b; margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.del-prop-btn:hover { color: var(--danger); }
+.link-card { padding: 10px; background: var(--bg-main); border-radius: 8px; margin-bottom: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
+.link-card:hover { border-color: var(--border-line); background: var(--paper-card); }
+.link-title { font-size: 12px; font-weight: 600; color: var(--text-primary); }
+.link-excerpt { font-size: 11px; color: var(--text-secondary); margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .tags-wrapper { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.spirit-tag { font-size: 11px; background: rgba(0, 102, 204, 0.06); color: #0066cc; padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
-.tag-remove { cursor: pointer; color: #a1a1a6; font-weight: bold; transition: color 0.2s; }
-.tag-remove:hover { color: #ff3b30; }
-.tag-inline-input { border: none; background: transparent; outline: none; font-size: 11px; color: #86868b; padding: 4px; flex: 1; min-width: 100px; }
-.empty-placeholder, .panel-mini-loading { font-size: 11px; color: #c7c7cc; text-align: center; padding: 16px 0; }
+.spirit-tag { font-size: 11px; background: rgba(0, 102, 204, 0.06); color: var(--accent-color); padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
+.tag-remove { cursor: pointer; color: var(--text-secondary); font-weight: bold; transition: color 0.2s; }
+.tag-remove:hover { color: var(--danger); }
+.tag-inline-input { border: none; background: transparent; outline: none; font-size: 11px; color: var(--text-secondary); padding: 4px; flex: 1; min-width: 100px; }
+.empty-placeholder, .panel-mini-loading { font-size: 11px; color: var(--text-secondary); text-align: center; padding: 16px 0; }
 
 /* ==================== 🌟 目录导航 ==================== */
 .outline-block {
   flex: 0 0 auto;
   max-height: 240px;
-  border-bottom: 1px solid #f2f2f7;
+  border-bottom: 1px solid var(--border-line);
 }
 
 .outline-count {
   font-size: 10px;
-  color: #c7c7cc;
-  background: #f5f5f7;
+  color: var(--text-secondary);
+  background: var(--bg-sub);
   padding: 1px 6px;
   border-radius: 8px;
 }
@@ -455,7 +455,7 @@ const removeTag = (index: number) => {
 
 .outline-item {
   font-size: 12px;
-  color: #3a3a3c;
+  color: var(--text-primary);
   padding: 5px 8px;
   border-radius: 6px;
   cursor: pointer;
@@ -467,13 +467,13 @@ const removeTag = (index: number) => {
 }
 
 .outline-item:hover {
-  background: #f5f5f7;
-  color: #0066cc;
+  background: var(--bg-sub);
+  color: var(--accent-color);
 }
 
 .outline-item.level-1 {
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--text-primary);
 }
 
 .outline-item.level-2 {
@@ -482,15 +482,15 @@ const removeTag = (index: number) => {
 
 .outline-item.level-3 {
   font-size: 11px;
-  color: #6e6e73;
+  color: var(--text-secondary);
 }
 
 /* ==================== 🌟 常驻参考面板（多槽位） ==================== */
 .pinned-block {
   flex: 0 0 auto;
   max-height: 420px;
-  border-bottom: 2px solid #e5e5ea;
-  background: #fbfbfd;
+  border-bottom: 2px solid var(--border-line);
+  background: var(--paper-card);
 }
 
 .pinned-scroll {
@@ -503,15 +503,15 @@ const removeTag = (index: number) => {
 }
 
 .pinned-card {
-  background: #ffffff;
-  border: 1px solid #e5e5ea;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   border-radius: 10px;
   padding: 10px 12px;
   transition: border-color 0.15s;
 }
 
 .pinned-card:hover {
-  border-color: #d2d2d7;
+  border-color: var(--border-line);
 }
 
 .pinned-card-header {
@@ -521,13 +521,13 @@ const removeTag = (index: number) => {
   gap: 8px;
   margin-bottom: 8px;
   padding-bottom: 6px;
-  border-bottom: 1px dashed #e5e5ea;
+  border-bottom: 1px dashed var(--border-line);
 }
 
 .pinned-title {
   font-size: 13px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -537,7 +537,7 @@ const removeTag = (index: number) => {
 .pinned-close-btn {
   background: none;
   border: none;
-  color: #a1a1a6;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 12px;
   padding: 2px 6px;
@@ -547,7 +547,7 @@ const removeTag = (index: number) => {
 }
 
 .pinned-close-btn:hover {
-  color: #ff3b30;
+  color: var(--danger);
   background: rgba(255, 59, 48, 0.08);
 }
 
@@ -564,7 +564,7 @@ const removeTag = (index: number) => {
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: #3a3a3c;
+  color: var(--text-primary);
   line-height: 1.5;
 }
 
@@ -577,6 +577,6 @@ const removeTag = (index: number) => {
 
 .pinned-schedule-item .done {
   text-decoration: line-through;
-  color: #a1a1a6;
+  color: var(--text-secondary);
 }
 </style>

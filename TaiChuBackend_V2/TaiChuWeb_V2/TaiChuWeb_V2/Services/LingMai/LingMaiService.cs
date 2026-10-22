@@ -1,10 +1,13 @@
 ﻿// Services/LingMai/LingMaiService.cs
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using System.Text.RegularExpressions;
+using TaiChuWeb_V2.Models.FinalNodes;
+using TaiChuWeb_V2.Models.Tag;
+using TaiChuWeb_V2.Models.User;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.LingMai;
 using TaiChuWeb_V2.Models.LingMai;
-using TaiChuWeb_V2.Utils;
 
 namespace TaiChuWeb_V2.Services.LingMai
 {
@@ -15,6 +18,23 @@ namespace TaiChuWeb_V2.Services.LingMai
         public LingMaiService(AppDbContext context)
         {
             _context = context;
+        }
+
+        public async Task<List<NoteReferenceDto>> GetNoteLinksAsync(Guid noteId, bool incoming)
+        {
+            var links = incoming
+                ? _context.NoteLinks.Where(l => l.TargetNoteId == noteId)
+                    .Select(l => new { id = l.SourceNoteId, note = l.SourceNote, l.Excerpt })
+                : _context.NoteLinks.Where(l => l.SourceNoteId == noteId)
+                    .Select(l => new { id = l.TargetNoteId, note = l.TargetNote, l.Excerpt });
+
+            return await links.Select(l => new NoteReferenceDto
+            {
+                Id = l.id,
+                Title = l.note != null ? l.note.Title : "无标题碎片",
+                Excerpt = l.Excerpt,
+                UpdatedAt = l.note != null ? l.note.UpdatedAt : DateTime.UtcNow
+            }).ToListAsync();
         }
 
         public async Task CreateSnapshotAsync(Guid noteId, string contentJson, string remark = "自动备份")
@@ -70,259 +90,395 @@ namespace TaiChuWeb_V2.Services.LingMai
             });
         }
 
-        public async Task RollbackToSnapshotAsync(Guid noteId, Guid historyId)
+        // 兼容旧 Tiptap 快照；新快照携带原始 blocks，保留白板、日程及系统块的数据。
+        public static NoteSyncDto ReadSnapshot(Guid noteId, string contentJson)
         {
-            var history = await _context.NoteHistories
-                .FirstOrDefaultAsync(h => h.NoteId == noteId && h.Id == historyId);
-
-            if (history == null) throw new Exception("未找到该版本记录");
-
-            // 🌟 提前拿到所属的 SpaceId 供双链使用
-            var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == noteId);
-            if (note == null) throw new Exception("未找到该笔记");
-
-            using var doc = JsonDocument.Parse(history.ContentJson);
+            if (string.IsNullOrWhiteSpace(contentJson)) throw new JsonException();
+            using var doc = JsonDocument.Parse(contentJson);
             var root = doc.RootElement;
-            if (!root.TryGetProperty("content", out var contentArray)) return;
-
-            using var transaction = await _context.Database.BeginTransactionAsync();
-            try
+            if (root.ValueKind != JsonValueKind.Object) throw new JsonException();
+            List<BlockSyncDto> blocks;
+            if (root.TryGetProperty("blocks", out var storedBlocks))
             {
-                // 1. 🌟 修改点 1：使用多态指针 OwnerId + OwnerType 物理删除旧块
-                var oldBlocks = _context.Blocks.Where(b => b.OwnerId == noteId.ToString() && b.OwnerType == "note");
-                _context.Blocks.RemoveRange(oldBlocks);
-
-                // 🌟 关键：先保存一次，确保旧 ID 彻底释放
-                await _context.SaveChangesAsync();
-
-                var insertedBlocks = new List<Block>();
-
-                // 2. 插入新块
-                foreach (var node in contentArray.EnumerateArray())
+                var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
                 {
-                    // 🌟 修复点 1：安全获取 attrs
-                    if (!node.TryGetProperty("attrs", out var attrs))
-                    {
-                        using var emptyDoc = JsonDocument.Parse("{}");
-                        attrs = emptyDoc.RootElement.Clone();
-                    }
-
-                    // 🌟 修复点 2：安全获取 Type
-                    string nodeType = node.TryGetProperty("type", out var typeProp)
-                        ? typeProp.GetString() ?? "paragraph"
-                        : "paragraph";
-
-                    string blockId = attrs.TryGetProperty("id", out var idProp)
-                        ? idProp.GetString()!
-                        : Guid.NewGuid().ToString();
-
-                    var attrsDict = JsonSerializer.Deserialize<Dictionary<string, object>>(attrs.GetRawText()) ?? new();
-                    attrsDict["id"] = blockId;
-
-                    var newBlock = new Block
-                    {
-                        Id = blockId,
-                        OwnerId = noteId.ToString(), // 🌟 修改点 2：改用 OwnerId
-                        OwnerType = "note",          // 🌟 修改点 3：增加 OwnerType
-                        Type = nodeType,
-                        Data = JsonSerializer.Serialize(new
-                        {
-                            attrs = attrsDict,
-                            content = node.TryGetProperty("content", out var c) ? c : (object?)null
-                        }),
-                        UpdatedAt = DateTime.UtcNow,
-                        SortOrder = 0
-                    };
-
-                    _context.Blocks.Add(newBlock);
-                    insertedBlocks.Add(newBlock);
-                }
-
-                await _context.SaveChangesAsync();
-
-                // 🌟 3. 联动解析并固化双链
-                await SyncNoteLinksAsync(noteId, note.SpaceId, insertedBlocks);
-
-                await transaction.CommitAsync();
+                    NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
+                };
+                blocks = storedBlocks.Deserialize<List<BlockSyncDto>>(options) ?? throw new JsonException();
             }
-            catch (Exception ex)
+            else
             {
-                await transaction.RollbackAsync();
-                var innerMsg = ex.InnerException != null ? ex.InnerException.Message : ex.Message;
-                throw new Exception($"数据库回滚失败: {innerMsg}");
+                if (!root.TryGetProperty("content", out var content) || content.ValueKind != JsonValueKind.Array)
+                    throw new JsonException();
+                blocks = content.EnumerateArray().Select((node, index) =>
+                {
+                    if (node.ValueKind != JsonValueKind.Object) throw new JsonException();
+                    var id = node.TryGetProperty("attrs", out var attrs) && attrs.ValueKind == JsonValueKind.Object &&
+                        attrs.TryGetProperty("id", out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+                    return new BlockSyncDto
+                    {
+                        Id = string.IsNullOrEmpty(id) ? Guid.NewGuid().ToString() : id,
+                        Type = node.TryGetProperty("type", out var type) && type.ValueKind == JsonValueKind.String ? type.GetString()! : "paragraph",
+                        Data = node.GetRawText(), SortOrder = index
+                    };
+                }).ToList();
             }
+            if (blocks.Any(b => b == null || string.IsNullOrEmpty(b.Id) || string.IsNullOrEmpty(b.Type) || string.IsNullOrEmpty(b.Data)))
+                throw new JsonException();
+            foreach (var block in blocks) { using var data = JsonDocument.Parse(block.Data); }
+            return new NoteSyncDto { NoteId = noteId, Blocks = blocks };
         }
 
-        public async Task SyncNoteBlocksAsync(NoteSyncDto dto)
+        public enum NoteSaveResult { Saved, NotFound, Forbidden, DeadlockIgnored, DuplicateIgnored, ConcurrencyIgnored }
+
+        // 持久化及重试归服务处理；控制器负责将结果映射为原有 HTTP 响应。
+        public async Task<NoteSaveResult> SaveNoteAsync(NoteSyncDto dto, string userId)
         {
-            // 🌟 1. 获取当前笔记详情，拿到 SpaceId 备用
-            var note = await _context.Notes.AsNoTracking().FirstOrDefaultAsync(n => n.Id == dto.NoteId);
-            if (note == null) return;
-
-            // 🌟 修改点 1：使用 OwnerId 和 OwnerType 过滤出旧的块
-            var existingIds = await _context.Blocks
-                .Where(b => b.OwnerId == dto.NoteId.ToString() && b.OwnerType == "note")
-                .Select(b => b.Id)
-                .ToListAsync();
-
-            var incomingIds = dto.Blocks.Select(b => b.Id).ToList();
-            var currentBlocksInRequest = new List<Block>();
-
-            // 2. 准备要处理的列表
-            foreach (var blockDto in dto.Blocks)
+            var strategy = _context.Database.CreateExecutionStrategy();
+            return await strategy.ExecuteAsync(async () =>
             {
-                if (existingIds.Contains(blockDto.Id))
+                var note = await _context.Notes.FindAsync(dto.NoteId);
+                if (note == null) return NoteSaveResult.NotFound;
+
+                var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == userId);
+                if (!isOwner) return NoteSaveResult.Forbidden;
+
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
                 {
-                    var block = new Block { Id = blockDto.Id };
-                    _context.Blocks.Attach(block);
+                    // 1. 更新基本元数据
+                    if (!string.IsNullOrEmpty(dto.Title)) note.Title = dto.Title;
+                    if (dto.ExtraData != null) note.ExtraData = dto.ExtraData;
+                    note.UpdatedAt = DateTime.UtcNow;
 
-                    block.Data = blockDto.Data;
-                    block.Type = blockDto.Type;
-                    block.SortOrder = blockDto.SortOrder ?? 0;
-                    block.UpdatedAt = DateTime.UtcNow;
+                    // 准备收集所有的双链 ID
+                    var currentOutlinkIds = new HashSet<Guid>();
 
-                    _context.Entry(block).Property(x => x.Data).IsModified = true;
-                    _context.Entry(block).Property(x => x.SortOrder).IsModified = true;
-                    _context.Entry(block).Property(x => x.UpdatedAt).IsModified = true;
-
-                    currentBlocksInRequest.Add(block);
-                }
-                else
-                {
-                    var newBlock = new Block
+                    var noteId = dto.NoteId.ToString();
+                    bool isCanvasOrMap = note.Type == NoteTypes.Canvas || note.Type == NoteTypes.Map;
+                    bool isSchedule = note.Type == NoteTypes.Schedule;
+                    if (isCanvasOrMap)
                     {
-                        Id = blockDto.Id,
-                        OwnerId = dto.NoteId.ToString(), // 🌟 修改点 2：改用 OwnerId
-                        OwnerType = "note",              // 🌟 修改点 3：增加 OwnerType 
-                        Type = blockDto.Type,
-                        Data = blockDto.Data,
-                        SortOrder = blockDto.SortOrder ?? 0,
-                        UpdatedAt = DateTime.UtcNow
-                    };
-                    _context.Blocks.Add(newBlock);
-                    currentBlocksInRequest.Add(newBlock);
+                        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+                        note.BlocksData = dto.Blocks?.Any() == true ? JsonSerializer.Serialize(dto.Blocks, options) : "[]";
+                        CollectNoteReferences(note.BlocksData, dto.NoteId, currentOutlinkIds);
+                        var obsoleteBlocks = await _context.Blocks.Where(b => b.OwnerId == noteId).ToListAsync();
+                        if (obsoleteBlocks.Any()) _context.Blocks.RemoveRange(obsoleteBlocks);
+                    }
+                    else
+                    {
+                        await _context.Blocks.Where(b => b.OwnerId == noteId).ExecuteDeleteAsync();
+                        var seenIds = new HashSet<string>();
+                        int blockOrder = 0;
+                        foreach (var b in dto.Blocks ?? new List<BlockSyncDto>())
+                        {
+                            // 日程沿用逐条写入；普通笔记仍跳过空 ID 和重复 ID。
+                            if (!isSchedule && (string.IsNullOrEmpty(b.Id) || !seenIds.Add(b.Id))) continue;
+                            _context.Blocks.Add(new Block
+                            {
+                                Id = b.Id, OwnerId = noteId, OwnerType = note.Type,
+                                Type = b.Type, Data = b.Data ?? string.Empty,
+                                SortOrder = b.SortOrder ?? blockOrder, UpdatedAt = DateTime.UtcNow
+                            });
+                            blockOrder++;
+                            CollectNoteReferences(b.Data, dto.NoteId, currentOutlinkIds);
+                        }
+                    }
+
+                    var existingLinks = await _context.NoteLinks
+                        .Where(nl => nl.SourceNoteId == note.Id)
+                        .ToListAsync();
+
+                    var existingTargetIds = existingLinks.Select(nl => nl.TargetNoteId).ToHashSet();
+                    var linksToRemove = existingLinks.Where(nl => !currentOutlinkIds.Contains(nl.TargetNoteId)).ToList();
+                    if (linksToRemove.Any()) _context.NoteLinks.RemoveRange(linksToRemove);
+
+                    var targetIdsToAdd = currentOutlinkIds.Where(id => !existingTargetIds.Contains(id)).ToList();
+                    if (targetIdsToAdd.Any())
+                    {
+                        var validTargetIds = await _context.Notes.Where(n => targetIdsToAdd.Contains(n.Id)).Select(n => n.Id).ToListAsync();
+                        foreach (var targetId in validTargetIds)
+                        {
+                            _context.NoteLinks.Add(new NoteLink
+                            {
+                                Id = Guid.NewGuid(),
+                                SourceNoteId = note.Id,
+                                TargetNoteId = targetId,
+                                Excerpt = dto.Title ?? note.Title
+                            });
+                        }
+                    }
+
+                    if (dto.Tags != null)
+                    {
+                        note.Tags = dto.Tags.Any() ? JsonSerializer.Serialize(dto.Tags) : null;
+                        var oldTags = await _context.TagAssignments.Where(ta => ta.EntityId == note.Id.ToString() && ta.EntityType == "Note").ToListAsync();
+                        _context.TagAssignments.RemoveRange(oldTags);
+
+                        if (dto.Tags.Any())
+                        {
+                            var cleanTags = dto.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).ToList();
+                            var normalizedTags = cleanTags.Select(t => t.ToLower()).ToList();
+                            var existingDbTags = await _context.Tags.Where(t => t.SpaceId == note.SpaceId && normalizedTags.Contains(t.NormalizedName)).ToDictionaryAsync(t => t.NormalizedName);
+
+                            foreach (var cleanName in cleanTags)
+                            {
+                                var normalizedName = cleanName.ToLower();
+                                if (!existingDbTags.TryGetValue(normalizedName, out var tag))
+                                {
+                                    tag = new Tag { Id = Guid.NewGuid(), SpaceId = note.SpaceId, Name = cleanName, NormalizedName = normalizedName, CreatedAt = DateTime.UtcNow };
+                                    _context.Tags.Add(tag);
+                                    existingDbTags[normalizedName] = tag;
+                                }
+                                _context.TagAssignments.Add(new TagAssignment { Id = Guid.NewGuid(), TagId = tag.Id, EntityId = note.Id.ToString(), EntityType = "Note", CreatedAt = DateTime.UtcNow });
+                            }
+                        }
+                    }
+                    // ========================================================================
+                    // 🌟 3.5 投影 block_links（块级引用的边）
+                    // ========================================================================
+                    var sourceBlockIds = dto.Blocks?
+                        .Select(b => b.Id)
+                        .Where(x => !string.IsNullOrEmpty(x))
+                        .Cast<string>()
+                        .ToList() ?? new List<string>();
+
+                    // 3.5.1 删掉之前以这些块为 source 的边
+                    if (sourceBlockIds.Any())
+                    {
+                        await _context.BlockLinks
+                            .Where(l => sourceBlockIds.Contains(l.SourceBlockId))
+                            .ExecuteDeleteAsync();
+                    }
+
+                    // 3.5.2 从 dto.Blocks 里重新解析
+                    if (dto.Blocks != null)
+                    {
+                        var newBlockLinks = new List<BlockLink>();
+                        var seenEdges = new HashSet<string>();
+
+                        foreach (var b in dto.Blocks)
+                        {
+                            if (string.IsNullOrEmpty(b.Id)) continue;
+                            var targets = ExtractBlockRefTargets(b.Data);
+                            foreach (var tgt in targets)
+                            {
+                                if (tgt == b.Id) continue; // 自己引用自己跳过
+                                var edgeKey = $"{b.Id}|{tgt}";
+                                if (!seenEdges.Add(edgeKey)) continue;
+
+                                newBlockLinks.Add(new BlockLink
+                                {
+                                    Id = Guid.NewGuid().ToString(),
+                                    SourceBlockId = b.Id,
+                                    TargetBlockId = tgt,
+                                    RelationType = "reference",
+                                    CreatedAt = DateTime.UtcNow,
+                                });
+                            }
+                        }
+
+                        if (newBlockLinks.Any())
+                        {
+                            _context.BlockLinks.AddRange(newBlockLinks);
+                        }
+                    }
+                    // ========================================================================
+                    // 4. 投影 block_index
+                    // ========================================================================
+                    var indexNodeId = dto.NoteId.ToString();
+
+                    await _context.BlockIndexes
+                        .Where(x => x.NodeId == indexNodeId)
+                        .ExecuteDeleteAsync();
+
+                    if (dto.Blocks != null && dto.Blocks.Any())
+                    {
+                        int blockOrder = 0;
+                        var seenIds = new HashSet<string>();
+
+                        foreach (var b in dto.Blocks)
+                        {
+                            if (string.IsNullOrEmpty(b.Id) || !seenIds.Add(b.Id)) continue;
+
+                            string? text = null;
+                            string? latex = null;
+                            string? assetId = null;
+
+                            try
+                            {
+                                using var doc = JsonDocument.Parse(b.Data ?? "{}");
+                                var root = doc.RootElement;
+
+                                if (root.ValueKind == JsonValueKind.Object &&
+                                    root.TryGetProperty("attrs", out var attrs) &&
+                                    attrs.ValueKind == JsonValueKind.Object)
+                                {
+                                    if (attrs.TryGetProperty("latex", out var lx) &&
+                                        lx.ValueKind == JsonValueKind.String)
+                                        latex = lx.GetString();
+
+                                    if (attrs.TryGetProperty("assetId", out var aid) &&
+                                        aid.ValueKind == JsonValueKind.String)
+                                        assetId = aid.GetString();
+                                }
+
+                                text = ExtractBlockText(root);
+                            }
+                            catch { }
+
+                            _context.BlockIndexes.Add(new BlockIndex
+                            {
+                                Id = b.Id,
+                                NodeId = indexNodeId,
+                                BlockType = b.Type ?? "paragraph",
+                                ParentBlockId = null,
+                                SortOrder = blockOrder++,
+                                TextContent = text,
+                                Latex = latex,
+                                AssetId = assetId,
+                                UpdatedAt = DateTime.UtcNow,
+                            });
+                        }
+                    }
+
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    return NoteSaveResult.Saved;
                 }
-            }
+                catch (DbUpdateException ex) when (ex is DbUpdateConcurrencyException ||
+                    ex.InnerException is MySqlConnector.MySqlException { Number: 1213 or 1062 })
+                {
+                    await transaction.RollbackAsync();
+                    return ex.InnerException switch
+                    {
+                        MySqlConnector.MySqlException { Number: 1213 } => NoteSaveResult.DeadlockIgnored,
+                        MySqlConnector.MySqlException { Number: 1062 } => NoteSaveResult.DuplicateIgnored,
+                        _ => NoteSaveResult.ConcurrencyIgnored
+                    };
+                }
+                catch (Exception)
+                {
+                    await transaction.RollbackAsync();
+                    throw;
+                }
+            });
+        }
 
-            // 3. 处理【物理删除】
-            var idsToDelete = existingIds.Except(incomingIds).ToList();
-            if (idsToDelete.Any())
-            {
-                var toDelete = idsToDelete.Select(id => new Block { Id = id });
-                _context.Blocks.RemoveRange(toDelete);
-            }
+        public async Task<(UserStats Stats, int UsedSpaces, int UsedNotes)> GetQuotaAsync(string userId)
+        {
+            var stats = await _context.UserStats.FirstOrDefaultAsync(s => s.UserId == Guid.Parse(userId))
+                ?? new UserStats { UserId = Guid.Parse(userId), MaxSpaces = 1, MaxNotes = 100 };
+            var usedSpaces = await _context.Spaces.CountAsync(s => s.UserId == userId);
+            var usedNotes = await _context.Notes.CountAsync(n =>
+                _context.Spaces.Where(s => s.UserId == userId).Select(s => s.Id).Contains(n.SpaceId));
+            return (stats, usedSpaces, usedNotes);
+        }
 
+        private static void CollectNoteReferences(string? data, Guid noteId, HashSet<Guid> targets)
+        {
+            if (string.IsNullOrWhiteSpace(data)) return;
+            foreach (Match match in Regex.Matches(data, @"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
+                if (Guid.TryParse(match.Value, out var target) && target != noteId) targets.Add(target);
+        }
+
+        /// <summary>
+        /// 从 Block.Data JSON 里抽纯文本
+        /// </summary>
+        public static string ExtractTextFromBlockData(string? data)
+        {
+            if (string.IsNullOrEmpty(data)) return "";
             try
             {
-                await _context.SaveChangesAsync();
-
-                // 🌟 4. 核心新增：同步保存块之后，执行双链解析并固化到 note_links 表
-                await SyncNoteLinksAsync(dto.NoteId, note.SpaceId, currentBlocksInRequest);
+                using var doc = JsonDocument.Parse(data);
+                var sb = new System.Text.StringBuilder();
+                WalkText(doc.RootElement, sb, true);
+                return sb.ToString().Trim();
             }
-            catch (DbUpdateConcurrencyException)
+            catch { return ""; }
+        }
+
+        private static string? ExtractBlockText(JsonElement node)
+        {
+            var sb = new System.Text.StringBuilder();
+            WalkText(node, sb, false);
+            var result = sb.ToString().Trim();
+            return string.IsNullOrEmpty(result) ? null : result;
+        }
+
+        /// <summary>
+        /// 递归遍历 JSON 节点，把所有 text 字段拼起来
+        /// </summary>
+        private static void WalkText(JsonElement node, System.Text.StringBuilder sb, bool includeTitle)
+        {
+            if (node.ValueKind != JsonValueKind.Object) return;
+
+            if (node.TryGetProperty("text", out var t) &&
+                t.ValueKind == JsonValueKind.String)
             {
-                Console.WriteLine("检测到并发冲突，已跳过本次过时更新。");
+                sb.Append(t.GetString());
+                sb.Append(' ');
+            }
+
+            if (includeTitle && node.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String)
+            {
+                sb.Append(title.GetString());
+                sb.Append(' ');
+            }
+
+            if (node.TryGetProperty("content", out var c) &&
+                c.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var child in c.EnumerateArray())
+                {
+                    WalkText(child, sb, includeTitle);
+                }
             }
         }
 
         /// <summary>
-        /// 🌟 私有提取器：从最新的 Blocks 集合中提取双链并更新 note_links 表
+        /// 🌟 从 Block.Data JSON 里提取所有 spirit-link 指向的 blockId
         /// </summary>
-        private async Task SyncNoteLinksAsync(Guid sourceNoteId, Guid spaceId, List<Block> currentBlocks)
+        private static List<string> ExtractBlockRefTargets(string? data)
         {
-            var extractedTargetIds = new HashSet<Guid>();
-
-            // 1. 递归扫描块中的 Data，提取 spiritLink
-            foreach (var block in currentBlocks)
-            {
-                if (string.IsNullOrEmpty(block.Data)) continue;
-                ExtractSpiritLinksFromJson(block.Data, extractedTargetIds);
-            }
-
-            // 2. 获取数据库中目前由这个笔记延伸出的旧链接
-            var existingLinks = await _context.NoteLinks
-                .Where(nl => nl.SourceNoteId == sourceNoteId)
-                .ToListAsync();
-
-            var existingTargetIds = existingLinks.Select(el => el.TargetNoteId).ToHashSet();
-
-            // 3. 对比并找出需要“新增”和“删除”的链接
-            var idsToAdd = extractedTargetIds.Where(id => !existingTargetIds.Contains(id)).ToList();
-            var linksToRemove = existingLinks.Where(el => !extractedTargetIds.Contains(el.TargetNoteId)).ToList();
-
-            // 4. 执行变更
-            if (linksToRemove.Any())
-            {
-                _context.NoteLinks.RemoveRange(linksToRemove);
-            }
-
-            foreach (var targetId in idsToAdd)
-            {
-                if (targetId == sourceNoteId) continue; // 排除自己引用自己
-
-                var newLink = new NoteLink
-                {
-                    Id = Guid.NewGuid(),
-                    SpaceId = spaceId,
-                    SourceNoteId = sourceNoteId,
-                    TargetNoteId = targetId,
-                    Excerpt = "上下文引用",
-                    CreatedAt = DateTime.UtcNow
-                };
-                _context.NoteLinks.Add(newLink);
-            }
-
-            await _context.SaveChangesAsync();
-        }
-
-        private void ExtractSpiritLinksFromJson(string blockDataJson, HashSet<Guid> targetIds)
-        {
+            var result = new List<string>();
+            if (string.IsNullOrWhiteSpace(data)) return result;
             try
             {
-                using (JsonDocument doc = JsonDocument.Parse(blockDataJson))
-                {
-                    FindSpiritLinksInElement(doc.RootElement, targetIds);
-                }
+                using var doc = JsonDocument.Parse(data);
+                WalkForBlockRefs(doc.RootElement, result);
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[双链解析异常]: {ex.Message}");
-            }
+            catch { }
+            return result;
         }
 
-        private void FindSpiritLinksInElement(JsonElement element, HashSet<Guid> targetIds)
+        private static void WalkForBlockRefs(JsonElement node, List<string> output)
         {
-            if (element.ValueKind == JsonValueKind.Object)
-            {
-                // 如果当前层级是一个 spiritLink 节点
-                if (element.TryGetProperty("type", out var typeProp) && typeProp.GetString() == "spiritLink")
-                {
-                    if (element.TryGetProperty("attrs", out var attrsProp) &&
-                        attrsProp.TryGetProperty("id", out var idProp))
-                    {
-                        if (Guid.TryParse(idProp.GetString(), out Guid linkedId))
-                        {
-                            targetIds.Add(linkedId);
-                        }
-                    }
-                }
+            if (node.ValueKind != JsonValueKind.Object) return;
 
-                // 递归向下遍历 content 属性数组
-                if (element.TryGetProperty("content", out var contentProp) && contentProp.ValueKind == JsonValueKind.Array)
+            // 是 spirit-link 节点？
+            if (node.TryGetProperty("type", out var t) &&
+                t.ValueKind == JsonValueKind.String &&
+                t.GetString() == "spirit-link")
+            {
+                if (node.TryGetProperty("attrs", out var attrs) &&
+                    attrs.ValueKind == JsonValueKind.Object &&
+                    attrs.TryGetProperty("blockId", out var bid) &&
+                    bid.ValueKind == JsonValueKind.String)
                 {
-                    foreach (var child in contentProp.EnumerateArray())
-                    {
-                        FindSpiritLinksInElement(child, targetIds);
-                    }
+                    var b = bid.GetString();
+                    if (!string.IsNullOrEmpty(b)) output.Add(b);
                 }
             }
-            else if (element.ValueKind == JsonValueKind.Array)
+
+            // 递归
+            if (node.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.Array)
             {
-                foreach (var child in element.EnumerateArray())
-                {
-                    FindSpiritLinksInElement(child, targetIds);
-                }
+                foreach (var child in c.EnumerateArray())
+                    WalkForBlockRefs(child, output);
             }
         }
+
     }
 }

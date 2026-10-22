@@ -6,12 +6,12 @@
 
       <div class="form-group">
         <label>角色标题 <span class="required">*</span></label>
-        <input v-model="form.title" placeholder="给角色取个名字" required />
+        <input aria-label="角色标题" v-model="form.title" placeholder="给角色取个名字" required />
       </div>
 
       <div class="form-group">
         <label>一句话简介</label>
-        <input v-model="form.description" placeholder="简短介绍这个角色" />
+        <input aria-label="一句话简介" v-model="form.description" placeholder="简短介绍这个角色" />
       </div>
 
       <div class="form-group">
@@ -135,7 +135,7 @@
 
       <div class="form-group">
         <label>状态</label>
-        <select v-model="form.status">
+        <select aria-label="状态" v-model="form.status">
           <option value="draft">存为草稿</option>
           <option value="published">直接发布</option>
         </select>
@@ -204,16 +204,17 @@ interface InitialData {
     sortOrder: number
     type: 'short' | 'long'
   }[]
-  images?: { 
+  images?: {
     id?: string
     url: string
     alt?: string
-    sortOrder: number 
+    sortOrder: number
   }[]
 }
 
 const props = defineProps<{
   initialData?: InitialData
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -221,7 +222,6 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
-const loading = ref(false)
 const { uploadFile } = useCos()
 
 // ===== 上传状态 =====
@@ -277,7 +277,7 @@ async function uploadCover() {
   const input = document.createElement('input')
   input.type = 'file'
   input.accept = 'image/*'
-  
+
   input.onchange = async (e: Event) => {
     const target = e.target as HTMLInputElement
     const file = target.files?.[0]
@@ -369,6 +369,7 @@ function removeImage(index: number) {
 }
 
 function handleSubmit() {
+  if (props.loading || uploadingCover.value || uploadingGallery.value) return
   if (!form.title.trim()) {
     alert('请输入角色标题')
     return
@@ -561,7 +562,7 @@ function handleSubmit() {
   border-radius: 50%;
   border: none;
   background: rgba(44, 42, 41, 0.8);
-  color: #fff;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 14px;
   display: flex;
@@ -737,15 +738,15 @@ function handleSubmit() {
   flex: 1;
   padding: 2px 6px;
   border: none;
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
+  background: var(--paper-card);
+  color: var(--text-primary);
   font-size: 11px;
   outline: none;
   font-family: var(--font-family);
 }
 
 .gallery-alt-input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--text-secondary);
 }
 
 .btn-remove-small {
@@ -754,7 +755,7 @@ function handleSubmit() {
   border: none;
   border-radius: 50%;
   background: rgba(231, 76, 60, 0.8);
-  color: #fff;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 12px;
   display: flex;

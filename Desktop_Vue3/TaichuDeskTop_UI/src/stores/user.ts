@@ -1,79 +1,94 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { authApi, type UserInfo } from '../api/auth'
+import { CanceledError } from 'axios'
+import { authApi, type LoginCredentials, type UserInfo } from '../api/auth'
+import { getStoredToken, getTokenUserId, persistToken, persistUser, readStoredUser } from '../utils/authStorage'
 
 export const useUserStore = defineStore('user', () => {
-  // ✅ 从 localStorage 恢复用户信息（页面刷新后依然存在）
-  const savedUserInfo = localStorage.getItem('userInfo')
-  const userInfo = ref<UserInfo | null>(savedUserInfo ? JSON.parse(savedUserInfo) : null)
-  
-  // 🌟 核心防线：用一个变量缓存当前正在进行的网络请求 Promise
-  let currentRequestPromise: Promise<UserInfo> | null = null
+  const token = ref(getStoredToken())
+  const userInfo = ref<UserInfo | null>(readStoredUser())
+  const isLoggedIn = computed(() => Boolean(token.value))
+  const userId = computed(() => userInfo.value?.id || getTokenUserId(token.value))
+  const permissions = computed(() => isLoggedIn.value ? userInfo.value?.permissions || [] : [])
 
-  async function fetchUserInfo() {
-    if (userInfo.value) return;
+  let sessionVersion = 0
+  let loginAttempt = 0
+  let profileRequest: Promise<UserInfo | null> | null = null
 
-    if (currentRequestPromise) {
-      try {
-        await currentRequestPromise;
-        return;
-      } catch (error) {
-        currentRequestPromise = null;
-        return;
-      }
-    }
-
-    try {
-      currentRequestPromise = authApi.getUserInfo();
-      const data = await currentRequestPromise;
-      userInfo.value = data
-      localStorage.setItem('userInfo', JSON.stringify(data))
-    } catch (error) {
-      console.error('用户信息同步失败', error)
-    } finally {
-      currentRequestPromise = null;
-    }
-  }
-
-  // ✅ 设置用户信息（登录成功后调用）
   function setUser(user: UserInfo | null) {
-    userInfo.value = user
-    if (user) {
-      localStorage.setItem('userInfo', JSON.stringify(user))
-    } else {
-      localStorage.removeItem('userInfo')
+    userInfo.value = token.value ? user : null
+    persistUser(userInfo.value)
+  }
+
+  function setSession(nextToken: string, user: UserInfo | null = null) {
+    sessionVersion++
+    profileRequest = null
+    token.value = nextToken
+    persistToken(nextToken)
+    setUser(user)
+  }
+
+  function logout() {
+    setSession('')
+  }
+
+  async function login(credentials: LoginCredentials) {
+    const attempt = ++loginAttempt
+    const version = sessionVersion
+    const result = await authApi.login(credentials)
+    if (attempt !== loginAttempt || version !== sessionVersion) throw new CanceledError()
+    setSession(result.token, result.user ?? null)
+    return result
+  }
+
+  function fetchUserInfo(force = false): Promise<UserInfo | null> {
+    if (!token.value) return Promise.resolve(null)
+    if (profileRequest) return profileRequest
+    if (!force && userInfo.value) return Promise.resolve(userInfo.value)
+
+    const version = sessionVersion
+    const requestToken = token.value
+    const pending = authApi.getUserInfo()
+      .then(profile => {
+        // 退出或切换账号后，旧响应不能恢复旧用户或覆盖新账号。
+        if (version !== sessionVersion || requestToken !== getStoredToken()) return null
+        setUser({
+          ...userInfo.value,
+          ...profile,
+          id: userInfo.value?.id || getTokenUserId(requestToken),
+        })
+        return userInfo.value
+      })
+      .catch(error => {
+        console.error('用户信息同步失败', error)
+        return null
+      })
+      .finally(() => {
+        if (profileRequest === pending) profileRequest = null
+      })
+
+    profileRequest = pending
+    return pending
+  }
+
+  function syncFromStorage() {
+    const storedToken = getStoredToken()
+    if (storedToken !== token.value) {
+      sessionVersion++
+      profileRequest = null
+      token.value = storedToken
     }
+    userInfo.value = readStoredUser()
   }
 
-  // ✅ 清除用户信息（登出时使用）
-  function clearUser() {
-    userInfo.value = null
-    localStorage.removeItem('userInfo')
-  }
+  const hasPermission = (permission: string) =>
+    permissions.value.includes('SuperAdmin') || permissions.value.includes(permission)
 
-  // ============================================================
-  // 权限相关
-  // ============================================================
+  const canManageSurvey = computed(() => hasPermission('Survey_Manage'))
 
-  const permissions = computed(() => userInfo.value?.permissions || [])
-
-  const hasPermission = (permission: string) => {
-    const perms = userInfo.value?.permissions || []
-    return perms.includes('SuperAdmin') || perms.includes(permission)
-  }
-
-  const canManageSurvey = computed(() => {
-    const perms = userInfo.value?.permissions || []
-    return perms.includes('SuperAdmin') || perms.includes('Survey_Manage')
-  })
-
-  return { 
-    userInfo, 
-    fetchUserInfo,
-    setUser,
-    permissions,
-    hasPermission,
-    canManageSurvey,
-    clearUser,
+  return {
+    token, userInfo, userId, isLoggedIn, permissions, canManageSurvey,
+    login, logout, setSession, setUser, fetchUserInfo, syncFromStorage, hasPermission,
+    clearUser: () => setUser(null),
   }
 })

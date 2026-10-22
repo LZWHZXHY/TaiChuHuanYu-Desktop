@@ -222,14 +222,14 @@ const formatDate = (dateString: string) => {
   MD 3 极致简约设计语言
 */
 .md-admin-container {
-  --md-primary: #000;
-  --md-text: #1a1a1a;
-  --md-sub: #999;
-  --md-danger: #ff4d4f;
+  --md-primary: var(--accent-color);
+  --md-text: var(--text-primary);
+  --md-sub: var(--text-secondary);
+  --md-danger: var(--danger);
   max-width: 1100px;
   margin: 0 auto;
   padding: 80px 20px;
-  background: #fff;
+  background: var(--paper-card);
   min-height: 100vh;
 }
 
@@ -244,7 +244,7 @@ const formatDate = (dateString: string) => {
 .md-subtitle { color: var(--md-sub); margin-top: 10px; font-size: 0.9rem; }
 
 .md-fab-button {
-  background: var(--md-primary); color: #fff; border: none;
+  background: var(--md-primary); color: var(--paper-card); border: none;
   padding: 14px 28px; border-radius: 40px; cursor: pointer;
   display: flex; align-items: center; gap: 10px; font-weight: 600;
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
@@ -255,22 +255,22 @@ const formatDate = (dateString: string) => {
 .md-list-item {
   display: grid; grid-template-columns: 100px 1fr 100px 220px;
   align-items: center; gap: 40px; padding: 40px 0;
-  border-bottom: 1px solid #f0f0f0; transition: all 0.3s;
+  border-bottom: 1px solid var(--border-line); transition: all 0.3s;
 }
-.md-list-item:hover { border-bottom-color: #000; }
+.md-list-item:hover { border-bottom-color: var(--border-line); }
 .md-list-item.is-draft-row { opacity: 0.5; }
 
 .md-img { width: 100px; height: 60px; object-fit: cover; filter: grayscale(100%); transition: 0.4s; }
 .md-list-item:hover .md-img { filter: grayscale(0%); }
-.md-img-placeholder { width: 100px; height: 60px; background: #f9f9f9; }
+.md-img-placeholder { width: 100px; height: 60px; background: var(--bg-main); }
 
 .item-tag { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; color: var(--md-sub); }
-.item-date { font-size: 0.7rem; color: #ccc; margin-left: 15px; }
+.item-date { font-size: 0.7rem; color: var(--text-secondary); margin-left: 15px; }
 .item-title { margin: 8px 0 0; font-size: 1.2rem; font-weight: 500; }
 
 .md-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 10px; }
-.is-active { background: #52c41a; box-shadow: 0 0 10px rgba(82,196,26,0.2); }
-.is-draft { background: #d9d9d9; }
+.is-active { background: var(--success); box-shadow: 0 0 10px rgba(82,196,26,0.2); }
+.is-draft { background: var(--bg-sub); }
 
 .item-status { font-size: 0.85rem; color: var(--md-sub); font-weight: 500; }
 
@@ -286,14 +286,14 @@ const formatDate = (dateString: string) => {
 
 /* 模态框样式 */
 .md-modal-overlay {
-  position: fixed; inset: 0; background: rgba(255,255,255,0.98);
+  position: fixed; inset: 0; background: var(--overlay);
   display: flex; align-items: center; justify-content: center; z-index: 1000;
   backdrop-filter: blur(10px);
 }
 .md-modal-card { width: 100%; max-width: 700px; padding: 60px; }
 .modal-header { font-size: 2.5rem; font-weight: 200; margin-bottom: 60px; letter-spacing: -1px; }
 
-.md-input-group { display: flex; gap: 30px; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 50px; }
+.md-input-group { display: flex; gap: 30px; border-bottom: 2px solid var(--border-line); padding-bottom: 15px; margin-bottom: 50px; }
 .md-select { border: none; background: none; font-weight: 700; outline: none; font-size: 1.1rem; cursor: pointer; }
 .md-input { border: none; flex: 1; font-size: 1.5rem; outline: none; background: none; font-weight: 300; }
 .md-textarea {
@@ -302,28 +302,28 @@ const formatDate = (dateString: string) => {
 }
 
 .md-upload-zone { margin-bottom: 50px; }
-.md-upload-label { padding: 12px 24px; border: 1px dashed #ddd; font-size: 0.8rem; cursor: pointer; color: var(--md-sub); }
+.md-upload-label { padding: 12px 24px; border: 1px dashed var(--border-line); font-size: 0.8rem; cursor: pointer; color: var(--md-sub); }
 .md-preview-container { position: relative; display: inline-block; }
 .md-preview-img { max-height: 200px; border-radius: 4px; }
 .md-icon-btn {
-  position: absolute; top: -10px; right: -10px; background: #000; color: #fff;
+  position: absolute; top: -10px; right: -10px; background: var(--accent-color); color: var(--on-accent);
   border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer;
 }
 
 .md-modal-actions { margin-top: 60px; display: flex; justify-content: flex-end; gap: 30px; }
 .md-btn-flat { background: none; border: none; font-weight: 700; cursor: pointer; color: var(--md-sub); font-size: 1rem; }
-.md-btn-primary { background: #000; color: #fff; border: none; padding: 16px 48px; font-weight: 700; cursor: pointer; border-radius: 4px; }
+.md-btn-primary { background: var(--accent-color); color: var(--on-accent); border: none; padding: 16px 48px; font-weight: 700; cursor: pointer; border-radius: 4px; }
 
 /* 动画效果 */
 .md-fade-enter-active, .md-fade-leave-active { transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1); }
 .md-fade-enter-from, .md-fade-leave-to { opacity: 0; transform: translateY(20px); }
 
-.md-loader { font-size: 1.5rem; font-weight: 200; text-align: center; padding: 100px; color: #eee; }
-.md-empty { text-align: center; padding: 100px; color: #ccc; font-style: italic; }
+.md-loader { font-size: 1.5rem; font-weight: 200; text-align: center; padding: 100px; color: var(--text-secondary); }
+.md-empty { text-align: center; padding: 100px; color: var(--text-secondary); font-style: italic; }
 
 .modal-close-btn {
   position: absolute; top: 40px; right: 40px; background: none; border: none;
-  font-size: 2rem; font-weight: 100; cursor: pointer; color: #ccc;
+  font-size: 2rem; font-weight: 100; cursor: pointer; color: var(--text-secondary);
 }
-.modal-close-btn:hover { color: #000; }
+.modal-close-btn:hover { color: var(--text-primary); }
 </style>

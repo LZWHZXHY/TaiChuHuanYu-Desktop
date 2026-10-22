@@ -1,28 +1,28 @@
 <template>
   <Transition name="fade">
     <div v-if="isOpen" class="modal-overlay drawer-overlay" @click.self="closeDrawer">
-      <div class="task-detail-drawer">
+      <div class="task-detail-drawer" role="dialog" aria-modal="true" aria-label="任务详情">
         <header class="drawer-header">
           <div class="header-left-meta">
             <span class="task-id-large">#{{ localTask.id?.substring(0, 8) }}</span>
             <span class="points-badge" title="灵脉意图贡献点">⚡ {{ localTask.points ?? 1 }} 点</span>
           </div>
-          <button class="close-btn" @click="closeDrawer">×</button>
+          <button class="close-btn" :disabled="isSaving" aria-label="关闭任务详情" @click="closeDrawer">×</button>
         </header>
 
-        <div class="drawer-content">
-          <input 
-            class="huge-title-input" 
+        <div class="drawer-content" :inert="isSaving">
+          <textarea rows="2"
+            class="huge-title-input" aria-label="任务标题" 
             v-model="localTask.title" 
-            placeholder="任务核心意图..." 
+            placeholder="任务标题..." 
           />
 
           <!-- 基础属性网格 -->
           <div class="properties-grid">
             <div class="prop-item">
-              <label>所属维度 (分类)</label>
+              <label>任务分组</label>
               <select v-model="localTask.categoryId">
-                <option :value="null">游离意图 (未分类)</option>
+                <option :value="null">未分类任务</option>
                 <option v-for="lane in boardCategories" :key="lane.id" :value="lane.id">
                   {{ lane.name }}
                 </option>
@@ -100,10 +100,10 @@
           </div>
 
           <div class="desc-section">
-            <label>深层描绘 (Description)</label>
+            <label>任务描述</label>
             <textarea 
-              v-model="localTask.description" 
-              placeholder="在此展开意图的细节..."
+              aria-label="任务描述" v-model="localTask.description" 
+              placeholder="填写任务要求与验收标准..."
               rows="6"
             ></textarea>
           </div>
@@ -115,11 +115,11 @@
             class="delete-task-btn" 
             @click="handleDelete"
           >
-            抹除此意图
+            删除任务
           </button>
           
-          <span class="save-status" v-if="isSaving">正在同步灵脉...</span>
-          <button class="save-btn" @click="handleSave">确立修改</button>
+          <span class="save-status" v-if="isSaving">正在保存...</span>
+          <button class="save-btn" :disabled="isSaving" @click="handleSave">保存修改</button>
         </footer>
       </div>
     </div>
@@ -200,9 +200,13 @@ const canManageTasks = computed(() => {
 });
 
 const fetchMyPermissions = async () => {
+  isOwner.value = false;
+  myPermissions.value = [];
   if (!props.projectId) return;
+  const projectId = props.projectId;
   try {
-    const res: any = await request.get(`/project/${props.projectId}/roles/my-permissions`);
+    const res: any = await request.get(`/project/${projectId}/roles/my-permissions`);
+    if (props.projectId !== projectId) return;
     const data = res.data || res;
     isOwner.value = Boolean(data.isOwner);
     myPermissions.value = data.permissions || [];
@@ -232,7 +236,7 @@ watch(() => props.isOpen, (newVal) => {
   }
 }, { immediate: true });
 
-const closeDrawer = () => emit('close');
+const closeDrawer = () => { if (!isSaving.value) emit('close'); };
 
 const addTag = () => {
   const val = newTagInput.value.trim();
@@ -245,6 +249,9 @@ const addTag = () => {
 const removeTag = (index: number) => tagArray.value.splice(index, 1);
 
 const handleSave = async () => {
+  if (isSaving.value) return;
+  if (!localTask.value.title?.trim()) return alert('请填写任务标题');
+  if (localTask.value.startDate && localTask.value.dueDate && localTask.value.startDate > localTask.value.dueDate) return alert('截止时间不能早于开始时间');
   isSaving.value = true;
   localTask.value.tags = tagArray.value.join(',');
   
@@ -266,7 +273,7 @@ const handleSave = async () => {
       });
     }
     emit('refresh');
-    closeDrawer();
+    emit('close');
   } catch (err: any) {
     console.error("意图细节同步失败", err);
     alert(err.response?.data?.message || err.response?.data || "更新失败，请确认权限");
@@ -276,7 +283,7 @@ const handleSave = async () => {
 };
 
 const handleDelete = async () => {
-  const isConfirmed = await openInternalConfirm("抹除意图", "确定要将这一意图卡片彻底从画布中抹除吗？此操作将无法撤销。");
+    const isConfirmed = await openInternalConfirm("删除任务", "确定删除这个任务吗？此操作无法撤销。");
   if (!isConfirmed) return;
   emit('confirmDelete', localTask.value.id);
 };
@@ -285,10 +292,10 @@ const handleDelete = async () => {
 <style scoped>
 .modal-overlay {
   position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px);
+  background: var(--overlay); backdrop-filter: blur(8px);
   display: flex; align-items: center; justify-content: center; z-index: 1000;
 }
-.drawer-overlay { background: rgba(0, 0, 0, 0.2); align-items: stretch; justify-content: flex-end; z-index: 1000; }
+.drawer-overlay { background: var(--overlay); align-items: stretch; justify-content: flex-end; z-index: 1000; }
 
 .drawer-modal-overlay {
   position: fixed; 
@@ -296,7 +303,7 @@ const handleDelete = async () => {
   left: 0; 
   right: 0; 
   bottom: 0;
-  background: rgba(0, 0, 0, 0.4); 
+  background: var(--overlay); 
   backdrop-filter: blur(6px);
   display: flex; 
   align-items: center; 
@@ -305,80 +312,84 @@ const handleDelete = async () => {
 }
 
 .minimal-modal { 
-  background: #fff; 
+  background: var(--paper-card); 
   width: 100%; 
   max-width: 440px; 
-  padding: 48px; 
-  border: 1px solid #eee; 
+  padding: clamp(20px, 4vw, 32px); 
+  border: 1px solid var(--border-line); 
   box-shadow: 0 40px 100px rgba(0,0,0,0.1); 
+
+  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
 }
-.modal-inner-header h2 { font-size: 1.2rem; font-weight: 500; margin: 0 0 12px 0; color: #1a1a1a; }
-.modal-inner-header p { font-size: 0.85rem; color: #777; line-height: 1.6; margin: 0; }
+.modal-inner-header h2 { font-size: 1.2rem; font-weight: 500; margin: 0 0 12px 0; color: var(--text-primary); }
+.modal-inner-header p { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin: 0; }
 .modal-footer { margin-top: 40px; display: flex; justify-content: flex-end; gap: 16px; }
-.cancel-btn { background: none; border: none; color: #999; font-size: 0.85rem; cursor: pointer; padding: 10px 20px; transition: color 0.3s; }
-.cancel-btn:hover { color: #1a1a1a; }
-.confirm-btn { background: #1a1a1a; color: #fff; border: none; font-size: 0.85rem; cursor: pointer; padding: 10px 28px; border-radius: 2px; transition: background 0.3s; }
-.confirm-btn:hover { background: #333; }
+.cancel-btn { background: none; border: none; color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; padding: 10px 20px; transition: color 0.3s; }
+.cancel-btn:hover { color: var(--text-primary); }
+.confirm-btn { background: var(--accent-color); color: var(--on-accent); border: none; font-size: 0.85rem; cursor: pointer; padding: 10px 28px; border-radius: 2px; transition: background 0.3s; }
+.confirm-btn:hover { background: var(--text-primary); }
 
 .task-detail-drawer {
-  background: #fff; width: 100%; max-width: 740px; height: 100%;
+  background: var(--paper-card); width: 100%; max-width: 740px; height: 100%;
   box-shadow: -20px 0 50px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden;
   animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .drawer-header {
-  padding: 32px 40px; border-bottom: 1px solid #f5f5f5;
+  padding: 20px clamp(16px, 3vw, 32px); border-bottom: 1px solid var(--border-line);
   display: flex; justify-content: space-between; align-items: center;
 }
 .header-left-meta { display: flex; align-items: center; gap: 14px; }
-.task-id-large { font-family: monospace; color: #ccc; font-size: 1.1rem; }
+.task-id-large { font-family: monospace; color: var(--text-secondary); font-size: 1.1rem; }
 .points-badge {
-  background: #1a1a1a; color: #fff; font-size: 0.72rem; padding: 3px 8px; border-radius: 2px;
+  background: var(--accent-soft); color: var(--accent-color); font-size: 0.8rem; padding: 5px 10px; border-radius: 20px;
   letter-spacing: 0.5px;
 }
-.close-btn { background: none; border: none; font-size: 2rem; line-height: 1; color: #aaa; cursor: pointer; transition: color 0.3s;}
-.close-btn:hover { color: #1a1a1a; }
+.close-btn { background: none; border: none; font-size: 2rem; line-height: 1; color: var(--text-secondary); cursor: pointer; transition: color 0.3s;}
+.close-btn:hover { color: var(--text-primary); }
 
-.drawer-content { flex: 1; padding: 40px; overflow-y: auto; }
+.drawer-content { flex: 1; padding: 24px clamp(16px, 3vw, 32px); overflow-y: auto; }
 .huge-title-input {
-  width: 100%; font-size: 1.8rem; font-weight: 500; border: none; border-bottom: 1px solid transparent;
-  color: #1a1a1a; padding-bottom: 10px; margin-bottom: 40px; outline: none; transition: border-color 0.3s;
+  width: 100%; font-size: clamp(22px, 3vw, 28px); line-height: 1.4; resize: vertical; font-weight: 500; border: none; border-bottom: 1px solid transparent;
+  color: var(--text-primary); padding-bottom: 10px; margin-bottom: 24px; outline: none; transition: border-color 0.3s;
 }
-.huge-title-input:focus { border-bottom-color: #eee; }
+.huge-title-input:focus { border-bottom-color: var(--border-line); }
 
 .properties-grid { 
   display: grid; 
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); 
-  gap: 28px; 
-  margin-bottom: 40px; 
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); 
+  gap: 20px; 
+  margin-bottom: 24px; 
 }
-.prop-item label { display: block; font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.prop-item label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; }
 .prop-item select, .prop-item input {
-  width: 100%; padding: 10px 0; border: none; border-bottom: 1px solid #eee;
-  background: transparent; outline: none; font-size: 0.95rem; color: #333; cursor: pointer;
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border-line); border-radius: 8px;
+  background: var(--bg-main); font-size: 0.95rem; color: var(--text-primary); cursor: pointer;
 }
 .prop-item select:disabled {
-  background: #fafafa;
-  color: #aaa;
+  background: var(--bg-main);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
 .quant-section {
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
+  background: var(--bg-main);
+  border: 1px solid var(--border-line);
   padding: 24px;
-  margin-bottom: 40px;
+  border-radius: var(--radius-md);
+  margin-bottom: 24px;
 }
 .section-label-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap; gap: 8px;
   margin-bottom: 16px;
 }
 .section-label {
   display: block;
-  font-size: 0.7rem;
-  color: #888;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1.5px;
   font-weight: 600;
@@ -386,7 +397,7 @@ const handleDelete = async () => {
 }
 .lock-notice {
   font-size: 0.7rem;
-  color: #bbb;
+  color: var(--text-secondary);
   letter-spacing: 0.5px;
 }
 /* 移除了原本的 repeat(3, 1fr)，现在只有一项，单列占满 */
@@ -402,59 +413,61 @@ const handleDelete = async () => {
 }
 .quant-title {
   font-size: 0.75rem;
-  color: #555;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 .quant-input {
-  border: 1px solid #e0e0e0;
-  background: #fff;
+  border: 1px solid var(--border-line);
+  border-radius: 8px;
+  background: var(--paper-card);
   padding: 8px 10px;
   font-size: 0.95rem;
   outline: none;
   transition: all 0.2s;
 }
 .quant-input:focus {
-  border-color: #1a1a1a;
+  border-color: var(--border-line);
 }
 .quant-input.is-locked {
-  background: #f5f5f5;
-  border-color: #eee;
-  color: #888;
+  background: var(--bg-sub);
+  border-color: var(--border-line);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 .quant-hint {
-  font-size: 0.65rem;
-  color: #aaa;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
   line-height: 1.3;
 }
 
-.tags-section { margin-bottom: 40px; }
-.tags-section label { display: block; font-size: 0.7rem; color: #aaa; margin-bottom: 12px; }
+.tags-section { margin-bottom: 24px; }
+.tags-section label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px; }
 .tags-container { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.editable-tag { background: #f0f0f0; padding: 6px 12px; font-size: 0.8rem; color: #444; border-radius: 4px; display: flex; align-items: center; gap: 6px; }
-.tag-remove { cursor: pointer; color: #aaa; transition: color 0.2s; }
-.tag-remove:hover { color: #ff4757; }
-.tag-input { border: none; background: transparent; font-size: 0.85rem; outline: none; border-bottom: 1px dashed #ccc; padding: 4px; width: 120px; }
+.editable-tag { background: var(--bg-sub); padding: 6px 12px; font-size: 0.8rem; color: var(--text-primary); border-radius: 4px; display: flex; align-items: center; gap: 6px; }
+.tag-remove { cursor: pointer; color: var(--text-secondary); transition: color 0.2s; }
+.tag-remove:hover { color: var(--danger); }
+.tag-input { border: none; background: transparent; font-size: 0.85rem; outline: none; border-bottom: 1px dashed var(--border-line); padding: 4px; width: 120px; }
 
-.desc-section label { display: block; font-size: 0.7rem; color: #aaa; margin-bottom: 12px; text-transform: uppercase; }
+.desc-section label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px; }
 .desc-section textarea {
-  width: 100%; border: 1px solid #eee; background: #fafafa; padding: 16px;
-  font-size: 0.95rem; color: #333; outline: none; resize: vertical; line-height: 1.6; transition: border-color 0.3s;
+  width: 100%; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); padding: 16px;
+  font-size: 0.95rem; color: var(--text-primary); outline: none; resize: vertical; line-height: 1.6; transition: border-color 0.3s;
 }
-.desc-section textarea:focus { border-color: #ddd; background: #fff; }
+.desc-section textarea:focus { border-color: var(--border-line); background: var(--paper-card); }
 
 .drawer-footer {
-  padding: 24px 40px; border-top: 1px solid #f5f5f5; display: flex; justify-content: flex-end; align-items: center; gap: 20px;
+  padding: 16px clamp(16px, 3vw, 32px); border-top: 1px solid var(--border-line); display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 12px;
 }
-.save-status { font-size: 0.8rem; color: #999; }
-.save-btn { background: #1a1a1a; color: #fff; border: none; padding: 12px 32px; font-size: 0.9rem; cursor: pointer; transition: background 0.3s; }
-.save-btn:hover { background: #333; }
+.save-status { font-size: 0.8rem; color: var(--text-secondary); }
+.save-btn { background: var(--accent-color); color: var(--on-accent); border: none; border-radius: 8px; padding: 12px 24px; font-size: 0.9rem; cursor: pointer; transition: background 0.3s; }
+.save-btn:disabled { opacity: .65; cursor: wait; }
+.save-btn:hover { background: var(--text-primary); }
 
 .delete-task-btn {
-  background: none; border: none; color: #ccc; font-size: 0.85rem; cursor: pointer; padding: 12px 0; margin-right: auto;
+  background: none; border: none; color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; padding: 12px 0; margin-right: auto;
   transition: color 0.3s;
 }
-.delete-task-btn:hover { color: #ff4757; }
+.delete-task-btn:hover { color: var(--danger); }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

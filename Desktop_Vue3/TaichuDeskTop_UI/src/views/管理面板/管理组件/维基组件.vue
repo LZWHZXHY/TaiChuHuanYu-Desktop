@@ -86,21 +86,21 @@ onMounted(loadAllData);
 </script>
 
 <style scoped>
-.wiki-admin-layout { padding: 40px; background: #fff; min-height: 100vh; color: #1a1a1a; }
+.wiki-admin-layout { padding: 40px; background: var(--paper-card); min-height: 100vh; color: var(--text-primary); }
 .module-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; }
-.page-title { font-size: 1.8rem; font-weight: 700; color: #000; margin: 0; }
-.md-subtitle { font-size: 0.9rem; color: #86868b; margin: 8px 0 0; }
+.page-title { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.md-subtitle { font-size: 0.9rem; color: var(--text-secondary); margin: 8px 0 0; }
 
 .md-tabs { 
   display: flex; 
   gap: 32px; 
-  border-bottom: 1px solid #f2f2f7; 
+  border-bottom: 1px solid var(--border-line); 
   margin-bottom: 30px; 
 }
 
 .tab-item { 
   cursor: pointer; 
-  color: #86868b; 
+  color: var(--text-secondary); 
   padding-bottom: 12px; 
   font-size: 0.9rem; 
   font-weight: 500;
@@ -108,7 +108,7 @@ onMounted(loadAllData);
   position: relative;
 }
 
-.tab-item.active { color: #000; }
+.tab-item.active { color: var(--text-primary); }
 .tab-item.active::after {
   content: '';
   position: absolute;
@@ -116,6 +116,6 @@ onMounted(loadAllData);
   right: 0;
   bottom: -1px;
   height: 2px;
-  background: #000;
+  background: var(--text-primary);
 }
 </style>

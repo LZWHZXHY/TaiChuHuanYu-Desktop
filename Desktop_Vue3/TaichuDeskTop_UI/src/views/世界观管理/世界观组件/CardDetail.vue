@@ -23,7 +23,7 @@
 
       <!-- 封面图 -->
       <div v-if="card.coverImage" class="cover-banner">
-        <img :src="card.coverImage" :alt="card.title" />
+        <img :src="coverUrl" :alt="card.title" />
       </div>
 
       <!-- 图库 -->
@@ -33,7 +33,7 @@
             v-for="(img, idx) in card.galleryImages"
             :key="idx"
             class="gallery-thumb"
-            @click="previewImage(idx)"
+            @click="openPreview(galleryImages, idx)"
           >
             <img :src="img" :alt="`${card.title} 图 ${idx + 1}`" loading="lazy" />
           </div>
@@ -84,41 +84,28 @@
     <!-- 图片预览弹窗 -->
     <el-image-viewer
       v-if="previewVisible"
-      :url-list="card?.galleryImages || []"
+      :url-list="previewImages"
       :initial-index="previewIndex"
-      @close="previewVisible = false"
+      @close="closePreview"
     />
 
-    <div v-else-if="loading" class="loading-state">加载中...</div>
-    <div v-else class="not-found">卡片不存在</div>
+    <div v-if="!card && loading" class="loading-state">加载中...</div>
+    <div v-else-if="!card" class="not-found">卡片不存在</div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { useCardPresentation } from '@/composables/世界观管理/useCardPresentation';
+import { useCardPreload } from '@/composables/世界观管理/useCardPreload';
+import { useImagePreview } from '@/composables/世界观管理/useImagePreview';
+import { getCardTypeLabel as getTypeLabel } from '@/utils/worldPresentation';
+import { ref, computed, watch, onScopeDispose } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage, ElMessageBox, ElImageViewer } from 'element-plus';
 import { useWorldStore } from '@/stores/world';
 import { useUserStore } from '@/stores/user';
-import type { CardDetail, CardSummary } from '@/api/worldApi';
-// ✅ 正确的 import 路径
+import type { CardDetail } from '@/api/worldApi';
 import EmbeddedCard from '@/views/世界观管理/世界观组件/EmbeddedCard.vue';
-
-// ===== 类型标签映射 =====
-const TYPE_LABELS: Record<string, string> = {
-  character: '角色',
-  location: '地点',
-  item: '物品',
-  event: '事件',
-  faction: '派系',
-  species: '物种',
-  occupation: '职业',
-  organization: '组织',
-  creature: '生物',
-  skill: '技能',
-  climate: '气候',
-  concept: '设定',
-};
 
 // ===== 路由 =====
 const router = useRouter();
@@ -127,16 +114,15 @@ const store = useWorldStore();
 const userStore = useUserStore();
 
 // ===== 状态 =====
-const cardId = route.params.cardId as string;
-const projectId = route.params.projectId as string;
+const cardId = computed(() => route.params.cardId as string);
+const projectId = computed(() => route.params.projectId as string);
 const loading = ref(false);
 
 const card = ref<CardDetail | null>(null);
-const embeddedCardDetails = ref<Map<string, CardDetail>>(new Map());
 
-// ===== 图库预览 =====
-const previewVisible = ref(false);
-const previewIndex = ref(0);
+const { visible: previewVisible, images: previewImages, index: previewIndex, open: openPreview, close: closePreview } = useImagePreview();
+const { embeddedIds, embeddedCards, cardTags, galleryImages, coverUrl, renderedDescription } = useCardPresentation(card, projectId, 'detail');
+const { load: preload } = useCardPreload(projectId);
 
 // ===== 判断当前用户是否是项目所有者 =====
 const isOwner = computed(() => {
@@ -146,170 +132,46 @@ const isOwner = computed(() => {
   return userId === ownerId;
 });
 
-// ===== 工具函数：提取关联卡片 ID =====
-const extractEmbeddedCardIds = (c: CardDetail): string[] => {
-  const ids: string[] = [];
-
-  // 1. 从 contentBlocks 提取
-  if (c.contentBlocks) {
-    c.contentBlocks.forEach((block: any) => {
-      if (block.cardId && !ids.includes(block.cardId)) {
-        ids.push(block.cardId);
-      }
-    });
-  }
-
-  // 2. 从描述中的 {CARD:xxx} 提取
-  const desc = c.description || '';
-  const matches = desc.match(/\{CARD:([^}]+)\}/g);
-  if (matches) {
-    matches.forEach((m: string) => {
-      const id = m.slice(6, -1);
-      if (!ids.includes(id)) ids.push(id);
-    });
-  }
-
-  return ids;
-};
-
-// ===== 方法 =====
-const getTypeLabel = (type: string) => TYPE_LABELS[type] || type;
-
-// ===== 计算属性 =====
-const cardTags = computed(() => {
-  const tags = card.value?.tags;
-  if (!tags) return [];
-  if (Array.isArray(tags)) return tags;
-  try {
-    const parsed = JSON.parse(tags as any);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-});
-
-// ✅ 关联卡片列表（从 store 的详情缓存获取完整数据）
-const embeddedCards = computed<CardDetail[]>(() => {
-  if (!card.value) return [];
-  const ids = extractEmbeddedCardIds(card.value);
-  const result: CardDetail[] = [];
-
-  for (const id of ids) {
-    // 优先从详情缓存获取完整数据
-    const detail = store.getCardDetailById(id);
-    if (detail) {
-      result.push(detail);
-      continue;
-    }
-
-    // 否则从 store.cards 获取精简数据
-    const summary = store.getCardById(id);
-    if (summary) {
-      // 构造最小可用对象（对于缺少的字段使用空值）
-      result.push({
-        id: summary.id,
-        projectId: summary.projectId,
-        title: summary.title,
-        type: summary.type,
-        coverImage: summary.coverImage,
-        updatedAt: summary.updatedAt,
-        outRelationCount: summary.outRelationCount,
-        inRelationCount: summary.inRelationCount,
-        // 以下字段在精简数据中不存在，使用空值
-        description: '',
-        content: '{}',
-        contentBlocks: [],
-        timelineEvents: [],
-        aliases: [],
-        attributes: [],
-        tags: [],
-        embeddedCards: [],
-        galleryImages: [],
-        outRelations: [],
-        inRelations: [],
-      });
-    }
-  }
-
-  return result;
-});
-
-// 渲染描述（将 {CARD:xxx} 替换为内联标签）
-const renderedDescription = computed(() => {
-  const desc = card.value?.description || '';
-  if (!desc) return '';
-
-  return desc.replace(/\{CARD:([^}]+)\}/g, (_match: string, id: string) => {
-    const target = store.getCardById(id);
-    if (target) {
-      return `<span class="inline-ref">@${getTypeLabel(target.type)}: ${target.title}</span>`;
-    }
-    return `<span class="inline-ref broken">⚠️ 已删除的卡片</span>`;
-  });
-});
-
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
   const d = new Date(dateStr);
   return d.toLocaleString('zh-CN');
 };
 
-// ===== 预览图片 =====
-const previewImage = (index: number) => {
-  previewIndex.value = index;
-  previewVisible.value = true;
-};
-
 // ===== 数据加载 =====
+let loadVersion = 0;
 const loadData = async () => {
+  const version = ++loadVersion;
+  const pid = projectId.value;
+  const id = cardId.value;
+  card.value = null;
+  closePreview();
   loading.value = true;
   try {
-    // 1. 加载卡片列表（确保 store.cards 有数据）
-    await store.fetchCards(projectId);
-
-    // 2. 加载当前卡片详情
-    const detail = await store.fetchCardDetail(projectId, cardId);
+    await store.fetchCards(pid);
+    if (version !== loadVersion) return;
+    const detail = await store.fetchCardDetail(pid, id);
+    if (version !== loadVersion) return;
     card.value = detail;
-
-    // 3. 加载所有关联卡片的详情（确保进入详情缓存）
-    if (card.value) {
-      const ids = extractEmbeddedCardIds(card.value);
-      if (ids.length > 0) {
-        // 过滤出还没进详情缓存的卡片
-        const missingIds = ids.filter(id => !store.getCardDetailById(id));
-
-        if (missingIds.length > 0) {
-          // ✅ 并发拉取每张卡片的详情
-          // 注意：用 fetchCardDetail 而不是 fetchCardsByIds，
-          // 因为只有 fetchCardDetail 会把数据放进"详情缓存"
-          await Promise.all(
-            missingIds.map(id =>
-              store.fetchCardDetail(projectId, id).catch(err => {
-                console.warn(`加载卡片详情失败: ${id}`, err);
-                return null;
-              })
-            )
-          );
-        }
-      }
-    }
+    await preload(embeddedIds.value);
   } catch (error) {
+    if (version !== loadVersion) return;
     console.error('加载卡片失败:', error);
     ElMessage.error('加载失败');
   } finally {
-    loading.value = false;
+    if (version === loadVersion) loading.value = false;
   }
 };
 
 // ===== 操作 =====
-const goBack = () => router.push(`/world/project/${projectId}`);
+const goBack = () => router.push(`/world/project/${projectId.value}`);
 
 const goToCard = (targetId: string) => {
-  if (targetId === cardId) return;
-  router.push(`/world/project/${projectId}/card/${targetId}`);
+  if (targetId === cardId.value) return;
+  router.push(`/world/project/${projectId.value}/card/${targetId}`);
 };
 
-const editCard = () => router.push(`/world/project/${projectId}?edit=${cardId}`);
+const editCard = () => router.push(`/world/project/${projectId.value}?edit=${cardId.value}`);
 
 const handleDelete = async () => {
   try {
@@ -318,9 +180,9 @@ const handleDelete = async () => {
       confirmButtonText: '删除',
       cancelButtonText: '取消',
     });
-    await store.deleteCard(cardId);
+    await store.deleteCard(cardId.value);
     ElMessage.success('已删除');
-    router.push(`/world/project/${projectId}`);
+    router.push(`/world/project/${projectId.value}`);
   } catch (error) {
     if (error !== 'cancel') {
       console.error('删除失败:', error);
@@ -330,13 +192,14 @@ const handleDelete = async () => {
 };
 
 // ===== 生命周期 =====
-onMounted(loadData);
+watch([projectId, cardId], loadData, { immediate: true });
+onScopeDispose(() => { loadVersion++; });
 </script>
 
 <style scoped>
 .card-detail {
   min-height: 100vh;
-  background: #fafbfc;
+  background: var(--paper-card);
   padding: 32px 40px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -349,7 +212,7 @@ onMounted(loadData);
 .back-btn {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
   padding: 4px 0;
@@ -357,7 +220,7 @@ onMounted(loadData);
   transition: color 0.15s;
 }
 .back-btn:hover {
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .card-header {
@@ -365,7 +228,7 @@ onMounted(loadData);
   justify-content: space-between;
   align-items: flex-start;
   padding-bottom: 16px;
-  border-bottom: 1px solid #eef2f6;
+  border-bottom: 1px solid var(--border-line);
   margin-bottom: 20px;
 }
 
@@ -373,7 +236,7 @@ onMounted(loadData);
   font-size: 26px;
   font-weight: 600;
   margin: 0 0 6px;
-  color: #0f172a;
+  color: var(--text-primary);
   letter-spacing: -0.3px;
 }
 
@@ -382,12 +245,12 @@ onMounted(loadData);
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .type-badge {
-  color: #4f46e5;
-  background: #eef2ff;
+  color: var(--accent-color);
+  background: var(--accent-soft);
   padding: 1px 12px;
   border-radius: 4px;
   font-size: 12px;
@@ -400,7 +263,7 @@ onMounted(loadData);
 
 .action-btn {
   background: none;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   padding: 4px 14px;
   border-radius: 6px;
   font-size: 13px;
@@ -408,12 +271,12 @@ onMounted(loadData);
   transition: 0.15s;
 }
 .action-btn:hover {
-  background: #f1f5f9;
+  background: var(--bg-sub);
 }
 .action-btn.danger:hover {
-  background: #fef2f2;
-  border-color: #fecaca;
-  color: #ef4444;
+  background: var(--danger-soft);
+  border-color: var(--danger-soft);
+  color: var(--danger);
 }
 
 .cover-banner {
@@ -443,9 +306,9 @@ onMounted(loadData);
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
-  border: 1px solid #eef2f6;
+  border: 1px solid var(--border-line);
   transition: transform 0.2s, box-shadow 0.2s;
-  background: #f1f5f9;
+  background: var(--bg-sub);
 }
 
 .gallery-thumb:hover {
@@ -461,11 +324,11 @@ onMounted(loadData);
 }
 
 .section {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 8px;
   padding: 16px 20px;
   margin-bottom: 12px;
-  border: 1px solid #eef2f6;
+  border: 1px solid var(--border-line);
 }
 
 .attr-grid {
@@ -475,16 +338,16 @@ onMounted(loadData);
 }
 .attr-key {
   font-weight: 500;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 13px;
   padding: 4px 0;
-  border-bottom: 1px solid #f4f6f8;
+  border-bottom: 1px solid var(--border-line);
 }
 .attr-value {
-  color: #1e293b;
+  color: var(--text-primary);
   font-size: 13px;
   padding: 4px 0;
-  border-bottom: 1px solid #f4f6f8;
+  border-bottom: 1px solid var(--border-line);
 }
 .attr-row:last-child .attr-key,
 .attr-row:last-child .attr-value {
@@ -494,27 +357,27 @@ onMounted(loadData);
 .description-body {
   font-size: 15px;
   line-height: 1.8;
-  color: #1e293b;
+  color: var(--text-primary);
   white-space: pre-wrap;
 }
 
 .inline-ref {
   display: inline-block;
   padding: 0 8px;
-  background: #eef2ff;
-  color: #4f46e5;
+  background: var(--accent-soft);
+  color: var(--accent-color);
   border-radius: 4px;
   font-size: 13px;
 }
 .inline-ref.broken {
-  background: #fef2f2;
-  color: #ef4444;
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 /* ===== 关联内容：外层容器（内层由 EmbeddedCard 组件渲染） ===== */
 .embedded-section {
   padding: 0;
-  border: 1px solid #eef2f6;
+  border: 1px solid var(--border-line);
   overflow: hidden;
 }
 
@@ -522,17 +385,17 @@ onMounted(loadData);
   display: flex;
   justify-content: space-between;
   padding: 12px 20px;
-  background: #f8fafc;
-  border-bottom: 1px solid #eef2f6;
+  background: var(--bg-main);
+  border-bottom: 1px solid var(--border-line);
 }
 .embedded-label {
   font-size: 13px;
   font-weight: 500;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 .embedded-count {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .embedded-list {
@@ -540,7 +403,7 @@ onMounted(loadData);
   flex-direction: column;
   gap: 10px;
   padding: 14px 16px;
-  background: #fafbfc;
+  background: var(--paper-card);
 }
 
 .tag-list {
@@ -550,8 +413,8 @@ onMounted(loadData);
 }
 .tag-item {
   font-size: 13px;
-  color: #4f46e5;
-  background: #eef2ff;
+  color: var(--accent-color);
+  background: var(--accent-soft);
   padding: 2px 12px;
   border-radius: 4px;
 }
@@ -562,7 +425,7 @@ onMounted(loadData);
   align-items: center;
   justify-content: center;
   height: 200px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 16px;
 }
 
@@ -589,7 +452,7 @@ onMounted(loadData);
     display: flex;
     gap: 8px;
     padding: 2px 0;
-    border-bottom: 1px solid #f4f6f8;
+    border-bottom: 1px solid var(--border-line);
   }
   .attr-key {
     border-bottom: none;

@@ -37,7 +37,7 @@ export interface JointActivity {
   approvalStatus?: 'pending' | 'approved' | 'rejected'
   // ✨ 新增：活动时间字段
   startDate: string          // 开始时间，必须
-  endDate?: string           // 结束时间，可选
+  endDate?: string | null    // null 表示长期活动
 }
 
 export interface CreateJointRequest {
@@ -66,7 +66,7 @@ export interface UpdateJointRequest {
   coverUrl?: string
   // ✨ 新增：时间字段
   startDate?: string
-  endDate?: string
+  endDate?: string | null
 }
 
 export interface JointListResponse {

@@ -277,11 +277,11 @@ onMounted(loadSurveys)
 .manage-header h2 {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .manage-header h2 i {
-  color: #6366f1;
+  color: var(--info);
   margin-right: 8px;
 }
 
@@ -289,8 +289,8 @@ onMounted(loadSurveys)
   padding: 10px 24px;
   border: none;
   border-radius: 8px;
-  background: #6366f1;
-  color: #fff;
+  background: var(--info);
+  color: var(--on-accent);
   font-weight: 500;
   font-size: 0.9rem;
   cursor: pointer;
@@ -298,7 +298,7 @@ onMounted(loadSurveys)
 }
 
 .btn-create:hover {
-  background: #4f46e5;
+  background: var(--info);
   transform: translateY(-2px);
 }
 
@@ -310,23 +310,23 @@ onMounted(loadSurveys)
 }
 
 .stat-card {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 12px;
   padding: 16px 20px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-line);
   text-align: center;
 }
 
 .stat-number {
   font-size: 1.8rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
   display: block;
 }
 
 .stat-label {
   font-size: 0.8rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .filter-tabs {
@@ -343,25 +343,25 @@ onMounted(loadSurveys)
   background: transparent;
   font-size: 0.85rem;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .filter-tab:hover {
-  background: #f3f4f6;
-  color: #1f2937;
+  background: var(--bg-sub);
+  color: var(--text-primary);
 }
 
 .filter-tab.active {
-  background: #1f2937;
-  color: #fff;
+  background: var(--bg-sub);
+  color: var(--text-primary);
 }
 
 .table-wrapper {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 12px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-line);
   overflow: hidden;
 }
 
@@ -372,32 +372,32 @@ onMounted(loadSurveys)
 }
 
 .survey-table th {
-  background: #f9fafb;
+  background: var(--paper-card);
   text-align: left;
   padding: 12px 16px;
   font-weight: 600;
-  color: #374151;
-  border-bottom: 1px solid #f0f0f0;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-line);
 }
 
 .survey-table td {
   padding: 12px 16px;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border-line);
   vertical-align: middle;
 }
 
 .survey-table tr:hover td {
-  background: #fafafa;
+  background: var(--paper-card);
 }
 
 .survey-title {
   font-weight: 500;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .survey-desc {
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   display: block;
 }
 
@@ -406,19 +406,19 @@ onMounted(loadSurveys)
   border-radius: 20px;
   font-size: 0.7rem;
   font-weight: 500;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .status-draft {
-  background: #9ca3af;
+  background: var(--bg-sub);
 }
 
 .status-published {
-  background: #10b981;
+  background: var(--success);
 }
 
 .status-ended {
-  background: #ef4444;
+  background: var(--danger);
 }
 
 .action-buttons {
@@ -440,40 +440,40 @@ onMounted(loadSurveys)
 }
 
 .btn-edit {
-  background: #e0e7ff;
-  color: #4f46e5;
+  background: var(--bg-sub);
+  color: var(--info);
 }
-.btn-edit:hover { background: #c7d2fe; }
+.btn-edit:hover { background: var(--info-soft); }
 
 .btn-publish {
-  background: #d1fae5;
-  color: #065f46;
+  background: var(--success-soft);
+  color: var(--success);
 }
-.btn-publish:hover { background: #10b981; color: #fff; }
+.btn-publish:hover { background: var(--success); color: var(--on-accent); }
 
 .btn-delete {
-  background: #fef2f2;
-  color: #dc2626;
+  background: var(--bg-main);
+  color: var(--danger);
 }
-.btn-delete:hover { background: #fee2e2; }
+.btn-delete:hover { background: var(--bg-sub); }
 
 .btn-result {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--warning-soft);
+  color: var(--warning);
 }
-.btn-result:hover { background: #f59e0b; color: #fff; }
+.btn-result:hover { background: var(--warning); color: var(--on-accent); }
 
 .btn-close {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--warning-soft);
+  color: var(--warning);
 }
-.btn-close:hover { background: #f59e0b; color: #fff; }
+.btn-close:hover { background: var(--warning); color: var(--on-accent); }
 
 .loading-state,
 .empty-state {
   text-align: center;
   padding: 60px 20px;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 .loading-state i,
 .empty-state i {
@@ -487,14 +487,14 @@ onMounted(loadSurveys)
   padding: 10px 24px;
   border: none;
   border-radius: 8px;
-  background: #6366f1;
-  color: #fff;
+  background: var(--info);
+  color: var(--on-accent);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 }
 .btn-primary:hover {
-  background: #4f46e5;
+  background: var(--info);
   transform: translateY(-2px);
 }
 
@@ -503,14 +503,14 @@ onMounted(loadSurveys)
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-top: 1px solid #f0f0f0;
-  background: #fafafa;
+  border-top: 1px solid var(--border-line);
+  background: var(--paper-card);
   border-radius: 0 0 6px 6px;
 }
 
 .page-info {
   font-size: 0.8rem;
-  color: #888;
+  color: var(--text-secondary);
 }
 
 .page-controls {
@@ -520,8 +520,8 @@ onMounted(loadSurveys)
 }
 
 .btn-page {
-  background: #fff;
-  border: 1px solid #ddd;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   padding: 6px 14px;
   font-size: 0.8rem;
   border-radius: 4px;
@@ -530,21 +530,21 @@ onMounted(loadSurveys)
 }
 
 .btn-page:not(:disabled):hover {
-  border-color: #111;
-  color: #111;
+  border-color: var(--border-line);
+  color: var(--text-primary);
 }
 
 .btn-page:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  background: #f5f5f5;
+  background: var(--bg-main);
 }
 
 .current-page {
   font-size: 0.85rem;
   font-family: monospace;
   font-weight: 600;
-  color: #111;
+  color: var(--text-primary);
 }
 
 @media (max-width: 768px) {

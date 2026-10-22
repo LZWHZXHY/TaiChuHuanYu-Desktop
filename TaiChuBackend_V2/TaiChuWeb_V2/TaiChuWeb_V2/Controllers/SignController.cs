@@ -99,6 +99,7 @@ namespace TaiChuWeb_V2.Controllers
                         }
 
                         stats.Experience += experienceBonus;
+                        _context.UserExpLogs.Add(new UserExpLog { UserId = userId, Change = experienceBonus, Reason = "每日签到" });
                         stats.LastSignDate = today;
 
                         var signLog = new UserSignLog

@@ -209,25 +209,25 @@ onMounted(loadList);
 .panel { display: flex; flex-direction: column; gap: 20px; animation: fadeIn 0.3s ease; }
 
 .module-header { margin-bottom: 8px; }
-.page-title { font-size: 1.6rem; font-weight: 700; color: #111; margin: 0; }
-.md-subtitle { font-size: 0.85rem; color: #888; margin: 6px 0 0; }
+.page-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.md-subtitle { font-size: 0.85rem; color: var(--text-secondary); margin: 6px 0 0; }
 
 .stats-bar {
   display: flex; flex-wrap: wrap; gap: 24px;
-  padding: 12px 20px; background: #fafafa; border-radius: 6px;
+  padding: 12px 20px; background: var(--bg-main); border-radius: 6px;
   font-size: 0.85rem;
 }
-.stat { display: flex; align-items: center; gap: 8px; color: #666; }
-.stat b { color: #111; font-weight: 700; }
+.stat { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); }
+.stat b { color: var(--text-primary); font-weight: 700; }
 .stat.total {
   margin-left: auto; padding-left: 24px;
-  border-left: 1px solid #eee;
+  border-left: 1px solid var(--border-line);
 }
-.stat.total b { color: #c2410c; }
+.stat.total b { color: var(--warning); }
 .sdot { width: 8px; height: 8px; border-radius: 50%; }
-.sdot.pending   { background: #f97316; }
-.sdot.completed { background: #16a34a; }
-.sdot.rejected  { background: #dc2626; }
+.sdot.pending   { background: var(--warning); }
+.sdot.completed { background: var(--success); }
+.sdot.rejected  { background: var(--danger); }
 
 .panel-toolbar {
   display: flex; justify-content: space-between; align-items: center;
@@ -236,43 +236,43 @@ onMounted(loadList);
 .filter-row { display: flex; gap: 12px; }
 
 .ink-select {
-  border: 1px solid #e0e0e0; padding: 10px 14px; border-radius: 4px;
-  font-size: 0.85rem; outline: none; background: #fff;
+  border: 1px solid var(--border-line); padding: 10px 14px; border-radius: 4px;
+  font-size: 0.85rem; outline: none; background: var(--paper-card);
   font-family: inherit; cursor: pointer; min-width: 140px;
 }
-.ink-select:focus { border-color: #1a1a1a; }
+.ink-select:focus { border-color: var(--border-line); }
 
 .btn-refresh {
-  background: #fff; border: 1px solid #e0e0e0; padding: 10px 20px;
-  border-radius: 4px; color: #555; cursor: pointer; font-size: 0.85rem;
+  background: var(--paper-card); border: 1px solid var(--border-line); padding: 10px 20px;
+  border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-size: 0.85rem;
 }
-.btn-refresh:hover { border-color: #1a1a1a; color: #000; }
+.btn-refresh:hover { border-color: var(--border-line); color: var(--text-primary); }
 .btn-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .table-card {
-  background: #fff; border: 1px solid #f0f0f0; border-radius: 8px;
+  background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 8px;
   overflow: hidden;
 }
 .ink-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 .ink-table th {
-  padding: 14px 16px; background: #fcfcfc; color: #888; text-align: left;
+  padding: 14px 16px; background: var(--paper-card); color: var(--text-secondary); text-align: left;
   font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;
-  border-bottom: 2px solid #111;
+  border-bottom: 2px solid var(--border-line);
 }
-.ink-table td { padding: 14px 16px; border-bottom: 1px solid #f7f7f7; vertical-align: middle; }
-.ink-table tr:hover td { background: #fafafa; }
+.ink-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-line); vertical-align: middle; }
+.ink-table tr:hover td { background: var(--bg-main); }
 .text-right { text-align: right; }
-.text-muted { color: #999; }
+.text-muted { color: var(--text-secondary); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 .font-sm { font-size: 0.78rem; }
-.empty-cell { text-align: center; padding: 60px !important; color: #bbb; font-style: italic; }
+.empty-cell { text-align: center; padding: 60px !important; color: var(--text-secondary); font-style: italic; }
 
-.op-name { font-weight: 600; color: #111; }
-.op-id { font-size: 0.72rem; color: #999; margin-top: 2px; }
-.price { color: #c2410c; font-weight: 700; font-size: 0.95rem; }
+.op-name { font-weight: 600; color: var(--text-primary); }
+.op-id { font-size: 0.72rem; color: var(--text-secondary); margin-top: 2px; }
+.price { color: var(--warning); font-weight: 700; font-size: 0.95rem; }
 
 .remark-cell {
-  font-size: 0.8rem; color: #555;
+  font-size: 0.8rem; color: var(--text-secondary);
   max-width: 380px; word-break: break-all;
 }
 
@@ -280,28 +280,28 @@ onMounted(loadList);
   display: inline-block; padding: 3px 10px;
   font-size: 0.72rem; font-weight: 600; border-radius: 3px;
 }
-.status-pill.pending   { background: #fff7ed; color: #c2410c; }
-.status-pill.completed { background: #e3fcef; color: #00875a; }
-.status-pill.rejected  { background: #fef2f2; color: #dc2626; }
+.status-pill.pending   { background: var(--warning-soft); color: var(--warning); }
+.status-pill.completed { background: var(--success-soft); color: var(--success); }
+.status-pill.rejected  { background: var(--danger-soft); color: var(--danger); }
 
 .btn-text {
-  background: none; border: none; color: #2563eb; cursor: pointer;
+  background: none; border: none; color: var(--accent-color); cursor: pointer;
   font-size: 0.8rem; font-weight: 700; margin-left: 12px; padding: 0;
 }
 .btn-text:hover { text-decoration: underline; }
-.btn-text.danger { color: #dc2626; }
+.btn-text.danger { color: var(--danger); }
 
 .pagination {
   display: flex; justify-content: flex-end; align-items: center;
-  gap: 12px; font-size: 0.85rem; color: #666;
+  gap: 12px; font-size: 0.85rem; color: var(--text-secondary);
 }
 .page-info { margin-right: auto; }
 .page-cur { font-family: monospace; }
 .btn-page {
-  background: #fff; border: 1px solid #ddd; padding: 6px 14px;
+  background: var(--paper-card); border: 1px solid var(--border-line); padding: 6px 14px;
   border-radius: 4px; cursor: pointer; font-size: 0.8rem;
 }
-.btn-page:not(:disabled):hover { border-color: #111; }
+.btn-page:not(:disabled):hover { border-color: var(--border-line); }
 .btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

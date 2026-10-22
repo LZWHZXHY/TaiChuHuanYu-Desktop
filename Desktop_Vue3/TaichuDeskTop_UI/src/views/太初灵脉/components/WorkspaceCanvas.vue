@@ -98,9 +98,9 @@ const handleNodeDoubleClick = (targetNoteId: string) => {
 </script>
 
 <style scoped>
-.workspace-canvas-frame { width: 100%; height: 100%; display: flex; flex-direction: column; background: #fbfbfd; }
-.canvas-header { padding: 30px 40px 10px; background: #ffffff; border-bottom: 1px solid #f2f2f7; }
+.workspace-canvas-frame { width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--paper-card); }
+.canvas-header { padding: 30px 40px 10px; background: var(--paper-card); border-bottom: 1px solid var(--border-line); }
 .canvas-title-input { width: 100%; font-size: 2.2rem; font-weight: 700; border: none; background: transparent; outline: none; }
-.canvas-subtitle { font-size: 12px; color: #a1a1a6; margin-top: 4px; }
+.canvas-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 .canvas-container { flex: 1; position: relative; width: 100%; }
 </style>

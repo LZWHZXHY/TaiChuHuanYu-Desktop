@@ -60,6 +60,7 @@
 </template>
 
 <script>
+import { useUserStore } from '@/stores/user'
 import Navbar         from './Navbar.vue'
 import Footer         from './Footer.vue'
 import SectionHeading from './SectionHeading.vue'
@@ -80,7 +81,7 @@ export default {
   },
 
   computed: {
-    isLoggedIn() { return !!localStorage.getItem('token') }
+    isLoggedIn() { return useUserStore().isLoggedIn }
   },
 
   async mounted() {
@@ -124,7 +125,7 @@ export default {
   font-family: monospace; font-size: 12px;
   letter-spacing: 1px; color: var(--text-muted);
   border: 1px dashed var(--line);
-  background: rgba(16, 25, 35, 0.3);
+  background: var(--panel);
 }
 .dot {
   display: inline-block; width: 6px; height: 6px;
@@ -136,11 +137,11 @@ export default {
 .rv-section { margin-bottom: 40px; }
 .rv-title {
   margin: 0 0 16px;
-  font-family: monospace; font-size: 11px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 2px; color: var(--orange); font-weight: 600;
 }
 
-.rv-list { border: 1px solid var(--line); background: rgba(16, 25, 35, 0.4); }
+.rv-list { border: 1px solid var(--line); background: var(--panel); }
 .rv-row {
   display: flex; align-items: center; justify-content: space-between;
   gap: 16px; padding: 16px 22px;
@@ -149,7 +150,7 @@ export default {
 .rv-row:last-child { border-bottom: none; }
 .rv-info { min-width: 0; }
 .rv-no { font-size: 13px; color: var(--text); margin-bottom: 6px; }
-.rv-meta { font-size: 11px; color: var(--text-muted); }
+.rv-meta { font-size: 12px; color: var(--text-muted); }
 .rv-op { color: var(--cyan); font-weight: 600; }
 .rv-count { color: var(--text-muted); margin-left: 4px; }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
@@ -160,7 +161,7 @@ export default {
   flex-shrink: 0;
 }
 .rv-btn.primary {
-  color: #fff; background: var(--orange); border: 1px solid var(--orange);
+  color: var(--on-accent); background: var(--orange); border: 1px solid var(--orange);
 }
 .rv-btn.primary:hover { background: var(--orange-bright); }
 

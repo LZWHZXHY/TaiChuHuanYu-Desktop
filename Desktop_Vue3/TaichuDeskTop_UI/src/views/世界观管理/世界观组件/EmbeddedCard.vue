@@ -108,33 +108,21 @@
     <!-- 图片查看器 -->
     <el-image-viewer
       v-if="coverPreviewVisible"
-      :url-list="[coverUrl]"
-      @close="coverPreviewVisible = false"
+      :url-list="previewImages"
+      @close="closePreview"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElImageViewer } from 'element-plus';
-import { useWorldStore } from '@/stores/world';
+import { getCardTypeLabel, parseStringArray, parseCoverImage, getNestedBlocks } from '@/utils/worldPresentation';
+import { useImagePreview } from '@/composables/世界观管理/useImagePreview';
+import { useCardPreload } from '@/composables/世界观管理/useCardPreload';
+import { useExpandedItems } from '@/composables/世界观管理/useExpandedItems';
 import type { CardDetail } from '@/api/worldApi';
-
-const TYPE_LABELS: Record<string, string> = {
-  character: '角色',
-  location: '地点',
-  item: '物品',
-  event: '事件',
-  faction: '派系',
-  species: '物种',
-  occupation: '职业',
-  organization: '组织',
-  creature: '生物',
-  skill: '技能',
-  climate: '气候',
-  concept: '设定',
-};
 
 const props = defineProps<{
   card?: CardDetail | null;
@@ -161,40 +149,10 @@ const emit = defineEmits<{
   (e: 'update:expanded', value: boolean): void;
 }>();
 
-const store = useWorldStore();
 const router = useRouter();
 
-// ===== 图片放大 =====
-const coverPreviewVisible = ref(false);
-
-const previewCover = () => {
-  if (coverUrl.value) {
-    coverPreviewVisible.value = true;
-  }
-};
-
-// ===== 工具函数 =====
-const parseArrayField = (val: any): string[] => {
-  if (!val) return [];
-  if (Array.isArray(val)) return val;
-  try {
-    const parsed = JSON.parse(val);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-};
-
-const parseCoverField = (val: any): string => {
-  if (!val) return '';
-  try {
-    const arr = JSON.parse(val);
-    if (Array.isArray(arr) && arr.length > 0) return arr[0];
-    return '';
-  } catch {
-    return val;
-  }
-};
+const { visible: coverPreviewVisible, images: previewImages, open: openPreview, close: closePreview } = useImagePreview();
+const previewCover = () => { if (coverUrl.value) openPreview([coverUrl.value]); };
 
 // ===== 基础展示数据 =====
 const displayTitle = computed(() =>
@@ -203,18 +161,18 @@ const displayTitle = computed(() =>
 
 const typeLabel = computed(() => {
   const type = props.card?.type || props.fallbackType || '';
-  return TYPE_LABELS[type] || type || '未知';
+  return getCardTypeLabel(type) || '未知';
 });
 
 const coverUrl = computed(() => {
-  if (props.card?.coverImage) return parseCoverField(props.card.coverImage);
-  if (props.fallbackCover) return parseCoverField(props.fallbackCover);
+  if (props.card?.coverImage) return parseCoverImage(props.card.coverImage);
+  if (props.fallbackCover) return parseCoverImage(props.fallbackCover);
   return '';
 });
 
 const galleryImages = computed(() => {
   if (!props.card) return [];
-  return parseArrayField(props.card.galleryImages);
+  return parseStringArray(props.card.galleryImages);
 });
 
 const displayAttributes = computed(() => {
@@ -227,7 +185,7 @@ const description = computed(() => props.card?.description || '');
 
 const allTags = computed(() => {
   if (!props.card) return [];
-  return parseArrayField(props.card.tags);
+  return parseStringArray(props.card.tags);
 });
 
 const shouldShowBody = computed(() => {
@@ -245,77 +203,11 @@ const nextAncestorIds = computed(() => {
   return list;
 });
 
-const nestedBlocks = computed(() => {
-  if (currentDepth.value >= MAX_DEPTH.value - 1) return [];
-
-  const blocks = props.card?.contentBlocks || [];
-  if (!blocks.length) return [];
-
-  const myId = props.card?.id;
-  const ancestors = nextAncestorIds.value;
-
-  return blocks
-    .filter((b: any) => b.cardId && b.cardId !== myId && !ancestors.includes(b.cardId))
-    .map((b: any) => ({
-      blockId: b.id || `${b.cardId}-${b.order}`,
-      cardId: b.cardId,
-      cardType: b.cardType,
-      contextLabel: b.contextLabel,
-      cardTitle: b.cardTitle,
-    }));
-});
-
-// ===== 子卡片展开状态 =====
-const childExpandMap = ref<Record<string, boolean>>({});
-
-const isChildExpanded = (blockId: string): boolean => {
-  return !!childExpandMap.value[blockId];
-};
-
-const toggleChildExpand = (blockId: string, value: boolean) => {
-  childExpandMap.value = {
-    ...childExpandMap.value,
-    [blockId]: value,
-  };
-};
-
-// ===== 子卡片详情缓存 =====
-const childDetails = ref<Record<string, CardDetail>>({});
-const childLoading = ref(false);
-
-const getChildDetail = (cardId: string): CardDetail | null => {
-  return childDetails.value[cardId] || store.getCardDetailById(cardId) || null;
-};
-
-const loadChildDetails = async (ids: string[]) => {
-  if (!props.projectId || !ids.length) return;
-  const needFetch = ids.filter(id => !store.getCardDetailById(id));
-  if (!needFetch.length) return;
-
-  childLoading.value = true;
-  await Promise.all(
-    needFetch.map(async (id) => {
-      try {
-        const detail = await store.fetchCardDetail(props.projectId!, id);
-        if (detail) {
-          childDetails.value[id] = detail;
-        }
-      } catch (err) {
-        console.warn(`嵌套卡片加载失败: ${id}`, err);
-      }
-    })
-  );
-  childLoading.value = false;
-};
-
-watch(
-  () => nestedBlocks.value.map(b => b.cardId).join(','),
-  (key) => {
-    if (!key) return;
-    loadChildDetails(key.split(','));
-  },
-  { immediate: true }
-);
+const nestedBlocks = computed(() => getNestedBlocks(props.card?.contentBlocks ?? [], props.card?.id,
+  nextAncestorIds.value, currentDepth.value, MAX_DEPTH.value));
+const { isExpanded: isChildExpanded, toggle: toggleChildExpand } = useExpandedItems();
+const { loading: childLoading, getDetail: getChildDetail } = useCardPreload(
+  () => props.projectId, () => nestedBlocks.value.map(block => block.cardId));
 
 // ===== 交互 =====
 const onHeaderClick = () => {
@@ -345,33 +237,33 @@ const goToDetail = () => {
    容器
    ============================================================ */
 .embedded-card {
-  border: 1px solid #eef2f6;
+  border: 1px solid var(--border-line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--paper-card);
   overflow: hidden;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .embedded-card:hover {
-  border-color: #e2e8f0;
+  border-color: var(--border-line);
 }
 .embedded-card.is-expanded {
-  border-color: #dbe3ee;
+  border-color: var(--border-line);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
 }
 
 .embedded-card.is-nested {
   border-radius: 6px;
-  background: #fafbfc;
-  border-color: #f1f5f9;
+  background: var(--paper-card);
+  border-color: var(--border-line);
   box-shadow: none;
 }
 .embedded-card.is-nested:hover {
-  border-color: #e2e8f0;
-  background: #fff;
+  border-color: var(--border-line);
+  background: var(--paper-card);
 }
 .embedded-card.is-nested.is-expanded {
-  background: #fff;
-  border-color: #e2e8f0;
+  background: var(--paper-card);
+  border-color: var(--border-line);
 }
 
 /* ============================================================
@@ -382,7 +274,7 @@ const goToDetail = () => {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: #fff;
+  background: var(--paper-card);
   user-select: none;
   min-height: 40px;
 }
@@ -391,11 +283,11 @@ const goToDetail = () => {
   transition: background 0.12s;
 }
 .ec-header.is-clickable:hover {
-  background: #fafbfc;
+  background: var(--paper-card);
 }
 .embedded-card.is-expanded .ec-header {
-  background: #f8fafc;
-  border-bottom: 1px solid #eef2f6;
+  background: var(--bg-main);
+  border-bottom: 1px solid var(--border-line);
 }
 
 .is-nested .ec-header {
@@ -405,14 +297,14 @@ const goToDetail = () => {
   gap: 6px;
 }
 .is-nested.is-expanded .ec-header {
-  background: #f8fafc;
-  border-bottom: 1px solid #eef2f6;
+  background: var(--bg-main);
+  border-bottom: 1px solid var(--border-line);
 }
 
 .ec-type {
   font-size: 11px;
-  color: #4f46e5;
-  background: #eef2ff;
+  color: var(--accent-color);
+  background: var(--accent-soft);
   padding: 1px 8px;
   border-radius: 4px;
   flex-shrink: 0;
@@ -423,26 +315,26 @@ const goToDetail = () => {
   font-size: 10px;
   padding: 0 6px;
   line-height: 15px;
-  background: #eff3ff;
-  color: #6366f1;
+  background: var(--bg-sub);
+  color: var(--accent-color);
 }
 
 .ec-context {
   font-size: 12px;
   font-weight: 500;
-  color: #4f46e5;
+  color: var(--accent-color);
   flex-shrink: 0;
 }
 .is-nested .ec-context {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-weight: 400;
 }
 
 .ec-title {
   font-weight: 500;
   font-size: 14px;
-  color: #0f172a;
+  color: var(--text-primary);
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -452,44 +344,44 @@ const goToDetail = () => {
 }
 .is-nested .ec-title {
   font-size: 13px;
-  color: #334155;
+  color: var(--text-primary);
 }
 
 .ec-toggle {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   flex-shrink: 0;
   transition: color 0.15s;
   white-space: nowrap;
 }
 .ec-header.is-clickable:hover .ec-toggle {
-  color: #4f46e5;
+  color: var(--accent-color);
 }
 .is-nested .ec-toggle {
   font-size: 14px;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   width: 16px;
   text-align: center;
 }
 .is-nested .ec-header.is-clickable:hover .ec-toggle {
-  color: #6366f1;
+  color: var(--accent-color);
 }
 
 .ec-arrow {
-  color: #c0c4cc;
+  color: var(--text-secondary);
   flex-shrink: 0;
   transition: transform 0.15s, color 0.15s;
 }
 .ec-header.is-clickable:hover .ec-arrow {
   transform: translateX(2px);
-  color: #4f46e5;
+  color: var(--accent-color);
 }
 
 .ec-remove {
   flex-shrink: 0;
   background: none;
   border: none;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 13px;
   padding: 3px 6px;
@@ -498,8 +390,8 @@ const goToDetail = () => {
   line-height: 1;
 }
 .ec-remove:hover {
-  color: #ef4444;
-  background: #fef2f2;
+  color: var(--danger);
+  background: var(--danger-soft);
 }
 
 /* ============================================================
@@ -507,18 +399,18 @@ const goToDetail = () => {
    ============================================================ */
 .ec-body {
   padding: 14px 16px;
-  background: #fff;
+  background: var(--paper-card);
 }
 .is-nested .ec-body {
   padding: 10px 12px 12px;
-  background: #fff;
+  background: var(--paper-card);
 }
 
 .ec-loading {
   padding: 8px;
   text-align: center;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   animation: ec-pulse 1.5s ease-in-out infinite;
 }
 @keyframes ec-pulse {
@@ -533,7 +425,7 @@ const goToDetail = () => {
   border-radius: 6px;
   overflow: hidden;
   margin-bottom: 12px;
-  background: #f8fafc;
+  background: var(--bg-main);
   cursor: zoom-in;
   display: flex;
   justify-content: center;
@@ -573,8 +465,8 @@ const goToDetail = () => {
   aspect-ratio: 1;
   border-radius: 5px;
   overflow: hidden;
-  background: #f1f5f9;
-  border: 1px solid #eef2f6;
+  background: var(--bg-sub);
+  border: 1px solid var(--border-line);
 }
 .ec-gallery-item.is-clickable {
   cursor: pointer;
@@ -614,13 +506,13 @@ const goToDetail = () => {
 }
 .ec-attr-key {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   padding: 1px 0;
   white-space: nowrap;
 }
 .ec-attr-value {
   font-size: 12.5px;
-  color: #1e293b;
+  color: var(--text-primary);
   padding: 1px 0;
   word-break: break-word;
   white-space: pre-wrap;
@@ -630,7 +522,7 @@ const goToDetail = () => {
 }
 .is-nested .ec-attr-value {
   font-size: 11.5px;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 /* ============================================================
@@ -639,7 +531,7 @@ const goToDetail = () => {
 .ec-description {
   font-size: 13px;
   line-height: 1.7;
-  color: #334155;
+  color: var(--text-primary);
   margin-bottom: 12px;
   white-space: pre-wrap;
   word-break: break-word;
@@ -647,7 +539,7 @@ const goToDetail = () => {
 .is-nested .ec-description {
   font-size: 12px;
   line-height: 1.6;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-bottom: 8px;
 }
 
@@ -661,8 +553,8 @@ const goToDetail = () => {
 }
 .ec-tag {
   font-size: 11px;
-  color: #6366f1;
-  background: #f0f2ff;
+  color: var(--accent-color);
+  background: var(--bg-sub);
   padding: 1px 7px;
   border-radius: 3px;
   line-height: 16px;
@@ -679,7 +571,7 @@ const goToDetail = () => {
 .ec-nested {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px dashed #eef2f6;
+  border-top: 1px dashed var(--border-line);
   display: flex;
   flex-direction: column;
   gap: 5px;
@@ -691,7 +583,7 @@ const goToDetail = () => {
 }
 .ec-nested-label {
   font-size: 10.5px;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   font-weight: 500;
   letter-spacing: 0.5px;
   text-transform: uppercase;
@@ -704,14 +596,14 @@ const goToDetail = () => {
 .ec-view-more {
   margin-top: 8px;
   font-size: 11.5px;
-  color: #6366f1;
+  color: var(--accent-color);
   cursor: pointer;
   text-align: right;
   transition: color 0.12s;
   user-select: none;
 }
 .ec-view-more:hover {
-  color: #4338ca;
+  color: var(--accent-color);
   text-decoration: underline;
 }
 

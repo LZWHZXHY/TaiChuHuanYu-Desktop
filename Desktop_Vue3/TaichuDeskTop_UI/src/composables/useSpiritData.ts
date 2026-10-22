@@ -2,6 +2,8 @@
 import { ref, computed } from 'vue';
 import { lingmaiApi } from '../api/lingmai';
 import { debounce } from 'lodash-es';
+import { useAutoSave } from './useAutoSave';
+import { createNoteSyncPayload } from '../utils/editorHelpers';
 import type { NoteType } from '../utils/NoteType';
 import { wikiApi } from '../api/Wiki'; // 引入 Wiki API
 
@@ -48,6 +50,7 @@ const notes = ref<SpiritNote[]>([]);
 const currentNoteId = ref<string>("");
 const currentSpaceId = ref<string>(""); 
 const isLoading = ref(false);
+let selectionVersion = 0;
 
 export function useSpiritData() {
 
@@ -199,6 +202,7 @@ export function useSpiritData() {
   };
 
   const selectNote = async (id: string, forceRefresh = false) => {
+    const version = ++selectionVersion;
     if (!id) return;
     
     // ⚠️ 注意：不要在这里提早给 currentNoteId 赋值！
@@ -217,6 +221,7 @@ export function useSpiritData() {
         notes.value[index].blocks = freshData.blocks || [];
       } catch (err) {
         console.error("加载详情失败:", err);
+        return;
       } finally {
         isLoading.value = false;
       }
@@ -224,7 +229,7 @@ export function useSpiritData() {
     
     // 🌟 核心修复：等数据确确实实存好后，再切换 ID！
     // 这样当组件响应 currentNoteId 变化时，数据已经是 Ready 的了
-    currentNoteId.value = id;
+    if (version === selectionVersion) currentNoteId.value = id;
     return notes.value[index];
   };
 
@@ -296,17 +301,7 @@ export function useSpiritData() {
   // ============================================================================
   
   // 1. 底层 API 调用：直接传送组装好的完整 payload
-  const syncContentToApi = async (payload: any) => {
-    try {
-      // 🌟 注意这里：为了兼容你在 api 层保留的双参数签名
-      // 第一个参数传 id，第二个参数传完整的 payload 对象
-      await lingmaiApi.updateNoteContent(payload.noteId, payload);
-    } catch (error) {
-      console.error("❌ 灵脉内容云端同步失败:", error);
-    }
-  };
-
-  const debouncedSyncContent = debounce(syncContentToApi, 1000);
+  const { syncToCloud } = useAutoSave();
 
   const syncTitleToApi = async (id: string, title: string) => {
     try {
@@ -328,17 +323,8 @@ export function useSpiritData() {
     }
     note.updateAt = Date.now();
 
-    // B. 组装最完美的 Payload 涵盖当前笔记的所有状态
-    const payload = {
-      noteId: note.id,
-      title: note.title || '',
-      extraData: note.extraData || '[]',
-      tags: note.tags || [], 
-      rawContent: note.content 
-    };
-
-    // C. 丢给防抖函数
-    debouncedSyncContent(payload);
+    const payload = createNoteSyncPayload(note.id, note, { rawContent: note.content });
+    syncToCloud(id, payload, undefined, 1000);
   };
 
   const updateNoteTitle = async (id: string, newTitle: string) => {

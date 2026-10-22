@@ -1,25 +1,33 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using System.ComponentModel.DataAnnotations;
+using TaiChuWeb_V2.Services.Project;
 using Microsoft.EntityFrameworkCore;
-using TaiChuWeb_V2.DbContext; // 替换为你的 DbContext 路径
+using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Models.Project;
 
 namespace TaiChuWeb_V2.Controllers.Project
 {
-    [ApiController]
+    [Authorize, ApiController]
     [Route("api/project/{projectId}/deliveries")]
     public class ProjectDeliveryController : ControllerBase
     {
         private readonly AppDbContext _context;
 
-        public ProjectDeliveryController(AppDbContext context)
+        private readonly IProjectPermissionService _permission;
+        private string UserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
+        public ProjectDeliveryController(AppDbContext context, IProjectPermissionService permission)
         {
-            _context = context;
+            _context = context; _permission = permission;
         }
 
         // 获取该项目下所有的履约验收记录
         [HttpGet]
         public async Task<IActionResult> GetDeliveries(string projectId)
         {
+            var canManage = await _permission.HasPermissionAsync(projectId, UserId, "task:manage");
+            if (!canManage && !await _context.ProjectMembers.AnyAsync(m => m.ProjectId == projectId && m.UserId == UserId)) return Forbid();
             var records = await _context.ProjectDeliveryRecords
                 .Include(r => r.Member)
                 .Where(r => r.ProjectId == projectId)
@@ -37,7 +45,7 @@ namespace TaiChuWeb_V2.Controllers.Project
                     qualityStatus = r.QualityStatus,
                     commStatus = r.CommStatus,
                     reworkCount = r.ReworkCount,
-                    adminNote = r.AdminNote,
+                    adminNote = canManage ? r.AdminNote : null,
                     createdAt = r.CreatedAt
                 })
                 .ToListAsync();
@@ -49,21 +57,22 @@ namespace TaiChuWeb_V2.Controllers.Project
         [HttpPost]
         public async Task<IActionResult> CreateDelivery(string projectId, [FromBody] DeliveryDto dto)
         {
-            // TODO: 此处应从 JWT Token 中获取当前登录用户的 ID
-            // Guid currentUserId = ... 
+            if (!await _permission.HasPermissionAsync(projectId, UserId, "task:manage")) return Forbid();
+            if (!await _context.Projects.AnyAsync(p => p.Id == projectId)) return NotFound();
+            var member = await _context.Users.FirstOrDefaultAsync(u => u.Id == dto.MemberId);
+            if (member == null) return BadRequest(new { message = "请选择存在的协作者" });
 
             var record = new ProjectDeliveryRecord
             {
                 ProjectId = projectId,
                 MemberId = dto.MemberId,
-                RecordedName = dto.RecordedName, // 🌟 存入当时的文本名字作为历史快照
+                RecordedName = member.Username, // 🌟 存入当时的文本名字作为历史快照
                 TaskName = dto.TaskName,
                 TimingStatus = dto.TimingStatus,
                 QualityStatus = dto.QualityStatus,
                 CommStatus = dto.CommStatus,
                 ReworkCount = dto.ReworkCount,
                 AdminNote = dto.AdminNote,
-                // CreatedById = currentUserId 
             };
 
             _context.ProjectDeliveryRecords.Add(record);
@@ -76,6 +85,7 @@ namespace TaiChuWeb_V2.Controllers.Project
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteDelivery(string projectId, Guid id)
         {
+            if (!await _permission.HasPermissionAsync(projectId, UserId, "task:manage")) return Forbid();
             var record = await _context.ProjectDeliveryRecords.FirstOrDefaultAsync(r => r.Id == id && r.ProjectId == projectId);
             if (record == null) return NotFound("记录不存在");
 
@@ -91,11 +101,11 @@ namespace TaiChuWeb_V2.Controllers.Project
         public Guid MemberId { get; set; }
         // 🌟 新增：接收前端传来的当时的名字
         public string RecordedName { get; set; } = string.Empty;
-        public string TaskName { get; set; } = string.Empty;
-        public string TimingStatus { get; set; } = string.Empty;
-        public string QualityStatus { get; set; } = string.Empty;
-        public string CommStatus { get; set; } = string.Empty;
-        public int ReworkCount { get; set; }
-        public string? AdminNote { get; set; }
+        [Required, MaxLength(200)] public string TaskName { get; set; } = string.Empty;
+        [Required, MaxLength(50)] public string TimingStatus { get; set; } = string.Empty;
+        [Required, MaxLength(50)] public string QualityStatus { get; set; } = string.Empty;
+        [Required, MaxLength(50)] public string CommStatus { get; set; } = string.Empty;
+        [Range(0, int.MaxValue)] public int ReworkCount { get; set; }
+        [MaxLength(1000)] public string? AdminNote { get; set; }
     }
 }

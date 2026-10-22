@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using TaiChuWeb_V2.Dtos.World;
 
@@ -20,7 +20,7 @@ namespace TaiChuWeb_V2.Services.World
         /// <summary>
         /// 根据ID获取卡片类型
         /// </summary>
-        Task<CardTypeDto> GetTypeByIdAsync(string id);
+        Task<CardTypeDto?> GetTypeByIdAsync(string id);
 
         /// <summary>
         /// 创建新卡片类型
@@ -30,7 +30,7 @@ namespace TaiChuWeb_V2.Services.World
         /// <summary>
         /// 更新卡片类型
         /// </summary>
-        Task<CardTypeDto> UpdateTypeAsync(string id, UpdateCardTypeDto dto);
+        Task<CardTypeDto?> UpdateTypeAsync(string id, UpdateCardTypeDto dto);
 
         /// <summary>
         /// 删除卡片类型（仅非系统类型可删除）

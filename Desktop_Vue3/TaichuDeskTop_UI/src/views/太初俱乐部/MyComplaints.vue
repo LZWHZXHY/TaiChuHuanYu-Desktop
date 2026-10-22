@@ -92,6 +92,8 @@
 </template>
 
 <script>
+import { fmtTime } from './orderHelpers'
+import { useUserStore } from '@/stores/user'
 import Navbar         from './Navbar.vue'
 import Footer         from './Footer.vue'
 import SectionHeading from './SectionHeading.vue'
@@ -112,7 +114,7 @@ export default {
   },
 
   computed: {
-    isLoggedIn() { return !!localStorage.getItem('token') }
+    isLoggedIn() { return useUserStore().isLoggedIn }
   },
 
   async mounted() {
@@ -150,12 +152,7 @@ export default {
       }[s] || s
     },
 
-    fmtTime(iso) {
-      if (!iso) return '—'
-      const d = new Date(iso)
-      const pad = (n) => String(n).padStart(2, '0')
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-    }
+    fmtTime
   }
 }
 </script>
@@ -168,7 +165,7 @@ export default {
   font-family: monospace; font-size: 12px;
   letter-spacing: 1px; color: var(--text-muted);
   border: 1px dashed var(--line);
-  background: rgba(16, 25, 35, 0.3);
+  background: var(--panel);
 }
 .dot {
   display: inline-block; width: 6px; height: 6px;
@@ -181,13 +178,13 @@ export default {
 
 .cp-card {
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.5);
+  background: var(--panel);
   transition: border-color 0.2s;
 }
 .cp-card:hover { border-color: var(--line-bright); }
-.cp-card.pending  { border-left: 3px solid #ff8c4a; }
-.cp-card.resolved { border-left: 3px solid #4ecb71; }
-.cp-card.rejected { border-left: 3px solid #ff5050; }
+.cp-card.pending  { border-left: 3px solid var(--accent-color); }
+.cp-card.resolved { border-left: 3px solid var(--success); }
+.cp-card.rejected { border-left: 3px solid var(--danger); }
 
 .cpc-head {
   display: flex; justify-content: space-between; align-items: center;
@@ -198,8 +195,8 @@ export default {
 .cpc-no { font-size: 13px; color: var(--text); }
 .cpc-type {
   padding: 2px 8px;
-  font-size: 11px;
-  color: #ff8c4a;
+  font-size: 12px;
+  color: var(--accent-color);
   background: rgba(255, 140, 74, 0.1);
   border: 1px solid rgba(255, 140, 74, 0.3);
   border-radius: 3px;
@@ -208,14 +205,14 @@ export default {
 
 .cpc-status {
   padding: 4px 12px;
-  font-size: 11px; font-weight: 600;
+  font-size: 12px; font-weight: 600;
   letter-spacing: 1px;
   border-radius: 3px;
   white-space: nowrap;
 }
-.cpc-status.pending  { background: rgba(255, 140, 74, 0.12); color: #ff8c4a; }
-.cpc-status.resolved { background: rgba(80, 200, 120, 0.12); color: #4ecb71; }
-.cpc-status.rejected { background: rgba(255, 80, 80, 0.12);  color: #ff5050; }
+.cpc-status.pending  { background: rgba(255, 140, 74, 0.12); color: var(--accent-color); }
+.cpc-status.resolved { background: rgba(80, 200, 120, 0.12); color: var(--success); }
+.cpc-status.rejected { background: rgba(255, 80, 80, 0.12);  color: var(--danger); }
 
 .cpc-body {
   padding: 14px 20px;
@@ -230,7 +227,7 @@ export default {
   border-top: 1px solid var(--line);
 }
 .cps-label {
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 2px; color: var(--text-muted);
   margin-bottom: 8px;
 }
@@ -256,7 +253,7 @@ export default {
 
 .cpc-reply {
   padding: 14px 20px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--panel);
   border-top: 1px solid var(--line);
 }
 .cpc-reply.resolved { background: rgba(80, 200, 120, 0.04); }
@@ -269,7 +266,7 @@ export default {
   font-size: 13px; font-weight: 700;
   color: var(--cyan);
 }
-.cpr-time { font-size: 10px; color: var(--text-muted); }
+.cpr-time { font-size: 12px; color: var(--text-muted); }
 .cpr-note {
   margin: 0;
   font-size: 13px; line-height: 1.8;
@@ -280,7 +277,7 @@ export default {
 .cpc-pending-hint {
   padding: 14px 20px;
   font-size: 12px;
-  color: #ff8c4a;
+  color: var(--accent-color);
   background: rgba(255, 140, 74, 0.06);
   border-top: 1px solid rgba(255, 140, 74, 0.15);
 }
@@ -292,7 +289,7 @@ export default {
   color: var(--text-muted);
 }
 .cp-pager button {
-  padding: 6px 14px; font-size: 11px;
+  padding: 6px 14px; font-size: 12px;
   color: var(--text-soft);
   background: transparent;
   border: 1px solid var(--line-bright);

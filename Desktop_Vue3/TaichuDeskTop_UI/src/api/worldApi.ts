@@ -1,195 +1,47 @@
-// src/api/worldApi.ts
-import request from '@/utils/request';
+import request from '@/utils/request'
+import type {
+  WorldProject, CreateProjectPayload, UpdateProjectPayload, CardSummary, CardDetail,
+  CreateCardPayload, UpdateCardPayload, Relation, CardTypeDto, WorldQuota,
+  ProjectQuotaCheck, CardQuotaCheck, QuotaUpgradeType, QuotaUpgradeResult, QuotaHistory,
+} from './types/world'
 
-// ============================================================
-//  类型定义（供外部使用）
-// ============================================================
+export type * from './types/world'
 
-/**
- * 卡片精简数据（用于列表页，后端返回 CardSummaryDto）
- */
-export interface CardSummary {
-  id: string;
-  projectId: string;
-  title: string;
-  type: string;
-  coverImage: string | null;   // JSON 数组字符串，前端解析取第一张
-  updatedAt: string;
-  outRelationCount: number;
-  inRelationCount: number;
-}
-
-/**
- * 卡片完整数据（用于详情页，包含所有字段和关系对象）
- */
-export interface CardDetail extends CardSummary {
-  description: string;
-  content: string;
-  contentBlocks: any[];
-  timelineEvents: any[];
-  aliases: string[];
-  attributes: any[];
-  tags: string[];
-  embeddedCards: any[];
-  galleryImages: string[];
-  outRelations: Relation[];
-  inRelations: Relation[];
-}
-
-/**
- * 关系对象
- */
-export interface Relation {
-  id: string;
-  sourceCardId: string;
-  targetCardId: string;
-  relationType: string;
-  createdAt: string;
-  sourceCardTitle: string;
-  targetCardTitle: string;
-  sourceCardType: string;
-  targetCardType: string;
-}
-
-// ============================================================
-//  API 函数
-// ============================================================
-
+// 请求层已经解包 HTTP 响应；业务 API 直接返回 DTO，不再增加 { data }。
 export const worldApi = {
-  // ----- 卡片类型 -----
-  getCardTypes: async () => {
-    const data = await request.get('/world/card-types');
-    return { data };
+  getCardTypes: () => request.get<CardTypeDto[]>('/world/card-types'),
+  getProjects: () => request.get<WorldProject[]>('/world/projects'),
+  getPublicProjects: () => request.get<WorldProject[]>('/world/projects/public'),
+  getProject: (id: string) => request.get<WorldProject>(`/world/projects/${id}`),
+  createProject: (payload: CreateProjectPayload) => request.post<WorldProject>('/world/projects', payload),
+  updateProject: (id: string, payload: UpdateProjectPayload) =>
+    request.put<WorldProject>(`/world/projects/${id}`, payload),
+  deleteProject: async (id: string): Promise<void> => { await request.delete(`/world/projects/${id}`) },
+
+  getCards: (projectId: string, type?: string) =>
+    request.get<CardSummary[]>(`/world/projects/${projectId}/cards`, { params: { type } }),
+  getCard: (projectId: string, cardId: string) =>
+    request.get<CardDetail>(`/world/projects/${projectId}/cards/${cardId}`),
+  createCard: (projectId: string, payload: CreateCardPayload) =>
+    request.post<CardDetail>(`/world/projects/${projectId}/cards`, payload),
+  updateCard: (projectId: string, cardId: string, payload: UpdateCardPayload) =>
+    request.put<CardDetail>(`/world/projects/${projectId}/cards/${cardId}`, payload),
+  deleteCard: async (projectId: string, cardId: string): Promise<void> => {
+    await request.delete(`/world/projects/${projectId}/cards/${cardId}`)
   },
 
-  // ----- 项目 -----
-  getProjects: async () => {
-    const data = await request.get('/world/projects');
-    return { data };
+  addRelation: (cardId: string, targetCardId: string, relationType: string) =>
+    request.post<Relation>(`/world/cards/${cardId}/relations`, { targetCardId, relationType }),
+  removeRelation: async (cardId: string, relationId: string): Promise<void> => {
+    await request.delete(`/world/cards/${cardId}/relations/${relationId}`)
   },
+  getCardRelations: (cardId: string) => request.get<Relation[]>(`/world/cards/${cardId}/relations`),
+  getProjectRelations: (projectId: string) => request.get<Relation[]>(`/world/projects/${projectId}/relations`),
 
-  getPublicProjects: async () => {
-    const data = await request.get('/world/projects/public');
-    return { data };
-  },
-
-  createProject: async (payload: { name: string; description?: string; isPublic?: boolean }) => {
-    const data = await request.post('/world/projects', payload);
-    return { data };
-  },
-
-  updateProject: async (projectId: string, payload: { name?: string; description?: string; isPublic?: boolean }) => {
-    const data = await request.put(`/world/projects/${projectId}`, payload);
-    return { data };
-  },
-
-  deleteProject: async (projectId: string) => {
-    await request.delete(`/world/projects/${projectId}`);
-    return { data: null };
-  },
-
-  getProject: async (projectId: string) => {
-    const data = await request.get(`/world/projects/${projectId}`);
-    return { data };
-  },
-
-  // ----- 卡片 -----
-
-  /** 获取卡片列表（精简） */
-  getCards: async (projectId: string, type?: string) => {
-    const url = type
-      ? `/world/projects/${projectId}/cards?type=${type}`
-      : `/world/projects/${projectId}/cards`;
-    // 明确指定返回类型为 CardSummary[]
-    const data = await request.get<CardSummary[]>(url);
-    return { data };
-  },
-
-  /** 创建卡片（payload 可根据需要定义更具体的类型） */
-  createCard: async (projectId: string, payload: any) => {
-    const data = await request.post(`/world/projects/${projectId}/cards`, payload);
-    return { data };
-  },
-
-  /** 获取卡片详情（完整） */
-  getCard: async (projectId: string, cardId: string) => {
-    const data = await request.get<CardDetail>(`/world/projects/${projectId}/cards/${cardId}`);
-    return { data };
-  },
-
-  /** 更新卡片 */
-  updateCard: async (projectId: string, cardId: string, payload: any) => {
-    const data = await request.put(`/world/projects/${projectId}/cards/${cardId}`, payload);
-    return { data };
-  },
-
-  /** 删除卡片 */
-  deleteCard: async (projectId: string, cardId: string) => {
-    await request.delete(`/world/projects/${projectId}/cards/${cardId}`);
-    return { data: null };
-  },
-
-  // ----- 关联管理 -----
-  addRelation: async (cardId: string, targetCardId: string, relationType: string) => {
-    const data = await request.post(`/world/cards/${cardId}/relations`, {
-      targetCardId,
-      relationType,
-    });
-    return { data };
-  },
-
-  removeRelation: async (cardId: string, relationId: string) => {
-    await request.delete(`/world/cards/${cardId}/relations/${relationId}`);
-    return { data: null };
-  },
-
-  getCardRelations: async (cardId: string) => {
-    const data = await request.get(`/world/cards/${cardId}/relations`);
-    return { data };
-  },
-
-  getProjectRelations: async (projectId: string) => {
-    const data = await request.get(`/world/projects/${projectId}/relations`);
-    return { data };
-  },
-
-  // src/api/worldApi.ts
-
-// 在 export const worldApi 中添加：
-
-// ----- 配额管理 -----
-/** 获取当前用户配额信息 */
-getQuota: async () => {
-  const data = await request.get('/world/quota/my');
-  return { data };
-},
-
-/** 检查是否可以创建新世界观 */
-canCreateProject: async () => {
-  const data = await request.get('/world/quota/can-create-project');
-  return { data };
-},
-
-/** 检查指定项目是否可以添加卡片 */
-canAddCard: async (projectId: string) => {
-  const data = await request.get(`/world/quota/can-add-card/${projectId}`);
-  return { data };
-},
-
-/** 用经验扩容 */
-upgradeQuota: async (upgradeType: 'WorldCount' | 'WorldCardCapacity') => {
-  const data = await request.post('/world/quota/upgrade', { upgradeType });
-  return { data };
-},
-
-/** 获取扩容历史 */
-getQuotaHistory: async (limit = 20) => {
-  const data = await request.get(`/world/quota/history?limit=${limit}`);
-  return { data };
-},
-
-
-
-
-
-};
+  getQuota: () => request.get<WorldQuota>('/world/quota/my'),
+  canCreateProject: () => request.get<ProjectQuotaCheck>('/world/quota/can-create-project'),
+  canAddCard: (projectId: string) => request.get<CardQuotaCheck>(`/world/quota/can-add-card/${projectId}`),
+  upgradeQuota: (upgradeType: QuotaUpgradeType) =>
+    request.post<QuotaUpgradeResult>('/world/quota/upgrade', { upgradeType }),
+  getQuotaHistory: (limit = 20) => request.get<QuotaHistory[]>('/world/quota/history', { params: { limit } }),
+}

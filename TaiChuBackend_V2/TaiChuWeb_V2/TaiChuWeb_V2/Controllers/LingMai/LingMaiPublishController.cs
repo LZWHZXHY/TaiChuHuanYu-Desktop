@@ -1,4 +1,4 @@
-﻿// TaiChuWeb_V2/Controllers/LingMai/LingMaiPublishController.cs
+// TaiChuWeb_V2/Controllers/LingMai/LingMaiPublishController.cs
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
@@ -35,7 +35,11 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         [HttpPost("notes/{id:guid}/publish")]
         public async Task<IActionResult> PublishNote([FromRoute] Guid id, [FromBody] PublishRequest req)
         {
-            if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
+            if (!Guid.TryParse(CurrentUserId, out _)) return Unauthorized();
+
+            if (req == null || string.IsNullOrWhiteSpace(req.type)) return BadRequest(new { message = "请选择发布类型" });
+            var denied = await CheckOwnerAsync(id, req.type);
+            if (denied != null) return denied;
 
             if (req.type == "note")
             {
@@ -60,6 +64,8 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         {
             if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
 
+            var denied = await CheckOwnerAsync(id);
+            if (denied != null) return denied;
             var strategy = _context.Database.CreateExecutionStrategy();
 
             try
@@ -72,20 +78,35 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                     using var transaction = await _context.Database.BeginTransactionAsync();
                     try
                     {
+                        if (note.Type == NoteTypes.Doc)
+                        {
+                            var noteId = id.ToString();
+                            var links = await _context.ProjectDocuments.Where(d => d.NoteId == noteId).ToListAsync();
+                            _context.ProjectDocuments.RemoveRange(links);
+                            note.UpdatedAt = DateTime.UtcNow;
+                            await _context.SaveChangesAsync();
+                            await transaction.CommitAsync();
+                            return Ok(new { success = true, message = "已取消所有项目分享" });
+                        }
+
                         var existingPublish = await _context.PublishedNotes
                             .FirstOrDefaultAsync(pn => pn.OriginalNoteId == id);
 
                         if (existingPublish != null)
                         {
                             var pubBlocks = await _context.PublishedBlocks
-                                .Where(pb => pb.OwnerId == existingPublish.Id.ToString() && pb.OwnerType == "note")
+                                .Where(pb => pb.OwnerId == existingPublish.Id.ToString() && (pb.OwnerType == "note" || pb.OwnerType == existingPublish.Type))
                                 .ToListAsync();
 
                             _context.PublishedBlocks.RemoveRange(pubBlocks);
                             _context.PublishedNotes.Remove(existingPublish);
                         }
 
+                        // Serialize withdrawal with publication through the source note row.
+                        await _context.Notes.Where(n => n.Id == id).ExecuteUpdateAsync(s => s.SetProperty(n => n.UpdatedAt, n => n.UpdatedAt));
+                        await _context.Artworks.Where(a => a.OriginalNoteId == id).ExecuteUpdateAsync(s => s.SetProperty(a => a.IsApproved, false));
                         note.IsPublic = false;
+                        note.UpdatedAt = DateTime.UtcNow;
                         await _context.SaveChangesAsync();
                         await transaction.CommitAsync();
 
@@ -106,22 +127,27 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
         #endregion
 
+        private async Task<IActionResult?> CheckOwnerAsync(Guid id, string? type = null)
+        {
+            var note = await _context.Notes.AsNoTracking().FirstOrDefaultAsync(n => n.Id == id);
+            if (note == null) return NotFound(new { message = "未找到草稿" });
+            if (!await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId)) return Forbid();
+            if (type != null && (note.Type != type || note.Status == 2))
+                return BadRequest(new { message = "草稿类型不匹配或已被下架" });
+            return null;
+        }
+
         #region --- 2. 广场流与阅读 ---
 
         [HttpGet("stream")]
         public async Task<IActionResult> GetPublicStream([FromQuery] string? type = "wiki", [FromQuery] string? spaceId = null)
         {
-            var query = _context.PublishedNotes.AsNoTracking();
+            var query = PublicNotes();
 
             if (!string.IsNullOrEmpty(type))
             {
                 query = query.Where(pn => pn.Type == type);
             }
-
-            Guid.TryParse(CurrentUserId, out Guid userIdGuid);
-
-            var dbUser = await _context.Users.AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == userIdGuid);
 
             var stream = await query
                 .OrderByDescending(pn => pn.PublishedAt)
@@ -145,9 +171,10 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         public async Task<IActionResult> GetPublicStream(
             [FromQuery] string? type,
             [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 20)
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? tag = null)
         {
-            var query = _context.PublishedNotes.AsNoTracking();
+            var query = PublicNotes();
 
             if (string.IsNullOrEmpty(type)) //[cite: 1]
             {
@@ -159,7 +186,18 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 query = query.Where(pn => pn.Type == type); //[cite: 1]
             }
 
-            var safePageSize = pageSize > 50 ? 50 : pageSize;
+            if (!string.IsNullOrWhiteSpace(tag))
+            {
+                tag = tag.Trim();
+                if (tag.Length > 50) return BadRequest(new { message = "分类标签不能超过 50 字" });
+                // 使用发布时的标签快照，兼容 Unicode 转义和未转义的旧 JSON。
+                var encoded = JsonSerializer.Serialize(tag);
+                var literal = JsonSerializer.Serialize(tag, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+                query = query.Where(pn => pn.Tags != null && (pn.Tags.Contains(encoded) || pn.Tags.Contains(literal) || pn.Tags == tag));
+            }
+
+            var safePageSize = Math.Clamp(pageSize, 1, 50);
+            page = Math.Clamp(page, 1, int.MaxValue / safePageSize);
             var skipCount = (page - 1) * safePageSize;
 
             var stream = await query
@@ -187,8 +225,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         [HttpGet("published/{id:guid}")]
         public async Task<IActionResult> GetPublishedDetail(Guid id)
         {
-            var publishedNote = await _context.PublishedNotes
-                .FirstOrDefaultAsync(pn => pn.Id == id);
+            var publishedNote = await PublicNotes().FirstOrDefaultAsync(pn => pn.Id == id);
 
             if (publishedNote == null)
             {
@@ -234,15 +271,16 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             });
         }
 
+        private IQueryable<PublishedNote> PublicNotes() => _context.PublishedNotes.AsNoTracking().Where(p => p.OriginalNoteId == null || !_context.Notes.Any(n => n.Id.ToString() == EF.Functions.Collate(p.OriginalNoteId.ToString(), "utf8mb4_general_ci")) || _context.Notes.Any(n => n.Id.ToString() == EF.Functions.Collate(p.OriginalNoteId.ToString(), "utf8mb4_general_ci") && n.IsPublic && n.Status != 2));
+
         [HttpGet("blog/{id:guid}")]
         public async Task<IActionResult> GetPublicBlog(Guid id)
         {
-            var publishedNote = await _context.PublishedNotes
-                .AsNoTracking()
-                .FirstOrDefaultAsync(pn => pn.Id == id);
+            var publishedNote = await PublicNotes().FirstOrDefaultAsync(pn => pn.Id == id);
 
             if (publishedNote == null) return NotFound(new { message = "内容不存在" });
 
+            var canEdit = publishedNote.OriginalNoteId != null && await _context.Notes.AnyAsync(n => n.Id == publishedNote.OriginalNoteId && _context.Spaces.Any(s => s.Id == n.SpaceId && s.UserId == CurrentUserId));
             // 在内存中先转化为标准格式的字符串（全小写），确保 SQL 查询能完美命中
             string ownerIdStr = id.ToString().ToLower();
 
@@ -266,6 +304,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 title = publishedNote.Title,
                 type = publishedNote.Type,
                 publishedAt = publishedNote.PublishedAt,
+                authorName = publishedNote.AuthorName, tags = publishedNote.Tags, canEdit, originalNoteId = canEdit ? publishedNote.OriginalNoteId : null,
                 blocks = blocksList
             });
         }

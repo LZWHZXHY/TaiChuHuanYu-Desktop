@@ -3,6 +3,7 @@
 // 1. 严格限制类型的值，区分个人动态与社区公共知识
 export type NoteType = 
   | 'note'      // 长文随笔
+  | 'doc'       // 项目共享文档
   | 'blog'      // 深度博客
   | 'post'      // 短篇简语
   | 'folder'    // 文件夹
@@ -13,6 +14,7 @@ export type NoteType =
 // 2. 统一管理每种类型的显示文本和元数据
 export const NOTE_TYPE_CONFIG: Record<NoteType, { label: string; desc: string; icon: string }> = {
   note: { label: '长文随笔', desc: '深度思考，长篇沉浸式 Markdown 文章', icon: '📝' },
+  doc: { label: '项目文档', desc: '分享给协作项目成员阅读和引用', icon: '📄' },
   blog: { label: '深度博客', desc: '正式发布的专属长文专栏作品', icon: '✒️' },
   post: { label: '短篇简语', desc: '随时捕捉瞬息思绪与生活碎念', icon: '💬' },
   folder: { label: '灵脉文件夹', desc: '用于组织和分类随笔碎片', icon: '📁' },

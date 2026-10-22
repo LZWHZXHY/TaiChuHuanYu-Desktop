@@ -33,18 +33,23 @@ export const useJointStore = defineStore('joint', () => {
     }
   }
 
+  let detailRequest = 0
+
   // ===== 详情 =====
   async function fetchDetail(id: string) {
+    const request = ++detailRequest
+    if (currentActivity.value?.id !== id) currentActivity.value = null
     loading.value = true
     try {
       const res = await jointApi.getDetail(id)
-      currentActivity.value = res
+      if (request === detailRequest) currentActivity.value = res
       return res
     } catch (error) {
+      if (request === detailRequest) currentActivity.value = null
       console.error('获取联合详情失败:', error)
       throw error
     } finally {
-      loading.value = false
+      if (request === detailRequest) loading.value = false
     }
   }
 
@@ -62,23 +67,26 @@ export const useJointStore = defineStore('joint', () => {
     }
   }
 
-  // ===== 更新 =====
+  // 各操作只更新原先负责的缓存：参与操作更新详情，编辑和管理操作同时更新列表。
+  async function runActivityAction(id: string, action: () => Promise<JointActivity>, errorMessage: string, updateList = false) {
+    try {
+      const result = await action()
+      if (currentActivity.value?.id === id) currentActivity.value = result
+      if (updateList) {
+        const index = activities.value.findIndex(activity => activity.id === id)
+        if (index !== -1) activities.value[index] = result
+      }
+      return result
+    } catch (error) {
+      console.error(errorMessage, error)
+      throw error
+    }
+  }
+
   async function update(id: string, data: UpdateJointRequest) {
     loading.value = true
     try {
-      const res = await jointApi.update(id, data)
-      if (currentActivity.value?.id === id) {
-        currentActivity.value = res
-      }
-      // 更新列表中的对应项
-      const index = activities.value.findIndex(a => a.id === id)
-      if (index !== -1) {
-        activities.value[index] = res
-      }
-      return res
-    } catch (error) {
-      console.error('更新联合失败:', error)
-      throw error
+      return await runActivityAction(id, () => jointApi.update(id, data), '更新联合失败:', true)
     } finally {
       loading.value = false
     }
@@ -130,100 +138,34 @@ export const useJointStore = defineStore('joint', () => {
     }
   }
 
-  // ===== 报名 =====
-  async function join(id: string, remark?: string) {
-    try {
-      const res = await jointApi.join(id, remark)
-      if (currentActivity.value?.id === id) {
-        currentActivity.value = res
-      }
-      return res
-    } catch (error) {
-      console.error('报名失败:', error)
-      throw error
-    }
+  function join(id: string, remark?: string) {
+    return runActivityAction(id, () => jointApi.join(id, remark), '报名失败:')
   }
 
-  // ===== 取消报名 =====
-  async function cancelJoin(id: string) {
-    try {
-      const res = await jointApi.cancelJoin(id)
-      if (currentActivity.value?.id === id) {
-        currentActivity.value = res
-      }
-      return res
-    } catch (error) {
-      console.error('取消报名失败:', error)
-      throw error
-    }
+  function cancelJoin(id: string) {
+    return runActivityAction(id, () => jointApi.cancelJoin(id), '取消报名失败:')
   }
 
-  // ===== 审核参与者（举办者） =====
-  async function auditParticipant(activityId: string, userId: string, status: 'approved' | 'rejected') {
-    try {
-      const res = await jointApi.auditParticipant(activityId, userId, status)
-      if (currentActivity.value?.id === activityId) {
-        currentActivity.value = res
-      }
-      return res
-    } catch (error) {
-      console.error('审核参与者失败:', error)
-      throw error
-    }
+  function auditParticipant(activityId: string, userId: string, status: 'approved' | 'rejected') {
+    return runActivityAction(activityId, () => jointApi.auditParticipant(activityId, userId, status), '审核参与者失败:')
   }
 
-  // ===== 踢出参与者（举办者） =====
-  async function kickParticipant(activityId: string, userId: string) {
-    try {
-      const res = await jointApi.kickParticipant(activityId, userId)
-      if (currentActivity.value?.id === activityId) {
-        currentActivity.value = res
-      }
-      return res
-    } catch (error) {
-      console.error('踢出参与者失败:', error)
-      throw error
-    }
+  function kickParticipant(activityId: string, userId: string) {
+    return runActivityAction(activityId, () => jointApi.kickParticipant(activityId, userId), '踢出参与者失败:')
   }
 
-  // ===== 封禁/解封活动（管理员） =====
-  async function toggleBan(activityId: string) {
-    try {
-      const res = await jointApi.toggleBan(activityId)
-      if (currentActivity.value?.id === activityId) {
-        currentActivity.value = res
-      }
-      const index = activities.value.findIndex(a => a.id === activityId)
-      if (index !== -1) {
-        activities.value[index] = res
-      }
-      return res
-    } catch (error) {
-      console.error('操作失败:', error)
-      throw error
-    }
+  function toggleBan(activityId: string) {
+    return runActivityAction(activityId, () => jointApi.toggleBan(activityId), '操作失败:', true)
   }
 
-
-  async function approve(activityId: string, status: 'approved' | 'rejected') {
-  try {
-    const res = await jointApi.approve(activityId, status)
-    if (currentActivity.value?.id === activityId) {
-      currentActivity.value = res
-    }
-    const index = activities.value.findIndex(a => a.id === activityId)
-    if (index !== -1) {
-      activities.value[index] = res
-    }
-    return res
-  } catch (error) {
-    console.error('审批失败:', error)
-    throw error
+  function approve(activityId: string, status: 'approved' | 'rejected') {
+    return runActivityAction(activityId, () => jointApi.approve(activityId, status), '审批失败:', true)
   }
-}
 
   // ===== 清空当前活动 =====
   function clearCurrent() {
+    detailRequest++
+    loading.value = false
     currentActivity.value = null
   }
 

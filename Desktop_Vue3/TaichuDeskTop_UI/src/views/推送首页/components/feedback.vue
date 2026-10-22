@@ -216,7 +216,7 @@ const handleSubmit = async () => {
 .feedback-container {
   margin-top: 56px;
   padding-top: 40px;
-  border-top: 1px solid #f0f2f5;
+  border-top: 1px solid var(--bg-sub);
 }
 
 .feedback-header {
@@ -229,7 +229,7 @@ const handleSubmit = async () => {
 .section-title {
   font-size: 0.85rem;
   font-weight: 500;
-  color: #8c959f;
+  color: var(--text-secondary);
   letter-spacing: 0.1em;
   margin: 0;
 }
@@ -237,7 +237,7 @@ const handleSubmit = async () => {
 .submit-btn {
   background: transparent;
   border: none;
-  color: #1f2328;
+  color: var(--text-primary);
   font-size: 0.85rem;
   padding: 0;
   cursor: pointer;
@@ -245,10 +245,10 @@ const handleSubmit = async () => {
   text-underline-offset: 4px;
   transition: color 0.3s ease;
 }
-.submit-btn:hover { color: #8c959f; }
+.submit-btn:hover { color: var(--text-secondary); }
 
 .empty-state {
-  color: #a1aebb;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   font-weight: 300;
 }
@@ -275,18 +275,18 @@ const handleSubmit = async () => {
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
-.id-text { color: #a1aebb; }
+.id-text { color: var(--text-secondary); }
 .status-text { font-weight: 500; }
-.pending { color: #8c959f; }      /* 待处理：浅灰 */
-.resolved { color: #d0d7de; }     /* 已解决：极淡 */
+.pending { color: var(--text-secondary); }      /* 待处理：浅灰 */
+.resolved { color: var(--border-line); }     /* 已解决：极淡 */
 
-.separator { color: #d0d7de; font-weight: 300; }
-.user, .date { color: #a1aebb; }
+.separator { color: var(--border-line); font-weight: 300; }
+.user, .date { color: var(--text-secondary); }
 
 .feedback-title {
   margin: 0;
   font-size: 1.05rem;
-  color: #1f2328;
+  color: var(--text-primary);
   line-height: 1.6;
   font-weight: 400;
   white-space: pre-wrap;
@@ -303,7 +303,7 @@ const handleSubmit = async () => {
   height: 60px;
   border-radius: 6px;
   object-fit: cover;
-  border: 1px solid #f0f2f5;
+  border: 1px solid var(--bg-sub);
   opacity: 0.9;
   transition: opacity 0.2s;
 }
@@ -330,7 +330,7 @@ const handleSubmit = async () => {
 }
 
 .modal-content {
-  background: #fff;
+  background: var(--paper-card);
   width: 90%;
   max-width: 480px;
   border-radius: 12px;
@@ -346,18 +346,18 @@ const handleSubmit = async () => {
   background: none;
   border: none;
   font-size: 1.5rem;
-  color: #8c959f;
+  color: var(--text-secondary);
   cursor: pointer;
   line-height: 1;
   transition: color 0.2s;
 }
-.modal-close-btn:hover { color: #1f2328; }
+.modal-close-btn:hover { color: var(--text-primary); }
 
 .modal-title {
   margin: 0 0 1.5rem 0;
   font-size: 1.2rem;
   font-weight: 500;
-  color: #1f2328;
+  color: var(--text-primary);
 }
 
 .form-body {
@@ -369,22 +369,22 @@ const handleSubmit = async () => {
 .minimal-input {
   width: 100%;
   padding: 0.8rem;
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   font-size: 0.95rem;
-  color: #1f2328;
+  color: var(--text-primary);
   outline: none;
   transition: border-color 0.2s;
-  background: #f6f8fa;
+  background: var(--bg-sub);
   font-family: inherit;
   resize: vertical;
   box-sizing: border-box;
 }
 .minimal-input:focus {
-  border-color: #1f2328;
-  background: #fff;
+  border-color: var(--text-primary);
+  background: var(--paper-card);
 }
-.minimal-input::placeholder { color: #8c959f; }
+.minimal-input::placeholder { color: var(--text-secondary); }
 
 /* 图片上传区 */
 .image-upload-area {
@@ -399,7 +399,7 @@ const handleSubmit = async () => {
   height: 70px;
   border-radius: 6px;
   overflow: hidden;
-  border: 1px solid #d0d7de;
+  border: 1px solid var(--border-line);
 }
 .image-preview img { width: 100%; height: 100%; object-fit: cover; }
 .remove-btn {
@@ -410,7 +410,7 @@ const handleSubmit = async () => {
   height: 18px;
   border-radius: 50%;
   background: rgba(0,0,0,0.5);
-  color: #fff;
+  color: var(--paper-card);
   border: none;
   font-size: 10px;
   cursor: pointer;
@@ -423,28 +423,28 @@ const handleSubmit = async () => {
 .upload-btn {
   width: 70px;
   height: 70px;
-  border: 1px dashed #d0d7de;
+  border: 1px dashed var(--border-line);
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  color: #8c959f;
+  color: var(--text-secondary);
   cursor: pointer;
-  background: #f6f8fa;
+  background: var(--bg-sub);
   transition: border-color 0.2s, color 0.2s;
 }
 .upload-btn:hover:not(.is-uploading) {
-  border-color: #1f2328;
-  color: #1f2328;
+  border-color: var(--text-primary);
+  color: var(--text-primary);
 }
 .upload-btn.is-uploading { opacity: 0.5; cursor: not-allowed; }
 
 .loading-spinner {
   width: 18px;
   height: 18px;
-  border: 2px solid #d0d7de;
-  border-top-color: #1f2328;
+  border: 2px solid var(--border-line);
+  border-top-color: var(--text-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -465,7 +465,7 @@ const handleSubmit = async () => {
   align-items: center;
   gap: 8px;
   font-size: 0.85rem;
-  color: #6e7781;
+  color: var(--text-secondary);
   cursor: pointer;
   user-select: none;
 }
@@ -481,8 +481,8 @@ const handleSubmit = async () => {
 .checkmark {
   height: 16px;
   width: 16px;
-  background-color: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background-color: var(--bg-sub);
+  border: 1px solid var(--border-line);
   border-radius: 4px;
   transition: all 0.2s;
   display: flex;
@@ -491,12 +491,12 @@ const handleSubmit = async () => {
 }
 
 .anonymous-checkbox:hover .checkmark {
-  border-color: #1f2328;
+  border-color: var(--text-primary);
 }
 
 .anonymous-checkbox input:checked ~ .checkmark {
-  background-color: #1f2328;
-  border-color: #1f2328;
+  background-color: var(--text-primary);
+  border-color: var(--text-primary);
 }
 
 .checkmark:after {
@@ -515,8 +515,8 @@ const handleSubmit = async () => {
 }
 
 .primary-btn {
-  background: #1f2328;
-  color: #fff;
+  background: var(--text-primary);
+  color: var(--paper-card);
   border: none;
   padding: 0.6rem 1.5rem;
   border-radius: 6px;

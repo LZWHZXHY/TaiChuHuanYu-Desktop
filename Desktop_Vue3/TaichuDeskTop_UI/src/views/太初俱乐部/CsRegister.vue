@@ -164,6 +164,7 @@
 </template>
 
 <script>
+import { useUserStore } from '@/stores/user'
 import Navbar         from './Navbar.vue'
 import Footer         from './Footer.vue'
 import SectionHeading from './SectionHeading.vue'
@@ -204,7 +205,7 @@ export default {
 
   computed: {
     isLoggedIn() {
-      return !!localStorage.getItem('token')
+      return useUserStore().isLoggedIn
     },
 
     auditStatus() {
@@ -339,7 +340,7 @@ export default {
 .reg-field { display: flex; flex-direction: column; gap: 9px; position: relative; }
 .reg-field.full { grid-column: 1 / -1; }
 .reg-field label {
-  font-family: monospace; font-size: 9px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 1.5px; color: var(--text-soft);
 }
 .reg-field label em { font-style: normal; color: var(--orange); margin-left: 3px; }
@@ -347,7 +348,7 @@ export default {
 .reg-field select,
 .reg-field textarea {
   padding: 12px 14px; font-size: 13px; font-family: inherit;
-  color: var(--text); background: rgba(0, 0, 0, 0.32);
+  color: var(--text); background: var(--panel);
   border: 1px solid var(--line-bright); outline: none;
   resize: vertical;
   transition: border-color 0.2s ease, background 0.2s ease;
@@ -358,12 +359,12 @@ export default {
 .reg-field select:focus,
 .reg-field textarea:focus {
   border-color: rgba(255, 107, 26, 0.5);
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--panel);
 }
 .field-counter {
   position: absolute;
   right: 10px; bottom: 8px;
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   color: var(--text-muted);
   pointer-events: none;
 }
@@ -375,7 +376,7 @@ export default {
 }
 .fs-head {
   margin-bottom: 18px;
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 2px; color: var(--orange);
 }
 
@@ -386,14 +387,14 @@ export default {
   border-top: 1px solid var(--line);
 }
 .reg-hint {
-  flex: 1; font-family: monospace; font-size: 9px;
+  flex: 1; font-family: monospace; font-size: 12px;
   line-height: 1.7; letter-spacing: 0.5px; color: var(--text-muted);
 }
 .reg-submit {
   flex-shrink: 0;
   display: flex; align-items: center; gap: 24px;
   height: 46px; padding: 0 26px;
-  font-size: 12px; letter-spacing: 1px; color: #fff;
+  font-size: 12px; letter-spacing: 1px; color: var(--on-accent);
   background: var(--orange); border: 1px solid var(--orange);
   cursor: pointer; transition: all 0.25s ease;
 }
@@ -408,7 +409,7 @@ export default {
 .reg-state {
   padding: 48px 32px; text-align: center;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.4);
+  background: var(--panel);
   color: var(--text-soft);
 }
 .reg-state p { margin: 0 0 10px; }
@@ -417,7 +418,7 @@ export default {
   color: var(--text); letter-spacing: 1px;
 }
 .state-desc {
-  font-family: monospace; font-size: 11px;
+  font-family: monospace; font-size: 12px;
   color: var(--text-muted); line-height: 1.8;
 }
 .reg-link {
@@ -438,7 +439,7 @@ export default {
   padding: 22px 28px;
   margin-bottom: 24px;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.4);
+  background: var(--panel);
   border-radius: 3px;
 }
 .applied-bar.approved   { border-color: rgba(120, 215, 206, 0.35); }
@@ -452,12 +453,12 @@ export default {
   flex-shrink: 0;
   width: 10px; height: 10px; border-radius: 50%;
   background: var(--text-soft);
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.03);
+  box-shadow: 0 0 0 4px var(--bg-soft);
 }
 .applied-bar.approved  .ab-dot { background: var(--cyan); box-shadow: 0 0 0 4px rgba(120, 215, 206, 0.12); }
 .applied-bar.pending   .ab-dot { background: var(--orange); box-shadow: 0 0 0 4px rgba(255, 107, 26, 0.12); }
-.applied-bar.rejected  .ab-dot { background: #ff5050; box-shadow: 0 0 0 4px rgba(255, 80, 80, 0.12); }
-.applied-bar.banned    .ab-dot { background: #ff5050; }
+.applied-bar.rejected  .ab-dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(255, 80, 80, 0.12); }
+.applied-bar.banned    .ab-dot { background: var(--danger); }
 
 .ab-text { min-width: 0; }
 .ab-title {
@@ -467,7 +468,7 @@ export default {
 }
 .ab-sub {
   margin: 0;
-  font-family: monospace; font-size: 11px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 0.5px; color: var(--text-muted);
   line-height: 1.6;
 }
@@ -489,12 +490,12 @@ export default {
   border-color: rgba(255, 107, 26, 0.45);
   background: rgba(255, 107, 26, 0.06);
 }
-.ab-btn.primary:hover { color: #fff; background: var(--orange); border-color: var(--orange); }
+.ab-btn.primary:hover { color: var(--on-accent); background: var(--orange); border-color: var(--orange); }
 
 /* ===== 已申请：信息展示 ===== */
 .applied-info {
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.4);
+  background: var(--panel);
   border-radius: 3px;
 }
 .ai-row {
@@ -510,7 +511,7 @@ export default {
   flex-shrink: 0;
   width: 90px;
   font-family: monospace;
-  font-size: 10px; letter-spacing: 1px;
+  font-size: 12px; letter-spacing: 1px;
   color: var(--text-muted);
   padding-top: 2px;
 }
@@ -521,14 +522,14 @@ export default {
   word-break: break-word;
 }
 .ai-row > b.accent { color: var(--cyan); font-family: monospace; }
-.ai-row > b.warn { color: #ff8c4a; }
+.ai-row > b.warn { color: var(--accent-color); }
 .ai-intro {
   font-weight: 400 !important;
   color: var(--text-soft) !important;
   line-height: 1.7;
 }
 .ai-count {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   font-weight: 400;
   margin-left: 4px;

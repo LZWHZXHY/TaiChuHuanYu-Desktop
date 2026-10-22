@@ -266,7 +266,7 @@
                 <div class="pm-qr-label wechat">💚 微信支付</div>
                 <img src="/payment-wechat.png" alt="微信收款码" />
               </div>
-              
+
             </div>
 
             <div class="pm-tip">⚠ 付款后请点击下方按钮通知客服核对</div>
@@ -295,7 +295,7 @@
     <ReviewModal
       :visible="showReview"
       :order="reviewOrder"
-      :from-customer="reviewFromCustomer"
+      :from-customer="true"
       @close="showReview = false"
       @success="handleReviewSuccess"
     />
@@ -315,7 +315,7 @@
       :order="completeOrder"
       :mode="completeModalMode"
       @close="showCompleteModal = false"
-      @success="handleCompleteSuccess"
+      @success="loadOrders"
     />
 
     <!-- ⭐ 客诉弹窗 -->
@@ -329,6 +329,8 @@
 </template>
 
 <script>
+import { fmtTime, operatorText, isAllAccepted, showProgress } from './orderHelpers'
+import { useUserStore } from '@/stores/user'
 import Navbar             from './Navbar.vue'
 import Footer             from './Footer.vue'
 import SectionHeading     from './SectionHeading.vue'
@@ -357,7 +359,6 @@ export default {
       // 打手评价
       showReview: false,
       reviewOrder: null,
-      reviewFromCustomer: true,
       reviewedMap: {},
 
       // 客服评价
@@ -390,7 +391,7 @@ export default {
 
   computed: {
     isLoggedIn() {
-      return !!localStorage.getItem('token')
+      return useUserStore().isLoggedIn
     },
 
     filteredOrders() {
@@ -481,12 +482,7 @@ export default {
       return list.filter(op => !this.isReviewed(o, op.userId))
     },
 
-    operatorText(o) {
-      if (o.operators && o.operators.length > 0) {
-        return o.operators.map(x => x.name).join('、')
-      }
-      return o.operatorName || '—'
-    },
+    operatorText,
 
     deriveStatus(o) {
       if (o.status === 'cancelled') return 'cancelled'
@@ -544,16 +540,9 @@ export default {
       return o.status === 'pending' && !o.userPaidAt
     },
 
-    showProgress(o) {
-      const total = o.totalOperatorCount || 0
-      const accepted = o.acceptedCount || 0
-      return total > 1 || (accepted > 0 && total > 0)
-    },
+    showProgress,
 
-    isAllAccepted(o) {
-      if (!o.totalOperatorCount) return false
-      return (o.acceptedCount || 0) >= o.totalOperatorCount
-    },
+    isAllAccepted,
 
     canReviewCs(o) {
       if (o.status !== 'completed') return false
@@ -624,16 +613,11 @@ export default {
       this.showCompleteModal = true
     },
 
-    async handleCompleteSuccess() {
-      await this.loadOrders()
-    },
-
     // ==================================================
     //  评价打手
     // ==================================================
     openReview(o) {
       this.reviewOrder = o
-      this.reviewFromCustomer = true
       this.showReview = true
     },
 
@@ -643,7 +627,6 @@ export default {
         operatorUserId: operator.userId,
         operatorName: operator.name
       }
-      this.reviewFromCustomer = true
       this.showReview = true
     },
 
@@ -682,12 +665,7 @@ export default {
       alert('客诉已提交，客服会尽快处理')
     },
 
-    fmtTime(iso) {
-      if (!iso) return '—'
-      const d = new Date(iso)
-      const pad = (n) => String(n).padStart(2, '0')
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-    }
+    fmtTime
   }
 }
 </script>
@@ -717,9 +695,9 @@ export default {
   background: rgba(255, 107, 26, 0.06);
 }
 .tab-count {
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   padding: 1px 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-soft);
   border-radius: 3px;
 }
 
@@ -728,7 +706,7 @@ export default {
   font-family: monospace; font-size: 12px;
   letter-spacing: 1px; color: var(--text-muted);
   border: 1px dashed var(--line);
-  background: rgba(16, 25, 35, 0.3);
+  background: var(--panel);
 }
 .dot {
   display: inline-block; width: 6px; height: 6px;
@@ -742,7 +720,7 @@ export default {
 
 .order-card {
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.5);
+  background: var(--panel);
   transition: border-color 0.2s;
 }
 .order-card:hover { border-color: var(--line-bright); }
@@ -754,7 +732,7 @@ export default {
 }
 .oc-no { display: flex; flex-direction: column; gap: 4px; }
 .oc-label {
-  font-family: monospace; font-size: 9px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 1px; color: var(--text-muted);
 }
 .oc-code { font-size: 13px; color: var(--text); }
@@ -762,17 +740,17 @@ export default {
 
 .oc-status {
   padding: 4px 12px;
-  font-size: 11px; font-weight: 600;
+  font-size: 12px; font-weight: 600;
   letter-spacing: 1px;
   border-radius: 3px;
 }
-.oc-status.unpaid         { background: rgba(255, 140, 74, 0.12); color: #ff8c4a; }
-.oc-status.payConfirming  { background: rgba(74, 158, 255, 0.12); color: #4a9eff; }
-.oc-status.waiting        { background: rgba(165, 165, 255, 0.12); color: #a5a5ff; }
+.oc-status.unpaid         { background: rgba(255, 140, 74, 0.12); color: var(--accent-color); }
+.oc-status.payConfirming  { background: rgba(74, 158, 255, 0.12); color: var(--accent-color); }
+.oc-status.waiting        { background: rgba(165, 165, 255, 0.12); color: var(--accent-color); }
 .oc-status.processing     { background: rgba(120, 215, 206, 0.12); color: var(--cyan); }
-.oc-status.completed      { background: rgba(80, 200, 120, 0.12); color: #4ecb71; }
-.oc-status.abandoned      { background: rgba(255, 140, 74, 0.15); color: #ff8c4a; }
-.oc-status.cancelled      { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
+.oc-status.completed      { background: rgba(80, 200, 120, 0.12); color: var(--success); }
+.oc-status.abandoned      { background: rgba(255, 140, 74, 0.15); color: var(--accent-color); }
+.oc-status.cancelled      { background: var(--bg-soft); color: var(--text-muted); }
 
 .oc-body {
   display: flex; justify-content: space-between; gap: 20px;
@@ -782,10 +760,10 @@ export default {
 .oc-row { display: flex; gap: 12px; font-size: 13px; }
 .oc-row span { color: var(--text-muted); min-width: 60px; }
 .oc-row b { color: var(--text); }
-.oc-failed { color: #ff8c4a !important; }
+.oc-failed { color: var(--accent-color) !important; }
 
 .cs-wechat {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--cyan);
   font-weight: 400;
   margin-left: 4px;
@@ -801,12 +779,12 @@ export default {
   font-family: monospace; font-size: 24px; font-weight: 700;
   color: var(--orange);
 }
-.oc-time { font-size: 11px; color: var(--text-muted); }
+.oc-time { font-size: 12px; color: var(--text-muted); }
 
 /* ⭐ 接单进度 */
 .oc-progress {
   padding: 12px 20px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--panel);
   border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
@@ -820,7 +798,7 @@ export default {
 }
 .oph-label {
   font-family: monospace;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 1px;
   color: var(--text-muted);
 }
@@ -830,14 +808,14 @@ export default {
   font-weight: 700;
   color: var(--orange);
 }
-.oph-count.done { color: #4ecb71; }
+.oph-count.done { color: var(--success); }
 .oph-tag.done {
   margin-left: auto;
   padding: 2px 8px;
   font-family: monospace;
-  font-size: 10px;
+  font-size: 12px;
   border-radius: 2px;
-  color: #4ecb71;
+  color: var(--success);
   border: 1px solid rgba(80, 200, 120, 0.5);
   background: rgba(80, 200, 120, 0.1);
 }
@@ -854,7 +832,7 @@ export default {
   font-size: 12px;
   color: var(--text-muted);
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-soft);
   border-radius: 3px;
 }
 .op-chip.accepted {
@@ -874,14 +852,14 @@ export default {
   border-top: 1px solid rgba(255, 140, 74, 0.2);
 }
 .ocr-title {
-  font-family: monospace; font-size: 10px;
-  letter-spacing: 2px; color: #ff8c4a;
+  font-family: monospace; font-size: 12px;
+  letter-spacing: 2px; color: var(--accent-color);
   margin-bottom: 10px;
 }
 .ocr-item {
   padding: 8px 12px;
   border-left: 2px solid rgba(255, 140, 74, 0.4);
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--panel);
   border-radius: 0 3px 3px 0;
   margin-bottom: 6px;
 }
@@ -893,7 +871,7 @@ export default {
   margin-bottom: 4px;
 }
 .ocr-time {
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   color: var(--text-muted);
   text-align: right;
 }
@@ -902,7 +880,7 @@ export default {
   padding: 10px 20px;
   font-size: 12px; line-height: 1.6;
   color: var(--text-muted);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--panel);
   border-top: 1px solid var(--line);
 }
 
@@ -910,7 +888,7 @@ export default {
   padding: 8px 20px;
   font-size: 12px;
   color: var(--text-muted);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--panel);
   border-top: 1px solid var(--line);
   font-family: monospace;
 }
@@ -918,11 +896,11 @@ export default {
 /* ⭐ 我的评价区块 */
 .oc-my-reviews {
   padding: 14px 20px;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--panel);
   border-top: 1px solid var(--line);
 }
 .omr-title {
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 2px; color: var(--cyan);
   margin-bottom: 10px;
 }
@@ -948,15 +926,15 @@ export default {
   padding: 2px 8px;
   border-radius: 3px;
 }
-.omr-overall.s5 { color: #ffb800; background: rgba(255, 184, 0, 0.1); }
-.omr-overall.s4 { color: #78d7ce; background: rgba(120, 215, 206, 0.1); }
-.omr-overall.s3 { color: #ff8c4a; background: rgba(255, 140, 74, 0.1); }
-.omr-overall.s2 { color: #ff8c4a; background: rgba(255, 140, 74, 0.15); }
-.omr-overall.s1 { color: #ff5050; background: rgba(255, 80, 80, 0.15); }
+.omr-overall.s5 { color: var(--warning); background: rgba(255, 184, 0, 0.1); }
+.omr-overall.s4 { color: var(--success); background: rgba(120, 215, 206, 0.1); }
+.omr-overall.s3 { color: var(--accent-color); background: rgba(255, 140, 74, 0.1); }
+.omr-overall.s2 { color: var(--accent-color); background: rgba(255, 140, 74, 0.15); }
+.omr-overall.s1 { color: var(--danger); background: rgba(255, 80, 80, 0.15); }
 
 .omr-dims {
   display: flex; gap: 14px;
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   color: var(--text-muted);
   margin-bottom: 8px;
 }
@@ -964,12 +942,12 @@ export default {
   font-size: 12px; line-height: 1.7;
   color: var(--text-soft);
   padding: 8px 10px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--panel);
   border-radius: 3px;
   margin-bottom: 6px;
 }
 .omr-time {
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   color: var(--text-muted);
   text-align: right;
 }
@@ -987,7 +965,7 @@ export default {
   border-radius: 3px;
 }
 .oc-btn.primary {
-  color: #fff; background: var(--orange);
+  color: var(--on-accent); background: var(--orange);
   border: 1px solid var(--orange);
 }
 .oc-btn.primary:hover { background: var(--orange-bright); }
@@ -1011,30 +989,30 @@ export default {
 
 /* ⭐ 客服评价按钮（紫色） */
 .oc-btn.cs-btn {
-  color: #fff;
-  background: #a5a5ff;
-  border: 1px solid #a5a5ff;
+  color: var(--text);
+  background: var(--accent-color);
+  border: 1px solid var(--accent-color);
 }
 .oc-btn.cs-btn:hover {
-  background: #b8b8ff;
+  background: var(--accent-color);
   box-shadow: 0 4px 16px rgba(165, 165, 255, 0.25);
 }
 
 /* ⭐ 投诉按钮（橙色） */
 .oc-btn.complain-btn {
-  color: #fff;
-  background: #ff8c4a;
-  border: 1px solid #ff8c4a;
+  color: var(--on-accent);
+  background: var(--accent-color);
+  border: 1px solid var(--accent-color);
 }
 .oc-btn.complain-btn:hover {
-  background: #ffa266;
+  background: var(--accent-color);
   box-shadow: 0 4px 16px rgba(255, 140, 74, 0.25);
 }
 
 /* ================= 收款码弹窗 ================= */
 .pay-modal-mask {
   position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0, 0, 0, 0.78);
+  background: var(--overlay);
   backdrop-filter: blur(8px);
   display: grid; place-items: center;
   padding: 24px;
@@ -1084,21 +1062,21 @@ export default {
   align-items: center; gap: 8px;
 }
 .pm-qr-label {
-  font-family: monospace; font-size: 11px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 1px; font-weight: 600;
 }
-.pm-qr-label.wechat { color: #4ecb71; }
-.pm-qr-label.alipay { color: #4a9eff; }
+.pm-qr-label.wechat { color: var(--success); }
+.pm-qr-label.alipay { color: var(--accent-color); }
 .pm-qr-item img {
   width: 100%; max-width: 180px; height: 180px;
   object-fit: contain;
-  background: #fff; padding: 8px;
+  background: var(--paper-card); padding: 8px;
   border-radius: 4px;
 }
 
 .pm-tip {
   padding: 10px 14px; margin-bottom: 16px;
-  font-size: 12px; color: #ff8c4a;
+  font-size: 12px; color: var(--accent-color);
   background: rgba(255, 140, 74, 0.08);
   border-radius: 3px;
 }
@@ -1106,8 +1084,8 @@ export default {
 .pm-confirm-btn {
   width: 100%; height: 48px;
   font-size: 14px; letter-spacing: 1.5px; font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, #ff6b1a, #ff8c4a);
+  color: var(--text);
+  background: linear-gradient(135deg, var(--accent-color), var(--accent-color));
   border: none; border-radius: 4px;
   cursor: pointer; transition: all 0.25s;
   margin-bottom: 14px;

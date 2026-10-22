@@ -192,25 +192,25 @@ const formatDateNode = (dateStr: string) => {
 
 .horizontal-timeline-container {
   width: 100%;
-  background: #ffffff;
-  border: 1px solid #f6f6f6;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   box-shadow: 0 30px 80px rgba(0,0,0,0.01);
   animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .gantt-timeline-header {
   display: flex;
-  background: #fafafa;
-  border-bottom: 1px solid #eee;
+  background: var(--bg-main);
+  border-bottom: 1px solid var(--border-line);
 }
 
 .header-block {
   flex: 1;
   padding: 18px;
   font-size: 0.75rem;
-  color: #888;
+  color: var(--text-secondary);
   text-align: center;
-  border-right: 1px solid #f2f2f2;
+  border-right: 1px solid var(--border-line);
   font-family: monospace;
   letter-spacing: 0.5px;
 }
@@ -219,8 +219,8 @@ const formatDateNode = (dateStr: string) => {
   flex: 0 0 240px;
   text-align: left;
   font-weight: 500;
-  color: #1a1a1a;
-  border-right: 1px solid #eee;
+  color: var(--text-primary);
+  border-right: 1px solid var(--border-line);
 }
 
 .gantt-timeline-body {
@@ -230,18 +230,18 @@ const formatDateNode = (dateStr: string) => {
 
 .gantt-lane-row {
   display: flex;
-  border-bottom: 1px solid #f9f9f9;
+  border-bottom: 1px solid var(--border-line);
   cursor: pointer;
   transition: background 0.25s ease;
 }
 .gantt-lane-row:hover {
-  background: #fafafa;
+  background: var(--bg-main);
 }
 
 .lane-task-info {
   flex: 0 0 240px;
   padding: 24px 20px;
-  border-right: 1px solid #eee;
+  border-right: 1px solid var(--border-line);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -250,13 +250,13 @@ const formatDateNode = (dateStr: string) => {
 .info-title {
   font-size: 0.88rem;
   font-weight: 400;
-  color: #1a1a1a;
+  color: var(--text-primary);
   margin: 0;
   line-height: 1.4;
 }
 .info-assignee {
   font-size: 0.7rem;
-  color: #bbb;
+  color: var(--text-secondary);
 }
 
 .lane-track-view {
@@ -264,7 +264,7 @@ const formatDateNode = (dateStr: string) => {
   padding: 24px 0;
   display: flex;
   align-items: center;
-  background-image: linear-gradient(to right, #f6f6f6 1px, transparent 1px);
+  background-image: linear-gradient(to right, var(--bg-sub) 1px, transparent 1px);
   background-size: calc(100% / v-bind('timelineMonths.length')) 100%;
 }
 
@@ -293,7 +293,7 @@ const formatDateNode = (dateStr: string) => {
 .capsule-date-label {
   font-size: 0.68rem;
   font-family: monospace;
-  color: #ffffff;
+  color: var(--paper-card);
   mix-blend-mode: difference; 
   white-space: nowrap;
 }
@@ -302,18 +302,18 @@ const formatDateNode = (dateStr: string) => {
   padding: 100px 40px;
   text-align: center;
 }
-.empty-box p { font-size: 0.9rem; color: #999; margin: 4px 0; }
-.empty-box .sub { font-size: 0.75rem; color: #ccc; }
+.empty-box p { font-size: 0.9rem; color: var(--text-secondary); margin: 4px 0; }
+.empty-box .sub { font-size: 0.75rem; color: var(--text-secondary); }
 
 .gantt-loading-wrapper {
   height: 4px;
   width: 100%;
-  background: #f5f5f5;
+  background: var(--bg-sub);
   position: relative;
 }
 .loading-pulse-line {
   height: 100%;
-  background: #1a1a1a;
+  background: var(--text-primary);
   width: 25%;
   position: absolute;
   animation: barRunner 1.6s infinite ease-in-out;

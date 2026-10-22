@@ -82,11 +82,11 @@ watch(() => props.modelValue, (val) => {
 .tag-header label {
   font-weight: 500;
   font-size: 14px;
-  color: #334155;
+  color: var(--text-primary);
 }
 .tag-count {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 .tag-input-row {
   display: flex;
@@ -94,25 +94,25 @@ watch(() => props.modelValue, (val) => {
 }
 .tag-input-row input {
   flex: 1;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 13px;
 }
 .tag-input-row input:focus {
   outline: none;
-  border-color: #4f46e5;
+  border-color: var(--accent-color);
 }
 .add-btn {
   padding: 4px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
-  background: white;
+  background: var(--paper-card);
   cursor: pointer;
   font-size: 13px;
 }
 .add-btn:hover {
-  background: #f1f5f9;
+  background: var(--bg-sub);
 }
 .tag-list {
   display: flex;
@@ -124,8 +124,8 @@ watch(() => props.modelValue, (val) => {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #eef2ff;
-  color: #4f46e5;
+  background: var(--accent-soft);
+  color: var(--accent-color);
   padding: 2px 8px 2px 10px;
   border-radius: 12px;
   font-size: 12px;
@@ -133,17 +133,17 @@ watch(() => props.modelValue, (val) => {
 .remove-btn {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 14px;
   padding: 0 2px;
 }
 .remove-btn:hover {
-  color: #ef4444;
+  color: var(--danger);
 }
 .tag-empty {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   padding: 2px 0;
 }
 </style>

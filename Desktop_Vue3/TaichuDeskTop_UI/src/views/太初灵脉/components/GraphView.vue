@@ -215,7 +215,7 @@ watch(() => currentSpaceId.value, (newVal, oldVal) => {
 .spirit-graph-container {
   position: fixed;
   inset: 0;
-  background: #fbfbfd;
+  background: var(--paper-card);
   z-index: 9998;
   display: flex;
   flex-direction: column;
@@ -227,33 +227,33 @@ watch(() => currentSpaceId.value, (newVal, oldVal) => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 24px;
-  background: white;
-  border-bottom: 1px solid #f2f2f7;
+  background: var(--paper-card);
+  border-bottom: 1px solid var(--border-line);
   flex-shrink: 0;
 }
 
-.header-left h2 { font-size: 16px; font-weight: 600; color: #1d1d1f; margin: 0; display: flex; align-items: center; gap: 8px; }
-.header-left .sub { font-size: 11px; color: #86868b; font-weight: 400; }
+.header-left h2 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px; }
+.header-left .sub { font-size: 11px; color: var(--text-secondary); font-weight: 400; }
 .view-selector { display: flex; gap: 8px; margin-top: 10px; }
 .view-selector button {
-  background: #f5f5f7; border: none; font-size: 11px; font-weight: 600; color: #515154;
+  background: var(--bg-sub); border: none; font-size: 11px; font-weight: 600; color: var(--text-primary);
   padding: 4px 12px; border-radius: 12px; cursor: pointer; transition: all 0.2s;
 }
-.view-selector button.active { background: #0066cc; color: white; }
+.view-selector button.active { background: var(--accent-color); color: var(--on-accent); }
 
 .close-btn {
-  background: none; border: 1px solid #d2d2d7; padding: 6px 14px;
-  border-radius: 20px; font-size: 12px; font-weight: 500; color: #1d1d1f; cursor: pointer;
+  background: none; border: 1px solid var(--border-line); padding: 6px 14px;
+  border-radius: 20px; font-size: 12px; font-weight: 500; color: var(--text-primary); cursor: pointer;
   transition: all 0.2s;
 }
-.close-btn:hover { background: #f5f5f7; }
+.close-btn:hover { background: var(--bg-sub); }
 
 /* 🌟 核心改进 1：撑满中间，且强制其内部 canvas 容器占据 100% 物理尺寸 */
 .graph-canvas-wrapper {
   flex: 1;
   width: 100%;
   position: relative;
-  background: #fafafa;
+  background: var(--bg-main);
 }
 
 .graph-canvas {
@@ -265,21 +265,21 @@ watch(() => currentSpaceId.value, (newVal, oldVal) => {
 }
 
 .graph-loading-overlay {
-  position: absolute; inset: 0; background: rgba(255,255,255,0.85);
+  position: absolute; inset: 0; background: var(--paper-card);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
 }
 
 .spirit-spinner {
-  width: 32px; height: 32px; border: 3px solid #f2f2f7; border-top-color: #0066cc;
+  width: 32px; height: 32px; border: 3px solid var(--border-line); border-top-color: var(--accent-color);
   border-radius: 50%; animation: spin 1s linear infinite;
 }
 
 .node-hover-card {
-  position: fixed; background: white; border: 1px solid #f0f0f5; padding: 10px 14px;
+  position: fixed; background: var(--paper-card); border: 1px solid var(--border-line); padding: 10px 14px;
   border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); pointer-events: none; z-index: 9999;
 }
 
-.hover-title { font-size: 13px; font-weight: 600; color: #1d1d1f; margin-bottom: 2px; }
-.hover-tag { font-size: 11px; color: #86868b; }
+.hover-title { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+.hover-tag { font-size: 11px; color: var(--text-secondary); }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>

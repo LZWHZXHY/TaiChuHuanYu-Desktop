@@ -1,9 +1,9 @@
 <!-- src/views/柴圈板块/World/index.vue -->
 <template>
-  <div class="world-index">
+  <div class="world-index" :class="{ 'detail-mode': !isListPage }">
     <div class="container">
       <!-- ===== 侧边栏（纯文字，无线条装饰） ===== -->
-      <aside class="sidebar">
+      <aside v-if="isListPage" class="sidebar">
         <div class="logo">世界观</div>
         <nav class="nav">
           <a
@@ -33,7 +33,7 @@
       <!-- ===== 主内容 ===== -->
       <main class="main">
         <!-- 顶部栏 -->
-        <header class="header">
+        <header v-if="isListPage" class="header">
           <div>
             <h1>{{ pageTitle }}</h1>
             <p>{{ pageSubtitle }}</p>
@@ -44,7 +44,7 @@
         </header>
 
         <!-- 统计 -->
-        <div v-if="activeMenu === 'projects'" class="stats-line">
+        <div v-if="isListPage && activeMenu === 'projects'" class="stats-line">
           <span>共 <strong>{{ store.projects.length }}</strong> 个项目</span>
           <span class="sep">·</span>
           <span>{{ store.projects.filter(p => p.isPublic).length }} 公开</span>
@@ -103,7 +103,7 @@ const route = useRoute();
 const store = useWorldStore();
 
 const activeMenu = ref('projects');
-const loading = ref(false);
+const loading = computed(() => activeMenu.value === 'projects' ? store.loadingProjects : store.loadingPublicProjects);
 
 const isListPage = computed(() => route.path === '/world' || route.path === '/world/');
 
@@ -137,12 +137,11 @@ const switchMenu = (menu: string) => {
 };
 
 const loadData = async () => {
-  loading.value = true;
   try {
     if (activeMenu.value === 'projects') await store.fetchProjects();
     else await store.fetchPublicProjects();
-  } finally {
-    loading.value = false;
+  } catch (error) {
+    console.error('加载世界观项目失败:', error);
   }
 };
 
@@ -160,10 +159,10 @@ onMounted(loadData);
 * { box-sizing: border-box; }
 
 .world-index {
-  min-height: 100vh;
-  background: #fafbfc;
+  min-height: 0;
+  background: var(--paper-card);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-  color: #1e293b;
+  color: var(--text-primary);
   padding: 32px 40px;
 }
 
@@ -186,10 +185,10 @@ onMounted(loadData);
 .logo {
   font-size: 18px;
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-primary);
   letter-spacing: -0.3px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #eef2f6;
+  border-bottom: 1px solid var(--border-line);
   margin-bottom: 16px;
 }
 
@@ -203,7 +202,7 @@ onMounted(loadData);
   justify-content: space-between;
   padding: 6px 8px;
   border-radius: 6px;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 14px;
   font-weight: 450;
   cursor: pointer;
@@ -211,24 +210,24 @@ onMounted(loadData);
   text-decoration: none;
 }
 .nav-item:hover {
-  background: #f1f5f9;
-  color: #0f172a;
+  background: var(--bg-sub);
+  color: var(--text-primary);
 }
 .nav-item.active {
-  background: #eef2ff;
-  color: #4f46e5;
+  background: var(--accent-soft);
+  color: var(--accent-color);
 }
 .nav-item .count {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 .nav-item.active .count {
-  color: #4f46e5;
+  color: var(--accent-color);
 }
 
 .divider {
   height: 1px;
-  background: #eef2f6;
+  background: var(--bg-sub);
   margin: 16px 0;
 }
 
@@ -236,14 +235,14 @@ onMounted(loadData);
   display: flex;
   gap: 8px;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   padding: 0 8px;
 }
 .meta-label {
-  color: #c0c4cc;
+  color: var(--text-secondary);
 }
 .meta-value {
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 /* ===== 主内容 ===== */
@@ -262,12 +261,12 @@ onMounted(loadData);
   font-size: 24px;
   font-weight: 600;
   margin: 0;
-  color: #0f172a;
+  color: var(--text-primary);
   letter-spacing: -0.3px;
 }
 .header p {
   margin: 2px 0 0;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
@@ -275,8 +274,8 @@ onMounted(loadData);
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #0f172a;
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--on-accent);
   border: none;
   padding: 6px 16px;
   border-radius: 8px;
@@ -286,7 +285,7 @@ onMounted(loadData);
   transition: background 0.2s;
 }
 .btn-primary:hover {
-  background: #1e293b;
+  background: var(--text-primary);
 }
 .btn-primary span {
   font-size: 18px;
@@ -295,8 +294,8 @@ onMounted(loadData);
 
 .btn-outline {
   background: transparent;
-  border: 1px solid #e2e8f0;
-  color: #475569;
+  border: 1px solid var(--border-line);
+  color: var(--text-secondary);
   padding: 6px 16px;
   border-radius: 8px;
   font-size: 13px;
@@ -304,32 +303,32 @@ onMounted(loadData);
   transition: 0.2s;
 }
 .btn-outline:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+  background: var(--bg-sub);
+  border-color: var(--border-line);
 }
 
 /* ===== 统计行 ===== */
 .stats-line {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #eef2f6;
+  border-bottom: 1px solid var(--border-line);
 }
 .stats-line strong {
   font-weight: 600;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 .stats-line .sep {
-  color: #e2e8f0;
+  color: var(--text-secondary);
   margin: 0 8px;
 }
 
 /* ===== 表格 ===== */
 .table-wrap {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 12px;
-  border: 1px solid #eef2f6;
+  border: 1px solid var(--border-line);
   overflow: hidden;
 }
 
@@ -340,11 +339,11 @@ onMounted(loadData);
   display: grid;
   grid-template-columns: 3fr 1fr 80px 120px;
   padding: 8px 16px;
-  background: #f8fafc;
+  background: var(--bg-main);
   font-size: 12px;
   font-weight: 500;
-  color: #94a3b8;
-  border-bottom: 1px solid #eef2f6;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-line);
   letter-spacing: 0.3px;
   text-transform: uppercase;
 }
@@ -354,13 +353,13 @@ onMounted(loadData);
   grid-template-columns: 3fr 1fr 80px 120px;
   padding: 10px 16px;
   font-size: 14px;
-  color: #1e293b;
+  color: var(--text-primary);
   cursor: pointer;
-  border-bottom: 1px solid #f4f6f8;
+  border-bottom: 1px solid var(--border-line);
   transition: background 0.1s;
 }
 .table-row:hover {
-  background: #fafbfc;
+  background: var(--paper-card);
 }
 .table-row:last-child {
   border-bottom: none;
@@ -377,7 +376,7 @@ onMounted(loadData);
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 .col-status .dot {
   width: 6px;
@@ -386,25 +385,25 @@ onMounted(loadData);
   flex-shrink: 0;
 }
 .dot.public {
-  background: #22c55e;
+  background: var(--success);
 }
 .dot.private {
-  background: #94a3b8;
+  background: var(--text-secondary);
 }
 .col-entries {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 .col-time {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 /* ===== 空状态 ===== */
 .empty-state {
   padding: 48px 20px;
   text-align: center;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 .empty-state p {
   font-size: 15px;
@@ -423,7 +422,7 @@ onMounted(loadData);
     align-items: center;
     flex-wrap: wrap;
     gap: 12px;
-    border-bottom: 1px solid #eef2f6;
+    border-bottom: 1px solid var(--border-line);
     padding-bottom: 12px;
   }
   .logo { border: none; padding: 0; margin: 0; }
@@ -436,4 +435,6 @@ onMounted(loadData);
   }
   .col-time { display: none; }
 }
+.world-index.detail-mode { padding: 0; background: transparent; }
+.detail-mode .container { display: block; }
 </style>

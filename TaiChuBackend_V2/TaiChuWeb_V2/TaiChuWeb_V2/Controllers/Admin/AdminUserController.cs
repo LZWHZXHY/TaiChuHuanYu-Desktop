@@ -158,6 +158,9 @@ namespace TaiChuWeb_V2.Controllers.Admin
             }
 
             stats.Reputation = payload.Reputation;
+            var experienceChange = payload.Experience - stats.Experience;
+            if (experienceChange < int.MinValue || experienceChange > int.MaxValue) return BadRequest(new { message = "单次经验调整超出流水支持范围" });
+            if (experienceChange != 0) _context.UserExpLogs.Add(new UserExpLog { UserId = userId, Change = (int)experienceChange, Reason = "管理员调整经验" });
             stats.Experience = payload.Experience;
             stats.MaxSpaces = payload.MaxSpaces;
             stats.MaxNotes = payload.MaxNotes;

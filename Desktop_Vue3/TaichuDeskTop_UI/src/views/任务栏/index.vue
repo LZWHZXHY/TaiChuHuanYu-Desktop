@@ -1,291 +1,239 @@
-<template>
-  <div class="workspace-container">
-    <div class="workspace-wrapper">
-      
-      <header class="workspace-header">
-        <span class="category-tag">Workspace</span>
-        <div class="header-main">
-          <h1 class="page-title">任务看板</h1>
-          <span class="task-count">{{ tasks.length }} 个可用项目</span>
-        </div>
-      </header>
-
-      <main class="task-list">
-        <section 
-          v-for="task in tasks" 
-          :key="task.id" 
-          class="task-item"
-        >
-          <div class="task-item-inner">
-            
-            <div class="task-content">
-              <div class="task-title-row">
-                <span :class="['status-dot', task.status]"></span>
-                <h2 class="task-title">{{ task.title }}</h2>
-              </div>
-              <p class="task-description">{{ task.description }}</p>
-            </div>
-
-            <div class="task-action">
-              <button 
-                v-if="task.status === 'available'" 
-                @click="acceptTask(task.id)"
-                class="btn-action btn-accept"
-              >
-                接取
-              </button>
-              
-              <button 
-                v-if="task.status === 'ongoing'" 
-                @click="submitTask(task.id)"
-                class="btn-action btn-submit"
-              >
-                提交 &rarr;
-              </button>
-              
-              <span 
-                v-if="task.status === 'completed'" 
-                class="status-archived"
-              >
-                已归档
-              </span>
-            </div>
-
-          </div>
-        </section>
-      </main>
-
-      <footer class="workspace-footer">
-        Focus on the essential.
-      </footer>
-
-    </div>
-  </div>
-</template>
-
-<script setup>
-import { ref } from 'vue'
-
-const tasks = ref([
-  {
-    id: 1,
-    title: '构建核心数据模型架构',
-    description: '重构当前冗余的 schema 结构，优化流式数据解析器的吞吐性能，预期降低 15% 的内存占用。',
-    status: 'available'
-  },
-  {
-    id: 2,
-    title: '校对并提炼品牌视觉指南',
-    description: '移除多余的辅助色调，确立以字形和间距为主导的排版层级，输出极简 Markdown 文档。',
-    status: 'ongoing'
-  },
-  {
-    id: 3,
-    title: '移除全局冗余动画组件',
-    description: '清理过度的 CSS 过渡效果，恢复纯粹的即时状态切换，提升低端设备的响应速度。',
-    status: 'completed'
-  }
-])
-
-const acceptTask = (id) => {
-  const task = tasks.value.find(t => t.id === id)
-  if (task) task.status = 'ongoing'
+<script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
+import request from '@/utils/request'
+import { useUserStore } from '@/stores/user'
+interface Project { id: string; name: string }
+interface Task {
+  id: string
+  title: string
+  description?: string
+  categoryName: string
+  assigneeId?: string
+  dueDate?: string
 }
-
-const submitTask = (id) => {
-  const task = tasks.value.find(t => t.id === id)
-  if (task) task.status = 'completed'
+const user = useUserStore()
+const projects = ref<Project[]>([])
+const projectId = ref('')
+const tasks = ref<Task[]>([])
+const loading = ref(false)
+const error = ref('')
+const search = ref('')
+const mine = ref(false)
+let requestVersion = 0
+const filtered = computed(() => {
+  const keyword = search.value.trim().toLowerCase()
+  const userId = user.userId?.toLowerCase()
+  return tasks.value.filter(task =>
+    (!mine.value || (userId && task.assigneeId?.toLowerCase() === userId)) &&
+    `${task.title} ${task.description || ''}`.toLowerCase().includes(keyword),
+  )
+})
+async function loadProjects() {
+  loading.value = true
+  error.value = ''
+  try {
+    projects.value = await request.get<Project[]>('/Project/my')
+    projectId.value = projects.value.some(p => p.id === projectId.value) ? projectId.value : projects.value[0]?.id || ''
+    await loadTasks()
+  } catch { error.value = '项目读取失败，请重试。' }
+  finally { loading.value = false }
 }
+async function loadTasks() {
+  const version = ++requestVersion
+  tasks.value = []
+  error.value = ''
+  if (!projectId.value) return
+  loading.value = true
+  try {
+    const data = await request.get<Task[]>(`/project/${projectId.value}/tasks`)
+    if (version === requestVersion) tasks.value = data
+  } catch { if (version === requestVersion) error.value = '任务读取失败，请重试。' }
+  finally { if (version === requestVersion) loading.value = false }
+}
+onMounted(loadProjects)
+const samples = ref([{ title: '了解任务接取流程', status: 0 }, { title: '整理自己的创作计划', status: 1 }, { title: '回顾已完成的工作', status: 2 }])
 </script>
-
+<template>
+  <article class="content-page task-workspace">
+    <header class="content-header">
+      <div>
+        <span class="eyebrow">协作与进度</span>
+        <h1>任务栏</h1>
+        <p>查看参与项目的任务，进入看板继续处理。</p>
+      </div>
+      <div class="content-actions">
+        <RouterLink to="/Project" class="primary">进入协作大厅</RouterLink>
+        <button @click="loadProjects" :disabled="loading">刷新</button>
+      </div>
+    </header>
+    <section class="task-toolbar" aria-label="任务筛选">
+      <label>所属项目<select v-model="projectId" @change="loadTasks" :disabled="loading || !projects.length">
+          <option v-if="!projects.length" value="">暂无项目</option>
+          <option v-for="project in projects" :key="project.id" :value="project.id">{{ project.name }}</option>
+        </select>
+      </label>
+      <label>查找任务<input v-model="search" type="search" placeholder="搜索标题或描述" />
+      </label>
+      <label class="mine-filter">
+        <input type="checkbox" v-model="mine" /> 只看分配给我的</label>
+    </section>
+    <div v-if="loading" class="task-state" role="status">正在读取任务…</div>
+    <div v-else-if="error" class="task-state" role="alert">{{ error }} <button class="btn-line" @click="projects.length ? loadTasks() : loadProjects()">重试</button>
+    </div>
+    <template v-else>
+      <div class="task-summary">
+        <h2>{{ mine ? '分配给我的' : '项目任务' }}</h2>
+        <span>{{ filtered.length }} 项</span>
+      </div>
+      <div class="task-grid">
+        <RouterLink v-for="task in filtered" :key="task.id" :to="`/Project/project/${projectId}`" class="task-card">
+          <span class="task-category">{{ task.categoryName || '未分类' }}</span>
+          <h3>{{ task.title }}</h3>
+          <p>{{ task.description || '暂无描述，进入项目查看任务详情。' }}</p>
+          <footer>
+            <span>{{ task.dueDate ? `截止 ${new Date(task.dueDate).toLocaleDateString()}` : '未设置截止日期' }}</span>
+            <span>进入看板 →</span>
+          </footer>
+        </RouterLink>
+      </div>
+      <div v-if="!filtered.length" class="task-state">
+        <h3>{{ projects.length ? '当前没有匹配的任务' : '还没有参与的项目' }}</h3>
+        <p>{{ projects.length ? '调整筛选条件，或进入项目看板创建任务。' : '先创建或加入协作项目，任务就会出现在这里。' }}</p>
+        <RouterLink :to="projectId ? `/Project/project/${projectId}` : '/Project'">{{ projectId ? '打开项目看板' : '浏览协作项目' }} →</RouterLink>
+      </div>
+    </template>
+    <details class="task-demo">
+      <summary>操作示例 <small>仅演示，不保存到项目</small>
+      </summary>
+      <div v-for="sample in samples" :key="sample.title" class="sample-row">
+        <span>{{ sample.title }}</span>
+        <button class="btn-line" v-if="sample.status < 2" @click="sample.status++">{{ sample.status === 0 ? '接取示例' : '提交示例' }}</button>
+      <span v-else>已归档</span>
+    </div>
+  </details>
+</article>
+</template>
 <style scoped>
-/* ==========================================================================
-   1. 设计系统变量 (Design Tokens)
-   ========================================================================== */
-:theme {
-  --bg-color: #fafafa;
-  --text-main: #1a1a1a;
-  --text-muted: #8c8c8c;
-  --text-light: #b3b3b3;
-  --border-color: #f0f0f0;
-  
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-}
-
-/* ==========================================================================
-   2. 页面基础布局
-   ========================================================================== */
-.workspace-container {
-  min-height: 100vh;
-  background-color: var(--bg-color);
-  color: var(--text-main);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  padding: 80px 32px;
-}
-
-.workspace-wrapper {
-  max-width: 540px;
-  margin: 0 auto;
-}
-
-/* ==========================================================================
-   3. 头部排版
-   ========================================================================== */
-.workspace-header {
-  margin-bottom: 64px;
-}
-
-.category-tag {
-  display: block;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.15em;
-  color: var(--text-light);
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-
-.header-main {
+.task-toolbar {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 16px;
+  padding: 20px;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
+  border-radius: var(--radius-md);
 }
-
-.page-title {
-  font-size: 24px;
-  font-weight: 300;
-  letter-spacing: -0.02em;
-  margin: 0;
+.task-toolbar label {
+  display: grid;
+  gap: 8px;
+  flex: 1 1 220px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  min-width: 0;
 }
-
-.task-count {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
+.task-toolbar input, .task-toolbar select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-line);
+  border-radius: 8px;
+  background: var(--bg-main);
+  color: var(--text-primary);
+  min-width: 0;
 }
-
-/* ==========================================================================
-   4. 任务列表与条目
-   ========================================================================== */
-.task-list {
+.task-toolbar .mine-filter {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  flex: 0 1 auto;
+  padding: 10px 0;
 }
-
-.task-item {
-  position: relative;
-  padding: 12px 0 32px 0;
-  border-bottom: 1px solid var(--border-color);
+.mine-filter input {
+  width: auto;
+  accent-color: var(--accent-color);
 }
-
-.task-item:last-child {
-  border-bottom: none;
-}
-
-.task-item-inner {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 24px;
-}
-
-.task-content {
-  flex: 1;
-}
-
-/* 状态圆点与标题 */
-.task-title-row {
+.task-summary {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 8px;
+  margin: 24px 0 16px;
 }
-
-.status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.status-dot.available { background-color: var(--text-light); }
-.status-dot.ongoing { background-color: var(--text-main); }
-.status-dot.completed { background-color: transparent; border: 1px solid var(--text-light); }
-
-.task-title {
-  font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+.task-summary h2 {
+  font-size: 20px;
   margin: 0;
-  color: #262626;
 }
-
-.task-description {
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--text-muted);
-  max-width: 420px;
-  margin: 0;
-  padding-left: 18px; /* 与圆点对齐留出空间 */
+.task-summary span, .task-card p, .task-card footer {
+  color: var(--text-secondary);
 }
-
-/* ==========================================================================
-   5. 互动按钮与状态
-   ========================================================================== */
-.task-action {
+.task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(min(100%,300px),1fr));
+  gap: 16px;
+}
+.task-card {
   display: flex;
-  align-items: center;
-  padding-top: 2px;
+  flex-direction: column;
+  padding: 24px;
+  border: 1px solid var(--border-line);
+  border-radius: var(--radius-md);
+  background: var(--paper-card);
+  color: var(--text-primary);
+  text-decoration: none;
+  min-width: 0;
 }
-
-.btn-action {
-  background: none;
-  border: none;
-  padding: 4px 8px;
-  margin-right: -8px;
-  font-family: inherit;
+.task-card:hover {
+  border-color: var(--accent-color);
+}
+.task-category {
+  align-self: start;
+  background: var(--accent-soft);
+  color: var(--accent-color);
+  padding: 3px 8px;
+  border-radius: 6px;
   font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
 }
-
-.btn-accept {
-  color: var(--text-muted);
+.task-card h3 {
+  margin: 16px 0 8px;
+  overflow-wrap: anywhere;
 }
-
-.btn-accept:hover {
-  color: var(--text-main);
+.task-card p {
+  flex: 1;
+  font-size: 14px;
+  overflow-wrap: anywhere;
 }
-
-.btn-submit {
-  color: var(--text-main);
-  font-weight: 400;
-}
-
-.btn-submit:hover {
-  letter-spacing: 0.05em; /* 极其微妙的延伸动效 */
-}
-
-.status-archived {
+.task-card footer {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--border-line);
+  padding-top: 16px;
   font-size: 12px;
-  color: #d9d9d9;
-  user-select: none;
-  cursor: not-allowed;
 }
-
-/* ==========================================================================
-   6. 页脚
-   ========================================================================== */
-.workspace-footer {
-  margin-top: 120px;
-  padding-top: 32px;
-  border-t: 1px solid var(--border-color);
-  font-size: 10px;
-  letter-spacing: 0.2em;
-  color: #d4d4d4;
-  text-transform: uppercase;
+.task-state {
   text-align: center;
+  padding: 48px 20px;
+  color: var(--text-secondary);
+}
+.task-state a {
+  color: var(--accent-color);
+}
+.task-demo {
+  border-top: 1px solid var(--border-line);
+  padding-top: 20px;
+  margin-top: 32px;
+  color: var(--text-secondary);
+}
+.task-demo summary {
+  cursor: pointer;
+}
+.task-demo small {
+  margin-left: 12px;
+}
+.sample-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  gap: 12px;
 }
 </style>

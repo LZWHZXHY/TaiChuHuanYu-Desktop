@@ -118,7 +118,7 @@ import type { Game, CreateGameDto, UpdateGameDto } from '../game_types.ts'
 import TestGame from '../games/Question/components/TestGame.vue'
 import { TradeApi } from '@/api/trade'  // 根据实际路径调整
 
-const userExp = ref<number>(0) 
+const userExp = ref<number>(0)
 const createCost = ref<number>(50)
 
 // ===== 类型定义 =====
@@ -212,7 +212,7 @@ const editGame = async (id: number) => {
 
     // 调用详情接口获取完整数据（包含 questionnaire、questions、options、results）
     const fullGame = await getGame(id)
-    
+
     if (!fullGame.questionnaire) {
       alert('游戏数据不完整，无法编辑')
       return
@@ -372,7 +372,7 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  border-bottom: 1px solid var(--line-raw, #D5CEC5);
+  border-bottom: 1px solid var(--line-raw, var(--border-line));
   padding-bottom: 18px;
   margin-bottom: 32px;
   flex-wrap: wrap;
@@ -382,12 +382,12 @@ onMounted(() => {
   font-size: 26px;
   font-weight: 400;
   letter-spacing: 0.2em;
-  color: var(--ink-black, #2A2826);
+  color: var(--ink-black, var(--text-primary));
   margin: 0 0 4px;
 }
 .header-left p {
   font-size: 14px;
-  color: var(--ink-gray, #7A7570);
+  color: var(--ink-gray, var(--text-secondary));
   letter-spacing: 0.1em;
   margin: 0;
 }
@@ -407,15 +407,15 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 6px 16px;
-  border: 1px solid var(--line-raw, #D5CEC5);
+  border: 1px solid var(--line-raw, var(--border-line));
   border-radius: 30px;
-  background: var(--paper-card, #FCFAF7);
+  background: var(--paper-card, var(--bg-main));
   font-size: 14px;
   white-space: nowrap;
   transition: border-color 0.3s, background 0.3s;
 }
 .exp-display:hover {
-  border-color: var(--cinnabar, #9E2A2B);
+  border-color: var(--cinnabar, var(--danger));
 }
 .exp-icon {
   font-size: 18px;
@@ -423,30 +423,30 @@ onMounted(() => {
 }
 .exp-value {
   font-weight: 600;
-  color: var(--cinnabar, #9E2A2B);
+  color: var(--cinnabar, var(--danger));
   font-variant-numeric: tabular-nums;
 }
 .exp-label {
-  color: var(--ink-gray, #7A7570);
+  color: var(--ink-gray, var(--text-secondary));
   font-size: 13px;
   margin-left: 2px;
 }
 .exp-cost {
-  color: var(--ink-gray, #7A7570);
+  color: var(--ink-gray, var(--text-secondary));
   font-size: 13px;
   margin-left: 4px;
   padding-left: 8px;
-  border-left: 1px solid var(--line-raw, #D5CEC5);
+  border-left: 1px solid var(--line-raw, var(--border-line));
 }
 .exp-cost strong {
-  color: #b03a3a;
+  color: var(--danger);
   font-weight: 600;
 }
 
 /* ===== 创建按钮 ===== */
 .btn-create {
-  background: var(--cinnabar, #9E2A2B);
-  color: #fff;
+  background: var(--cinnabar, var(--danger));
+  color: var(--on-accent);
   border: none;
   padding: 8px 28px;
   font-family: inherit;
@@ -458,7 +458,7 @@ onMounted(() => {
   border-radius: 30px;
 }
 .btn-create:hover {
-  background: #7a2222;
+  background: var(--danger);
 }
 .btn-create:active {
   transform: scale(0.97);
@@ -509,9 +509,9 @@ onMounted(() => {
   gap: 24px;
 }
 .game-card {
-  border: 1px solid var(--line-raw, #D5CEC5);
+  border: 1px solid var(--line-raw, var(--border-line));
   padding: 18px 16px 16px;
-  background: var(--paper-card, #FCFAF7);
+  background: var(--paper-card, var(--bg-main));
   transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s;
   display: flex;
   flex-direction: column;
@@ -542,12 +542,12 @@ onMounted(() => {
   line-height: 20px;
 }
 .status-published {
-  border-color: #2b7a4b;
-  color: #2b7a4b;
+  border-color: var(--success);
+  color: var(--success);
 }
 .status-draft {
-  border-color: #b0a090;
-  color: #b0a090;
+  border-color: var(--border-line);
+  color: var(--text-secondary);
 }
 .game-title {
   font-size: 18px;
@@ -580,7 +580,7 @@ onMounted(() => {
 }
 .btn-line {
   background: none;
-  border: 1px solid var(--line-raw, #D5CEC5);
+  border: 1px solid var(--line-raw, var(--border-line));
   color: var(--ink-black);
   padding: 4px 12px;
   font-family: inherit;
@@ -598,24 +598,24 @@ onMounted(() => {
   color: var(--cinnabar);
 }
 .btn-edit:hover {
-  border-color: #5a6a7a;
-  color: #5a6a7a;
+  border-color: var(--border-line);
+  color: var(--text-secondary);
 }
 .btn-delete:hover {
-  border-color: #b03a3a;
-  color: #b03a3a;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 .btn-play:hover {
-  border-color: #2b7a4b;
-  color: #2b7a4b;
+  border-color: var(--success);
+  color: var(--success);
 }
 .btn-publish {
-  border-color: #2b7a4b;
-  color: #2b7a4b;
+  border-color: var(--success);
+  color: var(--success);
 }
 .btn-publish:hover {
-  background: #2b7a4b;
-  color: #fff;
+  background: var(--success);
+  color: var(--on-accent);
 }
 
 /* ===== 选择类型视图 ===== */
@@ -710,7 +710,7 @@ onMounted(() => {
   top: 8px;
   right: 8px;
   background: var(--cinnabar);
-  color: #fff;
+  color: var(--text-primary);
   font-size: 10px;
   padding: 0 8px;
   border-radius: 10px;
@@ -723,7 +723,7 @@ onMounted(() => {
   position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--overlay);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -731,7 +731,7 @@ onMounted(() => {
   backdrop-filter: blur(2px);
 }
 .modal-content {
-  background: var(--paper-bg, #F7F4EE);
+  background: var(--paper-bg, var(--bg-sub));
   border: 1px solid var(--line-raw);
   max-width: 800px;
   width: 92%;

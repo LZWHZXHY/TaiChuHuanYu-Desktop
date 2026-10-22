@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -257,18 +257,36 @@ namespace TaiChuWeb_V2.Controllers.Projects
             return Ok("项目已从灵脉中抹除");
         }
 
+        // 项目内的只读文档入口，不扩大个人笔记编辑接口的访问范围。
+        [HttpGet("{projectId}/documents/{noteId:guid}")]
+        public async Task<IActionResult> GetProjectDocument(string projectId, Guid noteId)
+        {
+            if (!await IsMember(projectId)) return Forbid();
+            var id = noteId.ToString();
+            if (!await _context.ProjectDocuments.AnyAsync(d => d.ProjectId == projectId && d.NoteId == id))
+                return NotFound(new { message = "文档未分享至此项目或已取消分享" });
+            var note = await _context.Notes.AsNoTracking().FirstOrDefaultAsync(n => n.Id == noteId && n.Status != 2);
+            if (note == null) return NotFound(new { message = "文档不存在或已删除" });
+            var blocks = await _context.Blocks.AsNoTracking()
+                .Where(b => b.OwnerId == id && b.OwnerType == note.Type)
+                .OrderBy(b => b.SortOrder)
+                .Select(b => new { id = b.Id, type = b.Type, data = b.Data, sortOrder = b.SortOrder })
+                .ToListAsync();
+            return Ok(new { id = note.Id, title = note.Title, type = note.Type, blocks });
+        }
+
         [HttpGet("{projectId}/documents")]
         public async Task<IActionResult> GetProjectDocuments(string projectId)
         {
             if (!await IsMember(projectId))
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new { message = "您尚未加入该协作位面，无法窥探项目长卷" });
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "您尚未加入该项目，无法阅读项目文档" });
             }
 
             var documents = await _context.ProjectDocuments
                 .Where(pd => pd.ProjectId == projectId)
                 .Join(
-                    _context.Notes,
+                    _context.Notes.Where(n => n.Status != 2),
                     pd => pd.NoteId,
                     n => n.Id.ToString(),
                     (pd, n) => new { pd, n }
@@ -283,7 +301,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 .Select(x => new
                 {
                     id = x.n.Id,
-                    title = string.IsNullOrWhiteSpace(x.n.Title) ? "未命名项目长卷" : x.n.Title,
+                    title = string.IsNullOrWhiteSpace(x.n.Title) ? "未命名项目文档" : x.n.Title,
                     type = x.n.Type,
                     pinnedAt = x.pd.PinnedAt,
                     pinnedByUserName = x.PinnedByUserName

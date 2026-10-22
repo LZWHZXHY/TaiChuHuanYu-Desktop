@@ -132,8 +132,8 @@ onMounted(() => {
 <style scoped>
 .manual-viewer-panel {
   display: flex;
-  background: #fff;
-  border: 1px solid #f0f0f0;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   border-radius: 12px;
   overflow: hidden;
   min-height: 480px;
@@ -145,8 +145,8 @@ onMounted(() => {
 .viewer-sidebar {
   width: 200px;
   flex-shrink: 0;
-  background: #fafbfc;
-  border-right: 1px solid #eaeef2;
+  background: var(--paper-card);
+  border-right: 1px solid var(--border-line);
   padding: 16px 12px;
   overflow-y: auto;
 }
@@ -155,7 +155,7 @@ onMounted(() => {
 .cat-title {
   font-size: 0.75rem;
   font-weight: 700;
-  color: #8c959f;
+  color: var(--text-secondary);
   text-transform: uppercase;
   padding: 0 8px;
   display: block;
@@ -167,17 +167,17 @@ onMounted(() => {
   padding: 8px 10px;
   border-radius: 6px;
   font-size: 0.85rem;
-  color: #57606a;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.article-item:hover { background: #f3f4f6; color: #24292f; }
+.article-item:hover { background: var(--bg-sub); color: var(--text-primary); }
 .article-item.active {
-  background: #24292f;
-  color: #fff;
+  background: var(--text-primary);
+  color: var(--paper-card);
   font-weight: 600;
 }
 
@@ -189,7 +189,7 @@ onMounted(() => {
 }
 
 .doc-header {
-  border-bottom: 1px solid #eaeef2;
+  border-bottom: 1px solid var(--border-line);
   padding-bottom: 12px;
   margin-bottom: 20px;
 }
@@ -197,19 +197,19 @@ onMounted(() => {
   font-size: 1.4rem;
   font-weight: 700;
   margin: 0 0 6px;
-  color: #24292f;
+  color: var(--text-primary);
 }
-.doc-time { font-size: 0.75rem; color: #8c959f; }
+.doc-time { font-size: 0.75rem; color: var(--text-secondary); }
 
 .doc-body {
   font-size: 0.95rem;
   line-height: 1.7;
-  color: #333;
+  color: var(--text-primary);
 }
-:deep(.doc-body h1) { font-size: 1.3rem; margin: 20px 0 10px; border-bottom: 1px dashed #eaeef2; padding-bottom: 6px; }
+:deep(.doc-body h1) { font-size: 1.3rem; margin: 20px 0 10px; border-bottom: 1px dashed var(--border-line); padding-bottom: 6px; }
 :deep(.doc-body h2) { font-size: 1.15rem; margin: 16px 0 8px; }
 :deep(.doc-body h3) { font-size: 1rem; margin: 12px 0 6px; }
-:deep(.doc-body a) { color: #0969da; text-decoration: underline; }
+:deep(.doc-body a) { color: var(--accent-color); text-decoration: underline; }
 :deep(.manual-img) {
   max-width: 100%;
   border-radius: 8px;
@@ -219,7 +219,7 @@ onMounted(() => {
 }
 
 .loading-hint, .empty-hint, .empty-state, .loading-state {
-  color: #8c959f;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   text-align: center;
   padding: 40px 10px;
@@ -232,6 +232,6 @@ onMounted(() => {
 
 @media (max-width: 768px) {
   .manual-viewer-panel { flex-direction: column; max-height: none; }
-  .viewer-sidebar { width: 100%; border-right: none; border-bottom: 1px solid #eaeef2; }
+  .viewer-sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border-line); }
 }
 </style>

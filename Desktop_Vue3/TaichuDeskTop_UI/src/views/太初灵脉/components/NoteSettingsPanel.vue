@@ -41,9 +41,9 @@
               </label>
             </div>
             <div class="toggle-row">
-              <span>允许反向引用 (公开状态)</span>
+              <span>发布状态（通过下方按钮操作）</span>
               <label class="spirit-switch">
-                <input type="checkbox" :checked="note.isPublic" @change="updateNoteField('isPublic', ($event.target as HTMLInputElement).checked)" />
+                <input type="checkbox" :checked="note.isPublic" disabled />
                 <span class="slider"></span>
               </label>
             </div>
@@ -79,9 +79,11 @@
         <button 
           class="publish-btn" 
           :class="{ 'is-active': note?.isPublic }"
-          :disabled="!props.canPublish"
+          :disabled="publishing || (!note?.isPublic && !canPublish)"
           @click="$emit('publish-click')"
-        >{{ note?.isPublic ? '取消发布' : '发布至广场' }}</button>
+        >{{ note?.type === 'doc' ? '分享至项目' : note?.isPublic ? '取消发布' : '发布至广场' }}</button>
+        <button v-if="note?.type === 'doc'" class="publish-btn" :disabled="publishing" @click="$emit('unshare')">取消所有项目分享</button>
+        <button v-if="note?.type !== 'doc' && note?.isPublic && canPublish" class="publish-btn" :disabled="publishing" @click="$emit('refresh-publish')">更新发布</button>
         <button class="save-btn" @click="$emit('save')">同步至灵脉</button>
       </div>
     </div>
@@ -97,16 +99,18 @@ const props = defineProps<{
   spaces: any[];
   currentSpaceId: string;
   filters: any; 
+  publishing?: boolean;
   canPublish: boolean; // 接收从 index.vue 传来的多态流字数与类型校验结果
 }>();
 
-const emit = defineEmits(['update:modelValue', 'update-note-meta', 'update-space-meta', 'update-filters', 'delete', 'open-history', 'publish-click', 'save']);
+const emit = defineEmits(['update:modelValue', 'update-note-meta', 'update-space-meta', 'update-filters', 'delete', 'open-history', 'publish-click', 'unshare', 'refresh-publish', 'save']);
 
 const activeTab = ref<'fragment' | 'space'>('fragment');
 
 // 🌟【形态数据对齐】：移除过时的 thought，无缝补齐随笔(blog)、白板(canvas)、地图(map)、表格(excel)
 const availableTypes = [
   { value: 'note', label: '笔记 (Note)' },
+  { value: 'doc', label: '项目文档 (Doc)' },
   { value: 'blog', label: '随笔 (Blog)' },
   { value: 'schedule', label: '计划表 (schedule)'},
   { value: 'post', label: '简语 (Post)' }, 
@@ -148,45 +152,45 @@ const updateSpaceField = (field: string, val: any) => emit('update-space-meta', 
 <style scoped>
 .note-settings-drawer {
   position: fixed; top: 0; right: 0; bottom: 0; width: 320px;
-  background: #ffffff; z-index: 3000; padding: 40px 24px;
+  background: var(--paper-card); z-index: 3000; padding: 40px 24px;
   box-shadow: -10px 0 40px rgba(0,0,0,0.05); display: flex; flex-direction: column;
 }
 .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
 .tab-switcher { display: flex; gap: 20px; }
-.tab-switcher button { border: none; background: none; font-size: 14px; color: #a1a1a6; cursor: pointer; padding: 0; transition: color 0.2s; }
-.tab-switcher button.active { color: #1d1d1f; font-weight: 700; }
+.tab-switcher button { border: none; background: none; font-size: 14px; color: var(--text-secondary); cursor: pointer; padding: 0; transition: color 0.2s; }
+.tab-switcher button.active { color: var(--text-primary); font-weight: 700; }
 .drawer-content { flex: 1; overflow-y: auto; padding-right: 4px; }
 .settings-section { margin-bottom: 32px; }
-.section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #a1a1a6; margin-bottom: 20px; }
+.section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-secondary); margin-bottom: 20px; }
 .field-group { margin-bottom: 24px; }
-.field-group label { font-size: 12px; color: #6e6e73; margin-bottom: 8px; display: block; }
-select, .spirit-input { width: 100%; border: 1px solid #f2f2f2; padding: 8px 12px; border-radius: 6px; outline: none; transition: 0.2s; font-size: 13px; }
-select:focus, .spirit-input:focus { border-color: #0066cc; }
+.field-group label { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; display: block; }
+select, .spirit-input { width: 100%; border: 1px solid var(--border-line); padding: 8px 12px; border-radius: 6px; outline: none; transition: 0.2s; font-size: 13px; }
+select:focus, .spirit-input:focus { border-color: var(--accent-color); }
 .type-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.type-chips button { border: 1px solid #f2f2f2; background: #fff; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: 0.2s; color: #555; }
-.type-chips button.active { border-color: #1d1d1f; color: #1d1d1f; background: #f5f5f7; font-weight: 600; }
-.toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 13px; color: #1d1d1f; }
+.type-chips button { border: 1px solid var(--border-line); background: var(--paper-card); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: 0.2s; color: var(--text-secondary); }
+.type-chips button.active { border-color: var(--border-line); color: var(--text-primary); background: var(--bg-sub); font-weight: 600; }
+.toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 13px; color: var(--text-primary); }
 
 /* 过滤矩阵排版增强 */
 .filter-matrix { display: flex; flex-direction: column; gap: 12px; }
 .matrix-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
-.matrix-label { color: #3a3a3c; }
+.matrix-label { color: var(--text-primary); }
 
-.action-link { display: block; background: none; border: none; padding: 10px 0; font-size: 13px; color: #6e6e73; cursor: pointer; width: 100%; text-align: left; }
-.action-link.danger { color: #ff3b30; }
-.drawer-footer { margin-top: auto; display: flex; gap: 12px; padding-top: 20px; border-top: 1px solid #f2f2f2; }
-.save-btn { flex: 1; padding: 10px; background: #1d1d1f; color: #fff; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
-.publish-btn { flex: 1; padding: 10px; background: #f5f5f7; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; color: #6e6e73; transition: all 0.2s; }
+.action-link { display: block; background: none; border: none; padding: 10px 0; font-size: 13px; color: var(--text-secondary); cursor: pointer; width: 100%; text-align: left; }
+.action-link.danger { color: var(--danger); }
+.drawer-footer { margin-top: auto; display: flex; gap: 12px; padding-top: 20px; border-top: 1px solid var(--border-line); }
+.save-btn { flex: 1; padding: 10px; background: var(--text-primary); color: var(--paper-card); border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
+.publish-btn { flex: 1; padding: 10px; background: var(--bg-sub); border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; color: var(--text-secondary); transition: all 0.2s; }
 .publish-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.publish-btn.is-active { background: #34c759; color: #fff; }
+.publish-btn.is-active { background: var(--success); color: var(--on-accent); }
 
 .spirit-switch { position: relative; display: inline-block; width: 32px; height: 18px; flex-shrink: 0; }
 .spirit-switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; inset: 0; background-color: #d2d2d7; transition: .3s; border-radius: 20px; }
-.slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: white; transition: .3s; border-radius: 50%; }
-input:checked + .slider { background-color: #0066cc; }
+.slider { position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-sub); transition: .3s; border-radius: 20px; }
+.slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: var(--paper-card); transition: .3s; border-radius: 50%; }
+input:checked + .slider { background-color: var(--accent-color); }
 input:checked + .slider:before { transform: translateX(14px); }
-.close-icon-btn { background: none; border: none; font-size: 16px; cursor: pointer; color: #a1a1a6; }
+.close-icon-btn { background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-secondary); }
 .slide-enter-active, .slide-leave-active { transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 .slide-enter-from, .slide-leave-to { transform: translateX(100%); }
 </style>

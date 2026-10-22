@@ -93,7 +93,7 @@ const setWidth = (width: string) => {
 .spirit-bubble-menu {
   display: flex;
   align-items: center;
-  background: #1a1a1a;
+  background: var(--text-primary);
   border-radius: 8px;
   padding: 6px 10px;
   gap: 8px;
@@ -102,7 +102,7 @@ const setWidth = (width: string) => {
 
 /* 图片菜单容器 */
 .spirit-image-bubble {
-  background: #1a1a1a;
+  background: var(--text-primary);
   border-radius: 8px;
   padding: 4px;
   display: flex;
@@ -114,7 +114,7 @@ const setWidth = (width: string) => {
 .toolbar-btns button, .image-toolbar button {
   background: none;
   border: none;
-  color: #fff;
+  color: var(--paper-card);
   padding: 6px 10px;
   font-size: 11px;
   cursor: pointer;
@@ -123,7 +123,7 @@ const setWidth = (width: string) => {
 }
 
 .toolbar-btns button.is-active, .image-toolbar button.active {
-  color: #0066cc;
+  color: var(--accent-color);
   background: rgba(0,102,204,0.15);
   font-weight: bold;
 }
@@ -131,7 +131,7 @@ const setWidth = (width: string) => {
 .toolbar-divider {
   width: 1px;
   height: 16px;
-  background: #333;
+  background: var(--text-primary);
   margin: 0 4px;
 }
 
@@ -139,7 +139,7 @@ const setWidth = (width: string) => {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 1px solid #444;
+  border: 1px solid var(--border-line);
   cursor: pointer;
 }
 

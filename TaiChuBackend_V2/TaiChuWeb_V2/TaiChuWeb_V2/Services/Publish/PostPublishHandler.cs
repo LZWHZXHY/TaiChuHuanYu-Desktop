@@ -37,86 +37,17 @@ namespace TaiChuWeb_V2.Services.Publish
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
-                    var publishedNote = await _context.PublishedNotes
-                        .FirstOrDefaultAsync(pn => pn.OriginalNoteId == noteId);
-
-                    bool isNew = publishedNote == null;
-
-                    Guid.TryParse(userId, out Guid parsedUserId);
-                    var dbUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == parsedUserId);
-                    string authorName = dbUser?.Username ?? "匿名隐士";
-
-                    if (isNew)
-                    {
-                        publishedNote = new PublishedNote
-                        {
-                            Id = Guid.NewGuid(),
-                            OriginalNoteId = noteId,
-                            SpaceId = note.SpaceId,
-                            Type = NoteTypes.Post,
-                            AuthorName = authorName,
-                            Resonance = 0,
-                            PublishedAt = DateTime.UtcNow
-                        };
-                        _context.PublishedNotes.Add(publishedNote);
-                    }
-
-                    // 3. 打包视觉挂件
-                    var metaDict = new Dictionary<string, string>();
-                    if (!string.IsNullOrEmpty(firstImageUrl))
-                    {
-                        metaDict["cardCover"] = firstImageUrl;
-                    }
-
-                    // --- 强制清洗逻辑：防止默认占位符进入数据库 ---
                     var defaultTitles = new[] { "默认标题", "新灵感碎片", "灵感碎片" };
-                    var generatedTitle = (excerpt.Length > 15) ? excerpt.Substring(0, 15) + "..." : excerpt;
-
-                    if (string.IsNullOrWhiteSpace(note.Title) || defaultTitles.Contains(note.Title))
-                    {
-                        publishedNote.Title = generatedTitle;
-                    }
-                    else
-                    {
-                        publishedNote.Title = note.Title;
-                    }
-                    // --------------------------------------------
-
-                    publishedNote.Tags = note.Tags;
-                    publishedNote.Excerpt = excerpt;
-
-                    Console.WriteLine($"DEBUG: 最终赋值的标题是 -> {publishedNote.Title}");
-
-                    publishedNote.ExtraData = metaDict.Count > 0 ? JsonSerializer.Serialize(metaDict) : note.ExtraData;
-                    publishedNote.PublishedAt = DateTime.UtcNow;
-
-                    // 4. 同步物理区块表
-                    var oldPubBlocks = await _context.PublishedBlocks
-                        .Where(pb => pb.OwnerId == publishedNote.Id.ToString())
-                        .ToListAsync();
-                    _context.PublishedBlocks.RemoveRange(oldPubBlocks);
-
-                    foreach (var block in postBlocks)
-                    {
-                        Guid.TryParse(block.Id, out Guid parsedBlockId);
-                        _context.PublishedBlocks.Add(new PublishedBlock
-                        {
-                            Id = parsedBlockId != Guid.Empty ? parsedBlockId : Guid.NewGuid(),
-                            OwnerId = publishedNote.Id.ToString(),
-                            OwnerType = NoteTypes.Post,
-                            Type = block.Type,
-                            Data = block.Data,
-                            SortOrder = block.SortOrder
-                        });
-                    }
-
-                    note.IsPublic = true;
-                    note.UpdatedAt = DateTime.UtcNow;
-
-                    await _context.SaveChangesAsync();
+                    var title = string.IsNullOrWhiteSpace(note.Title) || defaultTitles.Contains(note.Title)
+                        ? (excerpt.Length > 15 ? excerpt[..15] + "..." : excerpt)
+                        : note.Title;
+                    var extraData = string.IsNullOrEmpty(firstImageUrl) ? note.ExtraData
+                        : JsonSerializer.Serialize(new Dictionary<string, string> { ["cardCover"] = firstImageUrl });
+                    var publishedId = await PublishedNoteStore.SaveAsync(_context, note, postBlocks, userId,
+                        SupportType, title, excerpt, extraData);
                     await transaction.CommitAsync();
 
-                    return new OkObjectResult(new { success = true, publishedId = publishedNote.Id });
+                    return new OkObjectResult(new { success = true, publishedId });
                 }
                 catch (Exception ex)
                 {
@@ -129,7 +60,7 @@ namespace TaiChuWeb_V2.Services.Publish
         private string ExtractPostExcerpt(List<Block> blocks)
         {
             // 1. 尝试从所有类型的块中提取文字，不仅仅是 paragraph
-            foreach (var block in blocks.OrderBy(b => b.SortOrder))
+            foreach (var block in blocks)
             {
                 if (string.IsNullOrWhiteSpace(block.Data)) continue;
 

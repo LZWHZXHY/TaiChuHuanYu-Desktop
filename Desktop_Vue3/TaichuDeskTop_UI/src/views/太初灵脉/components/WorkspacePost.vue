@@ -133,7 +133,7 @@ onMounted(() => {
   max-width: 680px; /* 类似微博/Twitter的核心阅读流窄屏黄金视觉宽度 */
   margin: 0 auto;
   padding: 32px 24px 80px;
-  background: #ffffff;
+  background: var(--paper-card);
   border-radius: 24px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.01);
 }
@@ -144,14 +144,14 @@ onMounted(() => {
   align-items: center;
   gap: 14px;
   margin-bottom: 28px;
-  border-bottom: 1px solid #f2f2f7;
+  border-bottom: 1px solid var(--border-line);
   padding-bottom: 18px;
 }
 
 .author-avatar-placeholder {
   width: 42px;
   height: 42px;
-  background: #f5f5f7;
+  background: var(--bg-sub);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -169,20 +169,20 @@ onMounted(() => {
 .meta-label {
   font-size: 15px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--text-primary);
   letter-spacing: -0.01em;
 }
 
 .meta-subtitle {
   font-size: 12px;
-  color: #a1a1a6;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
 .post-word-count {
   font-size: 12px;
-  color: #86868b;
-  background: #f5f5f7;
+  color: var(--text-secondary);
+  background: var(--bg-sub);
   padding: 4px 10px;
   border-radius: 20px;
   font-variant-numeric: tabular-nums;
@@ -190,8 +190,8 @@ onMounted(() => {
 }
 
 .post-word-count.is-limit {
-  color: #ff3b30;
-  background: #ffeeea;
+  color: var(--danger);
+  background: var(--bg-sub);
   font-weight: 600;
 }
 
@@ -213,7 +213,7 @@ onMounted(() => {
 .post-footer-bar {
   margin-top: 32px;
   padding-top: 16px;
-  border-top: 1px dashed #e5e5ea;
+  border-top: 1px dashed var(--border-line);
 }
 
 .post-tags-preview {
@@ -224,7 +224,7 @@ onMounted(() => {
 
 .post-tag-item {
   font-size: 13px;
-  color: #0066cc; /* 灵脉科技感科技蓝 */
+  color: var(--accent-color); /* 灵脉科技感科技蓝 */
   background: rgba(0, 102, 204, 0.05);
   padding: 4px 12px;
   border-radius: 40px;

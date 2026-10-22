@@ -20,7 +20,7 @@ export default { name: 'Footer' }
 
 <style scoped>
 .footer {
-  background: #05080c;
+  background: var(--panel);
   color: var(--text-muted);
   border-top: 1px solid var(--line);
 }
@@ -35,7 +35,7 @@ export default { name: 'Footer' }
 .broadcast-status {
   display: flex; align-items: center; gap: 7px;
   color: var(--orange);
-  font-family: monospace; font-size: 8px; letter-spacing: 1px;
+  font-family: monospace; font-size: 12px; letter-spacing: 1px;
   white-space: nowrap;
 }
 .broadcast-status i {
@@ -44,10 +44,10 @@ export default { name: 'Footer' }
   box-shadow: 0 0 8px rgba(255, 107, 26, 0.7);
 }
 .broadcast-divider { width: 1px; height: 15px; background: var(--line-bright); }
-.broadcast-text { font-size: 11px; }
+.broadcast-text { font-size: 12px; }
 .footer-right {
   display: flex; gap: 20px;
-  font-family: monospace; font-size: 8px; letter-spacing: 1px;
+  font-family: monospace; font-size: 12px; letter-spacing: 1px;
   white-space: nowrap;
 }
 @media (max-width: 768px) {

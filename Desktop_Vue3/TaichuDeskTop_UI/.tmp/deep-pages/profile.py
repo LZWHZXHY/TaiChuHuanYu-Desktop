@@ -1,0 +1,145 @@
+from pathlib import Path
+p=Path('src/views/个人中心/index.vue');s=p.read_text(encoding='utf-8-sig');script=s[:s.index('</script>')]
+script=script.replace("ref, computed, onMounted", "ref, computed, onMounted, watch, onUnmounted").replace("import request from '../../utils/request'", "import request from '../../utils/request'\nimport { useRouter } from 'vue-router'\nconst router = useRouter()")
+script=script.replace("  console.log('🚀 个人页面已挂载')\n",'')
+script=script.replace("  window.location.reload()", "  void router.push('/')")
+script=script[:script.index('const handleEditProfile')]+'''
+type ContentType = 'artwork' | 'blog' | 'post' | 'character' | 'world'
+interface ContentItem { id: string; title: string; status: string; updatedAt: string }
+const contentTypes: { id: ContentType; label: string; create: string }[] = [
+  { id: 'artwork', label: '画作', create: '/gallery?publish=1' },
+  { id: 'blog', label: '博客', create: '/write/blog' },
+  { id: 'post', label: '帖子', create: '/write/post' },
+  { id: 'character', label: '人设', create: '/ocs/create' },
+  { id: 'world', label: '世界观', create: '/world/create' },
+]
+const contentType = ref<ContentType>('artwork'), page = ref(1), total = ref(0)
+const items = ref<ContentItem[]>([]), contentLoading = ref(false), contentError = ref('')
+const currentType = computed(() => contentTypes.find(t => t.id === contentType.value)!)
+let loadVersion = 0
+async function loadContent() {
+  const version = ++loadVersion
+  items.value = []; total.value = 0; contentError.value = ''
+  if (!userStore.isLoggedIn) { contentLoading.value = false; return }
+  contentLoading.value = true
+  try {
+    const result = await request.get<{ items: ContentItem[]; total: number }>('/User/content', {
+      params: { type: contentType.value, page: page.value }, silentError: true,
+    })
+    if (version !== loadVersion) return
+    items.value = result.items; total.value = result.total
+  } catch { if (version === loadVersion) contentError.value = '内容读取失败，请重试。' }
+  finally { if (version === loadVersion) contentLoading.value = false }
+}
+function selectContent(type: ContentType) { contentType.value = type; page.value = 1 }
+function contentLink(item: ContentItem) {
+  switch (contentType.value) {
+    case 'artwork': return { path: '/gallery', query: { artwork: item.id } }
+    case 'blog': case 'post': return { path: `/write/${contentType.value}`, query: { draft: item.id } }
+    case 'character': return { path: `/ocs/edit/${item.id}` }
+    case 'world': return { path: `/world/project/${item.id}` }
+  }
+}
+watch([contentType, page, () => userStore.token], loadContent, { immediate: true })
+onUnmounted(() => loadVersion++)
+</script>
+'''
+template='''
+<template>
+  <article class="user-center" v-if="userStore.userInfo">
+    <header class="user-header">
+      <button class="avatar-wrapper" type="button" aria-label="更换头像" :disabled="isUploading" @click="triggerUpload">
+        <img :src="userStore.userInfo.avatar || defaultAvatar" alt="我的头像" class="avatar" />
+        <span class="avatar-hint">{{ isUploading ? '上传中…' : '更换头像' }}</span>
+      </button>
+      <input type="file" ref="fileInput" hidden accept="image/*" @change="handleFileChange" />
+      <div class="user-info">
+        <span class="eyebrow">个人中心 · 我的内容与社区生活</span>
+        <h1>{{ userStore.userInfo.username }}</h1>
+        <p>{{ userStore.userInfo.bio || userStore.userInfo.mood || '记录创作，参与社区，继续你的故事。' }}</p>
+      </div>
+      <RouterLink class="btn-line" to="/write/blog">写博客</RouterLink>
+    </header>
+    <div class="stats-grid">
+      <div class="stat-item"><span>当前等级</span><strong>Lv.{{ userStore.userInfo.level }}</strong><div class="exp-bar"><div :style="{ width: expPercentage + '%' }"></div></div><small>{{ userStore.userInfo.experience }} 经验</small></div>
+      <div class="stat-item"><span>佩戴头衔</span><strong>{{ userStore.userInfo.title || '太初散修' }}</strong><small>我的社区身份</small></div>
+      <div class="stat-item"><span>最长连续签到</span><strong>{{ userStore.userInfo.maxSignStreak }} <small>天</small></strong><RouterLink to="/">去首页签到 →</RouterLink></div>
+    </div>
+    <div class="content-layout">
+      <section class="main-content">
+        <nav class="content-tabs" aria-label="个人中心分区">
+          <button v-for="tab in [{id:'overview',name:'我的内容'}, {id:'community',name:'社区事务'}, {id:'settings',name:'偏好设置'}, {id:'manual',name:'操作手册'}]" :key="tab.id" :class="{active:activeTab===tab.id}" :aria-pressed="activeTab===tab.id" @click="activeTab=tab.id">{{ tab.name }}</button>
+        </nav>
+        <section v-if="activeTab === 'overview'" class="content-panel library-panel">
+          <div class="section-heading"><div><h2>我的创作</h2><p>查看已发布内容，或继续未完成的草稿。仅你自己可见。</p></div><RouterLink class="btn-line" :to="currentType.create">新建{{ currentType.label }}</RouterLink></div>
+          <nav class="content-filters" aria-label="内容类型"><button v-for="type in contentTypes" :key="type.id" :class="{active:contentType===type.id}" :aria-pressed="contentType===type.id" @click="selectContent(type.id)">{{ type.label }}</button></nav>
+          <div v-if="contentLoading" class="content-state" role="status">正在读取{{ currentType.label }}…</div>
+          <div v-else-if="contentError" class="content-state" role="alert">{{ contentError }} <button class="btn-line" @click="loadContent">重试</button></div>
+          <template v-else>
+            <div class="library-count">共 {{ total }} 项</div>
+            <RouterLink v-for="item in items" :key="item.id" :to="contentLink(item)" class="library-item">
+              <div><h3>{{ item.title || '无标题' }}</h3><time>{{ new Date(item.updatedAt).toLocaleDateString() }}</time></div><span class="content-status">{{ item.status }}</span><span class="item-action">{{ contentType === 'artwork' ? '查看' : '继续编辑' }} →</span>
+            </RouterLink>
+            <div v-if="!items.length" class="content-state"><p>还没有{{ currentType.label }}，从第一份创作开始。</p><RouterLink :to="currentType.create">新建{{ currentType.label }} →</RouterLink></div>
+            <footer v-if="total > 12" class="pagination"><button class="btn-line" :disabled="page===1" @click="page--">上一页</button><span>{{ page }} / {{ Math.ceil(total / 12) }}</span><button class="btn-line" :disabled="page * 12 >= total" @click="page++">下一页</button></footer>
+          </template>
+        </section>
+        <section v-else-if="activeTab === 'community'" class="community-content">
+          <div class="community-links"><RouterLink to="/Project">多人协作 <span>项目、任务与文档 →</span></RouterLink><RouterLink to="/joint/my">我的联合 <span>参与和管理活动 →</span></RouterLink><RouterLink to="/battles/my">我的约战 <span>查看约战进展 →</span></RouterLink><RouterLink to="/activity/checkin/my">我的打卡 <span>回顾参与记录 →</span></RouterLink></div>
+          <ClubCard />
+        </section>
+        <PreferenceSettings v-else-if="activeTab === 'settings'" />
+        <UserManualViewer v-else-if="activeTab === 'manual'" />
+      </section>
+      <aside class="side-widgets"><ProfileCard :userInfo="userStore.userInfo" @update-success="fetchFullProfile" @logout="handleLogout" /></aside>
+    </div>
+  </article>
+  <div v-else class="content-state"><p>个人资料暂未读取成功。</p><button class="btn-line" @click="fetchFullProfile">重新读取</button></div>
+</template>
+
+<style scoped>
+.user-center { color: var(--text-primary); }
+.user-header { display: flex; align-items: center; gap: 24px; padding: 28px; border: 1px solid var(--border-line); border-radius: var(--radius-lg); background: var(--paper-card); }
+.avatar-wrapper { position: relative; flex: 0 0 88px; width: 88px; height: 88px; border: 0; border-radius: 20px; overflow: hidden; padding: 0; cursor: pointer; }
+.avatar { width: 100%; height: 100%; object-fit: cover; }
+.avatar-hint { position: absolute; inset: auto 0 0; font-size: 11px; padding: 3px; background: var(--overlay); color: var(--on-overlay); }
+.user-info { flex: 1; min-width: 0; }
+.eyebrow { font-size: 12px; color: var(--accent-color); }
+h1 { margin: 8px 0; font-size: clamp(24px, 3vw, 34px); overflow-wrap: anywhere; }
+.user-info p { color: var(--text-secondary); line-height: 1.7; margin: 0; white-space: pre-wrap; }
+.stats-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+.stat-item { display: grid; gap: 10px; padding: 20px; border: 1px solid var(--border-line); border-radius: var(--radius-md); background: var(--paper-card); }
+.stat-item > span, small, time { color: var(--text-secondary); font-size: 13px; }
+.stat-item strong { font-size: 22px; }
+.exp-bar { height: 4px; background: var(--bg-sub); border-radius: 4px; overflow: hidden; }
+.exp-bar > div { height: 100%; background: var(--accent-color); }
+.content-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 24px; align-items: start; }
+.main-content, .side-widgets { min-width: 0; }
+.content-tabs, .content-filters { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; }
+.content-tabs { border-bottom: 1px solid var(--border-line); margin-bottom: 20px; }
+.content-tabs button, .content-filters button { white-space: nowrap; padding: 10px 14px; border: 0; border-radius: 8px; color: var(--text-secondary); background: transparent; cursor: pointer; }
+button.active { color: var(--accent-color); background: var(--accent-soft); font-weight: 600; }
+.library-panel { padding: 24px; }
+.section-heading { display: flex; justify-content: space-between; align-items: start; gap: 16px; margin-bottom: 20px; }
+h2 { margin: 0 0 8px; font-size: 20px; }
+.section-heading p { font-size: 13px; color: var(--text-secondary); line-height: 1.6; margin: 0; }
+.section-heading > a { white-space: nowrap; }
+.library-count { padding: 12px 0; color: var(--text-secondary); font-size: 12px; }
+.library-item { display: flex; align-items: center; gap: 12px; padding: 18px 4px; border-top: 1px solid var(--border-line); color: var(--text-primary); text-decoration: none; }
+.library-item:hover { background: var(--bg-sub); }
+.library-item > div { flex: 1; min-width: 0; }
+h3 { font-size: 15px; margin: 0 0 8px; overflow-wrap: anywhere; }
+.content-status { font-size: 12px; background: var(--bg-sub); color: var(--text-secondary); padding: 4px 8px; border-radius: 6px; }
+.item-action { color: var(--accent-color); font-size: 13px; }
+.content-state { text-align: center; padding: 44px 16px; color: var(--text-secondary); }
+a { color: var(--accent-color); }
+.pagination { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+.community-content { display: grid; gap: 24px; }
+.community-links { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.community-links a { display: grid; gap: 8px; padding: 20px; border: 1px solid var(--border-line); border-radius: var(--radius-md); background: var(--paper-card); text-decoration: none; }
+.community-links span { color: var(--text-secondary); font-size: 13px; }
+@media(max-width: 1100px) { .content-layout { grid-template-columns: minmax(0,1fr); } }
+@media(max-width: 600px) { .user-header { flex-wrap: wrap; padding: 20px; gap: 16px; } .stats-grid { gap: 8px; } .stat-item { padding: 12px; } .stat-item strong { font-size: 17px; } .library-panel { padding: 16px; } .section-heading { flex-direction: column; } .item-action { display: none; } .community-links { grid-template-columns: 1fr; } }
+</style>
+'''
+p.write_text(script+template,encoding='utf-8')

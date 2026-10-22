@@ -1,14 +1,16 @@
 <!-- index.vue -->
 <template>
-  <div class="honor-wall-root">
-    <div class="honor-header">
+  <div class="honor-wall-root content-page">
+    <header class="content-header">
       <div class="header-title-area">
-        <h2>共建荣誉殿堂</h2>
+        <p class="eyebrow">社区共建</p><h1>排行榜 · 荣誉墙</h1>
         <p>致敬所有为「太初寰宇」世界观、开源工具与社区生态注入心血的同行者</p>
       </div>
-    </div>
+      <button class="btn-line" :disabled="isLoading" @click="loadHonorData">{{ isLoading ? '正在加载…' : '刷新榜单' }}</button>
+    </header>
 
-    <div class="honor-content" v-if="!isLoading">
+    <div v-if="loadError" class="content-state" role="alert">榜单加载失败，请点击上方刷新重试。</div>
+    <div class="honor-content" v-if="!isLoading && !loadError">
       <!-- 宏观统计总览：展示总贡献、总经验与总人数 -->
       <div class="overview-banner">
         <div class="overview-item">
@@ -31,6 +33,7 @@
       </div>
 
       <!-- 荣誉排行榜网格 (按经验值排名前10名) -->
+      <div v-if="!topTenByExp.length" class="content-state">暂时还没有公开的贡献记录。</div>
       <div class="honor-grid">
         <div 
           v-for="(user, index) in topTenByExp" 
@@ -62,7 +65,7 @@
       </div>
     </div>
 
-    <div v-else class="honor-loading">
+    <div v-if="isLoading" class="honor-loading" role="status" aria-label="加载榜单">
       <div class="loading-bar"></div>
     </div>
   </div>
@@ -73,6 +76,7 @@ import { ref, computed, onMounted } from 'vue';
 import request from '@/utils/request';
 
 const isLoading = ref(true);
+const loadError = ref(false);
 const honorList = ref<any[]>([]);
 const stats = ref({ totalPoints: 0, totalExp: 0 });
 
@@ -84,11 +88,13 @@ const topTenByExp = computed(() => {
 
 const loadHonorData = async () => {
   isLoading.value = true;
+  loadError.value = false;
   try {
     const res: any = await request.get('/community/honor-wall');
     honorList.value = res.list || res.data || [];
     stats.value = res.stats || { totalPoints: 0, totalExp: 0 };
   } catch (err) {
+    loadError.value = true;
     console.error("加载荣誉墙数据失败:", err);
   } finally {
     isLoading.value = false;
@@ -99,40 +105,23 @@ onMounted(loadHonorData);
 </script>
 
 <style scoped>
-.honor-wall-root { width: 100%; max-width: 1200px; margin: 0 auto; padding: 20px 0; }
-.honor-header { margin-bottom: 32px; border-bottom: 1px solid #eee; padding-bottom: 20px; }
-.header-title-area h2 { font-size: 1.5rem; font-weight: 500; color: #1a1a1a; margin: 0 0 8px 0; letter-spacing: 0.5px; }
-.header-title-area p { font-size: 0.85rem; color: #777; margin: 0; }
-
-.overview-banner { display: flex; gap: 24px; margin-bottom: 32px; }
-.overview-item { background: #fafafa; border: 1px solid #eee; padding: 20px 24px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
-.overview-item .label { font-size: 0.7rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
-.overview-item .value { font-size: 1.4rem; font-weight: 500; font-family: monospace; color: #1a1a1a; }
-
+.overview-banner { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; margin-bottom: 32px; }
+.overview-item { display: grid; gap: 12px; padding: 24px; border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); }
+.label { font-size: 12px; color: var(--text-secondary); }
+.value { font-size: clamp(18px,2vw,26px); font-weight: 650; }
 .section-title { margin-bottom: 16px; }
-.section-title h3 { font-size: 1rem; font-weight: 500; color: #333; margin: 0; letter-spacing: 0.5px; }
-
-.honor-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-.honor-card { background: #fff; border: 1px solid #eee; padding: 24px; display: flex; flex-direction: column; gap: 16px; position: relative; transition: transform 0.2s, border-color 0.2s; }
-.honor-card:hover { border-color: #1a1a1a; transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,0.02); }
-.honor-card.top-tier { border-left: 3px solid #1a1a1a; background: #fcfcfc; }
-
-.rank-badge { font-family: monospace; font-size: 0.75rem; color: #bbb; font-weight: 600; }
-.rank-badge.rank-1 { color: #d4af37; }
-.rank-badge.rank-2 { color: #858585; }
-.rank-badge.rank-3 { color: #b08d57; }
-
-.user-info { display: flex; flex-direction: column; gap: 4px; }
-.user-name { font-size: 1rem; font-weight: 500; color: #1a1a1a; margin: 0; }
-.user-title { font-size: 0.75rem; color: #888; }
-
-.metrics-area { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: auto; }
-.metric-pill { font-size: 0.68rem; font-family: monospace; padding: 3px 8px; border-radius: 2px; }
-.metric-pill.exp { background: #6f42c1; color: #fff; }
-.metric-pill.points { background: #1a1a1a; color: #fff; }
-.metric-pill.hours { background: #f0f0f0; color: #555; }
-
-.honor-loading { height: 200px; display: flex; align-items: center; justify-content: center; }
-.loading-bar { width: 60px; height: 1px; background: #1a1a1a; animation: pulse 1.5s infinite; }
-@keyframes pulse { 0% { transform: scaleX(0.5); opacity: 0.2; } 50% { transform: scaleX(1.5); opacity: 1; } 100% { transform: scaleX(0.5); opacity: 0.2; } }
+.section-title h3 { font-size: 18px; }
+.honor-grid { display: grid; gap: 10px; }
+.honor-card { display: grid; grid-template-columns: 64px minmax(0,1fr) auto; align-items: center; gap: 16px; padding: 20px 24px; border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); }
+.honor-card.top-tier { border-left: 3px solid var(--accent-color); }
+.rank-badge { font: 600 16px var(--font-mono); color: var(--text-secondary); }
+.top-tier .rank-badge { color: var(--accent-color); }
+.user-name { font-size: 16px; overflow-wrap: anywhere; }
+.user-title { display: block; font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+.metrics-area { display: flex; flex-wrap: wrap; gap: 8px; }
+.metric-pill { padding: 5px 10px; border-radius: 6px; font-size: 12px; color: var(--text-secondary); background: var(--bg-sub); }
+.metric-pill.exp { color: var(--accent-color); background: var(--accent-soft); }
+.honor-loading { padding: 64px; text-align: center; }
+.loading-bar { width: 60px; height: 3px; margin: auto; background: var(--accent-color); }
+@media(max-width: 700px) { .overview-banner { grid-template-columns: minmax(0,1fr); gap: 10px; } .overview-item { display: flex; align-items: center; justify-content: space-between; padding: 16px; } .honor-card { grid-template-columns: 48px minmax(0,1fr); padding: 16px; } .metrics-area { grid-column: 2; } }
 </style>

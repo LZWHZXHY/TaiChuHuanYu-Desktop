@@ -422,14 +422,14 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   height: 100vh; 
   display: flex; 
   flex-direction: column; 
-  background: #ffffff; 
-  color: #1d1d1f;
+  background: var(--paper-card); 
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
 }
 
 .schedule-header { 
   padding: 40px 48px 16px; 
-  background: #ffffff; 
+  background: var(--paper-card); 
   flex-shrink: 0; 
 }
 .schedule-title-input { 
@@ -439,12 +439,12 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   border: none; 
   background: transparent; 
   outline: none; 
-  color: #1d1d1f; 
+  color: var(--text-primary); 
   letter-spacing: -0.04em;
 }
 .schedule-subtitle { 
   font-size: 11px; 
-  color: #86868b; 
+  color: var(--text-secondary); 
   margin-top: 6px; 
   letter-spacing: 0.05em;
 }
@@ -469,7 +469,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   justify-content: space-between; 
   align-items: center; 
   padding-bottom: 12px; 
-  border-bottom: 1px solid #f2f2f7; 
+  border-bottom: 1px solid var(--border-line); 
   margin-bottom: 12px;
 }
 .view-title { 
@@ -477,13 +477,13 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   font-weight: 700; 
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #86868b; 
+  color: var(--text-secondary); 
 }
 
 .calendar-controls { display: flex; align-items: center; gap: 8px; }
 .current-month-label { font-size: 13px; font-weight: 700; font-family: monospace; min-width: 70px; text-align: center; }
-.spirit-arrow-btn { background: transparent; border: none; font-size: 10px; color: #a1a1a6; cursor: pointer; padding: 4px; transition: color 0.2s; }
-.spirit-arrow-btn:hover { color: #0066cc; }
+.spirit-arrow-btn { background: transparent; border: none; font-size: 10px; color: var(--text-secondary); cursor: pointer; padding: 4px; transition: color 0.2s; }
+.spirit-arrow-btn:hover { color: var(--accent-color); }
 
 .grid-header-row { 
   display: grid; 
@@ -491,7 +491,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   text-align: center; 
   font-size: 11px; 
   font-weight: 600; 
-  color: #c7c7cc; 
+  color: var(--text-secondary); 
   margin-bottom: 12px; 
 }
 
@@ -503,7 +503,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
 }
 
 .calendar-day-cell { 
-  background: #fbfbfd; 
+  background: var(--paper-card); 
   border-radius: 8px; 
   padding: 6px 8px; 
   display: flex; 
@@ -513,18 +513,18 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 .calendar-day-cell:hover { 
-  background: #ffffff; 
-  border-color: #e5e5ea;
+  background: var(--paper-card); 
+  border-color: var(--border-line);
 }
 
 .calendar-day-cell.is-sibling-month { opacity: 0.25; }
 .calendar-day-cell.is-today { background: rgba(0, 102, 204, 0.03); border-color: rgba(0, 102, 204, 0.08); }
-.calendar-day-cell.is-today .day-number { color: #0066cc; font-weight: 800; }
+.calendar-day-cell.is-today .day-number { color: var(--accent-color); font-weight: 800; }
 
 .day-cell-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.day-number { font-size: 11px; font-weight: 500; font-family: monospace; color: #86868b; }
+.day-number { font-size: 11px; font-weight: 500; font-family: monospace; color: var(--text-secondary); }
 
-.quick-add-event-btn { background: transparent; border: none; color: #a1a1a6; font-size: 12px; cursor: pointer; opacity: 0; transition: opacity 0.2s; padding: 0; line-height: 1; }
+.quick-add-event-btn { background: transparent; border: none; color: var(--text-secondary); font-size: 12px; cursor: pointer; opacity: 0; transition: opacity 0.2s; padding: 0; line-height: 1; }
 .calendar-day-cell:hover .quick-add-event-btn { opacity: 1; }
 
 .day-events-list { flex: 1; display: flex; flex-direction: column; gap: 4px; }
@@ -536,7 +536,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   border-radius: 5px; 
   cursor: grab; 
   overflow: hidden; 
-  border-left: 3.5px solid #86868b; 
+  border-left: 3.5px solid var(--border-line); 
   display: flex;
   align-items: center;
   gap: 6px;
@@ -555,7 +555,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   top: 0; left: 0; 
   height: 12px; width: 12px; 
   background-color: transparent; 
-  border: 1.5px solid #d2d2d7; 
+  border: 1.5px solid var(--border-line); 
   border-radius: 50%; 
   transition: all 0.15s; 
   cursor: pointer; 
@@ -644,7 +644,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
 }
 .column-drag-indicator {
   font-size: 11px;
-  color: #c7c7cc;
+  color: var(--text-secondary);
   user-select: none;
   padding-right: 2px;
   opacity: 0.5;
@@ -658,7 +658,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   font-weight: 700; 
   font-size: 13px; 
   outline: none; 
-  color: #1d1d1f; 
+  color: var(--text-primary); 
   width: 50%;
   cursor: text;
 }
@@ -666,7 +666,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
 .column-actions-trigger { display: flex; align-items: center; gap: 6px; margin-left: auto; opacity: 0; transition: opacity 0.2s; }
 .column-header:hover .column-actions-trigger { opacity: 1; }
 .column-color-picker { border: none; background: transparent; width: 14px; height: 14px; cursor: pointer; padding: 0; }
-.del-col-btn { background: transparent; border: none; color: #ff3b30; font-size: 10px; cursor: pointer; }
+.del-col-btn { background: transparent; border: none; color: var(--danger); font-size: 10px; cursor: pointer; }
 
 .kanban-cards-dropzone { 
   flex: 1; 
@@ -674,18 +674,18 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   flex-direction: column; 
   gap: 10px; 
   min-height: 100px;
-  border-top: 1px dashed #f2f2f7;
+  border-top: 1px dashed var(--border-line);
   padding-top: 10px;
   cursor: default; 
 }
 
 /* 看板卡片 */
 .schedule-card { 
-  background: #ffffff; 
+  background: var(--paper-card); 
   border-radius: 8px; 
   padding: 10px 12px; 
-  border: 1px solid #e5e5ea;
-  border-left: 3px solid #86868b;
+  border: 1px solid var(--border-line);
+  border-left: 3px solid var(--border-line);
   cursor: grab; 
   display: flex; 
   flex-direction: column; 
@@ -693,7 +693,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .schedule-card:hover { 
-  border-color: #d2d2d7;
+  border-color: var(--border-line);
   box-shadow: 0 4px 12px rgba(0,0,0,0.03);
 }
 .schedule-card.is-done { opacity: 0.4; }
@@ -704,7 +704,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   background: transparent;
   font-size: 12px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   outline: none;
   flex: 1;
   padding: 0;
@@ -718,9 +718,9 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
 
 .card-date-badge { 
   font-size: 9px; 
-  color: #86868b; 
+  color: var(--text-secondary); 
   font-family: monospace;
-  background: #f5f5f7; 
+  background: var(--bg-sub); 
   padding: 1px 4px; 
   border-radius: 3px; 
 }
@@ -728,16 +728,16 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
 /* 优雅小圆点复选框 */
 .custom-checkbox-wrapper { position: relative; display: inline-block; width: 14px; height: 14px; flex-shrink: 0; }
 .custom-checkbox-wrapper input { opacity: 0; width: 0; height: 0; }
-.checkmark { position: absolute; top: 0; left: 0; height: 14px; width: 14px; background-color: transparent; border: 1.5px solid #d2d2d7; border-radius: 50%; transition: all 0.2s; cursor: pointer; }
-.custom-checkbox-wrapper input:checked + .checkmark { background-color: #1d1d1f; border-color: #1d1d1f; }
+.checkmark { position: absolute; top: 0; left: 0; height: 14px; width: 14px; background-color: transparent; border: 1.5px solid var(--border-line); border-radius: 50%; transition: all 0.2s; cursor: pointer; }
+.custom-checkbox-wrapper input:checked + .checkmark { background-color: var(--text-primary); border-color: var(--border-line); }
 
 /* 极简按钮 */
-.spirit-mini-btn { background: #1d1d1f; color: #ffffff; border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+.spirit-mini-btn { background: var(--text-primary); color: var(--paper-card); border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
 .spirit-mini-btn:hover { opacity: 0.8; }
 
-.add-card-btn { background: transparent; border: none; color: #a1a1a6; padding: 6px; font-size: 11px; font-weight: 600; cursor: pointer; text-align: left; width: 100%; opacity: 0; transition: opacity 0.2s; }
+.add-card-btn { background: transparent; border: none; color: var(--text-secondary); padding: 6px; font-size: 11px; font-weight: 600; cursor: pointer; text-align: left; width: 100%; opacity: 0; transition: opacity 0.2s; }
 .kanban-column:hover .add-card-btn { opacity: 1; }
-.add-card-btn:hover { color: #0066cc; }
+.add-card-btn:hover { color: var(--accent-color); }
 
-.empty-columns-placeholder, .empty-columns-placeholder span { font-size: 11px; color: #c7c7cc; letter-spacing: 0.05em; text-align: center; margin-top: 24px; width: 100%; }
+.empty-columns-placeholder, .empty-columns-placeholder span { font-size: 11px; color: var(--text-secondary); letter-spacing: 0.05em; text-align: center; margin-top: 24px; width: 100%; }
 </style>

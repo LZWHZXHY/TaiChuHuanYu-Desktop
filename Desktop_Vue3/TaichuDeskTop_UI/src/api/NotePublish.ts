@@ -18,6 +18,9 @@ export interface PublishedNoteItem {
 }
 
 export interface PublishedNoteDetail extends PublishedNoteItem {
+  canEdit?: boolean;
+  originalNoteId?: string;
+  tags?: string;
   blocks: {
     id: string;
     type: string;
@@ -35,8 +38,9 @@ export const notePublishApi = {
    * 🌟 广场公共信息流：获取已发布的公开帖子/简语
    * 使用 unknown as Promise<T> 抹平 Axios 拦截器剥离 response.data 后的类型差异
    */
-  getPublicStream(params: { type?: string, page?: number, pageSize?: number } = {}) {
+  getPublicStream(params: { type?: string, tag?: string, page?: number, pageSize?: number } = {}) {
     const searchParams = new URLSearchParams();
+    if (params.tag) searchParams.set('tag', params.tag);
     
     if (params && params.type) {
       searchParams.append('type', params.type);

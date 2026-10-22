@@ -31,7 +31,7 @@
               <span v-if="rev.isOriginal" class="tag tag-original">发布人</span>
               <span v-else class="tag tag-contributor">贡献者</span>
             </div>
-            <div class="mono" style="font-size: 0.7rem; color: #888;">
+            <div class="mono" style="font-size: 0.7rem; color: var(--text-secondary);">
               ID: {{ rev.contributorId?.substring(0, 6) }}
             </div>
           </td>
@@ -125,18 +125,18 @@ const getStatusClass = (status: number) => {
 <style scoped>
 @import './Wiki子组件风格.css';
 
-.rev-title { font-weight: 600; color: #000; }
-.rev-summary { font-size: 0.75rem; color: #86868b; margin-top: 2px; }
+.rev-title { font-weight: 600; color: var(--text-primary); }
+.rev-summary { font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px; }
 .user-info { display: flex; align-items: center; gap: 6px; }
 .tag { font-size: 0.65rem; padding: 1px 4px; border-radius: 4px; }
-.tag-original { background: #e6ffed; color: #28a745; border: 1px solid #b7eb8f; }
-.tag-contributor { background: #e6f7ff; color: #007bff; border: 1px solid #91d5ff; }
+.tag-original { background: var(--bg-sub); color: #28a745; border: 1px solid #b7eb8f; }
+.tag-contributor { background: var(--bg-sub); color: #007bff; border: 1px solid #91d5ff; }
 
-.filter-bar { font-size: 0.85rem; color: #515154; cursor: pointer; }
-.modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-.modal-container { background: #fff; width: 600px; padding: 30px; border-radius: 12px; display: flex; flex-direction: column; max-height: 80vh; }
+.filter-bar { font-size: 0.85rem; color: var(--text-primary); cursor: pointer; }
+.modal-mask { position: fixed; inset: 0; background: var(--overlay); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+.modal-container { background: var(--paper-card); width: 600px; padding: 30px; border-radius: 12px; display: flex; flex-direction: column; max-height: 80vh; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.preview-scroll-area { flex: 1; overflow-y: auto; border: 1px solid #f2f2f7; padding: 20px; border-radius: 8px; }
+.preview-scroll-area { flex: 1; overflow-y: auto; border: 1px solid var(--border-line); padding: 20px; border-radius: 8px; }
 .btn-close { border: none; background: none; cursor: pointer; font-size: 1.2rem; }
-.btn-black { width: 100%; background: #000; color: #fff; padding: 12px; border: none; cursor: pointer; border-radius: 6px; }
+.btn-black { width: 100%; background: var(--accent-color); color: var(--on-accent); padding: 12px; border: none; cursor: pointer; border-radius: 6px; }
 </style>

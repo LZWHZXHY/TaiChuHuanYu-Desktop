@@ -1,4 +1,6 @@
 // 文件：src/views/活动中心/活动中心组件/storage.ts
+import { useUserStore } from '@/stores/user';
+import request from '@/utils/request';
 
 // ------ 类型定义（与后端 DTO 保持一致） ------
 export interface Activity {
@@ -47,49 +49,28 @@ export interface Reply {
 }
 
 // ------ API 基础配置 ------
-const API_BASE = import.meta.env.VITE_API_BASE || 'https://bianyuzhou.com/api';
-const TOKEN_KEY = 'token';
 
 function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  return useUserStore().token || null;
 }
 
 function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+  useUserStore().setSession(token);
 }
 
 function removeToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
+  useUserStore().logout();
 }
 
-// 通用请求函数（带 token）
-async function apiRequest<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const token = getToken();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    ...options.headers,
-  };
-
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `请求失败: ${response.status}`);
+// 兼容现有调用参数；认证、错误提示和 API 地址统一交给共享客户端。
+async function apiRequest<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const data = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+  switch (options.method || 'GET') {
+    case 'POST': return request.post<T>(endpoint, data);
+    case 'PUT': return request.put<T>(endpoint, data);
+    case 'DELETE': return request.delete<T>(endpoint);
+    default: return request.get<T>(endpoint);
   }
-
-  // 如果响应是 204 No Content
-  if (response.status === 204) {
-    return {} as T;
-  }
-
-  return await response.json();
 }
 
 // ------ 登录/注册（新增） ------

@@ -5,6 +5,15 @@ using System.ComponentModel.DataAnnotations;
 
 namespace TaiChuWeb_V2.DTOs.Artwork
 {
+    public class ArtworkEditDto
+    {
+        [Required, MaxLength(100)] public string Title { get; set; } = "";
+        [MaxLength(1000)] public string? Description { get; set; }
+        public List<string>? Tags { get; set; }
+        public int CoverIndex { get; set; }
+        public List<string?> Captions { get; set; } = new();
+    }
+
     public class GalleryDirectUploadDto
     {
         // 允许可选关联灵脉笔记（独立发布时不传即可，为 null）
@@ -33,6 +42,7 @@ namespace TaiChuWeb_V2.DTOs.Artwork
         public List<string?>? Captions { get; set; }
 
         // 指定封面图片索引（默认为第 0 张）
+        public List<string>? Tags { get; set; }
         public int CoverIndex { get; set; } = 0;
     }
 }

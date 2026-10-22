@@ -1,7 +1,16 @@
 // artwork.ts
 import request from '../utils/request';
 
-export interface ArtworkItemDto {
+export interface ArtworkStats {
+  likesCount: number
+  favoritesCount: number
+  commentsCount: number
+  isLiked: boolean
+  isFavorited: boolean
+}
+
+export interface ArtworkItemDto extends ArtworkStats {
+  rankingLikes?: number
   id: number
   title: string
   coverImageUrl?: string
@@ -9,8 +18,6 @@ export interface ArtworkItemDto {
   authorAvatar?: string
   uploadAt: string
   imageCount: number
-  likesCount: number
-  commentsCount: number
   viewCount: number
 }
 
@@ -24,9 +31,13 @@ export interface ArtworkListResponse {
 }
 
 // ========== 🆕 扩展详情类型，包含水印配置 ==========
-export interface ArtworkDetail {
+export interface ArtworkDetail extends ArtworkStats {
+  canInteract?: boolean
+  canEdit?: boolean
+  originalNoteId?: string
   id: number
   title: string
+  tags?: string[]
   description?: string
   uploadAt: string
   author: {
@@ -35,6 +46,7 @@ export interface ArtworkDetail {
     bio?: string
   }
   images: Array<{
+    isCover?: boolean
     url: string
     caption?: string
   }>
@@ -59,16 +71,43 @@ export interface ArtworkDetail {
   watermarkImageOpacity: number
 }
 
+export interface ArtworkComment {
+  id: string
+  userId: string
+  authorName: string
+  avatar?: string
+  content: string
+  parentId?: string
+  replyToAuthor?: string
+  createdAt: string
+  isDeleted: boolean
+  canDelete: boolean
+}
+
+export interface CommentPage {
+  items: ArtworkComment[]
+  total: number
+  hasMore: boolean
+}
+
+export interface ArtworkWriteResult { success: boolean; artworkId: number; imagesCount: number; message?: string }
+export interface ArtworkEdit { tags?: string[]; title: string; description: string; captions: string[]; coverIndex: number }
+
 export const artworkApi = {
+  publish: (data: FormData, onProgress?: (percent: number) => void) => request.post<ArtworkWriteResult>('/NewArtwork/direct-upload', data, {
+    silentError: true,
+    onUploadProgress: event => { if (event.total) onProgress?.(Math.round(event.loaded * 100 / event.total)) }
+  }),
+  edit: (id: number, data: ArtworkEdit) => request.put<ArtworkWriteResult>(`/Artwork/${id}`, data, { silentError: true }),
   /**
    * 获取瀑布流列表
    * @param offset 跳过的数量
    * @param limit 每次加载的数量 (默认20)
    */
-  getGallery: (offset: number, limit: number = 20) =>
+  getGallery: (offset: number, limit: number = 20, search?: string, rankPeriod?: string) =>
     // 只保留一个类型参数：ArtworkListResponse
     request.get<ArtworkListResponse>('/Artwork', {
-      params: { offset, limit }
+      params: { offset, limit, rankPeriod, search: search?.trim() || undefined }, silentError: true
     }),
 
   /**
@@ -76,5 +115,11 @@ export const artworkApi = {
    */
   getDetail: (id: number) =>
     // 只保留一个类型参数：ArtworkDetail
-    request.get<ArtworkDetail>(`/Artwork/${id}`)
+    request.get<ArtworkDetail>(`/Artwork/${id}`, { silentError: true }),
+  getComments: (id: number, offset = 0) =>
+    request.get<CommentPage>(`/Artwork/${id}/comments`, { params: { offset, limit: 20 }, silentError: true }),
+  addComment: (id: number, content: string, parentId?: string) =>
+    request.post<{ id: string; stats: ArtworkStats & { id: number } }>(`/Artwork/${id}/comments`, { content, parentId }, { silentError: true }),
+  deleteComment: (id: number, commentId: string) =>
+    request.delete<{ stats: ArtworkStats & { id: number } }>(`/Artwork/${id}/comments/${commentId}`, { silentError: true })
 };

@@ -107,7 +107,7 @@ const firstTag = computed(() => {
   right: 6px;
   padding: 2px 10px;
   font-size: 11px;
-  color: #ffffff;
+  color: var(--text-primary);
   background: rgba(44, 42, 41, 0.75);
   letter-spacing: 0.1em;
   font-family: var(--font-family);
@@ -140,9 +140,9 @@ const firstTag = computed(() => {
   font-weight: 500;
 }
 
-.stat-win { color: #4CAF50; }
-.stat-lose { color: #F44336; }
-.stat-draw { color: #FF9800; }
+.stat-win { color: var(--success); }
+.stat-lose { color: var(--danger); }
+.stat-draw { color: var(--warning); }
 
 /* ===== 响应式 ===== */
 @media (max-width: 768px) {

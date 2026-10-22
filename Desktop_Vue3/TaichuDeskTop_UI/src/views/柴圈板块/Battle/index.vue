@@ -232,9 +232,9 @@ onMounted(fetchList)
   max-width: 960px;
   margin: 0 auto;
   padding: 32px 20px 60px;
-  background: #f5f0eb;
+  background: var(--bg-sub);
   min-height: 100vh;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 /* ============================================================
@@ -245,7 +245,7 @@ onMounted(fetchList)
   justify-content: space-between;
   align-items: center;
   padding-bottom: 20px;
-  border-bottom: 2px solid #d8d0c4;
+  border-bottom: 2px solid var(--border-line);
   margin-bottom: 32px;
   flex-wrap: wrap;
   gap: 12px;
@@ -265,7 +265,7 @@ onMounted(fetchList)
 
 .title-icon {
   font-size: 22px;
-  color: #9e2a2b;
+  color: var(--accent-color);
 }
 
 .title-group h1 {
@@ -273,19 +273,19 @@ onMounted(fetchList)
   font-weight: 400;
   letter-spacing: 0.25em;
   margin: 0;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .title-sub {
   font-size: 13px;
-  color: #9e2a2b;
+  color: var(--accent-color);
   letter-spacing: 0.15em;
   font-weight: 300;
 }
 
 .subtitle {
   font-size: 14px;
-  color: #999;
+  color: var(--text-secondary);
   margin: 0;
   letter-spacing: 0.1em;
 }
@@ -298,7 +298,7 @@ onMounted(fetchList)
 .btn-primary,
 .btn-ghost {
   padding: 8px 22px;
-  border: 1px solid #d8d0c4;
+  border: 1px solid var(--border-line);
   background: transparent;
   cursor: pointer;
   font-family: inherit;
@@ -308,26 +308,26 @@ onMounted(fetchList)
 }
 
 .btn-primary {
-  background: #2c2a29;
-  color: #f5f0eb;
-  border-color: #2c2a29;
+  background: var(--text-primary);
+  color: var(--bg-sub);
+  border-color: var(--text-primary);
 }
 .btn-primary:hover {
-  background: #f5f0eb;
-  color: #2c2a29;
+  background: var(--bg-sub);
+  color: var(--text-primary);
 }
 
 .btn-ghost:hover {
-  border-color: #9e2a2b;
-  color: #9e2a2b;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
 /* ============================================================
    规则区
    ============================================================ */
 .rules-section {
-  background: #fcfaf7;
-  border: 1px solid #d8d0c4;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   padding: 28px 32px;
   margin-bottom: 32px;
   box-shadow: 0 2px 12px rgba(44, 42, 41, 0.04);
@@ -344,12 +344,12 @@ onMounted(fetchList)
   align-items: center;
   gap: 14px;
   padding-bottom: 14px;
-  border-bottom: 1px dashed #d8d0c4;
+  border-bottom: 1px dashed var(--border-line);
 }
 
 .rules-badge {
   font-size: 11px;
-  color: #9e2a2b;
+  color: var(--accent-color);
   letter-spacing: 0.2em;
 }
 
@@ -358,7 +358,7 @@ onMounted(fetchList)
   font-weight: 400;
   letter-spacing: 0.15em;
   margin: 0;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .rules-body {
@@ -370,13 +370,13 @@ onMounted(fetchList)
 .rules-intro p {
   font-size: 14px;
   line-height: 2;
-  color: #555;
+  color: var(--text-secondary);
   margin: 0;
   text-align: justify;
 }
 
 .rules-intro p strong {
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .rules-flow {
@@ -395,34 +395,34 @@ onMounted(fetchList)
 .flow-num {
   width: 24px;
   height: 24px;
-  border: 1px solid #9e2a2b;
+  border: 1px solid var(--accent-color);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 11px;
-  color: #9e2a2b;
+  color: var(--accent-color);
   flex-shrink: 0;
 }
 
 .flow-label {
   font-size: 14px;
   font-weight: 500;
-  color: #2c2a29;
+  color: var(--text-primary);
   letter-spacing: 0.08em;
   min-width: 44px;
 }
 
 .flow-desc {
   font-size: 13px;
-  color: #888;
+  color: var(--text-secondary);
   letter-spacing: 0.05em;
 }
 
 .flow-line {
   width: 1px;
   height: 10px;
-  background: #d8d0c4;
+  background: var(--border-line);
   margin-left: 11.5px;
 }
 
@@ -431,7 +431,7 @@ onMounted(fetchList)
   flex-wrap: wrap;
   gap: 24px;
   padding-top: 14px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-line);
 }
 
 .rule-tag {
@@ -439,16 +439,16 @@ onMounted(fetchList)
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .tag-mark {
-  color: #9e2a2b;
+  color: var(--accent-color);
   font-size: 10px;
 }
 
 .rule-tag strong {
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 /* ============================================================
@@ -473,20 +473,20 @@ onMounted(fetchList)
 .filter-left select,
 .filter-left input {
   padding: 8px 14px;
-  border: 1px solid #d8d0c4;
-  background: #fcfaf7;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   border-radius: 2px;
   font-family: inherit;
   font-size: 13px;
   outline: none;
   letter-spacing: 0.05em;
   transition: border-color 0.25s;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .filter-left select:focus,
 .filter-left input:focus {
-  border-color: #2c2a29;
+  border-color: var(--text-primary);
 }
 
 .filter-left select {
@@ -506,7 +506,7 @@ onMounted(fetchList)
 
 .result-count {
   font-size: 13px;
-  color: #aaa;
+  color: var(--text-secondary);
   letter-spacing: 0.05em;
 }
 
@@ -516,30 +516,30 @@ onMounted(fetchList)
 .loading {
   padding: 40px 0;
   text-align: center;
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .empty {
   padding: 40px 0;
   text-align: center;
-  color: #aaa;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .link-btn {
   background: none;
   border: none;
-  color: #9e2a2b;
+  color: var(--accent-color);
   font-family: inherit;
   font-size: 14px;
   cursor: pointer;
-  border-bottom: 1px solid #9e2a2b;
+  border-bottom: 1px solid var(--accent-color);
   padding-bottom: 1px;
 }
 .link-btn:hover {
-  color: #2c2a29;
-  border-color: #2c2a29;
+  color: var(--text-primary);
+  border-color: var(--text-primary);
 }
 
 /* ============================================================
@@ -555,14 +555,14 @@ onMounted(fetchList)
   display: flex;
   gap: 18px;
   padding: 18px 22px;
-  background: #fcfaf7;
-  border: 1px solid #d8d0c4;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   cursor: pointer;
   transition: all 0.25s;
 }
 
 .battle-card:hover {
-  border-color: #2c2a29;
+  border-color: var(--text-primary);
   transform: translateY(-2px);
   box-shadow: 0 4px 16px rgba(44, 42, 41, 0.06);
 }
@@ -571,9 +571,9 @@ onMounted(fetchList)
   flex-shrink: 0;
   width: 72px;
   height: 72px;
-  border: 1px solid #d8d0c4;
+  border: 1px solid var(--border-line);
   overflow: hidden;
-  background: #ede8e2;
+  background: var(--bg-sub);
   position: relative;
   display: flex;
   align-items: center;
@@ -588,7 +588,7 @@ onMounted(fetchList)
 
 .cover-placeholder {
   font-size: 26px;
-  color: #9e2a2b;
+  color: var(--accent-color);
 }
 
 .card-status {
@@ -598,23 +598,23 @@ onMounted(fetchList)
   font-size: 9px;
   padding: 1px 8px;
   background: rgba(44, 42, 41, 0.8);
-  color: #f5f0eb;
+  color: var(--bg-sub);
   letter-spacing: 0.05em;
 }
 .card-status.open {
-  background: #8b7a6b;
+  background: var(--bg-sub);
 }
 .card-status.ongoing {
-  background: #b8956a;
+  background: var(--warning);
 }
 .card-status.judging {
-  background: #b8956a;
+  background: var(--warning);
 }
 .card-status.finished {
-  background: #7a8a7a;
+  background: var(--bg-sub);
 }
 .card-status.cancelled {
-  background: #999;
+  background: var(--text-secondary);
 }
 
 .card-body {
@@ -633,8 +633,8 @@ onMounted(fetchList)
 
 .type-tag {
   font-size: 12px;
-  color: #666;
-  background: #ede8e2;
+  color: var(--text-secondary);
+  background: var(--bg-sub);
   padding: 0 12px;
   line-height: 22px;
   letter-spacing: 0.05em;
@@ -642,8 +642,8 @@ onMounted(fetchList)
 
 .judgment-tag {
   font-size: 12px;
-  color: #666;
-  background: #ede8e2;
+  color: var(--text-secondary);
+  background: var(--bg-sub);
   padding: 0 12px;
   line-height: 22px;
   letter-spacing: 0.05em;
@@ -654,28 +654,28 @@ onMounted(fetchList)
   font-weight: 400;
   letter-spacing: 0.08em;
   margin: 0;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .card-rules {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  background: #f5f0eb;
+  background: var(--bg-sub);
   padding: 6px 12px;
-  border-left: 3px solid #9e2a2b;
+  border-left: 3px solid var(--accent-color);
 }
 
 .rules-label {
   font-size: 11px;
-  color: #9e2a2b;
+  color: var(--accent-color);
   flex-shrink: 0;
   letter-spacing: 0.1em;
 }
 
 .rules-text {
   font-size: 13px;
-  color: #555;
+  color: var(--text-secondary);
   line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -688,7 +688,7 @@ onMounted(fetchList)
   flex-wrap: wrap;
   gap: 16px;
   font-size: 12px;
-  color: #aaa;
+  color: var(--text-secondary);
   letter-spacing: 0.05em;
 }
 
@@ -702,13 +702,13 @@ onMounted(fetchList)
   align-items: center;
   padding-left: 12px;
   font-size: 13px;
-  color: #ccc;
+  color: var(--border-line);
   letter-spacing: 0.05em;
   transition: color 0.25s;
 }
 
 .battle-card:hover .card-action {
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 /* ============================================================
@@ -721,22 +721,22 @@ onMounted(fetchList)
   gap: 14px;
   margin-top: 28px;
   padding-top: 18px;
-  border-top: 1px solid #d8d0c4;
+  border-top: 1px solid var(--border-line);
 }
 
 .pagination button {
   padding: 6px 18px;
-  border: 1px solid #d8d0c4;
+  border: 1px solid var(--border-line);
   background: transparent;
   cursor: pointer;
   font-family: inherit;
   font-size: 13px;
   transition: all 0.25s;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .pagination button:hover:not(:disabled) {
-  border-color: #2c2a29;
+  border-color: var(--text-primary);
 }
 
 .pagination button:disabled {
@@ -746,7 +746,7 @@ onMounted(fetchList)
 
 .pagination span {
   font-size: 13px;
-  color: #aaa;
+  color: var(--text-secondary);
   min-width: 60px;
   text-align: center;
 }
@@ -776,7 +776,7 @@ onMounted(fetchList)
   .card-action {
     padding-left: 0;
     padding-top: 8px;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--border-line);
     justify-content: flex-end;
   }
 

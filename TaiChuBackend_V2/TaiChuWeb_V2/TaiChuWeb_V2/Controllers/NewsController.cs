@@ -51,8 +51,12 @@ namespace TaiChuWeb_V2.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAllNews()
         {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var canManage = Guid.TryParse(userId, out var id) && await _context.UserPermissions
+                .AnyAsync(p => p.UserId == id && p.Permission == TaiChuWeb_V2.Models.User.AdminPermission.SuperAdmin);
             // 按创建时间倒序排列，最新发布的排在最前面
             var newsList = await _context.News
+                .Where(n => canManage || n.IsPublished)
                 .OrderByDescending(n => n.CreatedAt)
                 .ToListAsync();
 

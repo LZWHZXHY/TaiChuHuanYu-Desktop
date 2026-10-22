@@ -287,6 +287,7 @@
 </template>
 
 <script>
+import { useUserStore } from '@/stores/user'
 import Navbar            from './Navbar.vue'
 import Footer            from './Footer.vue'
 import SectionHeading    from './SectionHeading.vue'
@@ -328,12 +329,13 @@ export default {
 
   computed: {
     isLoggedIn() {
-      return !!localStorage.getItem('token')
+      return useUserStore().isLoggedIn
     },
 
     displayName() {
       return this.operatorInfo?.nickname
         || this.csInfo?.name
+        || useUserStore().userInfo?.username
         || '太初用户'
     },
 
@@ -633,14 +635,7 @@ export default {
     },
 
     readUidFromToken() {
-      const token = localStorage.getItem('token')
-      if (!token) return ''
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]))
-        return payload.sub || payload.nameid || payload.userId || ''
-      } catch {
-        return ''
-      }
+      return useUserStore().userId
     },
 
     shortId(uid) {
@@ -660,7 +655,7 @@ export default {
   font-family: monospace; font-size: 12px;
   letter-spacing: 1px; color: var(--text-muted);
   border: 1px dashed var(--line);
-  background: rgba(16, 25, 35, 0.3);
+  background: var(--panel);
 }
 .dot {
   display: inline-block; width: 6px; height: 6px;
@@ -679,14 +674,14 @@ export default {
   text-decoration: none;
   cursor: pointer;
 }
-.btn-link:hover { color: #fff; background: var(--orange); border-color: var(--orange); }
+.btn-link:hover { color: var(--on-accent); background: var(--orange); border-color: var(--orange); }
 
 .identity-card {
   display: flex; align-items: center; gap: 20px;
   padding: 26px 28px;
   margin-bottom: 30px;
   border: 1px solid var(--line);
-  background: linear-gradient(135deg, rgba(16, 25, 35, 0.7), rgba(10, 15, 21, 0.55));
+  background: linear-gradient(135deg, var(--panel), var(--panel));
 }
 .ic-avatar {
   flex-shrink: 0;
@@ -706,7 +701,7 @@ export default {
 .ic-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .ic-tag {
   padding: 3px 10px;
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 1px;
   border: 1px solid;
   border-radius: 2px;
@@ -723,7 +718,7 @@ export default {
 }
 /* ⭐ 客服标签 */
 .ic-tag.cs {
-  color: #a5a5ff;
+  color: var(--accent-color);
   border-color: rgba(165, 165, 255, 0.4);
   background: rgba(165, 165, 255, 0.06);
 }
@@ -733,7 +728,7 @@ export default {
 }
 .ic-uid {
   margin: 0;
-  font-size: 10px; letter-spacing: 1px;
+  font-size: 12px; letter-spacing: 1px;
   color: var(--text-muted);
 }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
@@ -750,7 +745,7 @@ export default {
   gap: 8px;
   padding: 18px 20px;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.55);
+  background: var(--panel);
   text-decoration: none;
   color: inherit;
   transition: all 0.22s ease;
@@ -759,7 +754,7 @@ export default {
 .entry-card:hover:not(.disabled) {
   border-color: rgba(255, 107, 26, 0.4);
   transform: translateY(-2px);
-  background: rgba(16, 25, 35, 0.8);
+  background: var(--overlay);
 }
 .entry-card.disabled {
   opacity: 0.55;
@@ -771,7 +766,7 @@ export default {
 }
 .ec-title {
   font-family: monospace;
-  font-size: 10px; letter-spacing: 1.5px;
+  font-size: 12px; letter-spacing: 1.5px;
   color: var(--text-soft);
 }
 .ec-count {
@@ -784,7 +779,7 @@ export default {
   color: var(--text-muted);
 }
 .ec-dot {
-  font-size: 10px;
+  font-size: 12px;
   color: var(--orange);
   margin-left: 4px;
 }
@@ -795,7 +790,7 @@ export default {
 .ss-title {
   margin: 0 0 16px;
   font-family: monospace;
-  font-size: 11px; letter-spacing: 2px;
+  font-size: 12px; letter-spacing: 2px;
   color: var(--orange);
   font-weight: 600;
 }
@@ -815,11 +810,11 @@ export default {
   gap: 8px;
   padding: 18px 20px;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.5);
+  background: var(--panel);
 }
 .sc-label {
   font-family: monospace;
-  font-size: 9px; letter-spacing: 1px;
+  font-size: 12px; letter-spacing: 1px;
   color: var(--text-muted);
   text-transform: uppercase;
 }
@@ -838,7 +833,7 @@ export default {
   gap: 20px;
   padding: 20px 24px;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.5);
+  background: var(--panel);
   text-decoration: none;
   color: inherit;
   transition: all 0.22s ease;
@@ -847,7 +842,7 @@ export default {
 .cs-entry-card:hover {
   border-color: rgba(165, 165, 255, 0.5);
   transform: translateY(-2px);
-  background: rgba(16, 25, 35, 0.8);
+  background: var(--overlay);
 }
 .cs-entry-card.approved { border-color: rgba(120, 215, 206, 0.35); }
 .cs-entry-card.approved:hover { border-color: rgba(120, 215, 206, 0.6); }
@@ -877,7 +872,7 @@ export default {
   margin-bottom: 5px;
 }
 .cec-desc {
-  font-family: monospace; font-size: 11px;
+  font-family: monospace; font-size: 12px;
   color: var(--text-muted);
   line-height: 1.6;
 }
@@ -898,7 +893,7 @@ export default {
   padding: 16px 20px;
   margin-bottom: 16px;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.5);
+  background: var(--panel);
   transition: border-color 0.2s, background 0.2s;
 }
 .status-card.online  { border-color: rgba(120, 215, 206, 0.35); background: rgba(120, 215, 206, 0.04); }
@@ -917,7 +912,7 @@ export default {
   margin-bottom: 3px;
 }
 .sc-sub {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
   line-height: 1.5;
 }
@@ -929,7 +924,7 @@ export default {
 .sc-btn {
   padding: 7px 14px;
   font-family: monospace;
-  font-size: 11px; letter-spacing: 1px;
+  font-size: 12px; letter-spacing: 1px;
   color: var(--text-soft);
   background: transparent;
   border: 1px solid var(--line-bright);
@@ -954,7 +949,7 @@ export default {
 .game-list {
   margin-top: 16px;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.4);
+  background: var(--panel);
 }
 .game-row {
   display: flex; align-items: center; justify-content: space-between;
@@ -966,13 +961,13 @@ export default {
 .gr-left { display: flex; align-items: center; gap: 12px; }
 .gr-name { font-size: 14px; font-weight: 600; color: var(--text); }
 .gr-code {
-  font-size: 10px; letter-spacing: 1px;
+  font-size: 12px; letter-spacing: 1px;
   color: var(--text-muted);
 }
 .gr-right { display: flex; align-items: center; gap: 14px; }
 .gr-level {
   padding: 3px 9px;
-  font-family: monospace; font-size: 10px; font-weight: 700;
+  font-family: monospace; font-size: 12px; font-weight: 700;
   color: var(--orange);
   border: 1px solid rgba(255, 107, 26, 0.4);
   background: rgba(255, 107, 26, 0.08);
@@ -980,7 +975,7 @@ export default {
 }
 .gr-stat {
   font-family: monospace;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -990,7 +985,7 @@ export default {
   line-height: 1.7;
   color: var(--text-muted);
   border: 1px dashed var(--line);
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--panel);
 }
 
 @media (max-width: 900px) {

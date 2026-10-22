@@ -2,21 +2,16 @@
   <div class="data-center-panel fade-in">
     <div class="panel-header">
       <div class="header-title">
-        <h2>太初气象局 (数据中枢)</h2>
-        <span class="subtitle">全局掌控社区的潮汐涨落与生态繁荣度</span>
+        <h2>社区数据</h2>
+        <span class="subtitle">注册用户与近期活跃情况</span>
       </div>
-      <div class="header-actions">
-        <select class="time-filter ink-input">
-          <option value="7">最近 7 天</option>
-          <option value="30">最近 30 天</option>
-          <option value="90">本季度</option>
-        </select>
-        <button class="btn-primary">导出报表</button>
-      </div>
+      <button class="btn-primary" :disabled="loading" @click="fetchMetrics">{{ loading ? '刷新中…' : '刷新指标' }}</button>
     </div>
 
     <!-- 核心指标卡片 (四宫格) -->
-    <div class="metrics-grid">
+    <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="loading && !loaded" role="status">正在读取社区数据…</p>
+    <div v-if="loaded" class="metrics-grid">
       <!-- 1. 总注册道友 -->
       <div class="metric-card">
         <div class="card-top">
@@ -70,32 +65,6 @@
       </div>
     </div>
 
-    <!-- 图表区域 (左右分栏) -->
-    <div class="charts-grid">
-      <div class="chart-box main-chart">
-        <div class="box-header">
-          <h3>活跃趋势图</h3>
-          <span class="box-tag">每日登录人次</span>
-        </div>
-        <!-- 未来这里将挂载 ECharts 实例 -->
-        <div class="chart-placeholder">
-          <div class="mock-line-chart"></div>
-          <p>趋势折线图渲染区 (待接入 ECharts)</p>
-        </div>
-      </div>
-
-      <div class="chart-box side-chart">
-        <div class="box-header">
-          <h3>内容产出漏斗</h3>
-          <span class="box-tag">转化率</span>
-        </div>
-        <!-- 未来这里将挂载 ECharts 实例 -->
-        <div class="chart-placeholder">
-          <div class="mock-funnel-chart"></div>
-          <p>转化漏斗渲染区 (待接入 ECharts)</p>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -103,7 +72,7 @@
 import { ref, onMounted } from 'vue';
 import request from '@/utils/request'; // 确保 request.ts 的路径正确
 
-// 初始化响应式数据结构，防止初始渲染报错
+const loading = ref(false), loaded = ref(false), error = ref('');
 const metrics = ref({
   totalUsers: { value: 0, trendValue: 0, isUp: true },
   dau: { value: 0, trendPercent: 0, isUp: true },
@@ -113,238 +82,33 @@ const metrics = ref({
 
 // 从后端获取真实指标数据
 const fetchMetrics = async () => {
+  if (loading.value) return;
+  loading.value = true; error.value = '';
   try {
     const res: any = await request.get('/Admin/Data/Metrics');
     if (res) {
-      metrics.value = res; // 假设 axios 拦截器已经处理了 res.data
+      metrics.value = res; loaded.value = true;
     }
-  } catch (error) {
-    console.error('获取数据中枢指标失败:', error);
-  }
+  } catch {
+    error.value = '指标读取失败，请重试。';
+  } finally { loading.value = false; }
 };
 
-// 未来可在这里初始化 ECharts (echarts.init)
-onMounted(() => {
-  fetchMetrics();
-  console.log('数据中心已加载，图表区待接入 ECharts...');
-});
+onMounted(fetchMetrics);
 </script>
 
 <style scoped>
-.data-center-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-.panel-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  background: #fff;
-  padding: 24px 32px;
-  border-radius: 12px;
-  border: 1px solid #f0f0f0;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
-}
-
-.header-title h2 {
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: #111;
-  margin: 0 0 6px 0;
-}
-
-.header-title .subtitle {
-  font-size: 0.85rem;
-  color: #888;
-}
-
-.header-actions {
-  display: flex;
-  gap: 12px;
-}
-
-.ink-input {
-  padding: 8px 16px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  background: #fafafa;
-  cursor: pointer;
-  outline: none;
-}
-
-.btn-primary {
-  background: #111;
-  color: #fff;
-  border: none;
-  padding: 8px 20px;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.3s;
-}
-
-.btn-primary:hover {
-  opacity: 0.8;
-}
-
-/* 核心指标四宫格 */
-.metrics-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
-}
-
-.metric-card {
-  background: #fff;
-  padding: 24px;
-  border-radius: 12px;
-  border: 1px solid #f0f0f0;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  transition: transform 0.3s;
-}
-
-.metric-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.04);
-}
-
-.card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.metric-name {
-  font-size: 0.85rem;
-  color: #666;
-  font-weight: 500;
-}
-
-.metric-icon {
-  font-size: 1.2rem;
-  opacity: 0.8;
-}
-
-.metric-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #111;
-  font-family: monospace;
-}
-
-.metric-trend {
-  font-size: 0.8rem;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.metric-trend.up {
-  color: #15803d;
-}
-
-.metric-trend.down {
-  color: #b91c1c;
-}
-
-/* 图表区域 */
-.charts-grid {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 20px;
-}
-
-.chart-box {
-  background: #fff;
-  padding: 24px;
-  border-radius: 12px;
-  border: 1px solid #f0f0f0;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
-  display: flex;
-  flex-direction: column;
-}
-
-.box-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.box-header h3 {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0;
-  color: #111;
-}
-
-.box-tag {
-  font-size: 0.75rem;
-  background: #f6f8fa;
-  padding: 4px 10px;
-  border-radius: 20px;
-  color: #666;
-}
-
-.chart-placeholder {
-  flex: 1;
-  min-height: 300px;
-  background: #fafbfc;
-  border: 1px dashed #eaeef2;
-  border-radius: 8px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  color: #999;
-  font-size: 0.9rem;
-}
-
-/* 骨架屏图形占位 */
-.mock-line-chart {
-  width: 80%;
-  height: 2px;
-  background: #24292f;
-  position: relative;
-  margin-bottom: 20px;
-  opacity: 0.2;
-}
-.mock-line-chart::before {
-  content: ''; position: absolute; top: -20px; left: 20%; width: 2px; height: 40px; background: #24292f; transform: rotate(45deg);
-}
-.mock-line-chart::after {
-  content: ''; position: absolute; top: 0px; right: 20%; width: 2px; height: 40px; background: #24292f; transform: rotate(-30deg);
-}
-
-.mock-funnel-chart {
-  width: 0;
-  height: 0;
-  border-left: 40px solid transparent;
-  border-right: 40px solid transparent;
-  border-top: 60px solid #eaeef2;
-  margin-bottom: 20px;
-}
-
-.fade-in {
-  animation: fadeIn 0.4s ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@media (max-width: 1024px) {
-  .charts-grid {
-    grid-template-columns: 1fr;
-  }
-}
+.data-center-panel { display: grid; gap: 24px; color: var(--text-primary); }
+.panel-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding: 24px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-md); }
+h2 { margin: 0 0 8px; font-size: 24px; }
+.subtitle { color: var(--text-secondary); font-size: 14px; }
+.btn-primary { background: var(--accent-color); color: var(--on-accent); border: 0; border-radius: var(--radius-sm); padding: 10px 16px; cursor: pointer; }
+.metrics-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
+.metric-card { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-md); padding: 24px; }
+.card-top { display: flex; justify-content: space-between; gap: 12px; color: var(--text-secondary); font-size: 14px; }
+.metric-value { font-size: 36px; font-weight: 650; margin: 20px 0 12px; }
+.metric-trend { font-size: 13px; color: var(--text-secondary); }
+.metric-trend.up { color: var(--success); }
+.metric-trend.down { color: var(--danger); }
+@media(max-width:600px) { .metrics-grid { grid-template-columns: 1fr; } }
 </style>

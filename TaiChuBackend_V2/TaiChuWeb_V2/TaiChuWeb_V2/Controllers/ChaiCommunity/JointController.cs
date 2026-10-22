@@ -333,6 +333,11 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             if (!JointPermissionHelper.CanEdit(activity, userId, permissions))
                 return Forbid();
 
+            var startDate = request.StartDate ?? activity.StartDate;
+            var endDate = request.EndDateSpecified ? request.EndDate : activity.EndDate;
+            if (endDate.HasValue && endDate.Value <= startDate)
+                return BadRequest(new { message = "结束时间必须晚于开始时间" });
+
             if (!string.IsNullOrEmpty(request.Title))
                 activity.Title = request.Title;
             if (!string.IsNullOrEmpty(request.Description))
@@ -350,27 +355,8 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             if (request.CoverUrl != null)
                 activity.CoverUrl = request.CoverUrl;
 
-            // ===== 新增：更新日期 =====
-            if (request.StartDate.HasValue)
-            {
-                // 如果同时更新了 EndDate，校验结束时间 > 开始时间
-                var endDate = request.EndDate ?? activity.EndDate;
-                if (endDate.HasValue && endDate.Value <= request.StartDate.Value)
-                {
-                    return BadRequest(new { message = "结束时间必须晚于开始时间" });
-                }
-                activity.StartDate = request.StartDate.Value;
-            }
-            if (request.EndDate.HasValue)
-            {
-                // 校验结束时间 > 当前开始时间
-                var startDate = request.StartDate ?? activity.StartDate;
-                if (request.EndDate.Value <= startDate)
-                {
-                    return BadRequest(new { message = "结束时间必须晚于开始时间" });
-                }
-                activity.EndDate = request.EndDate.Value;
-            }
+            activity.StartDate = startDate;
+            activity.EndDate = endDate;
 
             activity.UpdatedAt = DateTime.UtcNow;
 

@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaiChuWeb_V2.DbContext;
-using TaiChuWeb_V2.Models.LingMai;
+using TaiChuWeb_V2.Services.LingMai;
 
 namespace TaiChuWeb_V2.Controllers.LingMai
 {
@@ -11,11 +11,13 @@ namespace TaiChuWeb_V2.Controllers.LingMai
     public class LingMaiNodeGraphController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly LingMaiService _service;
         private string? CurrentUserId => User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
-        public LingMaiNodeGraphController(AppDbContext context)
+        public LingMaiNodeGraphController(AppDbContext context, LingMaiService service)
         {
             _context = context;
+            _service = service;
         }
 
         /// <summary>
@@ -78,62 +80,20 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             return Ok(new { nodes, links });
         }
 
-        /// <summary>
-        /// 反向链接
-        /// </summary>
         [HttpGet("notes/{noteId:guid}/backlinks")]
-        public async Task<IActionResult> GetBacklinks(Guid noteId)
-        {
-            if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
+        public Task<IActionResult> GetBacklinks(Guid noteId) => GetLinks(noteId, incoming: true);
 
-            var note = await _context.Notes.FindAsync(noteId);
-            if (note == null) return NotFound();
-
-            var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
-            if (!isOwner) return Forbid();
-
-            var backlinks = await _context.NoteLinks
-                .Where(nl => nl.TargetNoteId == noteId)
-                .Include(nl => nl.SourceNote)
-                .Select(nl => new
-                {
-                    id = nl.SourceNoteId,
-                    title = nl.SourceNote != null ? nl.SourceNote.Title : "无标题碎片",
-                    excerpt = nl.Excerpt,
-                    updatedAt = nl.SourceNote != null ? nl.SourceNote.UpdatedAt : DateTime.UtcNow
-                })
-                .ToListAsync();
-
-            return Ok(backlinks);
-        }
-
-        /// <summary>
-        /// 正向链接
-        /// </summary>
         [HttpGet("notes/{noteId:guid}/outlinks")]
-        public async Task<IActionResult> GetOutlinks(Guid noteId)
+        public Task<IActionResult> GetOutlinks(Guid noteId) => GetLinks(noteId, incoming: false);
+
+        private async Task<IActionResult> GetLinks(Guid noteId, bool incoming)
         {
             if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
-
             var note = await _context.Notes.FindAsync(noteId);
             if (note == null) return NotFound();
-
-            var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
-            if (!isOwner) return Forbid();
-
-            var outlinks = await _context.NoteLinks
-                .Where(nl => nl.SourceNoteId == noteId)
-                .Include(nl => nl.TargetNote)
-                .Select(nl => new
-                {
-                    id = nl.TargetNoteId,
-                    title = nl.TargetNote != null ? nl.TargetNote.Title : "无标题碎片",
-                    excerpt = nl.Excerpt,
-                    updatedAt = nl.TargetNote != null ? nl.TargetNote.UpdatedAt : DateTime.UtcNow
-                })
-                .ToListAsync();
-
-            return Ok(outlinks);
+            if (!await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId))
+                return Forbid();
+            return Ok(await _service.GetNoteLinksAsync(noteId, incoming));
         }
     }
 }

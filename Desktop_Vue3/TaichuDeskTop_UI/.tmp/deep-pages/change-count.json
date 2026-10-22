@@ -1,0 +1,513 @@
+{
+  "files": 101,
+  "added": 2473,
+  "removed": 2950,
+  "net": -477,
+  "changes": [
+    {
+      "file": "src\\components\\SpiritText.vue",
+      "added": 20,
+      "removed": 20
+    },
+    {
+      "file": "src\\router\\index.ts",
+      "added": 1,
+      "removed": 0
+    },
+    {
+      "file": "src\\views\\世界观管理\\index.vue",
+      "added": 50,
+      "removed": 48
+    },
+    {
+      "file": "src\\views\\世界观管理\\ProjectCreate.vue",
+      "added": 66,
+      "removed": 56
+    },
+    {
+      "file": "src\\views\\世界观管理\\ProjectDetail.vue",
+      "added": 26,
+      "removed": 19
+    },
+    {
+      "file": "src\\views\\个人中心\\ClubCard.vue",
+      "added": 24,
+      "removed": 24
+    },
+    {
+      "file": "src\\views\\个人中心\\index.vue",
+      "added": 127,
+      "removed": 241
+    },
+    {
+      "file": "src\\views\\个人中心\\PreferenceSettings.vue",
+      "added": 10,
+      "removed": 10
+    },
+    {
+      "file": "src\\views\\个人中心\\ProfileCard.vue",
+      "added": 35,
+      "removed": 32
+    },
+    {
+      "file": "src\\views\\个人中心\\UserManualViewer.vue",
+      "added": 17,
+      "removed": 17
+    },
+    {
+      "file": "src\\views\\太初俱乐部\\CsDashboard.vue",
+      "added": 7,
+      "removed": 7
+    },
+    {
+      "file": "src\\views\\太初俱乐部\\CsReviewModal.vue",
+      "added": 7,
+      "removed": 7
+    },
+    {
+      "file": "src\\views\\太初俱乐部\\CsWallet.vue",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "file": "src\\views\\太初俱乐部\\MyOrders.vue",
+      "added": 7,
+      "removed": 7
+    },
+    {
+      "file": "src\\views\\太初俱乐部\\MyProfile.vue",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "file": "src\\views\\太初俱乐部\\OnlineStatusBadge.vue",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "file": "src\\views\\太初俱乐部\\OperatorOrders.vue",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "file": "src\\views\\太初俱乐部\\OperatorsSection.vue",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "file": "src\\views\\太初俱乐部\\OperatorWallet.vue",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "file": "src\\views\\太初俱乐部\\OrderModal.vue",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "file": "src\\views\\太初俱乐部\\ReviewModal.vue",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "file": "src\\views\\太初俱乐部\\theme.css",
+      "added": 3,
+      "removed": 1
+    },
+    {
+      "file": "src\\views\\太初协作\\index.vue",
+      "added": 75,
+      "removed": 70
+    },
+    {
+      "file": "src\\views\\太初灵脉\\SpiritLayout.vue",
+      "added": 5,
+      "removed": 5
+    },
+    {
+      "file": "src\\views\\活动中心\\index.vue",
+      "added": 1,
+      "removed": 3
+    },
+    {
+      "file": "src\\views\\管理面板\\index.vue",
+      "added": 23,
+      "removed": 85
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\交易行组件.vue",
+      "added": 28,
+      "removed": 24
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\作品管理.vue",
+      "added": 9,
+      "removed": 9
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\俱乐部游戏组件.vue",
+      "added": 6,
+      "removed": 6
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\公告组件.vue",
+      "added": 21,
+      "removed": 21
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\反馈组件.vue",
+      "added": 29,
+      "removed": 29
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\数据中心.vue",
+      "added": 27,
+      "removed": 263
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\活动组件.vue",
+      "added": 33,
+      "removed": 31
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\用户手册组件.vue",
+      "added": 37,
+      "removed": 37
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\用户组件.vue",
+      "added": 57,
+      "removed": 55
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\维基组件.vue",
+      "added": 7,
+      "removed": 7
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\邮件管理.vue",
+      "added": 56,
+      "removed": 56
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\作品管理组件\\博客治理.vue",
+      "added": 13,
+      "removed": 13
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\作品管理组件\\画廊治理.vue",
+      "added": 38,
+      "removed": 36
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\俱乐部组件\\字段编排组件.vue",
+      "added": 37,
+      "removed": 35
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\俱乐部组件\\客服审核组件.vue",
+      "added": 55,
+      "removed": 53
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\俱乐部组件\\打手审核组件.vue",
+      "added": 51,
+      "removed": 49
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\俱乐部组件\\游戏库组件.vue",
+      "added": 39,
+      "removed": 37
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\俱乐部组件\\订单管理.vue",
+      "added": 42,
+      "removed": 42
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\俱乐部组件\\订单类型组件.vue",
+      "added": 56,
+      "removed": 54
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\俱乐部组件\\钱包审核组件.vue",
+      "added": 35,
+      "removed": 35
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\维基组件子类\\ArticleGovernance.vue",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\维基组件子类\\CategoryManager.vue",
+      "added": 11,
+      "removed": 9
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\维基组件子类\\RevisionReview.vue",
+      "added": 10,
+      "removed": 10
+    },
+    {
+      "file": "src\\views\\管理面板\\管理组件\\维基组件子类\\Wiki子组件风格.css",
+      "added": 14,
+      "removed": 14
+    },
+    {
+      "file": "src\\views\\太虚游\\games\\Minecraft\\index.vue",
+      "added": 14,
+      "removed": 14
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\GraphView.vue",
+      "added": 16,
+      "removed": 16
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\HistoryPanel.vue",
+      "added": 15,
+      "removed": 15
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\NoteEditorView.vue",
+      "added": 4,
+      "removed": 4
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\NoteSettingsPanel.vue",
+      "added": 21,
+      "removed": 21
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\PublishModal.vue",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\QuickEditorDrawer.vue",
+      "added": 7,
+      "removed": 7
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\RightSidePanel.vue",
+      "added": 43,
+      "removed": 43
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\SidebarIndex.vue",
+      "added": 37,
+      "removed": 37
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\TopBar.vue",
+      "added": 7,
+      "removed": 7
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\WikiImportModal.vue",
+      "added": 8,
+      "removed": 8
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\WorkspaceBlog.vue",
+      "added": 9,
+      "removed": 9
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\WorkspaceCanvas.vue",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\WorkspaceNote.vue",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\WorkspacePost.vue",
+      "added": 11,
+      "removed": 11
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\WorkspaceSchedule.vue",
+      "added": 35,
+      "removed": 35
+    },
+    {
+      "file": "src\\views\\太初灵脉\\components\\WorkspaceWiki.vue",
+      "added": 85,
+      "removed": 85
+    },
+    {
+      "file": "src\\views\\太初协作\\协作组件\\ProjectDeliveries.vue",
+      "added": 47,
+      "removed": 45
+    },
+    {
+      "file": "src\\views\\太初协作\\协作组件\\ProjectDetail.vue",
+      "added": 30,
+      "removed": 208
+    },
+    {
+      "file": "src\\views\\太初协作\\协作组件\\ProjectDocument.vue",
+      "added": 31,
+      "removed": 31
+    },
+    {
+      "file": "src\\views\\太初协作\\协作组件\\ProjectKanban.vue",
+      "added": 64,
+      "removed": 61
+    },
+    {
+      "file": "src\\views\\太初协作\\协作组件\\ProjectMember.vue",
+      "added": 50,
+      "removed": 48
+    },
+    {
+      "file": "src\\views\\太初协作\\协作组件\\ProjectReports.vue",
+      "added": 33,
+      "removed": 33
+    },
+    {
+      "file": "src\\views\\太初协作\\协作组件\\ProjectSettings.vue",
+      "added": 26,
+      "removed": 26
+    },
+    {
+      "file": "src\\views\\太初协作\\协作组件\\ProjectTaskDetail.vue",
+      "added": 60,
+      "removed": 58
+    },
+    {
+      "file": "src\\views\\太初协作\\协作组件\\ProjectTimeline.vue",
+      "added": 19,
+      "removed": 19
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\AttributeList.vue",
+      "added": 26,
+      "removed": 26
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\CardDetail.vue",
+      "added": 36,
+      "removed": 36
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\CardEditor.css",
+      "added": 75,
+      "removed": 65
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\CardEditor.vue",
+      "added": 17,
+      "removed": 16
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\ContentBlockManager.vue",
+      "added": 40,
+      "removed": 40
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\DynamicForm.vue",
+      "added": 30,
+      "removed": 30
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\EmbeddedCard.vue",
+      "added": 50,
+      "removed": 50
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\ProjectCardDocument.vue",
+      "added": 20,
+      "removed": 20
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\ProjectCardNavigation.vue",
+      "added": 23,
+      "removed": 23
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\ProjectCreatePreview.vue",
+      "added": 10,
+      "removed": 10
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\ProjectHeader.vue",
+      "added": 11,
+      "removed": 11
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\RelationGraph.vue",
+      "added": 29,
+      "removed": 29
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\RelationList.vue",
+      "added": 12,
+      "removed": 12
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\RelationSelector.vue",
+      "added": 11,
+      "removed": 11
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\TagInput.vue",
+      "added": 12,
+      "removed": 12
+    },
+    {
+      "file": "src\\views\\世界观管理\\世界观组件\\WorldQuotaBanner.vue",
+      "added": 15,
+      "removed": 20
+    },
+    {
+      "file": "src\\components\\SpiritTextComponents\\EditorBubbleMenu.vue",
+      "added": 6,
+      "removed": 6
+    },
+    {
+      "file": "src\\components\\SpiritTextComponents\\MathBlockView.vue",
+      "added": 6,
+      "removed": 6
+    },
+    {
+      "file": "src\\components\\SpiritTextComponents\\MathInlineView.vue",
+      "added": 2,
+      "removed": 2
+    },
+    {
+      "file": "src\\components\\SpiritTextComponents\\PanelGraphBlock.vue",
+      "added": 64,
+      "removed": 64
+    },
+    {
+      "file": "src\\components\\SpiritTextComponents\\PdfEmbedView.vue",
+      "added": 9,
+      "removed": 9
+    },
+    {
+      "file": "src\\components\\SpiritTextComponents\\spirit-typography.css",
+      "added": 10,
+      "removed": 10
+    },
+    {
+      "file": "src\\assets\\styles\\variables.css",
+      "added": 4,
+      "removed": 0
+    },
+    {
+      "file": "..\\..\\TaiChuBackend_V2\\TaiChuWeb_V2\\TaiChuWeb_V2\\Services\\Artwork\\ArtworkEngagementService.cs",
+      "added": 3,
+      "removed": 3
+    },
+    {
+      "file": "..\\..\\TaiChuBackend_V2\\TaiChuWeb_V2\\TaiChuWeb_V2\\Controllers\\UserController.cs",
+      "added": 44,
+      "removed": 0
+    }
+  ]
+}

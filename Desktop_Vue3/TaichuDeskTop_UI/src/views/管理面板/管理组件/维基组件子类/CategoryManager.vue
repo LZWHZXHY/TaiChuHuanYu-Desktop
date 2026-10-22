@@ -150,14 +150,16 @@ const submit = async () => {
 @import './Wiki子组件风格.css';
 
 /* 新增一点展示标签的样式 */
-.owner-badge { background: #f2f2f7; color: #1c1c1e; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
-.text-gray { color: #8e8e93; }
+.owner-badge { background: var(--bg-sub); color: var(--text-primary); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+.text-gray { color: var(--text-secondary); }
 
-.btn-add { background: #000; color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
-.tree-line { display: inline-block; width: 16px; color: #d1d1d6; margin-right: 4px; font-weight: bold; }
-.modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-.modal-container { background: #fff; width: 400px; padding: 30px; border-radius: 12px; }
-.md-label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: #515154; }
-.md-input { width: 100%; padding: 10px; margin-bottom: 16px; border: 1px solid #eee; border-radius: 6px; box-sizing: border-box; }
-.btn-black { width: 100%; background: #000; color: #fff; padding: 12px; border: none; cursor: pointer; border-radius: 6px; }
+.btn-add { background: var(--accent-color); color: var(--on-accent); border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+.tree-line { display: inline-block; width: 16px; color: var(--text-secondary); margin-right: 4px; font-weight: bold; }
+.modal-mask { position: fixed; inset: 0; background: var(--overlay); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+.modal-container { background: var(--paper-card); width: 400px; padding: 30px; border-radius: 12px; 
+  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
+}
+.md-label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); }
+.md-input { width: 100%; padding: 10px; margin-bottom: 16px; border: 1px solid var(--border-line); border-radius: 6px; box-sizing: border-box; }
+.btn-black { width: 100%; background: var(--accent-color); color: var(--on-accent); padding: 12px; border: none; cursor: pointer; border-radius: 6px; }
 </style>

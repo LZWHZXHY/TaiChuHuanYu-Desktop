@@ -50,6 +50,7 @@ namespace TaiChuWeb_V2.Controllers.Game
                 return BadRequest(new { message = $"经验不足，当前 {user.Stats.Experience}，需要 {cost}" });
             }
             user.Stats.Experience -= cost;
+            _context.UserExpLogs.Add(new UserExpLog { UserId = userId, Change = -cost, Reason = "创建游戏" });
 
             // 4. 创建游戏主记录
             var game = new Models.Game.Game

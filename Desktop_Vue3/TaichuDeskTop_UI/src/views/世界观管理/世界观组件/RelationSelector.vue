@@ -127,7 +127,7 @@ searchCards('')
 .relation-selector label {
   font-weight: 500;
   font-size: 14px;
-  color: #334155;
+  color: var(--text-primary);
 }
 .relation-list {
   display: flex;
@@ -140,7 +140,7 @@ searchCards('')
   align-items: center;
   gap: 6px;
   padding: 2px 8px;
-  background: #f8f9fc;
+  background: var(--bg-main);
   border-radius: 4px;
   font-size: 13px;
 }
@@ -148,22 +148,22 @@ searchCards('')
   font-weight: 500;
 }
 .relation-item .rel-type {
-  color: #4f46e5;
+  color: var(--accent-color);
 }
 .remove-btn {
   margin-left: auto;
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 14px;
 }
 .remove-btn:hover {
-  color: #ef4444;
+  color: var(--danger);
 }
 .relation-empty {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   padding: 2px 0;
 }
 .relation-add {
@@ -177,25 +177,25 @@ searchCards('')
 }
 .relation-input {
   flex: 3;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 13px;
 }
 .relation-input:focus {
   outline: none;
-  border-color: #4f46e5;
+  border-color: var(--accent-color);
 }
 .add-btn {
   padding: 4px 12px;
   border: none;
   border-radius: 6px;
-  background: #4f46e5;
-  color: white;
+  background: var(--accent-color);
+  color: var(--on-accent);
   cursor: pointer;
   font-size: 14px;
 }
 .add-btn:hover {
-  background: #4338ca;
+  background: var(--accent-color);
 }
 </style>

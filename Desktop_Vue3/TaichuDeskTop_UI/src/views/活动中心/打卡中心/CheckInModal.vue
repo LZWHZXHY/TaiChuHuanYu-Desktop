@@ -1,18 +1,18 @@
 <template>
   <div v-if="visible" class="modal-overlay" @click.self="close">
-    <div class="modal-card">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-label="填写打卡记录">
       <div class="modal-header">
         <h3><i class="fas fa-pen-fancy"></i> 打卡 - 第 {{ day }} 天</h3>
-        <button class="close-btn" @click="close">&times;</button>
+        <button aria-label="关闭打卡" class="close-btn" @click="close">&times;</button>
       </div>
       <div class="modal-body">
         <div class="form-group">
           <label>今日心得 <span class="required">*</span></label>
-          <textarea v-model="text" placeholder="写下今天的收获..." rows="4"></textarea>
+          <textarea aria-label="今日心得" v-model="text" placeholder="写下今天的收获..." rows="4"></textarea>
         </div>
         <div class="form-group">
           <label>配图（可选）</label>
-          <input type="file" accept="image/*" @change="onFileChange" :disabled="isUploading" />
+          <input aria-label="配图（可选）" ref="fileInput" type="file" accept="image/*" @change="onFileChange" :disabled="isUploading || submitting" />
           <div v-if="isUploading" class="upload-progress">
             <i class="fas fa-spinner fa-spin"></i> 上传中 {{ uploadProgress }}%
           </div>
@@ -24,8 +24,8 @@
       </div>
       <div class="modal-footer">
         <button class="btn-cancel" @click="close">取消</button>
-        <button class="btn-submit" @click="submit" :disabled="!text.trim() || isUploading">
-          <i class="fas fa-check"></i> 提交打卡
+        <button class="btn-submit" @click="submit" :disabled="!text.trim() || isUploading || submitting">
+          <i class="fas fa-check"></i> {{ submitting ? '保存中…' : '提交打卡' }}
         </button>
       </div>
     </div>
@@ -33,13 +33,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onUnmounted } from 'vue';
 import { useCos } from '@/composables/useCos';
 
 const props = defineProps<{
   visible: boolean;
   member: any;
   day: number;
+  submitting?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -50,6 +51,9 @@ const emit = defineEmits<{
 const { uploadFile, isUploading, progress } = useCos();
 
 const text = ref('');
+const fileInput = ref<HTMLInputElement | null>(null);
+const clearPreview = () => { if (imagePreview.value.startsWith('blob:')) URL.revokeObjectURL(imagePreview.value); imagePreview.value = ''; };
+onUnmounted(clearPreview);
 const imagePreview = ref('');
 const uploadedImageUrl = ref('');
 const uploadProgress = ref(0);
@@ -64,37 +68,40 @@ const onFileChange = async (e: Event) => {
   const input = e.target as HTMLInputElement;
   if (input.files && input.files[0]) {
     const file = input.files[0];
+    clearPreview();
     imagePreview.value = URL.createObjectURL(file);
     try {
       const result = await uploadFile(file, 'activity/checkin');
       uploadedImageUrl.value = result.url;
     } catch (error) {
       console.error('图片上传失败:', error);
-      imagePreview.value = '';
+      clearPreview();
       uploadedImageUrl.value = '';
-      const inputEl = document.querySelector('input[type="file"]') as HTMLInputElement;
-      if (inputEl) inputEl.value = '';
+      if (fileInput.value) fileInput.value.value = '';
     }
   }
 };
 
 const removeImage = () => {
-  imagePreview.value = '';
+  clearPreview();
   uploadedImageUrl.value = '';
-  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-  if (input) input.value = '';
+  if (fileInput.value) fileInput.value.value = '';
 };
 
 const close = () => {
+  if (props.submitting || isUploading.value) return;
   emit('update:visible', false);
-  text.value = '';
-  imagePreview.value = '';
-  uploadedImageUrl.value = '';
-  const input = document.querySelector('input[type="file"]') as HTMLInputElement;
-  if (input) input.value = '';
 };
+watch(() => props.visible, (visible) => {
+  if (visible) return;
+  text.value = '';
+  clearPreview();
+  uploadedImageUrl.value = '';
+  if (fileInput.value) fileInput.value.value = '';
+});
 
 const submit = () => {
+  if (props.submitting) return;
   if (!text.value.trim()) {
     alert('请写下今日心得');
     return;
@@ -110,7 +117,6 @@ const submit = () => {
     text: text.value,
     image: imageUrl,
   });
-  close();
 };
 </script>
 
@@ -119,7 +125,7 @@ const submit = () => {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--overlay);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -127,7 +133,7 @@ const submit = () => {
   backdrop-filter: blur(2px);
 }
 .modal-card {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 12px;
   padding: 28px 32px;
   width: 480px;
@@ -151,18 +157,18 @@ const submit = () => {
   margin: 0;
   font-weight: 600;
   font-size: 1.1rem;
-  color: #1f2937;
+  color: var(--text-primary);
 }
-.modal-header h3 i { color: #6366f1; margin-right: 6px; }
+.modal-header h3 i { color: var(--info); margin-right: 6px; }
 .close-btn {
   background: none;
   border: none;
   font-size: 1.6rem;
   cursor: pointer;
-  color: #9ca3af;
+  color: var(--text-secondary);
   transition: 0.2s;
 }
-.close-btn:hover { color: #1f2937; }
+.close-btn:hover { color: var(--text-primary); }
 
 .form-group { margin-bottom: 18px; }
 .form-group label {
@@ -170,35 +176,35 @@ const submit = () => {
   font-weight: 500;
   font-size: 0.85rem;
   margin-bottom: 4px;
-  color: #374151;
+  color: var(--text-primary);
 }
-.form-group label .required { color: #ef4444; margin-left: 2px; }
+.form-group label .required { color: var(--danger); margin-left: 2px; }
 .form-group textarea {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   border-radius: 8px;
   font-size: 0.9rem;
   font-family: inherit;
   resize: vertical;
-  background: #fafafa;
+  background: var(--paper-card);
   transition: border 0.2s;
 }
 .form-group textarea:focus {
   outline: none;
-  border-color: #6366f1;
-  background: #fff;
+  border-color: var(--info);
+  background: var(--paper-card);
 }
 .form-group input[type="file"] {
-  border: 1px dashed #e5e7eb;
+  border: 1px dashed var(--border-line);
   padding: 10px;
   border-radius: 8px;
   width: 100%;
-  background: #fafafa;
+  background: var(--paper-card);
 }
 .upload-progress {
   margin-top: 8px;
-  color: #6366f1;
+  color: var(--info);
   font-size: 0.85rem;
 }
 .image-preview {
@@ -210,14 +216,14 @@ const submit = () => {
   max-width: 100%;
   max-height: 160px;
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
 }
 .remove-image {
   position: absolute;
   top: 4px;
   right: 4px;
-  background: rgba(0,0,0,0.5);
-  color: #fff;
+  background: var(--overlay);
+  color: var(--on-overlay);
   border: none;
   border-radius: 50%;
   width: 24px;
@@ -228,7 +234,7 @@ const submit = () => {
   align-items: center;
   justify-content: center;
 }
-.remove-image:hover { background: #000; }
+.remove-image:hover { background: var(--bg-sub); }
 
 .modal-footer {
   display: flex;
@@ -238,20 +244,20 @@ const submit = () => {
 }
 .btn-cancel {
   padding: 8px 20px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   border-radius: 30px;
-  background: #fff;
-  color: #374151;
+  background: var(--paper-card);
+  color: var(--text-primary);
   cursor: pointer;
   transition: background 0.2s;
 }
-.btn-cancel:hover { background: #f3f4f6; }
+.btn-cancel:hover { background: var(--bg-sub); }
 .btn-submit {
   padding: 8px 24px;
   border: none;
   border-radius: 30px;
-  background: #6366f1;
-  color: #fff;
+  background: var(--info);
+  color: var(--on-accent);
   font-weight: 500;
   cursor: pointer;
   transition: background 0.2s;
@@ -259,6 +265,6 @@ const submit = () => {
   align-items: center;
   gap: 4px;
 }
-.btn-submit:hover:not(:disabled) { background: #4f46e5; }
+.btn-submit:hover:not(:disabled) { background: var(--info); }
 .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

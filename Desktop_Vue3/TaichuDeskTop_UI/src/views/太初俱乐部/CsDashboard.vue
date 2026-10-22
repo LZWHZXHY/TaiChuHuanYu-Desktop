@@ -417,7 +417,7 @@
     <!-- ============ 指派弹窗 ============ -->
     <Teleport to="body">
       <div v-if="assignOrder" class="assign-mask" @click.self="closeAssign">
-        <div class="assign-modal">
+        <div class="assign-modal" role="dialog" aria-modal="true" aria-label="安排订单打手">
           <header class="am-head">
             <div>
               <h3>指派打手</h3>
@@ -450,7 +450,8 @@
               <div class="ppb-note">差价由客服线下退款 / 补收（多退少补）</div>
             </div>
 
-            <div v-if="loadingOps" class="am-empty"><span class="dot"></span> 正在加载打手…</div>
+            <div v-if="opsError" role="alert" class="empty-state">{{ opsError }} <button class="btn-secondary" @click="loadAssignableOps(currentOpOrder.gameCode)">重新加载</button></div>
+            <div v-else-if="loadingOps" class="am-empty"><span class="dot"></span> 正在加载打手…</div>
             <div v-else-if="availableOps.length === 0" class="am-empty">该游戏暂无在线打手</div>
 
             <div v-else class="op-picker">
@@ -458,13 +459,13 @@
                 v-for="op in availableOps"
                 :key="op.userId"
                 class="op-item"
-                :class="{ on: isSelected(op.userId), off: op.status === 'offline' || (!isSelected(op.userId) && isOpCountMaxed) }"
+                :class="{ on: isSelected(op.userId), off: !canChooseOp(op) || (!isSelected(op.userId) && isOpCountMaxed) }"
               >
                 <input
                   type="checkbox"
                   :value="op.userId"
                   :checked="isSelected(op.userId)"
-                  :disabled="op.status === 'offline' || (!isSelected(op.userId) && isOpCountMaxed)"
+                  :disabled="assigning || !canChooseOp(op) || (!isSelected(op.userId) && isOpCountMaxed)"
                   @change="toggleOp(op.userId)"
                 />
                 <div class="op-avatar">{{ (op.name || '?').charAt(0) }}</div>
@@ -496,7 +497,7 @@
     <!-- ============ 换人弹窗 ============ -->
     <Teleport to="body">
       <div v-if="reassignOrder" class="assign-mask" @click.self="closeReassign">
-        <div class="assign-modal">
+        <div class="assign-modal" role="dialog" aria-modal="true" aria-label="安排订单打手">
           <header class="am-head">
             <div>
               <h3>🔄 换打手</h3>
@@ -533,7 +534,8 @@
               <div class="ppb-note">差价由客服线下退款 / 补收</div>
             </div>
 
-            <div v-if="loadingOps" class="am-empty"><span class="dot"></span> 正在加载打手…</div>
+            <div v-if="opsError" role="alert" class="empty-state">{{ opsError }} <button class="btn-secondary" @click="loadAssignableOps(currentOpOrder.gameCode)">重新加载</button></div>
+            <div v-else-if="loadingOps" class="am-empty"><span class="dot"></span> 正在加载打手…</div>
             <div v-else-if="availableOps.length === 0" class="am-empty">该游戏暂无在线打手</div>
 
             <div v-else class="op-picker">
@@ -541,13 +543,13 @@
                 v-for="op in availableOps"
                 :key="op.userId"
                 class="op-item"
-                :class="{ on: isSelected(op.userId), off: op.status === 'offline' || (!isSelected(op.userId) && isOpCountMaxed) }"
+                :class="{ on: isSelected(op.userId), off: !canChooseOp(op) || (!isSelected(op.userId) && isOpCountMaxed) }"
               >
                 <input
                   type="checkbox"
                   :value="op.userId"
                   :checked="isSelected(op.userId)"
-                  :disabled="op.status === 'offline' || (!isSelected(op.userId) && isOpCountMaxed)"
+                  :disabled="reassigning || !canChooseOp(op) || (!isSelected(op.userId) && isOpCountMaxed)"
                   @change="toggleOp(op.userId)"
                 />
                 <div class="op-avatar">{{ (op.name || '?').charAt(0) }}</div>
@@ -701,6 +703,8 @@
 </template>
 
 <script>
+import { fmtTime, operatorText, isAllAccepted, showProgress } from './orderHelpers'
+import { useUserStore } from '@/stores/user'
 import Navbar            from './Navbar.vue'
 import Footer            from './Footer.vue'
 import SectionHeading    from './SectionHeading.vue'
@@ -750,6 +754,9 @@ export default {
       assignOrder: null,
       availableOps: [],
       loadingOps: false,
+      opsRequest: 0,
+      ordersRequest: 0,
+      opsError: '',
       selectedOpIds: [],
       assigning: false,
 
@@ -787,7 +794,7 @@ export default {
   },
 
   computed: {
-    isLoggedIn() { return !!localStorage.getItem('token') },
+    isLoggedIn() { return useUserStore().isLoggedIn },
 
     auditTitle() {
       return {
@@ -839,6 +846,8 @@ export default {
       return total.toFixed(2)
     },
     canAssign() {
+      if (this.loadingOps || this.opsError) return false
+      if (this.selectedOpIds.some(id => !this.availableOps.some(op => op.userId === id && this.canChooseOp(op)))) return false
       if (this.selectedOpIds.length < this.minOpCount) return false
       if (this.selectedOpIds.length > this.maxOpCount) return false
       return true
@@ -848,10 +857,7 @@ export default {
       return n === 0 ? '确认指派' : `确认指派 ${n} 人`
     },
     canReassign() {
-      if (!this.reassignReason.trim()) return false
-      if (this.selectedOpIds.length < this.minOpCount) return false
-      if (this.selectedOpIds.length > this.maxOpCount) return false
-      return true
+      return !!this.reassignReason.trim() && this.canAssign
     },
     canHandle() {
       if (!this.handleNote.trim()) return false
@@ -865,8 +871,7 @@ export default {
     await this.loadCsInfo()
     this.loadingMe = false
     if (this.hasCs && this.csAuditStatus === 'approved') {
-      await this.refreshAllTabsCount()
-      await this.loadOrders()
+      await this.refreshOrders()
       this.startCsInfoTimer()
     }
   },
@@ -927,43 +932,53 @@ export default {
 
     async loadOrders() {
       if (this.tab === 'complaints') return this.loadComplaints()
+      const tab = this.tab
+      const requestId = ++this.ordersRequest
       this.loadingOrders = true
       try {
         const res = await request.get('/club/cs/orders', {
-          params: { tab: this.tab, page: this.page, pageSize: this.pageSize }
+          params: { tab, page: this.page, pageSize: this.pageSize }
         })
         const data = res?.data ?? res
+        if (requestId !== this.ordersRequest || tab !== this.tab) return false
         this.orders = data?.items ?? []
         this.total = data?.total ?? 0
+        this.tabCounts[tab] = this.total
+        return true
       } catch (e) {
+        if (requestId !== this.ordersRequest || tab !== this.tab) return false
         console.error('加载订单失败', e)
         this.orders = []
         this.total = 0
+        return false
       } finally {
-        this.loadingOrders = false
+        if (requestId === this.ordersRequest) this.loadingOrders = false
       }
     },
 
-    async refreshAllTabsCount() {
-      const keys = ['waiting-confirm', 'waiting-assign', 'processing', 'completed', 'cancelled', 'all']
-      try {
-        const results = await Promise.all(
-          keys.map(k =>
-            request.get('/club/cs/orders', { params: { tab: k, page: 1, pageSize: 1 } })
-              .then(res => { const d = res?.data ?? res; return d?.total ?? 0 })
-              .catch(() => 0)
-          )
-        )
-        keys.forEach((k, i) => { this.tabCounts[k] = results[i] })
+    async refreshOrders() {
+      const tab = this.tab
+      const [loaded] = await Promise.all([this.loadOrders(), this.refreshAllTabsCount(tab)])
+      // 列表失败时仍单独读取数量，保留原先统计请求独立失败/成功的行为。
+      if (loaded === false) await this.loadTabCount(tab)
+    },
 
-        try {
-          const cpRes = await request.get('/club/cs/complaints', { params: { status: 'pending', page: 1, pageSize: 1 } })
-          const cpData = cpRes?.data ?? cpRes
-          this.tabCounts.complaints = cpData?.total ?? 0
-        } catch { this.tabCounts.complaints = 0 }
-      } catch (e) {
-        console.warn('拉取 tab 数量失败', e)
-      }
+    refreshAllTabsCount(loadedTab) {
+      // 客诉标签只统计 pending，不能复用客诉列表总数。
+      return Promise.all(this.TABS
+        .filter(tab => tab.value !== loadedTab || tab.value === 'complaints')
+        .map(tab => this.loadTabCount(tab.value)))
+    },
+
+    async loadTabCount(tab) {
+      const complaints = tab === 'complaints'
+      try {
+        const res = await request.get(complaints ? '/club/cs/complaints' : '/club/cs/orders', {
+          params: { ...(complaints ? { status: 'pending' } : { tab }), page: 1, pageSize: 1 }
+        })
+        const data = res?.data ?? res
+        this.tabCounts[tab] = data?.total ?? 0
+      } catch { this.tabCounts[tab] = 0 }
     },
 
     async switchTab(val) {
@@ -971,11 +986,7 @@ export default {
       this.tab = val
       this.page = 1
       this.complaintsPage = 1
-      if (val === 'complaints') {
-        await this.loadComplaints()
-      } else {
-        await this.loadOrders()
-      }
+      await this.loadOrders()
     },
 
     changePage(p) { this.page = p; this.loadOrders() },
@@ -1012,25 +1023,13 @@ export default {
     },
     isUrgent(o) { return this.needsConfirm(o) || this.needsAssign(o) },
 
-    operatorText(o) {
-      if (o.operators && o.operators.length > 0) {
-        return o.operators.map(x => x.name).join('、')
-      }
-      return o.operatorName || '—'
-    },
+    operatorText,
 
     // ⭐ 是否显示接单进度（多打手 或 已有人接）
-    showProgress(o) {
-      const total = o.totalOperatorCount || 0
-      const accepted = o.acceptedCount || 0
-      return total > 1 || (accepted > 0 && total > 0)
-    },
+    showProgress,
 
     // ⭐ 是否全员已接
-    isAllAccepted(o) {
-      if (!o.totalOperatorCount) return false
-      return (o.acceptedCount || 0) >= o.totalOperatorCount
-    },
+    isAllAccepted,
 
     async confirmPaid(o) {
       if (this.acting) return
@@ -1038,7 +1037,7 @@ export default {
       this.acting = o.orderNo
       try {
         await request.post(`/club/cs/orders/${o.orderNo}/confirm-paid`)
-        await Promise.all([this.loadOrders(), this.refreshAllTabsCount(), this.loadCsInfo()])
+        await Promise.all([this.refreshOrders(), this.loadCsInfo()])
       } catch (e) {
         alert(e?.response?.data?.message || e.message || '操作失败')
       } finally { this.acting = '' }
@@ -1051,30 +1050,38 @@ export default {
       this.acting = o.orderNo
       try {
         await request.post(`/club/orders/${o.orderNo}/cancel`, { reason: reason.trim() })
-        await Promise.all([this.loadOrders(), this.refreshAllTabsCount(), this.loadCsInfo()])
+        await Promise.all([this.refreshOrders(), this.loadCsInfo()])
       } catch (e) {
         alert(e?.response?.data?.message || e.message || '操作失败')
       } finally { this.acting = '' }
     },
 
     openAssign(o) {
+      if (this.assigning || this.reassigning) return
       this.assignOrder = o
       this.selectedOpIds = []
       this.loadAssignableOps(o.gameCode)
     },
-    closeAssign() {
+    closeAssign(completed = false) {
+      if ((this.assigning || this.reassigning) && completed !== true) return
+      this.opsRequest++
+      this.loadingOps = false
       this.assignOrder = null
       this.availableOps = []
       this.selectedOpIds = []
     },
 
     openReassign(o) {
+      if (this.assigning || this.reassigning) return
       this.reassignOrder = o
       this.reassignReason = ''
       this.selectedOpIds = (o.operators || []).map(op => op.userId)
       this.loadAssignableOps(o.gameCode)
     },
-    closeReassign() {
+    closeReassign(completed = false) {
+      if ((this.assigning || this.reassigning) && completed !== true) return
+      this.opsRequest++
+      this.loadingOps = false
       this.reassignOrder = null
       this.reassignReason = ''
       this.availableOps = []
@@ -1091,19 +1098,30 @@ export default {
     },
 
     async loadAssignableOps(gameCode) {
+      const requestId = ++this.opsRequest
+      this.availableOps = []
+      this.opsError = ''
       this.loadingOps = true
       try {
         const res = await request.get('/club/cs/operators', { params: { gameCode } })
         const data = res?.data ?? res
+        if (requestId !== this.opsRequest) return
         this.availableOps = data?.items ?? []
       } catch (e) {
+        if (requestId !== this.opsRequest) return
+        this.opsError = '打手加载失败，请重试'
         console.error('加载打手失败', e)
         this.availableOps = []
-      } finally { this.loadingOps = false }
+      } finally { if (requestId === this.opsRequest) this.loadingOps = false }
     },
 
     isSelected(opId) { return this.selectedOpIds.includes(opId) },
+    canChooseOp(op) {
+      return op.status !== 'offline' || !!this.reassignOrder?.operators?.some(current => current.userId === op.userId)
+    },
     toggleOp(opId) {
+      if (this.loadingOps || this.assigning || this.reassigning) return
+      if (!this.availableOps.some(op => op.userId === opId && this.canChooseOp(op))) return
       const idx = this.selectedOpIds.indexOf(opId)
       if (idx >= 0) {
         this.selectedOpIds.splice(idx, 1)
@@ -1118,22 +1136,22 @@ export default {
     opSurcharge(op) { return this.basePrice * (Number(op.levelSurchargeRate) || 0) },
 
     async doAssign() {
-      if (!this.canAssign || !this.assignOrder) return
+      if (this.assigning || !this.canAssign || !this.assignOrder) return
       this.assigning = true
       try {
         await request.post(
           `/club/cs/orders/${this.assignOrder.orderNo}/assign-operator`,
           { operatorUserIds: [...this.selectedOpIds] }
         )
-        this.closeAssign()
-        await Promise.all([this.loadOrders(), this.refreshAllTabsCount()])
+        this.closeAssign(true)
+        await this.refreshOrders()
       } catch (e) {
         alert(e?.response?.data?.message || e.message || '指派失败')
       } finally { this.assigning = false }
     },
 
     async doReassign() {
-      if (!this.canReassign || !this.reassignOrder) return
+      if (this.reassigning || !this.canReassign || !this.reassignOrder) return
       this.reassigning = true
       try {
         await request.post(
@@ -1143,8 +1161,8 @@ export default {
             reason: this.reassignReason.trim()
           }
         )
-        this.closeReassign()
-        await Promise.all([this.loadOrders(), this.refreshAllTabsCount()])
+        this.closeReassign(true)
+        await this.refreshOrders()
         alert('换人成功')
       } catch (e) {
         alert(e?.response?.data?.message || e.message || '换人失败')
@@ -1161,7 +1179,7 @@ export default {
           { reason: this.abandonReason.trim() }
         )
         this.closeAbandon()
-        await Promise.all([this.loadOrders(), this.refreshAllTabsCount(), this.loadCsInfo()])
+        await Promise.all([this.refreshOrders(), this.loadCsInfo()])
         alert('已弃单，请线下退款给老板')
       } catch (e) {
         alert(e?.response?.data?.message || e.message || '弃单失败')
@@ -1221,12 +1239,7 @@ export default {
       }[this.deriveStatus(o)] || o.status
     },
     shortId(uid) { return uid ? String(uid).substring(0, 8).toUpperCase() : '—' },
-    fmtTime(iso) {
-      if (!iso) return '—'
-      const d = new Date(iso)
-      const pad = n => String(n).padStart(2, '0')
-      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-    }
+    fmtTime
   }
 }
 </script>
@@ -1234,71 +1247,71 @@ export default {
 <style scoped>
 .page-hero { padding: 120px 0 40px; border-bottom: 1px solid var(--line); }
 
-.cs-loading { padding: 32px 24px; text-align: center; font-family: monospace; font-size: 12px; color: var(--text-muted); border: 1px dashed var(--line); background: rgba(16, 25, 35, 0.3); }
-.cs-guard { padding: 40px 32px; text-align: center; border: 1px solid var(--line); background: rgba(16, 25, 35, 0.4); }
+.cs-loading { padding: 32px 24px; text-align: center; font-family: monospace; font-size: 12px; color: var(--text-muted); border: 1px dashed var(--line); background: var(--panel); }
+.cs-guard { padding: 40px 32px; text-align: center; border: 1px solid var(--line); background: var(--panel); }
 .cs-guard.pending { border-color: rgba(255, 107, 26, 0.35); }
 .cs-guard.rejected { border-color: rgba(255, 80, 80, 0.35); }
 .cs-guard.banned { border-color: rgba(255, 80, 80, 0.45); }
 .guard-title { margin: 0 0 8px; font-size: 16px; font-weight: 700; color: var(--text); letter-spacing: 1px; }
-.guard-desc { margin: 0 0 16px; font-family: monospace; font-size: 11px; color: var(--text-muted); line-height: 1.7; }
+.guard-desc { margin: 0 0 16px; font-family: monospace; font-size: 12px; color: var(--text-muted); line-height: 1.7; }
 .guard-link { display: inline-block; padding: 8px 18px; font-size: 12px; letter-spacing: 1px; color: var(--orange); text-decoration: none; border: 1px solid rgba(255, 107, 26, 0.4); }
-.guard-link:hover { color: #fff; background: var(--orange); border-color: var(--orange); }
+.guard-link:hover { color: var(--on-accent); background: var(--orange); border-color: var(--orange); }
 
-.cs-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 22px; border: 1px solid var(--line); background: rgba(16, 25, 35, 0.5); border-radius: 3px; transition: border-color 0.25s; }
+.cs-header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px 22px; border: 1px solid var(--line); background: var(--panel); border-radius: 3px; transition: border-color 0.25s; }
 .cs-header.online { border-color: rgba(120, 215, 206, 0.35); background: rgba(120, 215, 206, 0.04); }
 .cs-header.busy { border-color: rgba(255, 107, 26, 0.35); background: rgba(255, 107, 26, 0.04); }
 .cs-header.offline { border-color: rgba(89, 102, 115, 0.35); background: rgba(89, 102, 115, 0.05); }
 .cs-header-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .cs-info { min-width: 0; }
 .cs-name { font-size: 16px; font-weight: 700; letter-spacing: 1px; color: var(--text); margin-bottom: 4px; }
-.cs-meta { font-family: monospace; font-size: 11px; color: var(--text-muted); }
+.cs-meta { font-family: monospace; font-size: 12px; color: var(--text-muted); }
 .cs-meta b { color: var(--cyan); font-weight: 700; }
-.cs-rate { color: #ffb800; }
+.cs-rate { color: var(--warning); }
 .cs-header-right { display: flex; gap: 8px; flex-shrink: 0; align-items: center; flex-wrap: wrap; }
-.cs-status-btn { padding: 8px 18px; font-family: monospace; font-size: 11px; letter-spacing: 1px; color: var(--text-soft); background: transparent; border: 1px solid var(--line-bright); cursor: pointer; transition: all 0.2s; border-radius: 2px; }
+.cs-status-btn { padding: 8px 18px; font-family: monospace; font-size: 12px; letter-spacing: 1px; color: var(--text-soft); background: transparent; border: 1px solid var(--line-bright); cursor: pointer; transition: all 0.2s; border-radius: 2px; }
 .cs-status-btn:hover:not(:disabled):not(.on) { color: var(--text); border-color: var(--text-soft); }
 .cs-status-btn.on { color: var(--orange); border-color: rgba(255, 107, 26, 0.5); background: rgba(255, 107, 26, 0.1); }
 .cs-status-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .cs-guide-btn, .cs-wallet-btn { padding: 8px 16px; font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; border-radius: 2px; margin-right: 4px; }
 .cs-guide-btn { color: var(--cyan); background: rgba(120, 215, 206, 0.06); border: 1px solid rgba(120, 215, 206, 0.35); }
-.cs-guide-btn:hover { color: #fff; background: var(--cyan); border-color: var(--cyan); }
-.cs-wallet-btn { color: #ffd166; background: rgba(255, 209, 102, 0.06); border: 1px solid rgba(255, 209, 102, 0.35); }
-.cs-wallet-btn:hover { color: #1a1a1a; background: #ffd166; border-color: #ffd166; }
+.cs-guide-btn:hover { color: var(--text); background: var(--cyan); border-color: var(--cyan); }
+.cs-wallet-btn { color: var(--warning); background: rgba(255, 209, 102, 0.06); border: 1px solid rgba(255, 209, 102, 0.35); }
+.cs-wallet-btn:hover { color: var(--text-primary); background: var(--warning); border-color: var(--warning); }
 
 .cs-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 26px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
 .cs-tab { padding: 8px 16px; font-size: 12px; letter-spacing: 1px; color: var(--text-soft); background: transparent; border: 1px solid var(--line); cursor: pointer; transition: 0.2s; display: inline-flex; align-items: center; gap: 6px; }
 .cs-tab:hover { color: var(--text); border-color: var(--line-bright); }
 .cs-tab.on { color: var(--orange); border-color: rgba(255, 107, 26, 0.5); background: rgba(255, 107, 26, 0.06); }
-.tab-count { font-family: monospace; font-size: 10px; padding: 1px 6px; background: rgba(255, 255, 255, 0.08); border-radius: 3px; }
+.tab-count { font-family: monospace; font-size: 12px; padding: 1px 6px; background: var(--bg-soft); border-radius: 3px; }
 .cs-tab.on .tab-count { background: rgba(255, 107, 26, 0.15); }
 
-.op-state { padding: 60px 32px; text-align: center; font-family: monospace; font-size: 12px; letter-spacing: 1px; color: var(--text-muted); border: 1px dashed var(--line); background: rgba(16, 25, 35, 0.3); }
+.op-state { padding: 60px 32px; text-align: center; font-family: monospace; font-size: 12px; letter-spacing: 1px; color: var(--text-muted); border: 1px dashed var(--line); background: var(--panel); }
 .dot { display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: var(--orange); animation: pulse 1.4s infinite; }
 @keyframes pulse { 50% { opacity: 0.3; } }
 
 .order-list { display: flex; flex-direction: column; gap: 16px; }
-.order-card { border: 1px solid var(--line); background: rgba(16, 25, 35, 0.5); transition: border-color 0.2s, background 0.2s; }
+.order-card { border: 1px solid var(--line); background: var(--panel); transition: border-color 0.2s, background 0.2s; }
 .order-card:hover { border-color: var(--line-bright); }
-.order-card.is-urgent { border-color: rgba(255, 107, 26, 0.4); background: linear-gradient(90deg, rgba(255, 107, 26, 0.05), rgba(16, 25, 35, 0.5) 30%); }
+.order-card.is-urgent { border-color: rgba(255, 107, 26, 0.4); background: linear-gradient(90deg, rgba(255, 107, 26, 0.05), var(--panel) 30%); }
 
 .oc-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); }
 .oc-no { display: flex; flex-direction: column; gap: 4px; }
-.oc-label { font-family: monospace; font-size: 9px; letter-spacing: 1px; color: var(--text-muted); }
+.oc-label { font-family: monospace; font-size: 12px; letter-spacing: 1px; color: var(--text-muted); }
 .oc-code { font-size: 13px; color: var(--text); }
 .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 .oc-head-right { display: flex; align-items: center; gap: 10px; }
-.oc-urgent-tag { padding: 3px 10px; font-family: monospace; font-size: 10px; letter-spacing: 1px; color: var(--orange); border: 1px solid rgba(255, 107, 26, 0.45); background: rgba(255, 107, 26, 0.1); border-radius: 3px; animation: urgentPulse 2s infinite; }
+.oc-urgent-tag { padding: 3px 10px; font-family: monospace; font-size: 12px; letter-spacing: 1px; color: var(--orange); border: 1px solid rgba(255, 107, 26, 0.45); background: rgba(255, 107, 26, 0.1); border-radius: 3px; animation: urgentPulse 2s infinite; }
 @keyframes urgentPulse { 50% { opacity: 0.55; } }
-.oc-status { padding: 4px 12px; font-size: 11px; font-weight: 600; letter-spacing: 1px; border-radius: 3px; }
-.oc-status.unpaid { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
-.oc-status.waiting-confirm { background: rgba(255, 140, 74, 0.12); color: #ff8c4a; }
-.oc-status.waiting-assign { background: rgba(165, 165, 255, 0.12); color: #a5a5ff; }
+.oc-status { padding: 4px 12px; font-size: 12px; font-weight: 600; letter-spacing: 1px; border-radius: 3px; }
+.oc-status.unpaid { background: var(--bg-soft); color: var(--text-muted); }
+.oc-status.waiting-confirm { background: rgba(255, 140, 74, 0.12); color: var(--accent-color); }
+.oc-status.waiting-assign { background: rgba(165, 165, 255, 0.12); color: var(--accent-color); }
 .oc-status.waiting-accept { background: rgba(120, 215, 206, 0.12); color: var(--cyan); }
 .oc-status.processing { background: rgba(120, 215, 206, 0.12); color: var(--cyan); }
-.oc-status.completed { background: rgba(80, 200, 120, 0.12); color: #4ecb71; }
-.oc-status.abandoned { background: rgba(255, 140, 74, 0.15); color: #ff8c4a; }
-.oc-status.cancelled { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
+.oc-status.completed { background: rgba(80, 200, 120, 0.12); color: var(--success); }
+.oc-status.abandoned { background: rgba(255, 140, 74, 0.15); color: var(--accent-color); }
+.oc-status.cancelled { background: var(--bg-soft); color: var(--text-muted); }
 
 .oc-body { display: flex; justify-content: space-between; gap: 20px; padding: 16px 20px; }
 .oc-info { flex: 1; display: flex; flex-direction: column; gap: 8px; }
@@ -1308,39 +1321,39 @@ export default {
 .oc-remark { color: var(--text-soft) !important; font-weight: 400; }
 .op-linked { color: var(--cyan) !important; }
 .op-unassigned { color: var(--text-muted) !important; font-weight: 400; }
-.oc-failed { color: #ff8c4a !important; }
-.oc-op-count { font-size: 10px; color: var(--text-muted); margin-left: 4px; }
-.oc-op-inline { font-size: 11px; color: var(--text-muted); margin-left: 6px; font-weight: 400; }
+.oc-failed { color: var(--accent-color) !important; }
+.oc-op-count { font-size: 12px; color: var(--text-muted); margin-left: 4px; }
+.oc-op-inline { font-size: 12px; color: var(--text-muted); margin-left: 6px; font-weight: 400; }
 .oc-proof-link { font-size: 12px; color: var(--cyan); text-decoration: none; padding: 2px 8px; border: 1px solid rgba(120, 215, 206, 0.35); background: rgba(120, 215, 206, 0.06); border-radius: 3px; transition: all 0.2s; }
 .oc-proof-link:hover { background: rgba(120, 215, 206, 0.15); border-color: rgba(120, 215, 206, 0.6); }
 
 .oc-side { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 6px; }
 .oc-price { font-family: monospace; font-size: 24px; font-weight: 700; color: var(--orange); }
-.oc-time { font-size: 11px; color: var(--text-muted); }
+.oc-time { font-size: 12px; color: var(--text-muted); }
 
 /* ⭐ 接单进度 */
-.oc-progress { padding: 12px 20px; background: rgba(0, 0, 0, 0.2); border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.oc-progress { padding: 12px 20px; background: var(--panel); border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
 .op-progress-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.oph-label { font-family: monospace; font-size: 10px; letter-spacing: 1px; color: var(--text-muted); }
+.oph-label { font-family: monospace; font-size: 12px; letter-spacing: 1px; color: var(--text-muted); }
 .oph-count { font-family: monospace; font-size: 14px; font-weight: 700; color: var(--orange); }
-.oph-count.done { color: #4ecb71; }
-.oph-tag { margin-left: auto; padding: 2px 8px; font-family: monospace; font-size: 10px; border-radius: 2px; color: #8b9aab; border: 1px solid rgba(255, 255, 255, 0.1); }
-.oph-tag.done { color: #4ecb71; border-color: rgba(80, 200, 120, 0.5); background: rgba(80, 200, 120, 0.1); }
+.oph-count.done { color: var(--success); }
+.oph-tag { margin-left: auto; padding: 2px 8px; font-family: monospace; font-size: 12px; border-radius: 2px; color: var(--text-secondary); border: 1px solid var(--line); }
+.oph-tag.done { color: var(--success); border-color: rgba(80, 200, 120, 0.5); background: rgba(80, 200, 120, 0.1); }
 .op-progress-list { display: flex; flex-wrap: wrap; gap: 8px; }
-.op-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 12px; color: var(--text-muted); border: 1px solid var(--line); background: rgba(255, 255, 255, 0.02); border-radius: 3px; }
+.op-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 12px; color: var(--text-muted); border: 1px solid var(--line); background: var(--bg-soft); border-radius: 3px; }
 .op-chip.accepted { color: var(--cyan); border-color: rgba(120, 215, 206, 0.4); background: rgba(120, 215, 206, 0.06); }
 .chip-status { font-family: monospace; font-weight: 700; }
 .chip-name { color: inherit; }
 
 /* 换人历史 */
 .oc-reassign { padding: 12px 20px; background: rgba(255, 140, 74, 0.04); border-top: 1px solid rgba(255, 140, 74, 0.2); }
-.ocr-title { font-family: monospace; font-size: 10px; letter-spacing: 2px; color: #ff8c4a; margin-bottom: 10px; }
-.ocr-item { padding: 8px 12px; border-left: 2px solid rgba(255, 140, 74, 0.4); background: rgba(0, 0, 0, 0.15); border-radius: 0 3px 3px 0; margin-bottom: 6px; }
+.ocr-title { font-family: monospace; font-size: 12px; letter-spacing: 2px; color: var(--accent-color); margin-bottom: 10px; }
+.ocr-item { padding: 8px 12px; border-left: 2px solid rgba(255, 140, 74, 0.4); background: var(--panel); border-radius: 0 3px 3px 0; margin-bottom: 6px; }
 .ocr-item:last-child { margin-bottom: 0; }
 .ocr-note { font-size: 12px; color: var(--text-soft); line-height: 1.6; margin-bottom: 4px; }
-.ocr-time { font-family: monospace; font-size: 10px; color: var(--text-muted); text-align: right; }
+.ocr-time { font-family: monospace; font-size: 12px; color: var(--text-muted); text-align: right; }
 
-.oc-timeline { display: flex; align-items: center; gap: 8px; padding: 10px 20px; font-family: monospace; font-size: 10px; color: var(--text-muted); background: rgba(0, 0, 0, 0.2); border-top: 1px solid var(--line); overflow-x: auto; white-space: nowrap; }
+.oc-timeline { display: flex; align-items: center; gap: 8px; padding: 10px 20px; font-family: monospace; font-size: 12px; color: var(--text-muted); background: var(--panel); border-top: 1px solid var(--line); overflow-x: auto; white-space: nowrap; }
 .oc-timeline > span:not(.tl-arrow) { padding: 3px 10px; border: 1px solid var(--line); border-radius: 2px; transition: all 0.25s; }
 .oc-timeline > span.done { color: var(--cyan); border-color: rgba(120, 215, 206, 0.4); background: rgba(120, 215, 206, 0.06); }
 .tl-arrow { color: var(--text-muted); }
@@ -1348,161 +1361,165 @@ export default {
 .oc-foot { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 20px; border-top: 1px solid var(--line); flex-wrap: wrap; }
 .oc-btn { padding: 8px 20px; font-size: 12px; letter-spacing: 1px; cursor: pointer; transition: all 0.2s; border-radius: 3px; }
 .oc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.oc-btn.primary { color: #fff; background: var(--orange); border: 1px solid var(--orange); }
+.oc-btn.primary { color: var(--on-accent); background: var(--orange); border: 1px solid var(--orange); }
 .oc-btn.primary:hover:not(:disabled) { background: var(--orange-bright); }
 .oc-btn.ghost { color: var(--text-soft); background: transparent; border: 1px solid var(--line-bright); }
 .oc-btn.ghost:hover:not(:disabled) { color: var(--text); border-color: var(--text-soft); }
-.oc-btn.warn { color: #fff; background: #a5a5ff; border: 1px solid #a5a5ff; }
-.oc-btn.warn:hover:not(:disabled) { background: #b8b8ff; }
-.oc-btn.danger { color: #fff; background: #ff5050; border: 1px solid #ff5050; }
-.oc-btn.danger:hover:not(:disabled) { background: #ff6b6b; }
+.oc-btn.warn { color: var(--text); background: var(--accent-color); border: 1px solid var(--accent-color); }
+.oc-btn.warn:hover:not(:disabled) { background: var(--accent-color); }
+.oc-btn.danger { color: var(--text); background: var(--danger); border: 1px solid var(--danger); }
+.oc-btn.danger:hover:not(:disabled) { background: var(--danger); }
 
 .cs-pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 22px; font-family: monospace; font-size: 12px; color: var(--text-muted); }
-.cs-pager button { padding: 6px 14px; font-size: 11px; color: var(--text-soft); background: transparent; border: 1px solid var(--line-bright); cursor: pointer; }
+.cs-pager button { padding: 6px 14px; font-size: 12px; color: var(--text-soft); background: transparent; border: 1px solid var(--line-bright); cursor: pointer; }
 .cs-pager button:hover:not(:disabled) { color: var(--text); border-color: var(--text-soft); }
 .cs-pager button:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* 客诉卡片 */
 .cp-list { display: flex; flex-direction: column; gap: 16px; }
-.cp-card { border: 1px solid var(--line); background: rgba(16, 25, 35, 0.5); }
+.cp-card { border: 1px solid var(--line); background: var(--panel); }
 .cp-card:hover { border-color: var(--line-bright); }
-.cp-card.pending { border-left: 3px solid #ff8c4a; }
-.cp-card.resolved { border-left: 3px solid #4ecb71; }
-.cp-card.rejected { border-left: 3px solid #ff5050; }
+.cp-card.pending { border-left: 3px solid var(--accent-color); }
+.cp-card.resolved { border-left: 3px solid var(--success); }
+.cp-card.rejected { border-left: 3px solid var(--danger); }
 .cpc-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); }
 .cpc-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .cpc-no { font-size: 13px; color: var(--text); }
-.cpc-type { padding: 2px 8px; font-size: 11px; color: #ff8c4a; background: rgba(255, 140, 74, 0.1); border: 1px solid rgba(255, 140, 74, 0.3); border-radius: 3px; }
-.cpc-status { padding: 4px 12px; font-size: 11px; font-weight: 600; letter-spacing: 1px; border-radius: 3px; white-space: nowrap; }
-.cpc-status.pending { background: rgba(255, 140, 74, 0.12); color: #ff8c4a; }
-.cpc-status.resolved { background: rgba(80, 200, 120, 0.12); color: #4ecb71; }
-.cpc-status.rejected { background: rgba(255, 80, 80, 0.12); color: #ff5050; }
+.cpc-type { padding: 2px 8px; font-size: 12px; color: var(--accent-color); background: rgba(255, 140, 74, 0.1); border: 1px solid rgba(255, 140, 74, 0.3); border-radius: 3px; }
+.cpc-status { padding: 4px 12px; font-size: 12px; font-weight: 600; letter-spacing: 1px; border-radius: 3px; white-space: nowrap; }
+.cpc-status.pending { background: rgba(255, 140, 74, 0.12); color: var(--accent-color); }
+.cpc-status.resolved { background: rgba(80, 200, 120, 0.12); color: var(--success); }
+.cpc-status.rejected { background: rgba(255, 80, 80, 0.12); color: var(--danger); }
 .cpc-body { padding: 14px 20px; display: flex; flex-direction: column; gap: 8px; }
 .cpc-row { display: flex; gap: 12px; font-size: 13px; }
 .cpc-row span { color: var(--text-muted); min-width: 70px; }
 .cpc-row b { color: var(--text); font-weight: 500; }
 .cpc-section { padding: 14px 20px; border-top: 1px solid var(--line); }
-.cps-label { font-family: monospace; font-size: 10px; letter-spacing: 2px; color: var(--text-muted); margin-bottom: 8px; }
+.cps-label { font-family: monospace; font-size: 12px; letter-spacing: 2px; color: var(--text-muted); margin-bottom: 8px; }
 .cps-text { margin: 0; font-size: 13px; line-height: 1.8; color: var(--text-soft); white-space: pre-wrap; word-break: break-word; }
 .cps-evidence { display: inline-block; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
 .cps-evidence img { display: block; max-width: 240px; max-height: 180px; object-fit: cover; }
-.cpc-reply { padding: 14px 20px; background: rgba(0, 0, 0, 0.2); border-top: 1px solid var(--line); }
+.cpc-reply { padding: 14px 20px; background: var(--panel); border-top: 1px solid var(--line); }
 .cpc-reply.resolved { background: rgba(80, 200, 120, 0.04); }
 .cpc-reply.rejected { background: rgba(255, 80, 80, 0.04); }
 .cpr-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .cpr-name { font-size: 13px; font-weight: 700; color: var(--cyan); }
-.cpr-time { font-size: 10px; color: var(--text-muted); }
+.cpr-time { font-size: 12px; color: var(--text-muted); }
 .cpr-note { margin: 0; font-size: 13px; line-height: 1.8; color: var(--text-soft); white-space: pre-wrap; }
 
 /* 弹窗 */
-.guide-mask, .assign-mask { position: fixed; inset: 0; z-index: 9999; background: rgba(0, 0, 0, 0.78); backdrop-filter: blur(8px); display: grid; place-items: center; padding: 24px; }
-.guide-modal { width: min(760px, 100%); max-height: 85vh; overflow: hidden; display: flex; flex-direction: column; border: 1px solid rgba(255, 255, 255, 0.15); background: #0e1720; color: #e8eef4; border-radius: 4px; }
-.assign-modal { width: min(560px, 100%); max-height: 85vh; overflow-y: auto; border: 1px solid rgba(255, 255, 255, 0.15); background: #0e1720; color: #e8eef4; border-radius: 4px; }
+.guide-mask, .assign-mask { position: fixed; inset: 0; z-index: 9999; background: var(--overlay); backdrop-filter: blur(8px); display: grid; place-items: center; padding: 24px; }
+.guide-modal { width: min(760px, 100%); max-height: 85vh; overflow: hidden; display: flex; flex-direction: column; border: 1px solid var(--line); background: var(--paper-card); color: var(--text-primary); border-radius: 4px; }
+.assign-modal { width: min(640px, 100%); max-height: 88dvh; overflow-y: auto; border: 1px solid var(--line); background: var(--paper-card); color: var(--text-primary); border-radius: 16px; box-shadow: 0 20px 70px var(--overlay); }
+.assign-modal .am-head { position: sticky; top: 0; z-index: 2; background: var(--paper-card); }
+.assign-modal .am-foot { position: sticky; bottom: 0; z-index: 2; background: var(--paper-card); }
+.assign-modal button:disabled { opacity: .55; cursor: not-allowed; }
 .assign-modal.small { width: min(480px, 100%); }
 
-.gm-head, .am-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 20px 24px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
-.gm-head h3, .am-head h3 { margin: 0 0 6px; font-size: 17px; font-weight: 700; letter-spacing: 1px; color: #f2f6fa; }
-.gm-sub, .am-sub { margin: 0; font-family: monospace; font-size: 11px; color: #8b9aab; }
-.close-icon { background: none; border: none; font-size: 24px; color: #6b7a8a; cursor: pointer; line-height: 1; }
-.close-icon:hover { color: #e8eef4; }
+.gm-head, .am-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 20px 24px 16px; border-bottom: 1px solid var(--bg-soft); }
+.gm-head h3, .am-head h3 { margin: 0 0 6px; font-size: 17px; font-weight: 700; letter-spacing: 1px; color: var(--text-primary); }
+.gm-sub, .am-sub { margin: 0; font-family: monospace; font-size: 12px; color: var(--text-secondary); }
+.close-icon { background: none; border: none; font-size: 24px; color: var(--text-secondary); cursor: pointer; line-height: 1; }
+.close-icon:hover { color: var(--text-primary); }
 
 .gm-body { display: grid; grid-template-columns: 180px 1fr; overflow: hidden; flex: 1; min-height: 0; }
-.gm-toc { display: flex; flex-direction: column; gap: 4px; padding: 20px 16px; border-right: 1px solid rgba(255, 255, 255, 0.08); overflow-y: auto; background: rgba(0, 0, 0, 0.15); }
-.toc-a { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 12px; color: #8b9aab; text-decoration: none; border-radius: 3px; cursor: pointer; }
-.toc-a:hover { color: #ff6b1a; background: rgba(255, 107, 26, 0.08); }
-.toc-num { font-family: monospace; font-size: 10px; color: #6b7a8a; }
+.gm-toc { display: flex; flex-direction: column; gap: 4px; padding: 20px 16px; border-right: 1px solid var(--bg-soft); overflow-y: auto; background: var(--panel); }
+.toc-a { display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 12px; color: var(--text-secondary); text-decoration: none; border-radius: 3px; cursor: pointer; }
+.toc-a:hover { color: var(--accent-color); background: rgba(255, 107, 26, 0.08); }
+.toc-num { font-family: monospace; font-size: 12px; color: var(--text-secondary); }
 .gm-content { padding: 20px 26px; overflow-y: auto; }
 .gd-sec { margin-bottom: 34px; scroll-margin-top: 20px; }
-.gd-sec h4 { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); font-size: 15px; font-weight: 700; color: #f2f6fa; }
-.gd-sec h4 span { font-family: monospace; font-size: 11px; color: #ff6b1a; }
+.gd-sec h4 { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--bg-soft); font-size: 15px; font-weight: 700; color: var(--text-primary); }
+.gd-sec h4 span { font-family: monospace; font-size: 12px; color: var(--accent-color); }
 .gd-steps { list-style: none; padding: 0; margin: 0 0 14px; display: flex; flex-direction: column; gap: 10px; }
-.gd-steps li { display: flex; flex-direction: column; gap: 5px; padding: 12px 14px; border-left: 2px solid rgba(255, 107, 26, 0.5); background: rgba(255, 255, 255, 0.02); border-radius: 0 3px 3px 0; }
-.gd-steps li b { font-size: 13px; color: #f2f6fa; }
-.gd-steps li p { margin: 0; font-size: 12px; line-height: 1.7; color: #8b9aab; }
-.gd-steps li code { padding: 2px 6px; font-family: monospace; font-size: 11px; color: #78d7ce; background: rgba(120, 215, 206, 0.08); border-radius: 3px; }
-.gd-warn, .gd-tip { padding: 12px 14px; margin-top: 12px; font-size: 12px; line-height: 1.7; color: #c0cbd6; border-radius: 0 3px 3px 0; }
-.gd-warn { border-left: 3px solid #ff8c4a; background: rgba(255, 140, 74, 0.06); }
-.gd-warn b { color: #ff8c4a; }
-.gd-tip { border-left: 3px solid #78d7ce; background: rgba(120, 215, 206, 0.06); }
-.gd-tip b { color: #78d7ce; }
+.gd-steps li { display: flex; flex-direction: column; gap: 5px; padding: 12px 14px; border-left: 2px solid rgba(255, 107, 26, 0.5); background: var(--bg-soft); border-radius: 0 3px 3px 0; }
+.gd-steps li b { font-size: 13px; color: var(--text-primary); }
+.gd-steps li p { margin: 0; font-size: 12px; line-height: 1.7; color: var(--text-secondary); }
+.gd-steps li code { padding: 2px 6px; font-family: monospace; font-size: 12px; color: var(--success); background: rgba(120, 215, 206, 0.08); border-radius: 3px; }
+.gd-warn, .gd-tip { padding: 12px 14px; margin-top: 12px; font-size: 12px; line-height: 1.7; color: var(--text-secondary); border-radius: 0 3px 3px 0; }
+.gd-warn { border-left: 3px solid var(--accent-color); background: rgba(255, 140, 74, 0.06); }
+.gd-warn b { color: var(--accent-color); }
+.gd-tip { border-left: 3px solid var(--success); background: rgba(120, 215, 206, 0.06); }
+.gd-tip b { color: var(--success); }
 .faq { display: flex; flex-direction: column; gap: 10px; }
-.faq-item { padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02); border-radius: 3px; }
-.faq-q { font-size: 13px; font-weight: 600; color: #f2f6fa; margin-bottom: 6px; }
-.faq-a { font-size: 12px; line-height: 1.8; color: #8b9aab; }
+.faq-item { padding: 12px 14px; border: 1px solid var(--bg-soft); background: var(--bg-soft); border-radius: 3px; }
+.faq-q { font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
+.faq-a { font-size: 12px; line-height: 1.8; color: var(--text-secondary); }
 
 .am-body { padding: 20px 24px; }
-.am-empty { padding: 40px 20px; text-align: center; font-family: monospace; font-size: 12px; color: #6b7a8a; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 3px; }
+.am-empty { padding: 40px 20px; text-align: center; font-family: monospace; font-size: 12px; color: var(--text-secondary); border: 1px dashed var(--line); border-radius: 3px; }
 
 .op-count-hint { display: flex; align-items: center; gap: 10px; padding: 10px 14px; margin-bottom: 14px; border: 1px solid rgba(255, 107, 26, 0.3); background: rgba(255, 107, 26, 0.05); border-radius: 3px; font-size: 12px; }
 .op-count-hint.locked { border-color: rgba(120, 215, 206, 0.35); background: rgba(120, 215, 206, 0.05); }
 .op-count-hint.full { border-color: rgba(80, 200, 120, 0.5); background: rgba(80, 200, 120, 0.08); }
-.och-label { font-family: monospace; font-size: 10px; color: #8b9aab; }
-.och-count { font-family: monospace; font-size: 14px; font-weight: 700; color: #ff6b1a; }
-.op-count-hint.locked .och-count { color: #78d7ce; }
-.op-count-hint.full .och-count { color: #4ecb71; }
-.och-tag { margin-left: auto; font-family: monospace; font-size: 10px; color: #8b9aab; }
-.och-tag.locked { color: #78d7ce; }
-.och-tag.full { color: #4ecb71; }
+.och-label { font-family: monospace; font-size: 12px; color: var(--text-secondary); }
+.och-count { font-family: monospace; font-size: 14px; font-weight: 700; color: var(--accent-color); }
+.op-count-hint.locked .och-count { color: var(--success); }
+.op-count-hint.full .och-count { color: var(--success); }
+.och-tag { margin-left: auto; font-family: monospace; font-size: 12px; color: var(--text-secondary); }
+.och-tag.locked { color: var(--success); }
+.och-tag.full { color: var(--success); }
 
-.old-ops-box { padding: 12px 14px; margin-bottom: 14px; border-left: 2px solid #ff8c4a; background: rgba(255, 140, 74, 0.05); border-radius: 0 3px 3px 0; }
-.oob-title { font-family: monospace; font-size: 10px; color: #ff8c4a; margin-bottom: 8px; letter-spacing: 1px; }
+.old-ops-box { padding: 12px 14px; margin-bottom: 14px; border-left: 2px solid var(--accent-color); background: rgba(255, 140, 74, 0.05); border-radius: 0 3px 3px 0; }
+.oob-title { font-family: monospace; font-size: 12px; color: var(--accent-color); margin-bottom: 8px; letter-spacing: 1px; }
 .oob-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.oob-chip { padding: 3px 10px; font-size: 12px; color: #c0cbd6; background: rgba(0,0,0,0.2); border-radius: 3px; }
+.oob-chip { padding: 3px 10px; font-size: 12px; color: var(--text-secondary); background: var(--panel); border-radius: 3px; }
 
 .price-preview-box { padding: 12px 14px; margin-bottom: 14px; border: 1px dashed rgba(120, 215, 206, 0.3); background: rgba(120, 215, 206, 0.04); border-radius: 3px; display: flex; flex-direction: column; gap: 6px; }
 .ppb-row { display: flex; justify-content: space-between; font-size: 12px; }
-.ppb-row span { color: #8b9aab; }
-.ppb-row b { color: #c0cbd6; font-family: monospace; }
-.ppb-row.sub { padding-left: 8px; font-size: 11px; }
-.ppb-row.sub span { color: #6b7a8a; font-family: monospace; }
-.ppb-row.sub b { color: #78d7ce; }
-.ppb-row.total { margin-top: 6px; padding-top: 8px; border-top: 1px dashed rgba(255, 255, 255, 0.1); }
-.ppb-total { font-size: 18px !important; color: #ff6b1a !important; }
-.ppb-note { margin-top: 4px; font-family: monospace; font-size: 10px; color: #8b9aab; }
+.ppb-row span { color: var(--text-secondary); }
+.ppb-row b { color: var(--text-secondary); font-family: monospace; }
+.ppb-row.sub { padding-left: 8px; font-size: 12px; }
+.ppb-row.sub span { color: var(--text-secondary); font-family: monospace; }
+.ppb-row.sub b { color: var(--success); }
+.ppb-row.total { margin-top: 6px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.ppb-total { font-size: 18px !important; color: var(--accent-color) !important; }
+.ppb-note { margin-top: 4px; font-family: monospace; font-size: 12px; color: var(--text-secondary); }
 
 .op-picker { display: flex; flex-direction: column; gap: 8px; max-height: 340px; overflow-y: auto; }
-.op-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02); border-radius: 3px; cursor: pointer; transition: 0.2s; }
-.op-item:hover:not(.off) { border-color: rgba(255, 255, 255, 0.2); }
+.op-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--bg-soft); background: var(--bg-soft); border-radius: 3px; cursor: pointer; transition: 0.2s; }
+.op-item:hover:not(.off) { border-color: var(--line); }
 .op-item.on { border-color: rgba(255, 107, 26, 0.5); background: rgba(255, 107, 26, 0.06); }
 .op-item.off { opacity: 0.35; cursor: not-allowed; }
-.op-item input { display: none; }
-.op-avatar { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.03); color: #ff6b1a; font-weight: 700; border-radius: 3px; flex-shrink: 0; }
+.op-item input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--accent-color); }
+.op-item:focus-within { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+.op-avatar { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--bg-soft); color: var(--accent-color); font-weight: 700; border-radius: 3px; flex-shrink: 0; }
 .op-info { flex: 1; min-width: 0; }
-.op-name { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: #f2f6fa; margin-bottom: 3px; flex-wrap: wrap; }
-.op-level { padding: 1px 6px; font-family: monospace; font-size: 10px; color: #ff6b1a; border: 1px solid rgba(255, 107, 26, 0.4); border-radius: 2px; }
-.op-meta { font-size: 11px; color: #8b9aab; font-family: monospace; }
-.op-busy { color: #ff8c4a; }
+.op-name { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 3px; flex-wrap: wrap; }
+.op-level { padding: 1px 6px; font-family: monospace; font-size: 12px; color: var(--accent-color); border: 1px solid rgba(255, 107, 26, 0.4); border-radius: 2px; }
+.op-meta { font-size: 12px; color: var(--text-secondary); font-family: monospace; }
+.op-busy { color: var(--accent-color); }
 
 .reason-box { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
-.reason-label { font-family: monospace; font-size: 10px; color: #8b9aab; letter-spacing: 1px; }
-.reason-label em { font-style: normal; color: #ff5050; margin-left: 3px; }
-.reason-textarea { width: 100%; padding: 10px 12px; background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(255, 255, 255, 0.1); color: #e8eef4; border-radius: 3px; font-family: inherit; font-size: 13px; outline: none; resize: vertical; }
+.reason-label { font-family: monospace; font-size: 12px; color: var(--text-secondary); letter-spacing: 1px; }
+.reason-label em { font-style: normal; color: var(--danger); margin-left: 3px; }
+.reason-textarea { width: 100%; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); color: var(--text-primary); border-radius: 3px; font-family: inherit; font-size: 13px; outline: none; resize: vertical; }
 .reason-textarea:focus { border-color: rgba(255, 107, 26, 0.5); }
 
-.abandon-warn { padding: 12px 14px; margin-bottom: 14px; border-left: 3px solid #ff5050; background: rgba(255, 80, 80, 0.06); color: #c0cbd6; font-size: 12px; line-height: 1.8; border-radius: 0 3px 3px 0; }
-.abandon-warn b { color: #ff5050; }
+.abandon-warn { padding: 12px 14px; margin-bottom: 14px; border-left: 3px solid var(--danger); background: rgba(255, 80, 80, 0.06); color: var(--text-secondary); font-size: 12px; line-height: 1.8; border-radius: 0 3px 3px 0; }
+.abandon-warn b { color: var(--danger); }
 
-.complaint-preview { padding: 12px 14px; margin-bottom: 14px; border-left: 2px solid #ff8c4a; background: rgba(255, 140, 74, 0.05); border-radius: 0 3px 3px 0; }
-.cpv-label { font-family: monospace; font-size: 10px; color: #ff8c4a; margin-bottom: 6px; letter-spacing: 1px; }
-.cpv-text { margin: 0; font-size: 13px; line-height: 1.7; color: #c0cbd6; white-space: pre-wrap; }
+.complaint-preview { padding: 12px 14px; margin-bottom: 14px; border-left: 2px solid var(--accent-color); background: rgba(255, 140, 74, 0.05); border-radius: 0 3px 3px 0; }
+.cpv-label { font-family: monospace; font-size: 12px; color: var(--accent-color); margin-bottom: 6px; letter-spacing: 1px; }
+.cpv-text { margin: 0; font-size: 13px; line-height: 1.7; color: var(--text-secondary); white-space: pre-wrap; }
 
 .handle-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.ha-item { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.02); border-radius: 3px; cursor: pointer; transition: 0.2s; }
-.ha-item:hover { border-color: rgba(255, 255, 255, 0.2); }
+.ha-item { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border: 1px solid var(--bg-soft); background: var(--bg-soft); border-radius: 3px; cursor: pointer; transition: 0.2s; }
+.ha-item:hover { border-color: var(--line); }
 .ha-item.on { border-color: rgba(255, 107, 26, 0.5); background: rgba(255, 107, 26, 0.06); }
 .ha-item input { display: none; }
-.ha-item span { font-size: 13px; font-weight: 600; color: #f2f6fa; }
-.ha-item small { font-size: 11px; color: #8b9aab; }
+.ha-item span { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.ha-item small { font-size: 12px; color: var(--text-secondary); }
 
-.am-foot { display: flex; gap: 12px; padding: 16px 24px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.am-foot { display: flex; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--bg-soft); }
 .btn-ghost, .btn-solid { flex: 1; height: 42px; font-size: 13px; letter-spacing: 1px; cursor: pointer; border-radius: 3px; transition: all 0.2s; }
-.btn-ghost { color: #8b9aab; background: transparent; border: 1px solid rgba(255, 255, 255, 0.15); }
-.btn-ghost:hover { color: #e8eef4; border-color: rgba(255, 255, 255, 0.3); }
-.btn-solid { color: #fff; background: #ff6b1a; border: 1px solid #ff6b1a; }
-.btn-solid:hover:not(:disabled) { background: #ff7e32; }
+.btn-ghost { color: var(--text-secondary); background: transparent; border: 1px solid var(--line); }
+.btn-ghost:hover { color: var(--text-primary); border-color: var(--line); }
+.btn-solid { color: var(--on-accent); background: var(--accent-color); border: 1px solid var(--accent-color); }
+.btn-solid:hover:not(:disabled) { background: var(--accent-color); }
 .btn-solid:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-solid.danger { background: #ff5050; border-color: #ff5050; }
-.btn-solid.danger:hover:not(:disabled) { background: #ff6b6b; }
+.btn-solid.danger { background: var(--danger); border-color: var(--danger); }
+.btn-solid.danger:hover:not(:disabled) { background: var(--danger); }
 
 @media (max-width: 640px) {
   .cs-header { flex-direction: column; align-items: stretch; gap: 14px; }
@@ -1512,11 +1529,11 @@ export default {
   .oc-body { flex-direction: column; }
   .oc-side { align-items: flex-start; }
   .oc-head { flex-wrap: wrap; gap: 10px; }
-  .oc-timeline { font-size: 9px; }
+  .oc-timeline { font-size: 12px; }
   .guide-modal { max-height: 92vh; }
   .gm-body { grid-template-columns: 1fr; }
-  .gm-toc { flex-direction: row; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-right: none; border-bottom: 1px solid rgba(255, 255, 255, 0.08); max-height: 120px; }
-  .toc-a { padding: 4px 8px; font-size: 11px; }
+  .gm-toc { flex-direction: row; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-right: none; border-bottom: 1px solid var(--bg-soft); max-height: 120px; }
+  .toc-a { padding: 4px 8px; font-size: 12px; }
   .gm-content { padding: 16px; }
   .handle-actions { grid-template-columns: 1fr; }
 }

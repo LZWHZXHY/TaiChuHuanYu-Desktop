@@ -262,11 +262,12 @@ export const lingmaiApi = {
   publishNote(noteId: string, payload: { 
   type: string; 
   categoryId?: number | string; 
-  tags?: string[] 
+  tags?: string[];
+  projectId?: string;
 }) {
   // 🌟 核心：直接把整个对象作为 body 传给后端
   // 后端现在会解析 [FromBody] PublishRequest，无论你是 wiki 还是 art，统统吃得下
-  return request.post(`/LingMaiPublish/notes/${noteId}/publish`, payload);
+  return request.post<{ success: boolean; message?: string; artworkId?: number; publishedId?: string }>(`/LingMaiPublish/notes/${noteId}/publish`, payload, { silentError: true });
 },
 
   /**
@@ -274,7 +275,7 @@ export const lingmaiApi = {
    * @param noteId 笔记的 GUID
    */
   unpublishNote(noteId: string) {
-    return request.delete(`/LingMaiPublish/notes/${noteId}/unpublish`);
+    return request.delete(`/LingMaiPublish/notes/${noteId}/unpublish`, { silentError: true });
   },
 
   getQuota() {
@@ -322,7 +323,7 @@ getQuotaUsage() {
     tags: string[]; 
     rawContent?: any; // 接收前端传来的原始 Tiptap 树
     blocks?: FlatBlock[]; 
-  }) {
+  }, silentError = false) {
     // 如果存在 rawContent，在这里将其拍平赋值给 blocks
     if (payload.rawContent) {
       payload.blocks = flattenTiptapJson(payload.rawContent);
@@ -330,7 +331,7 @@ getQuotaUsage() {
     }
     
     // 发送请求，后端完美接收 [FromBody] NoteSyncDto
-    return request.post('/LingMai/sync', payload);
+    return request.post('/LingMai/sync', payload, { silentError });
   },
 
   /**

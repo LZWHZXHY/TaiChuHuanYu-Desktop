@@ -1,11 +1,12 @@
 <template>
   <div class="project-detail-wrapper" v-if="project">
+    <p v-if="loadError" role="alert">{{ loadError }} <button @click="refreshProject">重试</button></p>
     <header class="detail-header">
       <div class="header-left">
-        <nav class="breadcrumb" @click="router.push('/Project')">
+        <router-link class="breadcrumb" to="/Project">
           <span class="back-icon">←</span>
-          <span class="back-text">返回灵脉大厅</span>
-        </nav>
+          <span class="back-text">返回协作大厅</span>
+        </router-link>
         <div class="title-group">
           <h1 class="project-name">{{ project.name }}</h1>
           <p class="project-description" v-if="project.description">
@@ -63,13 +64,13 @@
   </div>
 
   <div v-else class="loading-state">
-    <div class="loading-pulse"></div>
+<p v-if="loadError" role="alert">{{ loadError }} <button @click="refreshProject">重试</button></p><div v-else class="loading-pulse"></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed, h } from 'vue'; // 🌟 去掉了未使用的 shallowRef 导入
-import { useRoute, useRouter } from 'vue-router';
+import { ref, onUnmounted, watch, computed } from 'vue'; // 🌟 去掉了未使用的 shallowRef 导入
+import { useRoute } from 'vue-router';
 import projectService from '../../../api/projectService'; 
 
 // 引入你的真实业务组件
@@ -81,8 +82,8 @@ import ProjectDocument from './ProjectDocument.vue';
 import ProjectReports from './ProjectReports.vue'; // 🌟 引入汇报组件
 import ProjectDeliveries from './ProjectDeliveries.vue';
 const route = useRoute();
-const router = useRouter();
-const project = ref<any>(null);
+const project = ref<any>(null), loadError = ref('');
+let loadVersion = 0;
 const currentTab = ref('kanban');
 
 const tabs = [
@@ -95,24 +96,6 @@ const tabs = [
   { id: 'settings', name: '项目配置' }
 ];
 
-/**
- * 局部内联占位渲染函数
- */
-const renderPlaceholder = () => {
-  const currentTabName = tabs.find(t => t.id === currentTab.value)?.name || '';
-  return h('div', { class: 'layout-placeholder' }, [
-    h('div', { class: 'placeholder-content' }, [
-      h('div', { class: 'placeholder-icon' }, '⠿'),
-      h('h3', `${currentTabName}模块已就绪`),
-      h('p', '等待接入具体的业务逻辑组件')
-    ])
-  ]);
-};
-
-/**
- * 🌟 路由静态映射表
- * 移除了内部零散的 shallowRef，交由下方的计算属性统一安全解析
- */
 const componentMap: Record<string, any> = {
   kanban: ProjectKanban,
   settings: ProjectSettings,
@@ -123,12 +106,7 @@ const componentMap: Record<string, any> = {
   document: ProjectDocument,
 };
 
-// 🌟 动态计算视口挂载项，自动防御 Ref 包装问题
-const activeComponent = computed(() => {
-  const target = componentMap[currentTab.value] || renderPlaceholder;
-  // 如果当前对象仍然是个 Ref 节点，则自动解包，确保丢给 <component :is> 的永远是原生组件
-  return target && target.__v_isRef ? target.value : target;
-});
+const activeComponent = computed(() => componentMap[currentTab.value] ?? ProjectKanban);
 
 const getStatusLabel = (status: number) => {
   const labels: Record<number, string> = { 0: '筹备', 1: '活跃', 2: '圆满', 3: '归档' };
@@ -143,196 +121,39 @@ const formatTime = (date: string) => {
 const refreshProject = async () => {
   const projectId = route.params.id as string;
   if (!projectId) return;
+  const current = ++loadVersion; loadError.value = '';
   try {
     const data = await projectService.getProjectSettings(projectId);
-    project.value = data;
-  } catch (err) {
-    console.error("刷新灵脉细节失败", err);
+    if (current === loadVersion) project.value = data;
+  } catch (err: any) {
+    if (current === loadVersion) loadError.value = err.friendlyMessage || '项目读取失败或当前账户无访问权限';
   }
 };
 
-watch(() => route.params.id, () => {
-  refreshProject();
-});
-
-onMounted(refreshProject);
+// 仅切换项目时清空；子面板更新统计不能卸载面板并再次触发加载。
+watch(() => route.params.id, () => { project.value = null; currentTab.value = 'kanban'; void refreshProject(); }, { immediate: true });
+onUnmounted(() => loadVersion++);
 </script>
 
 <style scoped>
-/* 占位符样式完美保留在原处，通过内联组件的类名激活 */
-.layout-placeholder {
-  background: #fff;
-  border: 1px solid #f5f5f5;
-  height: 500px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 40px 80px rgba(0,0,0,0.02);
-}
-
-.placeholder-content {
-  text-align: center;
-}
-
-.placeholder-icon {
-  font-size: 3rem;
-  color: #eee;
-  margin-bottom: 20px;
-}
-
-.placeholder-content h3 {
-  font-size: 1.1rem;
-  font-weight: 400;
-  color: #ccc;
-  margin-bottom: 8px;
-}
-
-.placeholder-content p {
-  font-size: 0.8rem;
-  color: #ddd;
-}
-
-/* 详情大厅的基础样式保持一致 */
-.project-detail-wrapper {
-  min-height: 100vh;
-  background-color: #ffffff;
-  color: #1a1a1a;
-  padding: 0 8%;
-  display: flex;
-  flex-direction: column;
-}
-
-.detail-header {
-  padding: 80px 0 60px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-}
-
-.breadcrumb {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #ccc;
-  font-size: 0.8rem;
-  cursor: pointer;
-  margin-bottom: 32px;
-  transition: all 0.3s;
-}
-.breadcrumb:hover { color: #1a1a1a; transform: translateX(-4px); }
-
-.project-name {
-  font-size: 2.8rem;
-  font-weight: 300;
-  letter-spacing: -1.5px;
-  margin: 0 0 16px 0;
-}
-
-.project-description {
-  color: #666;
-  font-size: 1rem;
-  line-height: 1.8;
-  max-width: 680px;
-  font-weight: 300;
-}
-
-.meta-card {
-  margin-top: 20px;
-  padding: 24px;
-  background: #fff;
-  border: 1px solid #f9f9f9;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.02); 
-}
-
-.meta-row {
-  margin-bottom: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.meta-row:last-child { margin-bottom: 0; }
-
-.meta-row .label {
-  font-size: 0.6rem;
-  color: #bbb;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-}
-
-.meta-row .value { font-size: 0.85rem; color: #444; }
-
-.status-badge {
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 1px;
-}
-.status-1 { color: #1a1a1a; }
-
-.module-nav {
-  margin-bottom: 50px;
-  border-bottom: 1px solid #f2f2f2;
-}
-
-.nav-container {
-  display: flex;
-  gap: 50px;
-}
-
-.nav-link {
-  background: none;
-  border: none;
-  padding: 20px 0;
-  font-size: 0.95rem;
-  color: #aaa;
-  cursor: pointer;
-  position: relative;
-  transition: color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.nav-link:hover { color: #1a1a1a; }
-.nav-link.is-active { color: #1a1a1a; font-weight: 500; }
-
-.active-indicator {
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  width: 0;
-  height: 1.5px;
-  background: #1a1a1a;
-  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.nav-link.is-active .active-indicator { width: 100%; }
-
-.content-viewport {
-  flex: 1;
-  padding-bottom: 120px;
-}
-
-.view-fade-enter-active,
-.view-fade-leave-active {
-  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.view-fade-enter-from { opacity: 0; transform: translateY(15px); }
-.view-fade-leave-to { opacity: 0; transform: translateY(-15px); }
-
-.loading-state {
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.loading-pulse {
-  width: 40px;
-  height: 1px;
-  background: #eee;
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% { transform: scaleX(1); opacity: 1; }
-  50% { transform: scaleX(2); opacity: 0.3; }
-  100% { transform: scaleX(1); opacity: 1; }
-}
+.project-detail-wrapper { color: var(--text-primary); display: grid; gap: 24px; min-width: 0; }
+.detail-header { display: flex; justify-content: space-between; gap: 24px; padding: 28px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-lg); }
+.breadcrumb { display: inline-flex; gap: 8px; color: var(--accent-color); cursor: pointer; margin-bottom: 16px; }
+.project-name { font-size: clamp(24px, 3vw, 34px); margin: 0 0 12px; overflow-wrap: anywhere; }
+.project-description { max-width: 700px; color: var(--text-secondary); line-height: 1.7; white-space: pre-wrap; }
+.meta-card { display: grid; gap: 16px; min-width: 170px; }
+.meta-row { display: grid; gap: 6px; font-size: 14px; }
+.label { color: var(--text-secondary); }
+.status-badge { color: var(--success); }
+.module-nav { min-width: 0; border-bottom: 1px solid var(--border-line); }
+.nav-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; }
+.nav-link { flex-shrink: 0; padding: 10px 16px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); cursor: pointer; }
+.nav-link:hover { background: var(--bg-sub); }
+.nav-link.is-active { background: var(--accent-soft); color: var(--accent-color); font-weight: 600; }
+.content-viewport, .module-container { min-width: 0; }
+.loading-state { padding: 60px 20px; text-align: center; color: var(--text-secondary); }
+.loading-pulse { width: 40px; height: 4px; margin: auto; background: var(--accent-color); }
+.view-fade-enter-active, .view-fade-leave-active { transition: opacity .15s; }
+.view-fade-enter-from, .view-fade-leave-to { opacity: 0; }
+@media (max-width: 700px) { .detail-header { flex-direction: column; padding: 20px; } .meta-card { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 </style>

@@ -1,5 +1,5 @@
 <template>
-  <div class="edit-page">
+  <div class="community-detail edit-page">
     <div class="page-header">
       <h1 class="page-title">✎ 编辑 OC</h1>
       <p class="page-subtitle">修改「{{ character?.title || '角色' }}」的设定</p>
@@ -8,18 +8,19 @@
     <div v-if="loading" class="loading-state">加载中...</div>
 
     <div v-else-if="!character" class="empty-state">
-      <p>角色不存在</p>
+      <p>{{ error || '角色不存在' }}</p>
       <router-link to="/ocs" class="empty-link">返回 OC 画阁</router-link>
     </div>
 
     <div v-else class="form-wrapper">
-      <CharacterForm :initial-data="character" @submit="handleUpdate" />
+      <p v-if="error" role="alert">{{ error }}</p>
+      <CharacterForm :initial-data="character" :loading="store.loading" @submit="handleUpdate" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useStickmanStore } from '../stickman_store.ts'
 import CharacterForm from '../../components/CharacterForm.vue'
@@ -29,20 +30,25 @@ const route = useRoute()
 const store = useStickmanStore()
 
 const character = computed(() => store.currentCharacter)
-const loading = computed(() => store.loading)
+const loading = ref(true)
+const error = ref('')
 
 onMounted(async () => {
   const id = route.params.id as string
-  await store.fetchDetail(id)
+  store.clearCurrent()
+  try { await store.fetchDetail(id) }
+  catch { error.value = '角色加载失败，请返回后重试。' }
+  finally { loading.value = false }
 })
 
 async function handleUpdate(data: any) {
-  if (!character.value) return
+  if (!character.value || store.loading) return
+  error.value = ''
   try {
     await store.updateCharacter(character.value.id, data)
     router.push(`/ocs/${character.value.id}`)
-  } catch (error) {
-    console.error('更新失败:', error)
+  } catch {
+    error.value = '保存失败，请重试。已填写的内容仍保留。'
   }
 }
 </script>

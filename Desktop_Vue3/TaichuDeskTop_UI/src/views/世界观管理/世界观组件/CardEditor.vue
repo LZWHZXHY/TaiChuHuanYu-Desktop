@@ -15,7 +15,7 @@
 
     <!-- 类型胶囊 -->
     <div class="doc-meta-row">
-      <span
+      <button type="button"
         v-for="type in cardTypeOptions"
         :key="type.value"
         class="type-chip"
@@ -23,7 +23,7 @@
         @click="selectType(type)"
       >
         {{ type.label }}
-      </span>
+      </button>
     </div>
 
     <!-- 封面 -->
@@ -50,8 +50,8 @@
     </div>
 
     <!-- 图库 -->
-    <div class="doc-section">
-      <h2 class="section-title">图库</h2>
+    <details class="doc-section optional-section" :open="Boolean(form.galleryImages?.length)">
+      <summary>图库<small>可选</small></summary>
       <div v-if="form.galleryImages && form.galleryImages.length" class="gallery-grid">
         <div
           v-for="(img, idx) in form.galleryImages"
@@ -67,7 +67,7 @@
       </button>
       <input ref="galleryInput" type="file" accept="image/*" multiple style="display:none" @change="handleGalleryUpload" />
       <div v-if="uploadingGallery" class="upload-hint">上传中...</div>
-    </div>
+    </details>
 
     <!-- 类型专属属性 -->
     <div class="doc-section">
@@ -99,14 +99,14 @@
     </div>
 
     <!-- 自定义属性 -->
-    <div class="doc-section">
-      <h2 class="section-title">自定义属性</h2>
+    <details class="doc-section optional-section" :open="Boolean(form.attributes?.length)">
+      <summary>自定义属性<small>可选</small></summary>
       <AttributeList v-model="form.attributes" />
-    </div>
+    </details>
 
     <!-- 关联内容 -->
-    <div class="doc-section">
-      <h2 class="section-title">关联内容</h2>
+    <details class="doc-section optional-section" :open="Boolean(form.contentBlocks?.length)">
+      <summary>关联内容<small>可选</small></summary>
       <ContentBlockManager
         v-model="form.contentBlocks"
         :project-id="routeProjectId"
@@ -114,13 +114,13 @@
         :exclude-card-id="routeCardId"
         @create-card="handleCreateCardFromBlock"
       />
-    </div>
+    </details>
 
     <!-- 关联卡片（出度） -->
-    <div class="doc-section">
-      <h2 class="section-title">关联卡片</h2>
+    <details class="doc-section optional-section" :open="Boolean(form.relations?.length)">
+      <summary>关联卡片<small>可选</small></summary>
       <RelationSelector v-model="form.relations" :project-id="projectId" />
-    </div>
+    </details>
 
     <!-- 被以下卡片关联（只读） -->
     <div v-if="incomingRelations.length" class="doc-section">
@@ -143,7 +143,8 @@
     <!-- 底部操作栏 -->
     <div class="editor-footer">
       <div class="footer-left">
-        <div class="quota-info" :class="quotaStatus">
+        <span v-if="quotaLoading">正在读取配额…</span>
+        <div v-else class="quota-info" :class="quotaStatus">
           <span>📄 {{ quotaInfo.currentCount }} / {{ quotaInfo.maxCount }}</span>
           <span v-if="quotaInfo.remaining > 0" class="quota-remaining">
             剩余 {{ quotaInfo.remaining }} 张
@@ -162,12 +163,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, onMounted, computed } from 'vue'
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useWorldStore } from '@/stores/world'
 import { CardTypeMeta, type CardType } from '../card_type'
-import type { CardDetail } from '@/api/worldApi'
+import type { CardSummary } from '@/api/worldApi'
 
 // ===== Composables =====
 import { useCardForm } from '@/composables/世界观管理/useCardForm'
@@ -175,7 +176,6 @@ import { useCardQuota } from '@/composables/世界观管理/useCardQuota'
 import { useCardUpload } from '@/composables/世界观管理/useCardUpload'
 import { useCardTypeOptions } from '@/composables/世界观管理/useCardTypeOptions'
 import { useCardEditor } from '@/composables/世界观管理/useCardEditor'
-import { useRelationDiff } from '@/composables/世界观管理/useRelationDiff'
 
 // ===== 导入共用组件 =====
 import AttributeList from './AttributeList.vue'
@@ -192,7 +192,7 @@ const router = useRouter()
 // ===== Props =====
 const props = defineProps<{
   projectId: string
-  cardData?: any | null
+  cardData?: CardSummary | null
   inline?: boolean
 }>()
 
@@ -210,7 +210,7 @@ const store = useWorldStore()
 const { form, resetForm, setFormData } = useCardForm()
 
 const routeProjectId = computed(() => (route.params.projectId as string) || props.projectId)
-const { quotaInfo, quotaStatus, checkCanCreate } = useCardQuota(routeProjectId)
+const { quotaInfo, quotaStatus, checkCanCreate, loading: quotaLoading } = useCardQuota(routeProjectId)
 
 const { cardTypeOptions } = useCardTypeOptions()
 
@@ -222,11 +222,11 @@ const {
   isCreating,
   routeCardId,
   loadCardData,
+  startCreating,
   handleSave: editorHandleSave,
   handleDelete: editorHandleDelete,
-} = useCardEditor(form, resetForm, setFormData, checkCanCreate, props.projectId)
+} = useCardEditor(form, resetForm, setFormData, checkCanCreate, routeProjectId)
 
-const { computeDiff } = useRelationDiff()
 
 // ============================================================
 //  2. 计算属性
@@ -313,40 +313,22 @@ const goToCard = (targetId: string) => {
 // ============================================================
 //  6. 监听路由
 // ============================================================
+// 只在编辑目标变化时载入，后台刷新摘要不会覆盖未保存的表单。
 watch(
-  () => route.params.cardId,
-  () => {
-    if (route.params.cardId) {
-      loadCardData(props.cardData)
-    }
-  }
-)
-
-watch(
-  () => props.cardData,
-  (newVal) => {
-    if (newVal && !routeCardId.value) {
-      loadCardData(newVal)
-    }
-  }
+  [routeProjectId, routeCardId, () => props.cardData?.id],
+  () => { void loadCardData(props.cardData) },
+  { immediate: true }
 )
 
 // ============================================================
 //  7. 生命周期
 // ============================================================
-onMounted(() => {
-  loadCardData(props.cardData)
-
-  window.addEventListener(
-    'open-create-card',
-    ((e: CustomEvent) => {
-      const type = e.detail?.type || 'character'
-      resetForm()
-      form.value.type = type
-      isCreating.value = true
-    }) as EventListener
-  )
-})
+const onOpenCreateCard = ((e: CustomEvent) => {
+  startCreating()
+  form.value.type = e.detail?.type || 'character'
+}) as EventListener
+onMounted(() => window.addEventListener('open-create-card', onOpenCreateCard))
+onUnmounted(() => window.removeEventListener('open-create-card', onOpenCreateCard))
 </script>
 
 <style scoped>

@@ -268,7 +268,7 @@ const handleDelete = async () => {
 
 .section-header p {
   font-size: 0.85rem;
-  color: #bbb;
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
@@ -287,7 +287,7 @@ const handleDelete = async () => {
 .input-group label {
   display: block;
   font-size: 0.65rem;
-  color: #ccc;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1.5px;
   margin-bottom: 12px;
@@ -298,10 +298,10 @@ const handleDelete = async () => {
 .input-group select {
   width: 100%;
   border: none;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-line);
   padding: 12px 0;
   font-size: 1rem;
-  color: #1a1a1a;
+  color: var(--text-primary);
   outline: none;
   background: transparent;
   transition: border-color 0.3s;
@@ -315,7 +315,7 @@ const handleDelete = async () => {
 .input-group input:focus, 
 .input-group textarea:focus,
 .input-group select:focus {
-  border-bottom-color: #1a1a1a;
+  border-bottom-color: var(--border-line);
 }
 
 /* 🌟 新增：极简轻量化的封面上传器外观样式 */
@@ -329,8 +329,8 @@ const handleDelete = async () => {
 .upload-placeholder-box {
   width: 100%;
   height: 160px;
-  border: 1px dashed #e0e0e0;
-  background: #fafafa;
+  border: 1px dashed var(--border-line);
+  background: var(--bg-main);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -340,16 +340,16 @@ const handleDelete = async () => {
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .upload-placeholder-box:hover {
-  border-color: #1a1a1a;
-  background: #f5f5f5;
+  border-color: var(--border-line);
+  background: var(--bg-sub);
 }
 .upload-icon {
   font-size: 1.6rem;
-  color: #aaa;
+  color: var(--text-secondary);
 }
 .upload-text {
   font-size: 0.8rem;
-  color: #888;
+  color: var(--text-secondary);
   font-weight: 300;
 }
 .cover-preview-wrapper {
@@ -357,7 +357,7 @@ const handleDelete = async () => {
   width: 100%;
   height: 200px;
   overflow: hidden;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--border-line);
 }
 .cover-image-preview {
   width: 100%;
@@ -368,19 +368,19 @@ const handleDelete = async () => {
   position: absolute;
   bottom: 12px;
   right: 12px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--paper-card);
   backdrop-filter: blur(4px);
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-line);
   padding: 6px 14px;
   font-size: 0.75rem;
-  color: #ff4757;
+  color: var(--danger);
   cursor: pointer;
   transition: all 0.2s;
 }
 .remove-cover-btn:hover {
-  background: #ff4757;
-  color: #fff;
-  border-color: #ff4757;
+  background: var(--danger);
+  color: var(--on-accent);
+  border-color: var(--danger);
 }
 .hidden-file-input {
   display: none;
@@ -398,8 +398,8 @@ const handleDelete = async () => {
 }
 
 .save-btn {
-  background: #1a1a1a;
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--on-accent);
   border: none;
   padding: 14px 40px;
   font-size: 0.85rem;
@@ -409,21 +409,21 @@ const handleDelete = async () => {
 }
 
 .save-btn:disabled {
-  background: #f5f5f5;
-  color: #ccc;
+  background: var(--bg-sub);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
 /* 危险区样式 */
 .danger-zone {
-  border-top: 1px solid #f9f9f9;
+  border-top: 1px solid var(--border-line);
   padding-top: 60px;
 }
 
 .delete-link {
   background: none;
   border: none;
-  color: #bbb;
+  color: var(--text-secondary);
   font-size: 0.85rem;
   cursor: pointer;
   transition: color 0.3s;
@@ -431,11 +431,11 @@ const handleDelete = async () => {
 }
 
 .delete-link:hover {
-  color: #ff4757;
+  color: var(--danger);
 }
 
 .delete-link:disabled {
-  color: #eee;
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 

@@ -39,23 +39,23 @@ defineEmits([
 
 <style scoped>
 .editor-header {
-  height: 60px; padding: 0 40px; display: flex; justify-content: space-between; align-items: center;
-  border-bottom: 1px solid #f2f2f2; background: #ffffff; flex-shrink: 0;
+  height: 60px; padding: 0 clamp(12px, 2vw, 32px); display: flex; gap: 12px; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--border-line); background: var(--paper-card); flex-shrink: 0;
 }
 
-.header-left { display: flex; align-items: center; }
-.breadcrumb { font-size: 13px; color: #86868b; display: flex; gap: 8px; }
-.breadcrumb .current { color: #1d1d1f; font-weight: 500; }
+.header-left { display: flex; align-items: center; min-width: 0; }
+.breadcrumb { font-size: 13px; color: var(--text-secondary); display: flex; gap: 8px; min-width: 0; white-space: nowrap; }
+.breadcrumb .current { color: var(--text-primary); font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
 
 .action-btns { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
 
-.action-btn { background: none; border: 1px solid #d2d2d7; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #86868b; }
-.action-btn:hover:not(:disabled) { background: #f5f5f7; border-color: #1d1d1f; color: #1d1d1f; }
+.action-btn { background: none; border: 1px solid var(--border-line); width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: var(--text-secondary); }
+.action-btn:hover:not(:disabled) { background: var(--bg-sub); border-color: var(--border-line); color: var(--text-primary); }
 
-.graph-btn { background: rgba(0, 102, 204, 0.05); border: 1px solid #0066cc; color: #0066cc; width: auto; padding: 0 14px; border-radius: 40px; font-size: 13px; font-weight: 600; }
+.graph-btn { background: rgba(0, 102, 204, 0.05); border: 1px solid var(--accent-color); color: var(--accent-color); width: auto; padding: 0 14px; border-radius: 40px; font-size: 13px; font-weight: 600; }
 .graph-btn:hover { background: rgba(0, 102, 204, 0.1); }
 
-.menu-toggle-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: #1d1d1f; }
+.menu-toggle-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: var(--text-primary); }
 
 @media (max-width: 1024px) {
   .editor-header { padding: 0 16px; }

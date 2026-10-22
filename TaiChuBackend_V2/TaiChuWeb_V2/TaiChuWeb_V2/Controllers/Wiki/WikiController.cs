@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -6,334 +6,143 @@ using System.Text.Json;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.Wiki;
 using TaiChuWeb_V2.Models.Wiki;
+using TaiChuWeb_V2.Services.Wiki;
 
-namespace TaiChuWeb_V2.Controllers.Wiki
+namespace TaiChuWeb_V2.Controllers.Wiki;
+
+[ApiController, Route("api/wiki")]
+public class WikiController(AppDbContext db) : ControllerBase
 {
-    [ApiController]
-    [Route("api/[controller]")] // 基础路由: api/wiki
-    public class WikiController : ControllerBase
+    private string UserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "";
+    private Task<bool> KnownUser() => Guid.TryParse(UserId, out var id) ? db.Users.AnyAsync(u => u.Id == id) : Task.FromResult(false);
+    public static bool ValidContent(string? content)
     {
-        private readonly AppDbContext _context;
+        if (string.IsNullOrWhiteSpace(content) || content.Length > 2_000_000) return false;
+        try { using var json = JsonDocument.Parse(content); return json.RootElement.ValueKind == JsonValueKind.Object && json.RootElement.TryGetProperty("type", out var type) && type.GetString() == "doc" && json.RootElement.TryGetProperty("content", out var nodes) && nodes.ValueKind == JsonValueKind.Array; }
+        catch (Exception e) when (e is JsonException or InvalidOperationException) { return false; }
+    }
 
-        public WikiController(AppDbContext context)
-        {
-            _context = context;
-        }
+    [HttpGet("categories")]
+    public async Task<IActionResult> GetCategories() => Ok(await db.WikiCategories.OrderBy(c => c.SortOrder).ThenBy(c => c.Id).ToListAsync());
 
-        [HttpGet("categories")] // 完整路由: GET api/wiki/categories
-        public async Task<IActionResult> GetCategories()
-        {
-            var categories = await _context.WikiCategories
-                .OrderBy(c => c.SortOrder)
-                .ThenBy(c => c.Id)
-                .ToListAsync();
+    [HttpGet("articles")]
+    public async Task<IActionResult> GetAllArticles() => Ok(await db.WikiArticles.Where(a => !a.IsDeleted && a.CurrentRevisionId != null)
+        .Select(a => new { a.Id, a.Title, a.Excerpt, a.CategoryId, a.ViewCount, a.UpdatedAt }).ToListAsync());
 
-            return Ok(categories);
-        }
-
-
-        // 🌟 添加这个方法来处理 GET api/wiki/articles 请求
-        [HttpGet("articles")]
-        public async Task<IActionResult> GetAllArticles()
-        {
-            var articles = await _context.WikiArticles
-                .Where(a => !a.IsDeleted && a.CurrentRevisionId != null)
-                .Select(a => new {
-                    a.Id,
-                    a.Title,
-                    a.Excerpt,
-                    a.CategoryId,
-                    a.ViewCount,
-                    a.UpdatedAt
-                })
-                .ToListAsync();
-
-            return Ok(articles);
-        }
-
-
-
-        [HttpPost("apply-category")] // 完整路由: POST api/wiki/apply-category
-        public async Task<IActionResult> ApplyCategory([FromBody] CategoryRequestDto request)
-        {
-            var requestItem = new WikiCategoryRequest
-            {
-                RequesterId = "current-user-id", // 实际建议从 User.Claims 中获取
-                CategoryName = request.Name,
-                ParentId = request.ParentId,
-                Reason = request.Reason,
-                Status = 0 // 0: 待审
-            };
-
-            _context.WikiCategoryRequests.Add(requestItem);
-            await _context.SaveChangesAsync();
-            return Ok(new { message = "申请已提交，等待管理员审阅。" });
-        }
-
-
-
-
-
-
-
-
-        [HttpPost("publish")]
-        [Authorize]
-        public async Task<IActionResult> PublishFromNote([FromBody] WikiPublishDto request)
-        {
-            // 1. 获取当前数据库配置的弹性连接重试策略
-            var strategy = _context.Database.CreateExecutionStrategy();
-
-            // 2. 🌟 核心修复：显式指定泛型参数 <IActionResult>，彻底消灭 CS8031 报错
-            return await strategy.ExecuteAsync<IActionResult>(async () =>
-            {
-                // 3. 在策略内部显式开启异步事务
-                using (var transaction = await _context.Database.BeginTransactionAsync())
-                {
-                    try
-                    {
-                        // 4. 获取当前发布者 (贡献者) 的 ID
-                        var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                        if (string.IsNullOrEmpty(currentUserId))
-                            return Unauthorized("身份验证失败，请重新登录");
-
-                        // 5. 查找源草稿笔记
-                        var note = await _context.Notes
-                            .FirstOrDefaultAsync(n => n.Id == Guid.Parse(request.NoteId));
-                        if (note == null) return NotFound("未找到源笔记");
-
-                        // 6. 获取分类信息
-                        var category = await _context.WikiCategories.FindAsync(request.CategoryId);
-                        if (category == null) return BadRequest("分类不存在");
-
-                        // 7. 查询该草稿的所有文本块，并严格按我们重构后的高性能 int 数字顺序排序
-                        var blocks = await _context.Blocks
-                            .Where(b => b.OwnerId == request.NoteId && b.OwnerType == "note")
-                            .OrderBy(b => b.SortOrder)
-                            .ToListAsync();
-
-                        // 8. 🌟 核心重构：拼装标准的、前端 TipTap 能直接解析的单行单层 JSON 树
-                        var wikiDoc = new
-                        {
-                            type = "doc",
-                            content = blocks.Select(b => {
-                                // 将每个 Block 内部的 Data 字符串反序列化，防止直接拼装产生二次转义斜杠 \
-                                var blockData = !string.IsNullOrEmpty(b.Data)
-                                    ? JsonSerializer.Deserialize<Dictionary<string, object>>(b.Data)
-                                    : new Dictionary<string, object>();
-
-                                return new
-                                {
-                                    type = b.Type, // paragraph, heading-1 等
-                                    attrs = blockData.ContainsKey("attrs") ? blockData["attrs"] : null,
-                                    content = blockData.ContainsKey("content") ? blockData["content"] : null
-                                };
-                            }).ToList()
-                        };
-
-                        // 将匿名对象序列化成单行、合法的标准标准 JSON 字符串
-                        string standardContentJson = JsonSerializer.Serialize(wikiDoc);
-
-                        // 9. 创建 WikiArticle 百科宇宙母表记录（外壳）
-                        var wikiArticle = new WikiArticle
-                        {
-                            Title = note.Title,
-                            CreatedAt = DateTime.UtcNow,
-                            CategoryId = request.CategoryId
-                        };
-                        _context.WikiArticles.Add(wikiArticle);
-                        await _context.SaveChangesAsync();
-
-                        // 10. 判定审核状态 (1: 自动通过, 0: 待审)
-                        int initialStatus = (category.OwnershipType == 1) ? 1 : 0;
-
-                        // 11. 创建修订记录表记录 (Revision)
-                        var revision = new WikiArticleRevision
-                        {
-                            ArticleId = wikiArticle.Id.ToString(),
-                            Content = standardContentJson,   // 🌟 注入干净的标准结构快照，彻底根治前端解析崩溃
-                            ContributorId = currentUserId,
-                            CategoryId = request.CategoryId,
-                            Title = note.Title,
-                            Status = initialStatus,
-                            EditSummary = initialStatus == 1 ? "折射发布成功" : "已提交，等待管理员审核",
-                            CreatedAt = DateTime.UtcNow,
-                            PreviousRevisionId = null
-                        };
-
-                        _context.WikiArticleRevisions.Add(revision);
-                        await _context.SaveChangesAsync();
-
-                        // 12. 如果自动通过，更新文章的当前正式版修订指针
-                        if (initialStatus == 1)
-                        {
-                            wikiArticle.CurrentRevisionId = revision.Id;
-                            await _context.SaveChangesAsync();
-                        }
-
-                        // 13. 显式提交事务
-                        await transaction.CommitAsync();
-
-                        return Ok(new
-                        {
-                            articleId = wikiArticle.Id,
-                            status = initialStatus,
-                            message = initialStatus == 1 ? "发布成功" : "发布请求已提交，待管理员审核"
-                        });
-                    }
-                    catch (Exception)
-                    {
-                        // 14. 发生任何异常立即回滚事务
-                        await transaction.RollbackAsync();
-
-                        // 🛑 必须原样 throw，否则重试策略无法捕获并触发自动重试
-                        throw;
-                    }
-                }
-            });
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        [HttpPost("update")] 
-        [Authorize]
-        public async Task<IActionResult> UpdateFromNote([FromBody] WikiUpdateDto request)
-        {
-            // 1. 解析当前登录用户
-            var currentUserId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(currentUserId)) return Unauthorized("未登录");
-
-            if (!Guid.TryParse(currentUserId, out Guid userGuid))
-            {
-                return BadRequest(new { message = "用户ID格式不合法" });
-            }
-
-            // 2. 校验用户在数据库里是否真实存在（防止幽灵 Token）
-            var userExists = await _context.Users.AnyAsync(u => u.Id == userGuid);
-            if (!userExists)
-            {
-                return StatusCode(401, new { message = "您的用户状态在当前的太初世界中不存在，请重新登录" });
-            }
-
-            // 3. 🌟 核心优化：使用 AsNoTracking() 读取母表！
-            // 这样 EF Core 就不会追踪 article 的任何状态，后面无论如何都不会自动触发主表的 UPDATE 语句
-            var article = await _context.WikiArticles
-                .AsNoTracking()
-                .FirstOrDefaultAsync(a => a.Id == request.ArticleId);
-
-            if (article == null) return NotFound("该词条在百科宇宙中不存在");
-
-            // 4. 校验分类是否存在
-            var categoryExists = await _context.WikiCategories.AnyAsync(c => c.Id == article.CategoryId);
-            if (!categoryExists)
-            {
-                return BadRequest(new { message = "该词条绑定的分类已不存在，请先修正分类" });
-            }
-
-            // 5. 显式乐观锁判断（由我们自己的业务逻辑打回，而不是让 EF Core 抛异常崩溃）
-            if (request.BaseRevisionId != article.CurrentRevisionId)
-            {
-                return StatusCode(409, new { message = "⚠️ 提交失败：词条已被其他修士更新，请重新获取最新内容后再提交修订" });
-            }
-
-            // 6. 组装待审核的修订版本记录
-            var newRevision = new WikiArticleRevision
-            {
-                ArticleId = request.ArticleId,
-                CategoryId = article.CategoryId,
-                Title = article.Title,
-                Content = request.Content,        // 前端传过来的标准 JSON 字符串
-                EditSummary = request.Summary ?? "协作修改",
-                ContributorId = currentUserId,    // 关联当前真实的 string 类型用户 ID
-                CreatedAt = DateTime.UtcNow,
-                Status = 0                        // 🌟 设为整数 0（代表待审核 Pending 状态）
-            };
-
-            // 7. 🌟 纯粹的 INSERT 操作
-            // 仅向修订记录表添加数据。由于前面 article 加了 AsNoTracking()，
-            // 这里 SaveChanges 时，EF Core 只会发一条 INSERT 语句，绝对不可能触发母表的并发冲突异常！
-            _context.WikiArticleRevisions.Add(newRevision);
-            await _context.SaveChangesAsync();
-
-            return Ok(new { message = "修订提交成功，已放入太初天平等待管理员审核！" });
-        }
-
-
-
-        [HttpGet("article/{id}")]
-    public async Task<IActionResult> GetArticleDetail(string id)
+    [Authorize, HttpPost("apply-category")]
+    public async Task<IActionResult> ApplyCategory([FromBody] CategoryRequestDto request)
     {
-        var article = await _context.WikiArticles.FindAsync(id);
-        if (article == null) return NotFound("词条不存在");
+        if (!await KnownUser()) return Unauthorized();
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 100) return BadRequest(new { message = "分类名称需为 1–100 字" });
+        db.WikiCategoryRequests.Add(new WikiCategoryRequest { RequesterId = UserId, CategoryName = request.Name.Trim(), ParentId = request.ParentId, SortOrder = request.SortOrder, Reason = request.Reason, Status = 0, CreatedAt = DateTime.UtcNow });
+        await db.SaveChangesAsync(); return Ok(new { message = "分类申请已提交" });
+    }
 
-        // 如果 CurrentRevisionId 存在，说明有正式版
-        int targetRevisionId = article.CurrentRevisionId ?? 0;
-
-        if (targetRevisionId == 0)
-            return Ok(new { status = "Pending", message = "词条正在审核中" });
-
-        // 1. 获取正式版内容
-        var revision = await _context.WikiArticleRevisions.FindAsync(targetRevisionId);
-        if (revision == null) return NotFound("修订记录丢失");
-
-        // 2. 🌟 核心：查询该词条所有参与过的贡献者 (去重)
-        var contributors = await _context.WikiArticleRevisions
-            .Where(r => r.ArticleId == id && r.Status == 1) // 只统计已通过的贡献
-            .Select(r => r.ContributorId)
-            .Distinct()
-            .ToListAsync();
-
-        return Ok(new
+    // 兼容原来的 NoteId 发布，同时允许直接创建公共知识，不强制先创建笔记。
+    [Authorize, HttpPost("publish")]
+    public async Task<IActionResult> PublishFromNote([FromBody] WikiPublishDto request)
+    {
+        if (!await KnownUser()) return Unauthorized();
+        var category = await db.WikiCategories.FindAsync(request.CategoryId);
+        if (category == null) return BadRequest(new { message = "请选择有效分类" });
+        var title = request.Title?.Trim() ?? "";
+        var content = request.Content ?? "";
+        if (!string.IsNullOrWhiteSpace(request.NoteId))
         {
-            id = article.Id,
-            title = revision.Title,
-            content = revision.Content, 
-            tags = article.Tags,
-            publishedAt = revision.CreatedAt,
-            authorId = article.CreatorId, // 确保 WikiArticle 模型中已包含 CreatorId 属性
-            contributors = contributors,  // 现在这里就是干净的 List<string> 数据了
-            currentRevisionId = article.CurrentRevisionId
+            if (!Guid.TryParse(request.NoteId, out var noteId)) return BadRequest(new { message = "笔记标识无效" });
+            var note = await db.Notes.FindAsync(noteId);
+            if (note == null || note.Status == 2) return NotFound();
+            if (!await db.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == UserId)) return Forbid();
+            if (await db.WikiArticles.AnyAsync(a => a.SourceNoteId == request.NoteId && !a.IsDeleted)) return Conflict(new { message = "该笔记已有词条，请编辑现有词条" });
+            title = note.Title;
+            var blocks = await db.Blocks.Where(b => b.OwnerId == request.NoteId && b.OwnerType == note.Type).OrderBy(b => b.SortOrder).ToListAsync();
+            try {
+                content = JsonSerializer.Serialize(new { type = "doc", content = blocks.Select(b => {
+                    var data = JsonSerializer.Deserialize<Dictionary<string, object>>(b.Data) ?? new();
+                    data["type"] = b.Type; return data;
+                }).ToArray() });
+            } catch (JsonException) { return BadRequest(new { message = "笔记内容格式异常，请先修复原稿" }); }
+        }
+        if (string.IsNullOrWhiteSpace(title) || title.Length > 200 || !ValidContent(content) || request.Excerpt?.Length > 150 ||
+            request.Tags.Count > 10 || request.Tags.Any(t => t == null || t.Length > 50) || string.Join(",", request.Tags).Length > 200)
+            return BadRequest(new { message = "请检查标题、正文、摘要和标签长度" });
+        return await db.Database.CreateExecutionStrategy().ExecuteAsync<IActionResult>(async () => {
+            db.ChangeTracker.Clear();
+            using var transaction = await db.Database.BeginTransactionAsync();
+            var article = new WikiArticle { Title = title, CreatorId = UserId, CategoryId = category.Id, Excerpt = request.Excerpt?.Trim(), Tags = string.Join(",", request.Tags.Select(t => t.Trim()).Where(t => t.Length > 0).Distinct()), SourceNoteId = string.IsNullOrWhiteSpace(request.NoteId) ? null : request.NoteId, IsFromNote = !string.IsNullOrWhiteSpace(request.NoteId) };
+            db.WikiArticles.Add(article); await db.SaveChangesAsync();
+            var revision = new WikiArticleRevision { ArticleId = article.Id, CategoryId = category.Id, Title = title, Content = content, ContributorId = UserId, EditSummary = "创建词条", Status = category.OwnershipType == 1 && category.OwnerId == UserId ? 1 : 0 };
+            db.WikiArticleRevisions.Add(revision); await db.SaveChangesAsync();
+            if (revision.Status == 1) { article.CurrentRevisionId = revision.Id; await db.SaveChangesAsync(); }
+            await transaction.CommitAsync();
+            return Ok(new { articleId = article.Id, status = revision.Status, message = revision.Status == 1 ? "发布成功" : "词条已提交，等待审核后进入知识库" });
         });
     }
 
-
-        [HttpGet("articles/by-category/{categoryId}")]
-        public async Task<IActionResult> GetArticlesByCategory(int categoryId)
-        {
-            var articles = await _context.WikiArticles
-                .Where(a => a.CategoryId == categoryId && !a.IsDeleted && a.CurrentRevisionId != null)
-                .Select(a => new {
-                    a.Id,
-                    a.Title,
-                    a.Excerpt, // 你的数据库里应该有摘要字段，没有的话可以截取 Revision.Content
-                    a.ViewCount,
-                    a.UpdatedAt
-                })
-                .ToListAsync();
-
-            return Ok(articles);
-        }
-    }
-
-    // ==========================================
-    // 🌟 新增：接收发布词条的 DTO 传输模型
-    // ==========================================
-    public class WikiPublishDto
+    [Authorize, HttpPost("update")]
+    public async Task<IActionResult> UpdateFromNote([FromBody] WikiUpdateDto request)
     {
-        public string NoteId { get; set; } = string.Empty;
-        public int CategoryId { get; set; }
-        public List<string> Tags { get; set; } = new List<string>();
+        if (!await KnownUser()) return Unauthorized();
+        if (!ValidContent(request.Content) || request.Summary?.Length > 255) return BadRequest(new { message = "正文格式或修改说明无效" });
+        var article = await db.WikiArticles.AsNoTracking().FirstOrDefaultAsync(a => a.Id == request.ArticleId && !a.IsDeleted && a.CurrentRevisionId != null);
+        if (article == null) return NotFound();
+        if (request.BaseRevisionId != article.CurrentRevisionId) return Conflict(new { message = "词条已有新版本，当前编辑内容已保留，请对照最新版本后重新提交" });
+        if (!await db.WikiCategories.AnyAsync(c => c.Id == article.CategoryId)) return BadRequest(new { message = "词条分类已失效" });
+        var revision = new WikiArticleRevision { ArticleId = article.Id, Title = article.Title, CategoryId = article.CategoryId, Content = request.Content, ContributorId = UserId, EditSummary = request.Summary?.Trim() ?? "协作修改", PreviousRevisionId = article.CurrentRevisionId, Status = 0 };
+        db.WikiArticleRevisions.Add(revision); await db.SaveChangesAsync();
+        return Ok(new { revisionId = revision.Id, message = "修订已提交，审核通过后公开生效" });
     }
+
+    [HttpGet("article/{id}")]
+    public async Task<IActionResult> GetArticleDetail(string id)
+    {
+        var article = await db.WikiArticles.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
+        if (article == null) return NotFound();
+        if (article.CurrentRevisionId == null) return Ok(new { status = "Pending", message = "词条正在审核中" });
+        var revision = await db.WikiArticleRevisions.AsNoTracking().FirstOrDefaultAsync(r => r.Id == article.CurrentRevisionId && r.ArticleId == id);
+        if (revision == null) return NotFound();
+        var revisions = db.WikiArticleRevisions.Where(r => r.ArticleId == id && (r.Status == 1 || r.Id == article.CurrentRevisionId));
+        return Ok(new { id, title = revision.Title, content = revision.Content, tags = article.Tags, categoryId = article.CategoryId, publishedAt = revision.CreatedAt, authorId = article.CreatorId,
+            contributors = await revisions.Select(r => r.ContributorId).Distinct().ToListAsync(), revisionCount = await revisions.CountAsync(), currentRevisionId = article.CurrentRevisionId });
+    }
+
+    [HttpGet("article/{id}/history")]
+    public async Task<IActionResult> History(string id, int page = 1)
+    {
+        var article = await db.WikiArticles.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted && a.CurrentRevisionId != null);
+        if (article == null) return NotFound();
+        var query = db.WikiArticleRevisions.Where(r => r.ArticleId == id && (r.Status == 1 || r.Id == article.CurrentRevisionId));
+        var total = await query.CountAsync(); page = Math.Clamp(page, 1, Math.Max(1, (int)Math.Ceiling(total / 20d)));
+        var rows = await query.OrderByDescending(r => r.Id).Skip((page - 1) * 20).Take(20).Select(r => new { r.Id, r.PreviousRevisionId, r.ContributorId, r.CreatedAt, r.ReviewedAt, r.EditSummary }).ToListAsync();
+        var ids = await query.Select(r => r.ContributorId).Distinct().ToListAsync();
+        var userIds = ids.Select(id => Guid.TryParse(id, out var g) ? g : Guid.Empty).ToArray();
+        var users = await db.Users.Where(u => userIds.Contains(u.Id)).Select(u => new { u.Id, u.Username }).ToListAsync();
+        string Name(string id) => users.FirstOrDefault(u => u.Id.ToString() == id)?.Username ?? "历史贡献者";
+        return Ok(new { total, page, currentRevisionId = article.CurrentRevisionId, contributors = ids.Select(id => new { id, name = Name(id) }), items = rows.Select(r => new { r.Id, r.PreviousRevisionId, r.ContributorId, contributorName = Name(r.ContributorId), r.CreatedAt, r.ReviewedAt, r.EditSummary }) });
+    }
+
+    [HttpGet("article/{id}/history/{revisionId:int}")]
+    public async Task<IActionResult> Revision(string id, int revisionId)
+    {
+        var article = await db.WikiArticles.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted && a.CurrentRevisionId != null);
+        if (article == null) return NotFound();
+        var query = db.WikiArticleRevisions.AsNoTracking().Where(r => r.ArticleId == id && (r.Status == 1 || r.Id == article.CurrentRevisionId));
+        var revision = await query.FirstOrDefaultAsync(r => r.Id == revisionId);
+        if (revision == null) return NotFound();
+        var previous = revision.PreviousRevisionId.HasValue ? await query.FirstOrDefaultAsync(r => r.Id == revision.PreviousRevisionId) : null;
+        return Ok(new { revision.Id, revision.Content, revision.PreviousRevisionId, previousContent = previous?.Content, revision.EditSummary, revision.CreatedAt });
+    }
+
+    [HttpGet("articles/by-category/{categoryId}")]
+    public async Task<IActionResult> GetArticlesByCategory(int categoryId) => Ok(await db.WikiArticles.Where(a => a.CategoryId == categoryId && !a.IsDeleted && a.CurrentRevisionId != null).Select(a => new { a.Id, a.Title, a.Excerpt, a.ViewCount, a.UpdatedAt }).ToListAsync());
+}
+
+public class WikiPublishDto
+{
+    public string NoteId { get; set; } = "";
+    public int CategoryId { get; set; }
+    public List<string> Tags { get; set; } = new();
+    public string? Title { get; set; }
+    public string? Excerpt { get; set; }
+    public string? Content { get; set; }
 }

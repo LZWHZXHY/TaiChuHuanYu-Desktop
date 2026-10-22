@@ -1,20 +1,20 @@
 <template>
   <div class="discussion-board">
     <h4 class="board-title"><i class="fas fa-comments"></i> 自由讨论区</h4>
-    
+
     <!-- 发表新讨论 -->
     <div class="new-post">
-      <textarea 
-        v-model="newContent" 
-        placeholder="说点什么..." 
+      <textarea
+        v-model="newContent"
+        placeholder="说点什么..."
         rows="2"
         @keydown.ctrl.enter="submitPost"
       ></textarea>
       <div class="post-actions">
         <span class="char-count">{{ newContent.length }}/2000</span>
-        <button 
-          class="btn-post" 
-          @click="submitPost" 
+        <button
+          class="btn-post"
+          @click="submitPost"
           :disabled="!newContent.trim() || newContent.length > 2000 || submitting"
         >
           <i class="fas fa-paper-plane"></i> 发布
@@ -32,9 +32,9 @@
         <i class="fas fa-comment-slash"></i>
         <p>还没有讨论，快来发表第一条吧！</p>
       </div>
-      <div 
-        v-for="post in sortedPosts" 
-        :key="post.id" 
+      <div
+        v-for="post in sortedPosts"
+        :key="post.id"
         class="post-item"
       >
         <div class="post-avatar">
@@ -54,9 +54,9 @@
           </div>
           <!-- 回复列表 -->
           <div v-if="showReplies[post.id]" class="replies">
-            <div 
-              v-for="reply in (post.replies || [])" 
-              :key="reply.id" 
+            <div
+              v-for="reply in (post.replies || [])"
+              :key="reply.id"
               class="reply-item"
             >
               <span class="reply-author">{{ reply.author }}</span>
@@ -64,8 +64,8 @@
               <p class="reply-content">{{ reply.content }}</p>
             </div>
             <div class="reply-input" v-if="showReplyInput[post.id]">
-              <input 
-                v-model="replyContent[post.id]" 
+              <input
+                v-model="replyContent[post.id]"
                 placeholder="写下回复..."
                 @keydown.enter="submitReply(post.id)"
               />
@@ -73,9 +73,9 @@
                 回复
               </button>
             </div>
-            <button 
-              v-if="!showReplyInput[post.id]" 
-              @click="showReplyInput[post.id] = true" 
+            <button
+              v-if="!showReplyInput[post.id]"
+              @click="showReplyInput[post.id] = true"
               class="btn-show-reply-input"
             >
               写回复
@@ -166,7 +166,7 @@ const toggleReply = (postId: number) => {
 
 // ---- 排序 ----
 const sortedPosts = computed(() => {
-  return [...posts.value].sort((a, b) => 
+  return [...posts.value].sort((a, b) =>
     new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 });
@@ -193,25 +193,25 @@ watch(() => props.activityId, (newId) => {
 <style scoped>
 .discussion-board {
   margin-top: 32px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-line);
   padding-top: 24px;
 }
 .board-title {
   font-size: 1rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   margin-bottom: 16px;
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.board-title i { color: #6366f1; }
+.board-title i { color: var(--info); }
 
 .new-post {
-  background: #f9fafb;
+  background: var(--paper-card);
   border-radius: 10px;
   padding: 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   margin-bottom: 20px;
 }
 .new-post textarea {
@@ -223,9 +223,9 @@ watch(() => props.activityId, (newId) => {
   resize: vertical;
   font-family: inherit;
   outline: none;
-  color: #1f2937;
+  color: var(--text-primary);
 }
-.new-post textarea::placeholder { color: #9ca3af; }
+.new-post textarea::placeholder { color: var(--text-secondary); }
 .post-actions {
   display: flex;
   justify-content: space-between;
@@ -234,11 +234,11 @@ watch(() => props.activityId, (newId) => {
 }
 .char-count {
   font-size: 0.7rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 .btn-post {
-  background: #6366f1;
-  color: #fff;
+  background: var(--info);
+  color: var(--on-accent);
   border: none;
   padding: 6px 16px;
   border-radius: 20px;
@@ -250,14 +250,14 @@ watch(() => props.activityId, (newId) => {
   align-items: center;
   gap: 4px;
 }
-.btn-post:hover:not(:disabled) { background: #4f46e5; }
+.btn-post:hover:not(:disabled) { background: var(--info); }
 .btn-post:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .post-list { display: flex; flex-direction: column; gap: 16px; }
 .empty-posts {
   text-align: center;
   padding: 30px 0;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 .empty-posts i { font-size: 2rem; display: block; margin-bottom: 8px; }
 
@@ -265,15 +265,15 @@ watch(() => props.activityId, (newId) => {
   display: flex;
   gap: 12px;
   padding: 12px 0;
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid var(--border-line);
 }
 .post-item:last-child { border-bottom: none; }
 .post-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #6366f1;
-  color: #fff;
+  background: var(--info);
+  color: var(--on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -292,16 +292,16 @@ watch(() => props.activityId, (newId) => {
 .post-author {
   font-weight: 600;
   font-size: 0.85rem;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 .post-time {
   font-size: 0.7rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 .post-body {
   font-size: 0.9rem;
   line-height: 1.5;
-  color: #374151;
+  color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;
 }
@@ -315,7 +315,7 @@ watch(() => props.activityId, (newId) => {
 .action-reply {
   background: none;
   border: none;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   cursor: pointer;
   transition: color 0.2s;
@@ -325,13 +325,13 @@ watch(() => props.activityId, (newId) => {
   padding: 2px 6px;
   border-radius: 4px;
 }
-.action-reply:hover { color: #6366f1; background: #f3f4f6; }
-.reply-count { font-size: 0.7rem; color: #9ca3af; }
+.action-reply:hover { color: var(--info); background: var(--bg-sub); }
+.reply-count { font-size: 0.7rem; color: var(--text-secondary); }
 
 .replies {
   margin-top: 10px;
   padding-left: 12px;
-  border-left: 2px solid #e5e7eb;
+  border-left: 2px solid var(--border-line);
 }
 .reply-item {
   margin-bottom: 8px;
@@ -340,16 +340,16 @@ watch(() => props.activityId, (newId) => {
 .reply-author {
   font-weight: 500;
   font-size: 0.8rem;
-  color: #1f2937;
+  color: var(--text-primary);
   margin-right: 8px;
 }
 .reply-time {
   font-size: 0.65rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 .reply-content {
   font-size: 0.85rem;
-  color: #374151;
+  color: var(--text-primary);
   margin: 2px 0 0;
 }
 .reply-input {
@@ -360,16 +360,16 @@ watch(() => props.activityId, (newId) => {
 .reply-input input {
   flex: 1;
   padding: 6px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   border-radius: 20px;
   font-size: 0.8rem;
   outline: none;
-  background: #fafafa;
+  background: var(--paper-card);
 }
-.reply-input input:focus { border-color: #6366f1; background: #fff; }
+.reply-input input:focus { border-color: var(--info); background: var(--paper-card); }
 .btn-reply-submit {
-  background: #6366f1;
-  color: #fff;
+  background: var(--info);
+  color: var(--on-accent);
   border: none;
   padding: 4px 14px;
   border-radius: 20px;
@@ -377,11 +377,11 @@ watch(() => props.activityId, (newId) => {
   cursor: pointer;
   transition: background 0.2s;
 }
-.btn-reply-submit:hover { background: #4f46e5; }
+.btn-reply-submit:hover { background: var(--info); }
 .btn-show-reply-input {
   background: none;
   border: none;
-  color: #6366f1;
+  color: var(--info);
   font-size: 0.75rem;
   cursor: pointer;
   padding: 2px 0;

@@ -74,24 +74,24 @@ onMounted(() => fetchLogs(1));
 </script>
 
 <style scoped>
-.update-log-wrapper { margin-top: 56px; border-top: 1px solid #f0f2f5; padding-top: 40px; }
-.section-title { font-size: 0.85rem; font-weight: 500; color: #8c959f; letter-spacing: 0.1em; margin-bottom: 32px; }
+.update-log-wrapper { margin-top: 56px; border-top: 1px solid var(--bg-sub); padding-top: 40px; }
+.section-title { font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); letter-spacing: 0.1em; margin-bottom: 32px; }
 
-.log-item { margin-bottom: 32px; border-left: 2px solid #f0f2f5; padding-left: 16px; }
+.log-item { margin-bottom: 32px; border-left: 2px solid var(--bg-sub); padding-left: 16px; }
 .log-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.8rem; }
 .avatar { width: 20px; height: 20px; border-radius: 50%; }
-.author-name { font-weight: 600; color: #1f2328; }
-.date { color: #8c959f; }
+.author-name { font-weight: 600; color: var(--text-primary); }
+.date { color: var(--text-secondary); }
 
-.commit-msg { font-size: 0.95rem; color: #333; margin: 0 0 4px 0; }
-.commit-link { font-size: 0.75rem; color: #0066cc; text-decoration: none; }
+.commit-msg { font-size: 0.95rem; color: var(--text-primary); margin: 0 0 4px 0; }
+.commit-link { font-size: 0.75rem; color: var(--accent-color); text-decoration: none; }
 .commit-link:hover { text-decoration: underline; }
 
 /* 🌟 加载更多按钮样式 */
 .load-more-container { margin-top: 20px; text-align: center; }
 .load-more-btn { 
-  background: transparent; border: 1px solid #f0f2f5; padding: 8px 16px; 
-  cursor: pointer; font-size: 0.8rem; color: #8c959f; transition: 0.3s;
+  background: transparent; border: 1px solid var(--bg-sub); padding: 8px 16px; 
+  cursor: pointer; font-size: 0.8rem; color: var(--text-secondary); transition: 0.3s;
 }
-.load-more-btn:hover { border-color: #1f2328; color: #1f2328; }
+.load-more-btn:hover { border-color: var(--text-primary); color: var(--text-primary); }
 </style>

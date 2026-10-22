@@ -13,13 +13,19 @@ export function useCardQuota(projectId: Ref<string> | string) {
     canAdd: true,
   })
   const loading = ref(false)
+  let loadVersion = 0
 
   const loadQuota = async () => {
+    const version = ++loadVersion
     const id = projectIdRef.value
-    if (!id) return
+    if (!id) {
+      loading.value = false
+      return
+    }
     loading.value = true
     try {
-      const { data } = await worldApi.canAddCard(id)
+      const data = await worldApi.canAddCard(id)
+      if (version !== loadVersion) return
       quotaInfo.value = {
         currentCount: data.currentCount,
         maxCount: data.maxCount,
@@ -29,7 +35,7 @@ export function useCardQuota(projectId: Ref<string> | string) {
     } catch (error) {
       console.error('获取卡片配额失败:', error)
     } finally {
-      loading.value = false
+      if (version === loadVersion) loading.value = false
     }
   }
 
@@ -39,12 +45,12 @@ export function useCardQuota(projectId: Ref<string> | string) {
     return 'quota-normal'
   })
 
-  // 🆕 新增：仅检查是否可以创建卡片（不修改状态）
+  // 保存前重新检查配额，不复用页面展示的旧值。
   const checkCanCreate = async (): Promise<boolean> => {
     const id = projectIdRef.value
     if (!id) return false
     try {
-      const { data } = await worldApi.canAddCard(id)
+      const data = await worldApi.canAddCard(id)
       return data.canAdd
     } catch {
       return false
@@ -65,6 +71,6 @@ export function useCardQuota(projectId: Ref<string> | string) {
     quotaStatus,
     loadQuota,
     loading,
-    checkCanCreate, // 🆕 导出
+    checkCanCreate,
   }
 }

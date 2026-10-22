@@ -46,6 +46,7 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddSignalR();
 builder.Services.AddScoped<IWorldRelationService, WorldRelationService>();
+builder.Services.AddScoped<ICardTypeService, CardTypeService>();
 builder.Services.AddScoped<IWorldCardService, WorldCardService>();
 builder.Services.AddScoped<IWorldProjectService, WorldProjectService>();
 builder.Services.AddSingleton<CosService>();
@@ -58,6 +59,8 @@ builder.Services.AddScoped<ILingMaiPublishHandler, ArtPublishHandler>();
 builder.Services.AddScoped<ILingMaiPublishHandler, WikiPublishHandler>();
 builder.Services.AddScoped<TradeService>();
 builder.Services.AddScoped<LingMaiService>();
+builder.Services.AddScoped<TaiChuWeb_V2.Services.Artworks.ArtworkEngagementService>();
+builder.Services.AddScoped<TaiChuWeb_V2.Services.Artworks.ArtworkPublicationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddMemoryCache();
@@ -105,6 +108,7 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
 
 builder.Services.AddControllers(options => {
     options.Filters.Add<GlobalExceptionFilter>();
+    options.Filters.Add<TaiChuWeb_V2.Filters.AdminAccessFilter>();
 })
 .AddJsonOptions(options => {
     options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());

@@ -1,5 +1,17 @@
 import request from '@/utils/request'
 
+// 问卷时间以 UTC 存储，MySQL DateTime 返回时可能不带时区。
+function normalizeTimes<T extends Record<string, any>>(survey: T): T {
+  const result = { ...survey }
+  for (const key of ['startTime', 'endTime', 'createdAt']) {
+    const value = result[key]
+    if (typeof value === 'string' && !/(Z|[+-]\d{2}:\d{2})$/i.test(value)) {
+      Object.assign(result, { [key]: `${value}Z` })
+    }
+  }
+  return result
+}
+
 // ===== 类型定义 =====
 
 export interface CreateOptionDto {
@@ -93,9 +105,10 @@ export const createSurvey = (data: CreateSurveyRequest) => {
 }
 
 // 获取问卷列表
-export const getSurveyList = (status?: string) => {
+export const getSurveyList = async (status?: string) => {
   const url = status ? `/survey/list?status=${status}` : '/survey/list'
-  return request.get(url)
+  const surveys = await request.get(url)
+  return surveys.map(normalizeTimes)
 }
 
 
@@ -135,8 +148,8 @@ export const getSurveyStats = (id: number) => {
 }
 
 // 获取问卷详情（用于编辑）
-export const getSurveyDetail = (id: number) => {
-  return request.get(`/survey/${id}`)
+export const getSurveyDetail = async (id: number) => {
+  return normalizeTimes(await request.get(`/survey/${id}`))
 }
 
 // 更新问卷

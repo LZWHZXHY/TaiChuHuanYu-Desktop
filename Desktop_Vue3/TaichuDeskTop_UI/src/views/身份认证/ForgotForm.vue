@@ -57,6 +57,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { getErrorMessage } from '@/utils/apiError'
 import { authApi } from '../../api/auth' // 假设你已经在 auth.ts 中定义了 forgotPassword 或类似的 API
 
 const emit = defineEmits(['switch'])
@@ -87,9 +88,9 @@ const handleSendCode = async () => {
       countdown.value--
       if (countdown.value <= 0) clearInterval(timer)
     }, 1000)
-  } catch (err: any) {
+  } catch (err) {
     isError.value = true
-    message.value = err.response?.data?.message || '发送失败，请稍后重试'
+    message.value = getErrorMessage(err, '发送失败，请稍后重试')
   }
 }
 
@@ -120,7 +121,7 @@ const handleReset = async () => {
     const res = await authApi.resetPassword(form.value) 
     
 
-    message.value = res.data?.message || '密印重塑成功！请尝试重新接入'
+    message.value = res.message || '密印重塑成功！请尝试重新接入'
     isError.value = false
     
   
@@ -128,11 +129,11 @@ const handleReset = async () => {
       emit('switch', 'login')
     }, 2000)
     
-  } catch (err: any) {
+  } catch (err) {
     // 5. 错误处理
     isError.value = true
     // 优先显示后端返回的错误信息（如“验证码错误”、“用户不存在”等）
-    message.value = err.response?.data?.message || '重塑失败，验证码或有误'
+    message.value = getErrorMessage(err, '重塑失败，验证码或有误')
   } finally {
     isSubmitting.value = false
   }
@@ -141,7 +142,7 @@ const handleReset = async () => {
 
 <style scoped>
 .input-group { margin-bottom: 16px; }
-label { font-size: 11px; color: #57606a; font-weight: 600; margin-bottom: 6px; display: block; }
+label { font-size: 11px; color: var(--text-secondary); font-weight: 600; margin-bottom: 6px; display: block; }
 
 .email-input-wrapper {
   display: flex;
@@ -154,8 +155,8 @@ label { font-size: 11px; color: #57606a; font-weight: 600; margin-bottom: 6px; d
 
 .send-code-btn {
   padding: 0 12px;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--bg-sub);
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
@@ -165,29 +166,29 @@ label { font-size: 11px; color: #57606a; font-weight: 600; margin-bottom: 6px; d
 }
 
 .send-code-btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #0969da;
+  background: var(--bg-sub);
+  border-color: var(--accent-color);
 }
 
 .send-code-btn:disabled {
-  color: #afb8c1;
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
 input {
   width: 100%;
   padding: 8px 12px;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--bg-sub);
+  border: 1px solid var(--border-line);
   border-radius: 6px;
-  color: #1f2328;
+  color: var(--text-primary);
   font-size: 14px;
   transition: all 0.2s;
 }
 
 input:focus {
-  background: #fff;
-  border-color: #0969da;
+  background: var(--paper-card);
+  border-color: var(--accent-color);
   outline: none;
   box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
 }
@@ -195,8 +196,8 @@ input:focus {
 .black-btn {
   width: 100%;
   padding: 10px;
-  background: #21262d;
-  color: #ffffff;
+  background: var(--text-primary);
+  color: var(--paper-card);
   border: none;
   border-radius: 6px;
   font-weight: 600;
@@ -204,8 +205,8 @@ input:focus {
   margin-top: 10px;
 }
 
-.black-btn:hover { background: #30363d; }
-.black-btn:disabled { background: #8c959f; cursor: not-allowed; }
+.black-btn:hover { background: var(--text-primary); }
+.black-btn:disabled { background: var(--text-secondary); cursor: not-allowed; }
 
 .footer-links {
   margin-top: 20px;
@@ -214,7 +215,7 @@ input:focus {
 
 .footer-links span {
   font-size: 12px;
-  color: #0969da;
+  color: var(--accent-color);
   cursor: pointer;
 }
 
@@ -224,6 +225,6 @@ input:focus {
   text-align: center;
 }
 
-.error-text { color: #cf222e; }
-.success-text { color: #1a7f37; }
+.error-text { color: var(--danger); }
+.success-text { color: var(--success); }
 </style>

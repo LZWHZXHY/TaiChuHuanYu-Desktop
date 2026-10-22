@@ -5,7 +5,7 @@
       <span class="main-label">视界过滤器</span>
       <span class="sub-label">DIMENSION FILTER</span>
     </div>
-    
+
     <div class="filter-list custom-scrollbar">
       <button
         v-for="type in availableTypes"
@@ -65,7 +65,7 @@ const selectAll = () => {
   left: 32px;
   z-index: 10;
   width: 240px;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.75) 0%, rgba(2, 6, 23, 0.85) 100%);
+  background: linear-gradient(135deg, var(--paper-card) 0%, var(--paper-card) 100%);
   border: 1px solid rgba(56, 189, 248, 0.15);
   border-radius: 12px;
   backdrop-filter: blur(16px);
@@ -83,8 +83,8 @@ const selectAll = () => {
   flex-direction: column;
   gap: 2px;
 }
-.main-label { font-size: 13px; color: #e2e8f0; font-weight: 500; letter-spacing: 1px; }
-.sub-label { font-size: 9px; color: #64748b; letter-spacing: 1.5px; }
+.main-label { font-size: 13px; color: var(--text-secondary); font-weight: 500; letter-spacing: 1px; }
+.sub-label { font-size: 9px; color: var(--info); letter-spacing: 1.5px; }
 
 .filter-list {
   padding: 12px;
@@ -109,7 +109,7 @@ const selectAll = () => {
   text-align: left;
 }
 .filter-btn:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--paper-card);
 }
 .filter-btn.active {
   background: var(--theme-bg);
@@ -129,13 +129,13 @@ const selectAll = () => {
 }
 
 .type-name {
-  color: #94a3b8;
+  color: var(--info);
   font-size: 11px;
   letter-spacing: 1px;
   transition: color 0.2s ease;
 }
 .filter-btn.active .type-name {
-  color: #f8fafc;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -148,16 +148,16 @@ const selectAll = () => {
 .action-btn {
   flex: 1;
   padding: 6px 0;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--paper-card);
   border: 1px solid transparent;
-  color: #94a3b8;
+  color: var(--info);
   font-size: 11px;
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
 }
-.action-btn:hover { background: rgba(255, 255, 255, 0.1); color: #e2e8f0; }
-.action-btn.highlight { color: #38bdf8; border-color: rgba(56, 189, 248, 0.3); }
+.action-btn:hover { background: var(--paper-card); color: var(--text-secondary); }
+.action-btn.highlight { color: var(--info); border-color: rgba(56, 189, 248, 0.3); }
 .action-btn.highlight:hover { background: rgba(56, 189, 248, 0.1); }
 
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }

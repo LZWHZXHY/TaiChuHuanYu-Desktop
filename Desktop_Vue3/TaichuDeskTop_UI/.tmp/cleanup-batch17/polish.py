@@ -1,0 +1,27 @@
+from pathlib import Path
+import json
+p=Path('.tmp/cleanup-batch17/baseline.json');d=json.loads(p.read_text(encoding='utf-8'))
+for f in ['src/views/太初随笔/ComposeView.vue','tests/artwork-publish.test.mjs']:
+ d[f]=Path(f).read_text(encoding='utf-8-sig')
+p.write_text(json.dumps(d),encoding='utf-8')
+p=Path('tests/artwork-publish.test.mjs');s=p.read_text(encoding='utf-8-sig').replace("id in mocks ? mocks[id] : require(id)","id in mocks ? mocks[id] : id.endsWith('.vue') ? {} : require(id)");p.write_text(s,encoding='utf-8')
+p=Path('src/assets/styles/content.css');s=p.read_text(encoding='utf-8-sig').replace('.content-page .content-actions .upload-link, .content-page .primary', '.content-page .content-actions .upload-link, .content-page .content-actions .primary, .content-page .primary').replace('.spirit-preview-renderer','.spirit-render-engine');p.write_text(s,encoding='utf-8')
+p=Path('src/views/知识库/index.vue');s=p.read_text(encoding='utf-8').replace('class="header-actions content-actions"','class="knowledge-actions content-actions"').replace('.header-actions','.knowledge-actions')
+s=s.replace('<aside class="type-nav" aria-label="资料类型">','''<aside class="type-nav" aria-label="资料类型">
+          <label class="mobile-type-filter">资料类型<select :value="type" @change="selectType(($event.target as HTMLSelectElement).value as KnowledgeType)"><option v-for="(label, key) in knowledgeTypes" :key="key" :value="key">{{ label }}</option></select></label>''')
+s=s.replace('.type-nav button { text-align:', '.mobile-type-filter { display: none; }\n.type-nav button { text-align:')
+s=s.replace('.type-nav > .nav-caption { width: 100%; }','.type-nav > .nav-caption, .type-nav > button { display: none; }\n.mobile-type-filter { display: flex; width: 100%; align-items: center; gap: 12px; padding: 4px; font-size: .9rem; }\n.mobile-type-filter select { min-width: 0; flex: 1; padding: 9px; background: var(--paper-card); color: var(--text-primary); border: 1px solid var(--border-line); border-radius: 8px; }')
+p.write_text(s,encoding='utf-8')
+p=Path('src/views/灵脉百科/components/WikiDetail.vue');s=p.read_text(encoding='utf-8').replace("ref, computed, watch, onUnmounted, defineAsyncComponent", "ref, computed, watch, nextTick, onUnmounted, defineAsyncComponent").replace('.spirit-preview-renderer','.spirit-render-engine')
+s=s.replace("const pane = ref<'article' | 'history'>('article');", "const pane = ref<'article' | 'history'>('article');\nconst comparisonPanel = ref<HTMLElement>();\nconst comparing = ref(false);")
+s=s.replace('<button @click="compare(revision.id)">查看版本与段落差异</button>', '<button :disabled="comparing" @click="compare(revision.id)">{{ comparing ? \'加载版本中…\' : \'查看版本与段落差异\' }}</button>')
+s=s.replace('class="comparison content-panel">','class="comparison content-panel" ref="comparisonPanel" tabindex="-1">')
+s=s.replace('    comparisonVersion++;','    comparisonVersion++;\n    comparing.value = false;',1)
+s=s.replace('    const current = ++comparisonVersion;','    const current = ++comparisonVersion;\n    comparing.value = true;\n    comparison.value = null;')
+s=s.replace("    }\n    catch {\n        if (current === comparisonVersion)","        await nextTick();\n        if (current === comparisonVersion && pane.value === 'history' && !editing.value) { comparisonPanel.value?.focus({ preventScroll: true }); comparisonPanel.value?.scrollIntoView({ block: 'start' }); }\n    }\n    catch {\n        if (current === comparisonVersion)")
+s=s.replace("            error.value = '历史版本加载失败，请重试';\n    }", "            error.value = '历史版本加载失败，请重试';\n    } finally { if (current === comparisonVersion) comparing.value = false; }")
+s=s.replace("editorKey.value++; summary.value = ''; comparison.value = null;", "editorKey.value++; summary.value = ''; comparisonVersion++; comparing.value = false; comparison.value = null;")
+p.write_text(s,encoding='utf-8')
+p=Path('src/views/太初随笔/ComposeView.vue');s=p.read_text(encoding='utf-8-sig').replace('<main class="compose-page content-page">','<main class="compose-page content-page">\n    <CommunityNav active="stream" />').replace('<script setup lang="ts">', '<script setup lang="ts">\nimport CommunityNav from \'@/components/CommunityNav.vue\';')
+s=s.replace('<button :disabled="busy" @click="showDrafts', '<div class="content-actions"><button :disabled="busy" @click="showDrafts').replace("我的{{ isPost ? '帖子' : '博客' }}</button>","我的{{ isPost ? '帖子' : '博客' }}</button></div>")
+p.write_text(s,encoding='utf-8')

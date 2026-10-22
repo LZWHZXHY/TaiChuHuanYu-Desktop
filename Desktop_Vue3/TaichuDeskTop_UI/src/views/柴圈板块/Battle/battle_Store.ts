@@ -8,17 +8,23 @@ export const useBattleStore = defineStore('battle', () => {
   const loading = ref(false)
   const myBattles = ref<Battle[]>([])
   const myBattlesLoading = ref(false)
+  let detailRequest = 0
 
   // 获取详情
   const fetchDetail = async (id: string) => {
+    const request = ++detailRequest
+    if (currentBattle.value?.id !== id) currentBattle.value = null
     loading.value = true
     try {
       const res = await battleApi.detail(id)
       // ✅ request 已经返回 data，直接赋值
-      currentBattle.value = res
+      if (request === detailRequest) currentBattle.value = res
       return res
+    } catch (error) {
+      if (request === detailRequest) currentBattle.value = null
+      throw error
     } finally {
-      loading.value = false
+      if (request === detailRequest) loading.value = false
     }
   }
 
@@ -61,6 +67,8 @@ export const useBattleStore = defineStore('battle', () => {
 
   // 清空
   const clear = () => {
+    detailRequest++
+    loading.value = false
     currentBattle.value = null
   }
 

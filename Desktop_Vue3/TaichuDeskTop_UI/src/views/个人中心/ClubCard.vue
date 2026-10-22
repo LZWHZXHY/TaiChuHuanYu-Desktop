@@ -144,8 +144,8 @@ onMounted(loadSummary)
 
 <style scoped>
 .club-card {
-  background: #fff;
-  border: 1px solid #f0f0f0;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   border-radius: 12px;
   padding: 20px 22px;
   animation: fadeIn 0.4s ease;
@@ -164,19 +164,19 @@ onMounted(loadSummary)
   gap: 12px;
   padding-bottom: 14px;
   margin-bottom: 16px;
-  border-bottom: 1px dashed #eaeef2;
+  border-bottom: 1px dashed var(--border-line);
 }
 .cc-title-wrap h3 {
   margin: 0 0 4px;
   font-size: 1rem;
   font-weight: 700;
-  color: #24292f;
+  color: var(--text-primary);
 }
 .cc-sub {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.65rem;
   letter-spacing: 1.5px;
-  color: #8c959f;
+  color: var(--text-secondary);
 }
 .cc-badge {
   flex-shrink: 0;
@@ -184,9 +184,9 @@ onMounted(loadSummary)
   height: 32px;
   display: grid;
   place-items: center;
-  border: 1px solid #24292f;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
-  color: #24292f;
+  color: var(--text-primary);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.75rem;
   font-weight: 700;
@@ -197,9 +197,9 @@ onMounted(loadSummary)
   padding: 20px;
   text-align: center;
   font-size: 0.85rem;
-  color: #8c959f;
+  color: var(--text-secondary);
 }
-.cc-state.error { color: #cf222e; }
+.cc-state.error { color: var(--danger); }
 
 /* 身份标签 */
 .cc-roles {
@@ -217,19 +217,19 @@ onMounted(loadSummary)
   border: 1px solid;
 }
 .role.boss {
-  color: #cf5e00;
+  color: var(--warning);
   border-color: rgba(207, 94, 0, 0.3);
   background: rgba(207, 94, 0, 0.06);
 }
 .role.operator {
-  color: #0969da;
+  color: var(--accent-color);
   border-color: rgba(9, 105, 218, 0.3);
   background: rgba(9, 105, 218, 0.06);
 }
 .role.pending {
-  color: #8c959f;
-  border-color: #eaeef2;
-  background: #f6f8fa;
+  color: var(--text-secondary);
+  border-color: var(--border-line);
+  background: var(--bg-main);
 }
 
 /* 快捷入口 */
@@ -244,17 +244,17 @@ onMounted(loadSummary)
   flex-direction: column;
   gap: 4px;
   padding: 10px 12px;
-  border: 1px solid #eaeef2;
+  border: 1px solid var(--border-line);
   border-radius: 8px;
-  background: #fafbfc;
+  background: var(--paper-card);
   text-decoration: none;
   color: inherit;
   transition: all 0.18s ease;
   cursor: pointer;
 }
 .cc-item:hover:not(.disabled) {
-  border-color: #24292f;
-  background: #fff;
+  border-color: var(--border-line);
+  background: var(--paper-card);
 }
 .cc-item.disabled {
   opacity: 0.6;
@@ -262,23 +262,23 @@ onMounted(loadSummary)
 }
 .cc-item-label {
   font-size: 0.7rem;
-  color: #8c959f;
+  color: var(--text-secondary);
   letter-spacing: 0.5px;
 }
 .cc-item-value {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 1.05rem;
   font-weight: 700;
-  color: #24292f;
+  color: var(--text-primary);
 }
 .cc-item-value.muted {
   font-size: 0.75rem;
   font-weight: 400;
-  color: #8c959f;
+  color: var(--text-secondary);
 }
 .cc-dot {
   font-size: 0.7rem;
-  color: #cf5e00;
+  color: var(--warning);
   font-weight: 400;
 }
 
@@ -292,8 +292,8 @@ onMounted(loadSummary)
   font-size: 0.85rem;
   font-weight: 600;
   letter-spacing: 0.5px;
-  color: #fff;
-  background: #24292f;
+  color: var(--paper-card);
+  background: var(--text-primary);
   border-radius: 8px;
   text-decoration: none;
   transition: opacity 0.2s;

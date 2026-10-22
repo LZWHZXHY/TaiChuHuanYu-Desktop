@@ -234,6 +234,8 @@
 </template>
 
 <script>
+import { fmtTime, isAllAccepted } from './orderHelpers'
+import { useUserStore } from '@/stores/user'
 import Navbar              from './Navbar.vue'
 import Footer              from './Footer.vue'
 import SectionHeading      from './SectionHeading.vue'
@@ -273,7 +275,7 @@ export default {
 
   computed: {
     isLoggedIn() {
-      return !!localStorage.getItem('token')
+      return useUserStore().isLoggedIn
     },
 
     filteredOrders() {
@@ -287,47 +289,32 @@ export default {
       this.loading = false
       return
     }
-    this.myUserId = this.readUidFromToken()
-    await this.checkOperator()
+    this.myUserId = useUserStore().userId
+    await this.loadMyStatus({ checkEligibility: true })
     if (this.isOperator) {
-      await Promise.all([
-        this.loadOrders(),
-        this.loadMyStatus()
-      ])
+      await this.loadOrders()
     }
     this.loading = false
   },
 
   methods: {
-    async checkOperator() {
+    async loadMyStatus({ checkEligibility = false } = {}) {
       try {
         const res = await request.get('/club/operators/me')
         const data = res?.data ?? res
         if (!data?.hasApplied) {
-          this.isOperator = false
+          if (checkEligibility) this.isOperator = false
           return
         }
-        const approved = (data.games || []).filter(g => g.auditStatus === 'approved')
-        this.isOperator = approved.length > 0
-        approved.forEach(g => {
-          this.myLevels[g.gameCode] = g.level || 'L1'
-        })
+        if (checkEligibility) {
+          const approved = (data.games || []).filter(game => game.auditStatus === 'approved')
+          this.isOperator = approved.length > 0
+          approved.forEach(game => { this.myLevels[game.gameCode] = game.level || 'L1' })
+        }
         this.myProfileStatus = data.status || 'offline'
       } catch (e) {
-        console.error('读取打手状态失败', e)
-        this.isOperator = false
-      }
-    },
-
-    async loadMyStatus() {
-      try {
-        const res = await request.get('/club/operators/me')
-        const data = res?.data ?? res
-        if (data?.hasApplied) {
-          this.myProfileStatus = data.status || 'offline'
-        }
-      } catch (e) {
-        console.error('刷新我的状态失败', e)
+        console.error(checkEligibility ? '读取打手状态失败' : '刷新我的状态失败', e)
+        if (checkEligibility) this.isOperator = false
       }
     },
 
@@ -346,12 +333,11 @@ export default {
       return !o.operatorUserId
     },
 
-    canAccept(o) {
+    canAccept() {
       return this.myProfileStatus !== 'offline'
     },
 
-    // ⭐ 我是否已经接过这个单
-        // ⭐ 我是否已经接过这个单（GUID 规范化比较）
+    // GUID 规范化比较，判断当前打手是否已接单
     didIAccept(o) {
       if (!this.myUserId) return false
       const norm = (s) => String(s || '').toLowerCase().replace(/-/g, '')
@@ -361,10 +347,7 @@ export default {
     },
 
     // ⭐ 是否全员已接
-    isAllAccepted(o) {
-      if (!o.totalOperatorCount) return false
-      return (o.acceptedCount || 0) >= o.totalOperatorCount
-    },
+    isAllAccepted,
 
     // ⭐ 是否显示进度区块
     showProgress(o) {
@@ -455,10 +438,10 @@ export default {
       this.acting = o.orderNo
       try {
         await request.post(`/club/orders/${o.orderNo}/${action}`)
-        await this.loadOrders()
-        if (action === 'accept') {
-          await this.loadMyStatus()
-        }
+        await Promise.all([
+          this.loadOrders(),
+          (action === 'accept' || action === 'abandon') && this.loadMyStatus()
+        ])
       } catch (e) {
         alert(e?.response?.data?.message || e.message || '操作失败')
       } finally {
@@ -472,50 +455,14 @@ export default {
 
       if (!confirm(`确认放弃订单【${o.orderNo}】？\n\n放弃后将从订单移除，订单回到公海供其他打手抢单。`)) return
 
-      this.acting = o.orderNo
-      try {
-        await request.post(`/club/orders/${o.orderNo}/abandon`)
-        await Promise.all([
-          this.loadOrders(),
-          this.loadMyStatus()   // ⭐ 刷新自己的状态
-        ])
-      } catch (e) {
-        alert(e?.response?.data?.message || e.message || '操作失败')
-      } finally {
-        this.acting = ''
-      }
+      await this.doAction(o, 'abandon')
     },
 
     shortId(uid) {
       return uid ? String(uid).substring(0, 8).toUpperCase() : '—'
     },
 
-        readUidFromToken() {
-      const token = localStorage.getItem('token')
-      if (!token) return ''
-      try {
-        const parts = token.split('.')
-        if (parts.length < 2) return ''
-        const payload = JSON.parse(atob(parts[1]))
-        return payload.sub
-            || payload.nameid
-            || payload.userId
-            || payload.userid
-            || payload.nameId
-            || payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier']
-            || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/nameidentifier']
-            || ''
-      } catch {
-        return ''
-      }
-    },
-
-    fmtTime(iso) {
-      if (!iso) return '—'
-      const d = new Date(iso)
-      const pad = (n) => String(n).padStart(2, '0')
-      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-    }
+    fmtTime
   }
 }
 </script>
@@ -529,7 +476,7 @@ export default {
   padding: 12px 18px;
   margin-bottom: 22px;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.5);
+  background: var(--panel);
   border-radius: 3px;
 }
 .status-bar.online  { border-color: rgba(120, 215, 206, 0.35); background: rgba(120, 215, 206, 0.04); }
@@ -549,7 +496,7 @@ export default {
 .sb-link {
   flex-shrink: 0;
   font-family: monospace;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--orange);
   text-decoration: none;
   letter-spacing: 1px;
@@ -579,9 +526,9 @@ export default {
   background: rgba(255, 107, 26, 0.06);
 }
 .tab-count {
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   padding: 1px 6px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-soft);
   border-radius: 3px;
 }
 
@@ -590,7 +537,7 @@ export default {
   font-family: monospace; font-size: 12px;
   letter-spacing: 1px; color: var(--text-muted);
   border: 1px dashed var(--line);
-  background: rgba(16, 25, 35, 0.3);
+  background: var(--panel);
 }
 .dot {
   display: inline-block; width: 6px; height: 6px;
@@ -604,7 +551,7 @@ export default {
 
 .order-card {
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.5);
+  background: var(--panel);
   transition: border-color 0.2s, background 0.2s;
 }
 .order-card:hover { border-color: var(--line-bright); }
@@ -614,7 +561,7 @@ export default {
   background: linear-gradient(
     90deg,
     rgba(255, 107, 26, 0.05),
-    rgba(16, 25, 35, 0.5) 25%
+    var(--panel) 25%
   );
 }
 .order-card.is-pool:hover {
@@ -628,7 +575,7 @@ export default {
 }
 .oc-no { display: flex; flex-direction: column; gap: 4px; }
 .oc-label {
-  font-family: monospace; font-size: 9px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 1px; color: var(--text-muted);
 }
 .oc-code { font-size: 13px; color: var(--text); }
@@ -640,7 +587,7 @@ export default {
 
 .oc-pool-tag {
   padding: 3px 10px;
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 1px;
   color: var(--orange);
   border: 1px solid rgba(255, 107, 26, 0.45);
@@ -651,14 +598,14 @@ export default {
 
 .oc-status {
   padding: 4px 12px;
-  font-size: 11px; font-weight: 600;
+  font-size: 12px; font-weight: 600;
   letter-spacing: 1px;
   border-radius: 3px;
 }
-.oc-status.pending    { background: rgba(255, 140, 74, 0.12); color: #ff8c4a; }
+.oc-status.pending    { background: rgba(255, 140, 74, 0.12); color: var(--accent-color); }
 .oc-status.serving    { background: rgba(120, 215, 206, 0.12); color: var(--cyan); }
-.oc-status.completed  { background: rgba(80, 200, 120, 0.12); color: #4ecb71; }
-.oc-status.cancelled  { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
+.oc-status.completed  { background: rgba(80, 200, 120, 0.12); color: var(--success); }
+.oc-status.cancelled  { background: var(--bg-soft); color: var(--text-muted); }
 
 .oc-body {
   display: flex; justify-content: space-between; gap: 20px;
@@ -671,7 +618,7 @@ export default {
 .oc-remark { color: var(--text-soft) !important; font-weight: 400; }
 
 .cs-wechat {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--cyan);
   font-weight: 400;
   margin-left: 4px;
@@ -688,17 +635,17 @@ export default {
   color: var(--orange);
 }
 .oc-payout {
-  font-family: monospace; font-size: 11px;
+  font-family: monospace; font-size: 12px;
   color: var(--text-muted);
 }
 .oc-payout b { color: var(--cyan); }
 .oc-rate { color: var(--text-muted); margin-left: 4px; }
-.oc-time { font-size: 11px; color: var(--text-muted); }
+.oc-time { font-size: 12px; color: var(--text-muted); }
 
 /* ⭐ 接单进度 */
 .oc-progress {
   padding: 12px 20px;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--panel);
   border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
@@ -712,7 +659,7 @@ export default {
 }
 .oph-label {
   font-family: monospace;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 1px;
   color: var(--text-muted);
 }
@@ -722,22 +669,22 @@ export default {
   font-weight: 700;
   color: var(--orange);
 }
-.oph-count.done { color: #4ecb71; }
+.oph-count.done { color: var(--success); }
 .oph-tag {
   margin-left: auto;
   padding: 2px 8px;
   font-family: monospace;
-  font-size: 10px;
+  font-size: 12px;
   border-radius: 2px;
   white-space: nowrap;
 }
 .oph-tag.mine {
-  color: #78d7ce;
+  color: var(--success);
   border: 1px solid rgba(120, 215, 206, 0.4);
   background: rgba(120, 215, 206, 0.08);
 }
 .oph-tag.done {
-  color: #4ecb71;
+  color: var(--success);
   border: 1px solid rgba(80, 200, 120, 0.5);
   background: rgba(80, 200, 120, 0.1);
 }
@@ -755,7 +702,7 @@ export default {
   font-size: 12px;
   color: var(--text-muted);
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--bg-soft);
   border-radius: 3px;
   transition: all 0.2s;
 }
@@ -778,7 +725,7 @@ export default {
 .chip-me {
   padding: 1px 5px;
   font-family: monospace;
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 1px;
   color: var(--orange);
   border: 1px solid rgba(255, 107, 26, 0.4);
@@ -790,7 +737,7 @@ export default {
   padding: 10px 20px;
   font-size: 12px; line-height: 1.6;
   color: var(--text-muted);
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--panel);
   border-top: 1px solid var(--line);
 }
 
@@ -808,7 +755,7 @@ export default {
 }
 .oc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .oc-btn.primary {
-  color: #fff; background: var(--orange);
+  color: var(--on-accent); background: var(--orange);
   border: 1px solid var(--orange);
 }
 .oc-btn.primary:hover:not(:disabled) { background: var(--orange-bright); }
@@ -820,7 +767,7 @@ export default {
 .oc-btn.ghost:hover:not(:disabled) { color: var(--text); border-color: var(--text-soft); }
 /* ⭐ 等待中按钮（已接单/离线/服务中） */
 .oc-btn.waiting {
-  color: #78d7ce;
+  color: var(--success);
   background: rgba(120, 215, 206, 0.06);
   border: 1px solid rgba(120, 215, 206, 0.4);
   cursor: not-allowed;

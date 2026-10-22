@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace TaiChuWeb_V2.DTOs.Activity;
 
@@ -30,7 +30,7 @@ public class UpdateActivityDto
     [MaxLength(500)]
     public string? Description { get; set; }
 
-    [MaxLength(50)]
+    [Range(1, int.MaxValue)]
     public int? TypeId { get; set; }  // 可空 int
 
     [MaxLength(50)]

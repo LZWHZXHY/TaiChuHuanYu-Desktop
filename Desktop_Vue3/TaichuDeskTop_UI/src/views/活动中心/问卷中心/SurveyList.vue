@@ -2,7 +2,7 @@
   <div class="survey-list-container">
     <div class="list-header">
       <h2><i class="fas fa-clipboard-list"></i> 问卷列表</h2>
-      <button class="btn-create" @click="$router.push('/activity/survey/create')">
+      <button v-if="userStore.canManageSurvey" class="btn-create" @click="$router.push('/activity/survey/create')">
         <i class="fas fa-plus"></i> 创建问卷
       </button>
     </div>
@@ -56,20 +56,20 @@
             {{ formatDate(survey.startTime) }} ~ {{ formatDate(survey.endTime) }}
           </span>
 
-          <button 
+          <button
               v-if="survey.status === 2 || (survey.status === 1 && survey.totalSubmissions > 0)"
-              class="btn-result" 
+              class="btn-result"
               @click.stop="goToResult(survey.id)"
             >
               <i class="fas fa-chart-bar"></i> 查看结果
             </button>
            <button
-              v-if="survey.status === 0"
+              v-if="survey.status === 0 && userStore.canManageSurvey"
               class="btn-edit"
               @click.stop="goToEdit(survey.id)"
             >
               <i class="fas fa-edit"></i> 编辑
-            </button>   
+            </button>
 
           <button class="btn-fill" @click.stop="goToFill(survey.id)">
             去填写 <i class="fas fa-arrow-right"></i>
@@ -81,7 +81,7 @@
     <div v-else class="empty-state">
       <i class="fas fa-inbox"></i>
       <p>暂无问卷</p>
-      <button class="btn-primary" @click="$router.push('/activity/survey/create')">
+      <button v-if="userStore.canManageSurvey" class="btn-primary" @click="$router.push('/activity/survey/create')">
         创建第一个问卷
       </button>
     </div>
@@ -91,9 +91,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 import { getSurveyList, type SurveyListItem } from './api'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 const surveys = ref<SurveyListItem[]>([])
 const loading = ref(false)
@@ -162,8 +164,8 @@ onMounted(loadSurveys)
   padding: 6px 16px;
   border: none;
   border-radius: 20px;
-  background: #e0e7ff;
-  color: #4f46e5;
+  background: var(--bg-sub);
+  color: var(--info);
   font-weight: 500;
   font-size: 0.8rem;
   cursor: pointer;
@@ -174,7 +176,7 @@ onMounted(loadSurveys)
 }
 
 .btn-edit:hover {
-  background: #c7d2fe;
+  background: var(--info-soft);
 }
 .survey-list-container {
   max-width: 1000px;
@@ -192,11 +194,11 @@ onMounted(loadSurveys)
 .list-header h2 {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .list-header h2 i {
-  color: #6366f1;
+  color: var(--info);
   margin-right: 8px;
 }
 
@@ -204,8 +206,8 @@ onMounted(loadSurveys)
   padding: 10px 24px;
   border: none;
   border-radius: 8px;
-  background: #6366f1;
-  color: #fff;
+  background: var(--info);
+  color: var(--on-accent);
   font-weight: 500;
   font-size: 0.9rem;
   cursor: pointer;
@@ -216,7 +218,7 @@ onMounted(loadSurveys)
 }
 
 .btn-create:hover {
-  background: #4f46e5;
+  background: var(--info);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
@@ -226,7 +228,7 @@ onMounted(loadSurveys)
   gap: 8px;
   margin-bottom: 24px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-line);
 }
 
 .filter-tab {
@@ -236,25 +238,25 @@ onMounted(loadSurveys)
   background: transparent;
   font-size: 0.85rem;
   font-weight: 500;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .filter-tab:hover {
-  background: #f3f4f6;
-  color: #1f2937;
+  background: var(--bg-sub);
+  color: var(--text-primary);
 }
 
 .filter-tab.active {
-  background: #1f2937;
-  color: #fff;
+  background: var(--bg-sub);
+  color: var(--text-primary);
 }
 
 .loading-state {
   text-align: center;
   padding: 60px 20px;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .loading-state i {
@@ -270,10 +272,10 @@ onMounted(loadSurveys)
 }
 
 .survey-card {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-line);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -281,7 +283,7 @@ onMounted(loadSurveys)
 .survey-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
-  border-color: #d1d5db;
+  border-color: var(--border-line);
 }
 
 .card-cover {
@@ -299,19 +301,19 @@ onMounted(loadSurveys)
   border-radius: 20px;
   font-size: 0.7rem;
   font-weight: 500;
-  color: #fff;
+  color: var(--text-primary);
 }
 
 .status-draft {
-  background: #9ca3af;
+  background: var(--bg-sub);
 }
 
 .status-published {
-  background: #10b981;
+  background: var(--success);
 }
 
 .status-ended {
-  background: #ef4444;
+  background: var(--danger);
 }
 
 .card-body {
@@ -322,12 +324,12 @@ onMounted(loadSurveys)
   font-size: 1.05rem;
   font-weight: 600;
   margin: 0 0 4px;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .card-body .desc {
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0 0 10px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -339,7 +341,7 @@ onMounted(loadSurveys)
   display: flex;
   gap: 14px;
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .card-meta span {
@@ -350,13 +352,13 @@ onMounted(loadSurveys)
 
 .creator {
   font-size: 0.75rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   margin: 6px 0 0;
 }
 
 .card-footer {
   padding: 10px 20px 16px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--border-line);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -364,17 +366,17 @@ onMounted(loadSurveys)
 
 .time-range {
   font-size: 0.7rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .btn-fill {
   padding: 6px 16px;
   border: none;
   border-radius: 20px;
-  background: #f3f4f6;
+  background: var(--bg-sub);
   font-weight: 500;
   font-size: 0.8rem;
-  color: #374151;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.2s;
   display: inline-flex;
@@ -383,20 +385,20 @@ onMounted(loadSurveys)
 }
 
 .btn-fill:hover {
-  background: #6366f1;
-  color: #fff;
+  background: var(--info);
+  color: var(--on-accent);
 }
 
 .empty-state {
   grid-column: 1 / -1;
   text-align: center;
   padding: 60px 20px;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .empty-state i {
   font-size: 3rem;
-  color: #d1d5db;
+  color: var(--text-secondary);
   display: block;
   margin-bottom: 12px;
 }
@@ -406,15 +408,15 @@ onMounted(loadSurveys)
   padding: 10px 24px;
   border: none;
   border-radius: 8px;
-  background: #6366f1;
-  color: #fff;
+  background: var(--info);
+  color: var(--on-accent);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-primary:hover {
-  background: #4f46e5;
+  background: var(--info);
   transform: translateY(-2px);
 }
 

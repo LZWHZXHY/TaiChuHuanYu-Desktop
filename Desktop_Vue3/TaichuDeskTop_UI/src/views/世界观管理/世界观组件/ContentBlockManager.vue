@@ -71,7 +71,7 @@
               {{ card.description.slice(0, 30) }}
             </span>
           </div>
-          <div v-if="!pickerResults.length && !pickerLoading" class="picker-empty">
+          <div v-if="!pickerResults.length" class="picker-empty">
             没有可用的卡片
           </div>
         </div>
@@ -85,24 +85,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { v4 as uuidv4 } from 'uuid';
 import { useWorldStore } from '@/stores/world';
-import { CardTypeMeta, type CardType } from '../card_type';
-import type { CardDetail } from '@/api/worldApi';
+import type { CardType } from '../card_type';
+import type { CardDetail, CardSummary } from '@/api/types/world';
+import { getCardTypeLabel as getTypeLabel } from '@/utils/worldPresentation';
+import type { ContentBlock } from '../card_type';
+import { useCardPreload } from '@/composables/世界观管理/useCardPreload';
+import { useExpandedItems } from '@/composables/世界观管理/useExpandedItems';
 import EmbeddedCard from './EmbeddedCard.vue';
 
 // ===== Props =====
 const props = defineProps<{
-  modelValue: any[];
+  modelValue: ContentBlock[];
   projectId: string;
   cardTypeOptions: { value: string; label: string }[];
   excludeCardId?: string;
 }>();
 
 const emit = defineEmits<{
-  (e: 'update:modelValue', value: any[]): void;
+  (e: 'update:modelValue', value: ContentBlock[]): void;
   (e: 'createCard', type: string): void;
 }>();
 
@@ -112,19 +116,21 @@ const store = useWorldStore();
 // ===== 本地状态 =====
 const localValue = ref([...props.modelValue]);
 
-// 展开状态集合（blockId 集合）
-const expandedIds = ref<Set<string>>(new Set());
-
-// 详情缓存（cardId → CardDetail）
-const detailMap = ref<Record<string, CardDetail>>({});
+const { isExpanded, toggle: toggleExpand } = useExpandedItems();
 
 // 选择器状态
 const showPicker = ref(false);
 const pickerType = ref<CardType>('character');
 const pickerSearch = ref('');
 const pickerContextLabel = ref('');
-const pickerResults = ref<any[]>([]);
-const pickerLoading = ref(false);
+type PickerCard = CardSummary & Partial<Pick<CardDetail, 'description'>>;
+const pickerResults = computed<PickerCard[]>(() => {
+  const query = pickerSearch.value.toLowerCase();
+  return store.cards.filter(card =>
+    card.type === pickerType.value && card.id !== props.excludeCardId &&
+    (!query || card.title.toLowerCase().includes(query))
+  ).slice(0, 20);
+});
 
 // ===== 计算属性 =====
 const pickerTypeLabel = computed(() => {
@@ -132,62 +138,16 @@ const pickerTypeLabel = computed(() => {
   return found?.label || pickerType.value;
 });
 
-// ===== 展开/收起 =====
-const isExpanded = (blockId: string): boolean => {
-  return expandedIds.value.has(blockId);
-};
-
-const toggleExpand = (blockId: string, value?: boolean) => {
-  const next = new Set(expandedIds.value);
-  const shouldExpand = value === undefined ? !next.has(blockId) : value;
-  if (shouldExpand) {
-    next.add(blockId);
-  } else {
-    next.delete(blockId);
-  }
-  expandedIds.value = next;
-};
-
-// ===== 详情加载 =====
-const loadDetails = async (cardIds: string[]) => {
-  const ids = [...new Set(cardIds)].filter(Boolean);
-  if (!ids.length) return;
-
-  await Promise.all(
-    ids.map(async (id) => {
-      const cached = store.getCardDetailById(id);
-      if (cached) {
-        detailMap.value[id] = cached;
-        return;
-      }
-      try {
-        const detail = await store.fetchCardDetail(props.projectId, id);
-        if (detail) {
-          detailMap.value[id] = detail;
-        }
-      } catch (err) {
-        console.warn(`拉取卡片详情失败: ${id}`, err);
-      }
-    })
-  );
-};
-
-const getBlockDetail = (cardId: string): CardDetail | null => {
-  return detailMap.value[cardId] || store.getCardDetailById(cardId) || null;
-};
+const { load: loadDetails, getDetail: getBlockDetail } = useCardPreload(
+  () => props.projectId, () => localValue.value.map(block => block.cardId));
 
 // ===== 兜底标题 =====
-const getBlockTitle = (block: any): string => {
+const getBlockTitle = (block: ContentBlock): string => {
   const detail = getBlockDetail(block.cardId);
   if (detail) return detail.title;
   if (block.cardTitle) return block.cardTitle;
-  const card = store.cards.find((c: any) => c.id === block.cardId);
+  const card = store.cards.find((c) => c.id === block.cardId);
   return card?.title || '已删除的卡片';
-};
-
-const getTypeLabel = (type: string) => {
-  const meta = CardTypeMeta[type as CardType];
-  return meta?.label || type;
 };
 
 // ===== 选择器相关 =====
@@ -197,24 +157,14 @@ const openPicker = (type: string) => {
   pickerSearch.value = '';
   pickerContextLabel.value = '';
   showPicker.value = true;
-  loadPickerCards(cardType);
 };
 
 const closePicker = () => {
   showPicker.value = false;
 };
 
-const loadPickerCards = (type: CardType) => {
-  pickerLoading.value = true;
-  const cards = store.cards.filter(
-    (c: any) => c.type === type && c.id !== props.excludeCardId
-  );
-  pickerResults.value = cards.slice(0, 20);
-  pickerLoading.value = false;
-};
-
-const insertBlock = async (card: any) => {
-  if (localValue.value.some((b: any) => b.cardId === card.id)) {
+const insertBlock = async (card: CardSummary) => {
+  if (localValue.value.some((b) => b.cardId === card.id)) {
     ElMessage.warning('已插入');
     return;
   }
@@ -251,21 +201,6 @@ const handleCreateAndInsert = () => {
   emit('createCard', pickerType.value);
 };
 
-// ===== 搜索过滤 =====
-watch(pickerSearch, (val) => {
-  const cards = store.cards.filter(
-    (c: any) => c.type === pickerType.value && c.id !== props.excludeCardId
-  );
-  if (!val) {
-    pickerResults.value = cards.slice(0, 20);
-    return;
-  }
-  const lower = val.toLowerCase();
-  pickerResults.value = cards
-    .filter((c: any) => c.title.toLowerCase().includes(lower))
-    .slice(0, 20);
-});
-
 // ===== 双向绑定 =====
 watch(
   localValue,
@@ -285,20 +220,6 @@ watch(
   { deep: true }
 );
 
-watch(
-  () => localValue.value.map((b: any) => b.cardId).join(','),
-  (key) => {
-    if (!key) return;
-    loadDetails(localValue.value.map((b: any) => b.cardId));
-  }
-);
-
-onMounted(() => {
-  if (localValue.value.length) {
-    loadDetails(localValue.value.map((b: any) => b.cardId));
-  }
-});
-
 defineExpose({
   openPicker,
   closePicker,
@@ -317,7 +238,7 @@ defineExpose({
 .blocks-header > span {
   font-weight: 500;
   font-size: 14px;
-  color: #334155;
+  color: var(--text-primary);
 }
 .insert-toolbar {
   display: flex;
@@ -326,18 +247,18 @@ defineExpose({
 }
 .insert-btn {
   padding: 2px 10px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 12px;
-  background: white;
+  background: var(--paper-card);
   font-size: 11px;
   cursor: pointer;
   transition: all 0.2s;
-  color: #475569;
+  color: var(--text-secondary);
 }
 .insert-btn:hover {
-  background: #eef2ff;
-  border-color: #4f46e5;
-  color: #4f46e5;
+  background: var(--accent-soft);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
 /* ===== 卡片列表 ===== */
@@ -352,9 +273,9 @@ defineExpose({
 .blocks-empty {
   padding: 12px;
   text-align: center;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 13px;
-  border: 1px dashed #e2e8f0;
+  border: 1px dashed var(--border-line);
   border-radius: 6px;
 }
 
@@ -370,7 +291,7 @@ defineExpose({
   z-index: 2000;
 }
 .picker-modal {
-  background: white;
+  background: var(--paper-card);
   border-radius: 16px;
   width: 380px;
   max-width: 92%;
@@ -384,60 +305,60 @@ defineExpose({
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  border-bottom: 1px solid #f1f3f5;
+  border-bottom: 1px solid var(--border-line);
   font-weight: 600;
   font-size: 15px;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 .picker-close {
   background: none;
   border: none;
   font-size: 20px;
   cursor: pointer;
-  color: #94a3b8;
+  color: var(--text-secondary);
   transition: color 0.2s;
 }
 .picker-close:hover {
-  color: #1e293b;
+  color: var(--text-primary);
 }
 .picker-search {
   padding: 8px 12px;
-  border-bottom: 1px solid #f1f3f5;
+  border-bottom: 1px solid var(--border-line);
 }
 .picker-search input {
   width: 100%;
   padding: 6px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 8px;
   font-size: 13px;
-  background: #fafbfc;
+  background: var(--paper-card);
   transition: border-color 0.2s;
 }
 .picker-search input:focus {
   outline: none;
-  border-color: #4f46e5;
-  background: white;
+  border-color: var(--accent-color);
+  background: var(--paper-card);
 }
 .picker-context {
   padding: 8px 12px;
-  border-bottom: 1px solid #f1f3f5;
+  border-bottom: 1px solid var(--border-line);
 }
 .picker-context .context-input {
   width: 100%;
   padding: 6px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 8px;
   font-size: 13px;
-  background: #fafbfc;
+  background: var(--paper-card);
   transition: border-color 0.2s, background 0.2s;
 }
 .picker-context .context-input:focus {
   outline: none;
-  border-color: #4f46e5;
-  background: white;
+  border-color: var(--accent-color);
+  background: var(--paper-card);
 }
 .picker-context .context-input::placeholder {
-  color: #a0aec0;
+  color: var(--text-secondary);
 }
 .picker-list {
   flex: 1;
@@ -451,7 +372,7 @@ defineExpose({
   background: transparent;
 }
 .picker-list::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: var(--bg-sub);
   border-radius: 4px;
 }
 .picker-item {
@@ -463,12 +384,12 @@ defineExpose({
   transition: background 0.15s;
 }
 .picker-item:hover {
-  background: #f1f5f9;
+  background: var(--bg-sub);
 }
 .picker-type {
   font-size: 11px;
-  color: #4f46e5;
-  background: #eef2ff;
+  color: var(--accent-color);
+  background: var(--accent-soft);
   padding: 1px 8px;
   border-radius: 10px;
   flex-shrink: 0;
@@ -476,12 +397,12 @@ defineExpose({
 .picker-title {
   font-weight: 500;
   font-size: 14px;
-  color: #0f172a;
+  color: var(--text-primary);
   flex: 1;
 }
 .picker-summary {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -490,7 +411,7 @@ defineExpose({
 .picker-empty {
   padding: 20px;
   text-align: center;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 .picker-footer {
@@ -498,26 +419,26 @@ defineExpose({
   justify-content: flex-end;
   gap: 8px;
   padding: 10px 16px;
-  border-top: 1px solid #f1f3f5;
+  border-top: 1px solid var(--border-line);
 }
 .picker-footer .btn-outline {
   padding: 6px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-line);
   border-radius: 8px;
   background: transparent;
   cursor: pointer;
   font-size: 13px;
-  color: #475569;
+  color: var(--text-secondary);
   transition: all 0.2s;
 }
 .picker-footer .btn-outline:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: var(--bg-sub);
+  border-color: var(--border-line);
 }
 .picker-footer .btn-primary {
   padding: 6px 20px;
-  background: #4f46e5;
-  color: white;
+  background: var(--accent-color);
+  color: var(--on-accent);
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -526,6 +447,6 @@ defineExpose({
   transition: background 0.2s;
 }
 .picker-footer .btn-primary:hover {
-  background: #4338ca;
+  background: var(--accent-color);
 }
 </style>

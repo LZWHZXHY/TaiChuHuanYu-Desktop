@@ -38,6 +38,8 @@ export interface ICreateArticleDto {
 }
 
 export const wikiApi = {
+  history: (id: string, page = 1) => request.get<any>(`/wiki/article/${encodeURIComponent(id)}/history`, { params: { page }, silentError: true }),
+  revision: (id: string, revisionId: number) => request.get<any>(`/wiki/article/${encodeURIComponent(id)}/history/${revisionId}`, { silentError: true }),
   getCategories: () => request.get<IWikiCategory[]>('/wiki/categories'),
   
   applyCategory: (data: { name: string; reason: string; parentId: number | null; sortOrder: number }) => 

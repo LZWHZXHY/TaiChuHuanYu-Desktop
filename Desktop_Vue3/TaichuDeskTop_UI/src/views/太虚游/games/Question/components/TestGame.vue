@@ -181,8 +181,8 @@ watch(started, (val) => {
 .test-start {
   text-align: center;
   padding: 40px 20px;
-  border: 1px solid var(--line-raw, #D5CEC5);
-  background: var(--paper-card, #FCFAF7);
+  border: 1px solid var(--line-raw, var(--border-line));
+  background: var(--paper-card, var(--bg-main));
 }
 .test-icon {
   font-size: 64px;
@@ -192,24 +192,24 @@ watch(started, (val) => {
   font-size: 24px;
   font-weight: 400;
   letter-spacing: 0.2em;
-  color: var(--ink-black, #2A2826);
+  color: var(--ink-black, var(--text-primary));
   margin: 0 0 8px;
 }
 .test-start p {
   font-size: 14px;
-  color: var(--ink-gray, #7A7570);
+  color: var(--ink-gray, var(--text-secondary));
   letter-spacing: 0.1em;
   margin: 0 0 24px;
 }
 .btn-start {
-  border-color: var(--cinnabar, #9E2A2B);
+  border-color: var(--cinnabar, var(--danger));
   color: var(--cinnabar);
   padding: 8px 32px;
   font-size: 16px;
 }
 .btn-start:hover {
   background: var(--cinnabar);
-  color: #fff;
+  color: var(--text-primary);
 }
 .test-questions {
   display: flex;
@@ -224,30 +224,30 @@ watch(started, (val) => {
 .progress-bar {
   flex: 1;
   height: 3px;
-  background: var(--line-raw, #D5CEC5);
+  background: var(--line-raw, var(--bg-sub));
   border-radius: 2px;
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
-  background: var(--cinnabar, #9E2A2B);
+  background: var(--cinnabar, var(--danger));
   transition: width 0.3s ease;
 }
 .progress-text {
   font-size: 13px;
-  color: var(--ink-gray, #7A7570);
+  color: var(--ink-gray, var(--text-secondary));
   letter-spacing: 0.1em;
 }
 .question-card {
-  border: 1px solid var(--line-raw, #D5CEC5);
+  border: 1px solid var(--line-raw, var(--border-line));
   padding: 24px 20px;
-  background: var(--paper-card, #FCFAF7);
+  background: var(--paper-card, var(--bg-main));
 }
 .question-text {
   font-size: 18px;
   line-height: 1.6;
   letter-spacing: 0.15em;
-  color: var(--ink-black, #2A2826);
+  color: var(--ink-black, var(--text-primary));
   margin-bottom: 12px;
 }
 .question-image {
@@ -267,13 +267,13 @@ watch(started, (val) => {
 }
 .option-btn {
   background: none;
-  border: 1px solid var(--line-raw, #D5CEC5);
+  border: 1px solid var(--line-raw, var(--border-line));
   padding: 12px 16px;
   text-align: left;
   font-size: 14px;
   font-family: inherit;
   letter-spacing: 0.1em;
-  color: var(--ink-black, #2A2826);
+  color: var(--ink-black, var(--text-primary));
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -281,7 +281,7 @@ watch(started, (val) => {
   border-color: var(--ink-black);
 }
 .option-btn.selected {
-  border-color: var(--cinnabar, #9E2A2B);
+  border-color: var(--cinnabar, var(--danger));
   background: rgba(158, 42, 43, 0.05);
 }
 .question-nav {
@@ -291,8 +291,8 @@ watch(started, (val) => {
 }
 .btn-line {
   background: none;
-  border: 1px solid var(--line-raw, #D5CEC5);
-  color: var(--ink-black, #2A2826);
+  border: 1px solid var(--line-raw, var(--border-line));
+  color: var(--ink-black, var(--text-primary));
   padding: 6px 20px;
   font-family: inherit;
   font-size: 13px;
@@ -314,13 +314,13 @@ watch(started, (val) => {
 }
 .btn-next:hover:not(:disabled) {
   background: var(--cinnabar);
-  color: #fff;
+  color: var(--text-primary);
 }
 .test-result {
   text-align: center;
   padding: 40px 20px;
-  border: 1px solid var(--line-raw, #D5CEC5);
-  background: var(--paper-card, #FCFAF7);
+  border: 1px solid var(--line-raw, var(--border-line));
+  background: var(--paper-card, var(--bg-main));
 }
 .result-content {
   max-width: 400px;
@@ -334,12 +334,12 @@ watch(started, (val) => {
   font-size: 26px;
   font-weight: 400;
   letter-spacing: 0.2em;
-  color: var(--ink-black, #2A2826);
+  color: var(--ink-black, var(--text-primary));
   margin: 0 0 8px;
 }
 .result-desc {
   font-size: 15px;
-  color: var(--ink-gray, #7A7570);
+  color: var(--ink-gray, var(--text-secondary));
   letter-spacing: 0.1em;
   line-height: 1.8;
   margin: 0 0 12px;

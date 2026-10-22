@@ -28,6 +28,11 @@ namespace TaiChuWeb_V2.Controllers.Projects
 
         private string CurrentUserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
 
+        private async Task<bool> CanRead(string projectId) =>
+            await _context.ProjectMembers.AnyAsync(m => m.ProjectId == projectId && m.UserId == CurrentUserId) ||
+            await _permService.HasPermissionAsync(projectId, CurrentUserId, "task:manage");
+        private Task<bool> ValidCategory(string projectId, string? id) => string.IsNullOrWhiteSpace(id) ? Task.FromResult(true) : _context.ProjectCategories.AnyAsync(c => c.Id == id && c.ProjectId == projectId);
+
         #region --- 1. 动态分栏（Category）管理与列表排序 ---
 
         /// <summary>
@@ -36,6 +41,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
         [HttpGet("categories")]
         public async Task<IActionResult> GetCategories(string projectId)
         {
+            if (!await CanRead(projectId)) return Forbid();
             var categories = await _context.ProjectCategories
                 .Where(c => c.ProjectId == projectId)
                 .OrderBy(c => c.SortOrder)
@@ -183,6 +189,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
         [HttpGet("board")]
         public async Task<IActionResult> GetKanbanBoard(string projectId)
         {
+            if (!await CanRead(projectId)) return Forbid();
             var categories = await _context.ProjectCategories
                 .Where(c => c.ProjectId == projectId)
                 .OrderBy(c => c.SortOrder)
@@ -223,6 +230,8 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = "您在此项目中未被赋予发布意图任务的权限" });
             }
 
+            if (!await ValidCategory(projectId, dto.CategoryId)) return BadRequest(new { message = "目标分栏不属于当前项目" });
+            if (string.IsNullOrWhiteSpace(dto.Title)) return BadRequest(new { message = "请填写任务标题" });
             var maxSortOrder = await _context.ProjectTasks
                 .Where(t => t.ProjectId == projectId && t.CategoryId == dto.CategoryId)
                 .Select(t => (double?)t.SortOrder)
@@ -266,6 +275,8 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = "无权修改该任务卡片" });
             }
 
+            if (!await ValidCategory(projectId, dto.CategoryId)) return BadRequest(new { message = "目标分栏不属于当前项目" });
+            if (canManage && !string.IsNullOrWhiteSpace(dto.AssigneeId) && !await _context.ProjectMembers.AnyAsync(m => m.ProjectId == projectId && m.UserId == dto.AssigneeId)) return BadRequest(new { message = "负责人必须是当前项目成员" });
             // 常规属性更新
             if (!string.IsNullOrWhiteSpace(dto.Title)) task.Title = dto.Title;
             task.Description = dto.Description;
@@ -312,6 +323,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 }
             }
 
+            if (!await ValidCategory(projectId, dto.TargetCategoryId)) return BadRequest(new { message = "目标分栏不属于当前项目" });
             task.CategoryId = string.IsNullOrEmpty(dto.TargetCategoryId) ? null : dto.TargetCategoryId;
 
             if (dto.PrevSortOrder.HasValue && dto.NextSortOrder.HasValue)
@@ -365,6 +377,7 @@ namespace TaiChuWeb_V2.Controllers.Projects
         [HttpGet("/api/project/{projectId}/tasks")]
         public async Task<IActionResult> GetProjectTasks(string projectId)
         {
+            if (!await CanRead(projectId)) return Forbid();
             var projectExists = await _context.Projects.AnyAsync(p => p.Id == projectId);
             if (!projectExists) return NotFound("未寻得指定的项目灵脉");
 

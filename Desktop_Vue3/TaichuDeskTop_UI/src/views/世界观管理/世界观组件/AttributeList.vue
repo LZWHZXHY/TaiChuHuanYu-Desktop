@@ -115,20 +115,20 @@ watch(() => props.modelValue, (val) => {
 .attr-header label {
   font-weight: 500;
   font-size: 14px;
-  color: #334155;
+  color: var(--text-primary);
 }
 .add-btn {
   padding: 2px 12px;
-  border: 1px dashed #d1d5db;
+  border: 1px dashed var(--border-line);
   border-radius: 6px;
   background: transparent;
-  color: #64748b;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 12px;
 }
 .add-btn:hover {
-  border-color: #4f46e5;
-  color: #4f46e5;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
 .attr-list {
@@ -144,30 +144,30 @@ watch(() => props.modelValue, (val) => {
 }
 .attr-key {
   flex: 1;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 13px;
-  background: #fafbfc;
+  background: var(--paper-card);
 }
 .attr-key:focus {
   outline: none;
-  border-color: #4f46e5;
+  border-color: var(--accent-color);
 }
 
 .attr-value {
   flex: 2;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 13px;
-  background: #fafbfc;
+  background: var(--paper-card);
   font-family: inherit;
 }
 .attr-value:focus {
   outline: none;
-  border-color: #4f46e5;
-  background: white;
+  border-color: var(--accent-color);
+  background: var(--paper-card);
 }
 .attr-value-long {
   min-height: 60px;
@@ -181,56 +181,56 @@ watch(() => props.modelValue, (val) => {
 }
 .bool-btn {
   padding: 4px 16px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
-  background: white;
+  background: var(--paper-card);
   cursor: pointer;
   font-size: 13px;
 }
 .bool-btn.active {
-  background: #4f46e5;
-  color: white;
-  border-color: #4f46e5;
+  background: var(--accent-color);
+  color: var(--on-accent);
+  border-color: var(--accent-color);
 }
 .bool-btn:hover:not(.active) {
-  background: #f1f5f9;
+  background: var(--bg-sub);
 }
 
 .attr-type {
   flex: 0 0 80px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   padding: 4px 6px;
   font-size: 12px;
-  background: #fafbfc;
-  color: #475569;
+  background: var(--paper-card);
+  color: var(--text-secondary);
   height: 32px;
 }
 .attr-type:focus {
   outline: none;
-  border-color: #4f46e5;
+  border-color: var(--accent-color);
 }
 
 .attr-sep {
-  color: #94a3b8;
+  color: var(--text-secondary);
   padding-top: 4px;
 }
 
 .remove-btn {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 14px;
   padding: 4px 4px 0 4px;
 }
 .remove-btn:hover {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .attr-empty {
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   padding: 4px 0;
 }
 </style>

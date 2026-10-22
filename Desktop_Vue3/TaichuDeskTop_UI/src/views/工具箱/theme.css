@@ -1,13 +1,13 @@
 .toolbox {
   /* ===== UI 骨架 ===== */
-  --tb-bg: #f7f8fa;
-  --tb-card-bg: #ffffff;
-  --tb-text: #1f2328;
-  --tb-text-muted: #57606a;
-  --tb-text-dim: #8b949e;
-  --tb-border: #d8dee4;
-  --tb-accent: #2f6feb;
-  --tb-accent-hover: #1f5bd6;
+  --tb-bg: var(--bg-main);
+  --tb-card-bg: var(--paper-card);
+  --tb-text: var(--text-primary);
+  --tb-text-muted: var(--text-secondary);
+  --tb-text-dim: var(--text-secondary);
+  --tb-border: var(--border-line);
+  --tb-accent: var(--accent-color);
+  --tb-accent-hover: var(--accent-color);
 
   /* ===== 数据色（Okabe-Ito 色盲友好色板） ===== */
   --tb-data-1: #0072b2;
@@ -18,7 +18,7 @@
   --tb-data-6: #d55e00;
 
   /* ===== 状态色 ===== */
-  --tb-success: #1a7f37;
-  --tb-warning: #bf8700;
-  --tb-danger: #cf222e;
+  --tb-success: var(--success);
+  --tb-warning: var(--warning);
+  --tb-danger: var(--danger);
 }

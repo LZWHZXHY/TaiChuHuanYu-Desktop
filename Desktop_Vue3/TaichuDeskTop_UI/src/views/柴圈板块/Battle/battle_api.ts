@@ -129,7 +129,7 @@ export const battleApi = {
     request.post<Battle>('/Battle', data),
 
      reject: (id: string) =>
-    request.post(`/Battle/${id}/reject`),
+    request.post<Battle>(`/Battle/${id}/reject`),
 
 
   update: (id: string, data: UpdateBattleRequest) =>
@@ -139,31 +139,31 @@ export const battleApi = {
     request.delete(`/Battle/${id}`),
 
   register: (id: string, data: RegisterBattleRequest) =>
-    request.post(`/Battle/${id}/register`, data),
+    request.post<Battle>(`/Battle/${id}/register`, data),
 
   unregister: (id: string) =>
-    request.post(`/Battle/${id}/unregister`),
+    request.post<Battle>(`/Battle/${id}/unregister`),
 
   closeRegistration: (id: string) =>
-    request.post(`/Battle/${id}/close-registration`),
+    request.post<Battle>(`/Battle/${id}/close-registration`),
 
   closeCreation: (id: string) =>
-    request.post(`/Battle/${id}/close-creation`),
+    request.post<Battle>(`/Battle/${id}/close-creation`),
 
   submit: (id: string, data: SubmitWorkRequest) =>
-    request.post(`/Battle/${id}/submit`, data),
+    request.post<Battle>(`/Battle/${id}/submit`, data),
 
   updateSubmission: (battleId: string, submissionId: string, data: { contentUrl: string }) =>
     request.put(`/Battle/${battleId}/submission/${submissionId}`, data),
 
   setInternalResult: (id: string, data: InternalResultRequest) =>
-    request.post(`/Battle/${id}/set-internal-result`, data),
+    request.post<Battle>(`/Battle/${id}/set-internal-result`, data),
 
   publishResult: (id: string) =>
-    request.post(`/Battle/${id}/publish-result`),
+    request.post<Battle>(`/Battle/${id}/publish-result`),
 
   cancel: (id: string) =>
-    request.post(`/Battle/${id}/cancel`),
+    request.post<Battle>(`/Battle/${id}/cancel`),
 
   my: (params?: { status?: string }) =>
     request.get<Battle[]>('/Battle/my', { params }),

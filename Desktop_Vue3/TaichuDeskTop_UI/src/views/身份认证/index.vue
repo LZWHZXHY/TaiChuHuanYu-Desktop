@@ -64,7 +64,7 @@ const onLoginSuccess = (token: string) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #ffffff; 
+  background: var(--paper-card); 
 }
 
 .auth-container {
@@ -81,14 +81,14 @@ const onLoginSuccess = (token: string) => {
 .auth-label {
   font-family: ui-monospace, SFMono-Regular, monospace;
   font-size: 12px;
-  color: #8c959f;
+  color: var(--text-secondary);
   letter-spacing: 0.2em;
 }
 
 h1 {
   font-size: 1.75rem;
   font-weight: 600;
-  color: #1f2328;
+  color: var(--text-primary);
   margin-top: 12px;
   letter-spacing: -0.02em;
 }
@@ -96,24 +96,24 @@ h1 {
 .auth-divider {
   width: 40px;
   height: 2px;
-  background: #1f2328;
+  background: var(--text-primary);
   margin: 20px auto 0;
 }
 
 .auth-content {
-  background: #ffffff;
+  background: var(--paper-card);
 }
 
 .auth-footer {
   margin-top: 60px;
   text-align: center;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-line);
   padding-top: 20px;
 }
 
 .auth-footer p {
   font-size: 12px;
-  color: #afb8c1;
+  color: var(--text-secondary);
   font-family: ui-monospace, monospace;
 }
 

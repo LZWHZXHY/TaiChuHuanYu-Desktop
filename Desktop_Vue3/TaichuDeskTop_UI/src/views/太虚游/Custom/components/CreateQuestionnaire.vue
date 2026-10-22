@@ -625,27 +625,27 @@ function submitForm() {
 .btn-remove-opt {
   background: none;
   border: none;
-  color: #b03a3a;
+  color: var(--danger);
   font-size: 16px;
   cursor: pointer;
   padding: 0 4px;
 }
 .btn-remove-opt:hover {
-  color: #7a2222;
+  color: var(--danger);
 }
 
 /* 按钮 */
 .btn-remove {
   background: none;
   border: none;
-  color: #b03a3a;
+  color: var(--danger);
   font-size: 18px;
   cursor: pointer;
   padding: 0 4px;
   margin-left: auto;
 }
 .btn-remove:hover {
-  color: #7a2222;
+  color: var(--danger);
 }
 .btn-add-opt,
 .btn-add-question,
@@ -726,12 +726,12 @@ function submitForm() {
 }
 .btn-submit {
   background: var(--cinnabar);
-  color: #fff;
+  color: var(--text-primary);
   border-color: var(--cinnabar);
 }
 .btn-submit:hover {
-  background: #7a2222;
-  border-color: #7a2222;
+  background: var(--danger);
+  border-color: var(--danger);
 }
 
 /* ===== 响应式 ===== */

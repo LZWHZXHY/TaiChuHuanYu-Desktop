@@ -23,6 +23,9 @@ namespace TaiChuWeb_V2.Services.Project
             _context = context;
         }
 
+        private Task<bool> IsGlobalAdmin(string id) => Guid.TryParse(id, out var userId) ? _context.UserPermissions.AnyAsync(p => p.UserId == userId && (p.Permission == AdminPermission.SuperAdmin || p.Permission == AdminPermission.TaiChu)) : Task.FromResult(false);
+        public static List<string> ReadPermissions(string json) { try { return JsonSerializer.Deserialize<List<string>>(json) ?? new(); } catch (JsonException) { return new(); } }
+
         /// <summary>
         /// 判定当前用户是否为该项目的所有者 (Owner)
         /// </summary>
@@ -73,7 +76,7 @@ namespace TaiChuWeb_V2.Services.Project
             // 4. 查询绑定的所有身份组实体
             var roles = await _context.ProjectCustomRoles
                 .AsNoTracking()
-                .Where(r => roleIds.Contains(r.Id))
+                .Where(r => (r.ProjectId == projectId || (r.ProjectId == null && r.IsSystemDefault)) && roleIds.Contains(r.Id))
                 .ToListAsync();
 
             // 5. 遍历比对权限点
@@ -82,7 +85,7 @@ namespace TaiChuWeb_V2.Services.Project
                 if (string.IsNullOrWhiteSpace(role.PermissionsJson))
                     continue;
 
-                var perms = JsonSerializer.Deserialize<List<string>>(role.PermissionsJson);
+                var perms = ReadPermissions(role.PermissionsJson);
                 if (perms != null && (perms.Contains(permissionCode) || perms.Contains("*")))
                 {
                     return true;
@@ -101,7 +104,7 @@ namespace TaiChuWeb_V2.Services.Project
                 return new List<string>();
 
             // 如果是项目创建者，直接返回通配符 *
-            if (await IsProjectOwnerAsync(projectId, userId))
+            if (await IsProjectOwnerAsync(projectId, userId) || await IsGlobalAdmin(userId))
             {
                 return new List<string> { "*" };
             }
@@ -119,7 +122,7 @@ namespace TaiChuWeb_V2.Services.Project
 
             var roles = await _context.ProjectCustomRoles
                 .AsNoTracking()
-                .Where(r => roleIds.Contains(r.Id))
+                .Where(r => (r.ProjectId == projectId || (r.ProjectId == null && r.IsSystemDefault)) && roleIds.Contains(r.Id))
                 .ToListAsync();
 
             var resultSet = new HashSet<string>();
@@ -128,7 +131,7 @@ namespace TaiChuWeb_V2.Services.Project
                 if (string.IsNullOrWhiteSpace(role.PermissionsJson))
                     continue;
 
-                var perms = JsonSerializer.Deserialize<List<string>>(role.PermissionsJson);
+                var perms = ReadPermissions(role.PermissionsJson);
                 if (perms != null)
                 {
                     foreach (var p in perms)

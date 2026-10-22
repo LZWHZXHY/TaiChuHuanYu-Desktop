@@ -216,7 +216,7 @@ function formatDate(dateStr: string): string {
   padding: 2px 10px;
   font-size: 11px;
   letter-spacing: 0.1em;
-  color: #fff;
+  color: var(--text-primary);
   border-radius: 2px;
 }
 
@@ -227,11 +227,11 @@ function formatDate(dateStr: string): string {
 }
 
 .source-badge.user {
-  background: #6c7a89;
+  background: var(--text-secondary);
 }
 
 .source-badge.official {
-  background: #9E2A2B;
+  background: var(--accent-color);
 }
 
 /* 右上角：状态标签 */
@@ -242,19 +242,19 @@ function formatDate(dateStr: string): string {
 }
 
 .status-badge.open {
-  background: #4CAF50;
+  background: var(--success);
 }
 .status-badge.closed {
-  background: #FF9800;
+  background: var(--warning);
 }
 .status-badge.ended {
-  background: #9E9E9E;
+  background: var(--text-secondary);
 }
 .status-badge.banned {
-  background: #F44336;
+  background: var(--danger);
 }
 .status-badge.abandoned {
-  background: #795548;
+  background: var(--warning);
 }
 
 /* 右上角偏下：审批状态标签（仅用户自建） */
@@ -264,20 +264,20 @@ function formatDate(dateStr: string): string {
 }
 
 .approval-badge.pending {
-  background: #FF9800;
+  background: var(--warning);
 }
 .approval-badge.approved {
-  background: #4CAF50;
+  background: var(--success);
 }
 .approval-badge.rejected {
-  background: #F44336;
+  background: var(--danger);
 }
 
 /* ===== ⭐ 倒计时标签 ===== */
 .countdown-badge {
   bottom: 10px;
   right: 10px;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--overlay);
   font-size: 12px;
   padding: 4px 12px;
   backdrop-filter: blur(4px);

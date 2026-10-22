@@ -17,26 +17,7 @@
       </header>
 
       <!-- 🆕 配额信息横幅 -->
-      <div v-if="quotaInfo" class="quota-banner">
-        <div class="quota-item">
-          <span>📚 世界观配额</span>
-          <span class="quota-num">{{ quotaInfo.usedWorldCount }} / {{ quotaInfo.maxWorldCount }}</span>
-          <span v-if="quotaInfo.remainingWorldCount <= 0" class="quota-warning">⚠️ 已满</span>
-          <span v-else class="quota-remaining">剩余 {{ quotaInfo.remainingWorldCount }} 个</span>
-        </div>
-        <div class="quota-item">
-          <span>💰 当前经验</span>
-          <span class="quota-num">{{ quotaInfo.experience }}</span>
-        </div>
-        <button 
-          v-if="quotaInfo.remainingWorldCount <= 0" 
-          class="quota-upgrade-btn"
-          @click="goToQuota"
-        >
-          🔧 扩容 ({{ quotaInfo.expCostPerWorldSlot }} 经验)
-        </button>
-        <router-link v-else to="/world/quota" class="quota-link">配额管理 →</router-link>
-      </div>
+      <WorldQuotaBanner :quota-info="quotaInfo" :upgrading="upgrading" @upgrade="upgradeWorldQuota" />
 
       <!-- 双栏布局 -->
       <div class="create-layout">
@@ -152,44 +133,27 @@
         </section>
 
         <!-- 右侧：预览 -->
-        <aside class="preview-section">
-          <div class="preview-card">
-            <h4>实时预览</h4>
-            <div class="preview-content">
-              <div class="preview-header">
-                <h3>{{ form.name || '世界名称' }}</h3>
-                <span class="preview-tag" :class="form.isPublic ? 'public' : 'private'">
-                  {{ form.isPublic ? '公开' : '私有' }}
-                </span>
-              </div>
-              <p class="preview-desc">{{ form.description || '世界简介...' }}</p>
-              <div class="preview-meta">
-                <span v-if="form.type">类型：{{ form.type }}</span>
-                <span>标签：{{ form.tags.length ? form.tags.map(t => '#' + t).join(' ') : '无' }}</span>
-                <span>创建于：{{ new Date().toLocaleDateString() }}</span>
-              </div>
-            </div>
-          </div>
-        </aside>
+        <ProjectCreatePreview :form="form" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import WorldQuotaBanner from './世界观组件/WorldQuotaBanner.vue';
+import ProjectCreatePreview from './世界观组件/ProjectCreatePreview.vue';
 import { ref, reactive, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import { useWorldStore } from '../../stores/world';
-import { worldApi } from '@/api/worldApi';
+import { worldApi, type WorldQuota } from '@/api/worldApi';
 
 const router = useRouter();
 const store = useWorldStore();
 
 const submitting = ref(false);
 const tagInput = ref('');
-const quotaInfo = ref<any>(null);
-const loadingQuota = ref(false);
+const quotaInfo = ref<WorldQuota | null>(null);
 
 const form = reactive({
   name: '',
@@ -209,14 +173,10 @@ const quotaFull = computed(() => {
 
 // ===== 🆕 加载配额信息 =====
 const loadQuota = async () => {
-  loadingQuota.value = true;
   try {
-    const { data } = await worldApi.getQuota();
-    quotaInfo.value = data;
+    quotaInfo.value = await worldApi.getQuota();
   } catch (error) {
     console.error('获取配额信息失败:', error);
-  } finally {
-    loadingQuota.value = false;
   }
 };
 
@@ -242,9 +202,21 @@ const removeTag = (tag: string) => {
 };
 
 // ===== 🆕 跳转到配额管理 =====
-const goToQuota = () => {
-  router.push('/world/quota');
+const upgrading = ref(false);
+const upgradeWorldQuota = async () => {
+  if (upgrading.value || !quotaInfo.value) return;
+  upgrading.value = true;
+  try {
+    await ElMessageBox.confirm(`增加 1 个世界观名额将消耗 ${quotaInfo.value.expCostPerWorldSlot} 经验，是否继续？`, '扩充世界观名额', { confirmButtonText: '确认扩容', cancelButtonText: '取消' });
+    const result = await worldApi.upgradeQuota('WorldCount');
+    if (result.success) { ElMessage.success(result.message); await loadQuota(); }
+    else ElMessage.warning(result.message);
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') ElMessage.error('扩容失败，请稍后重试');
+  } finally { upgrading.value = false; }
 };
+
+const warnQuota = (message: string) => ElMessage.warning({ message, duration: 5000, showClose: true });
 
 // ===== 🆕 提交前检查配额 =====
 const handleSubmit = async () => {
@@ -254,24 +226,16 @@ const handleSubmit = async () => {
   }
 
   // ✅ 如果配额已满，直接提示
-  if (quotaFull.value) {
-    ElMessage.warning({
-      message: `世界观数量已达上限（${quotaInfo.value.maxWorldCount} 个），请先去扩容`,
-      duration: 5000,
-      showClose: true,
-    });
+  if (quotaFull.value && quotaInfo.value) {
+    warnQuota(`世界观数量已达上限（${quotaInfo.value.maxWorldCount} 个），请先去扩容`);
     return;
   }
 
   // ✅ 再次检查配额（防止并发变化）
   try {
-    const { data } = await worldApi.canCreateProject();
+    const data = await worldApi.canCreateProject();
     if (!data.canCreate) {
-      ElMessage.warning({
-        message: data.message || '世界观数量已达上限',
-        duration: 5000,
-        showClose: true,
-      });
+      warnQuota(data.message || '世界观数量已达上限');
       // 刷新配额信息
       await loadQuota();
       return;
@@ -293,11 +257,7 @@ const handleSubmit = async () => {
   } catch (error: any) {
     // ✅ 处理后端返回的配额错误
     if (error?.response?.data?.code === 'QUOTA_EXCEEDED') {
-      ElMessage.warning({
-        message: error.response.data.message || '世界观数量已达上限，请扩容',
-        duration: 5000,
-        showClose: true,
-      });
+      warnQuota(error.response.data.message || '世界观数量已达上限，请扩容');
       // 刷新配额信息
       await loadQuota();
     } else {
@@ -315,16 +275,14 @@ const goBack = () => {
 };
 
 // ===== 生命周期 =====
-onMounted(() => {
-  loadQuota();
-});
+onMounted(loadQuota);
 </script>
 
 <style scoped>
-/* ===== 页面整体 ===== */
+
 .project-create {
-  min-height: 100vh;
-  background: #f8f9fc;
+  min-height: 0;
+  background: var(--bg-main);
   padding: 24px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
@@ -334,14 +292,13 @@ onMounted(() => {
   margin: 0 auto;
 }
 
-/* ===== 返回按钮 ===== */
 .back-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   background: none;
   border: none;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 14px;
   cursor: pointer;
   padding: 8px 12px;
@@ -349,105 +306,49 @@ onMounted(() => {
   transition: all 0.2s;
   margin-bottom: 20px;
 }
+
 .back-btn:hover {
-  background: #eef2f6;
-  color: #1e293b;
+  background: var(--bg-sub);
+  color: var(--text-primary);
 }
 
-/* ===== 页面标题 ===== */
 .page-header {
   margin-bottom: 20px;
 }
+
 .page-header h1 {
   font-size: 30px;
   font-weight: 700;
   margin: 0 0 4px 0;
-  color: #0f172a;
+  color: var(--text-primary);
   letter-spacing: -0.5px;
 }
+
 .page-header p {
   margin: 0;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 16px;
 }
 
-/* ===== 🆕 配额横幅 ===== */
-.quota-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 20px;
-  background: #f8fafc;
-  border: 1px solid #eef2f6;
-  border-radius: 12px;
-  margin-bottom: 24px;
-  font-size: 13px;
-}
-.quota-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.quota-item > span:first-child {
-  color: #64748b;
-}
-.quota-num {
-  font-weight: 600;
-  color: #0f172a;
-}
-.quota-remaining {
-  color: #22c55e;
-  font-weight: 500;
-}
-.quota-warning {
-  color: #ef4444;
-  font-weight: 600;
-}
-.quota-upgrade-btn {
-  padding: 4px 16px;
-  border: 1px solid #ef4444;
-  border-radius: 6px;
-  background: #fef2f2;
-  color: #ef4444;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.quota-upgrade-btn:hover {
-  background: #ef4444;
-  color: #fff;
-}
-.quota-link {
-  color: #4f46e5;
-  text-decoration: none;
-  font-size: 13px;
-  margin-left: auto;
-}
-.quota-link:hover {
-  text-decoration: underline;
-}
-
-/* ===== 双栏布局 ===== */
 .create-layout {
   display: grid;
-  grid-template-columns: 1fr 360px;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
   gap: 40px;
   align-items: start;
 }
 
-/* ===== 左侧表单 ===== */
 .form-section {
-  background: white;
+  background: var(--paper-card);
   border-radius: 24px;
-  padding: 32px 36px;
+  padding: clamp(16px, 3vw, 32px);
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
-  border: 1px solid #f1f3f5;
+  border: 1px solid var(--border-line);
 }
 
 .field-group {
   margin-bottom: 28px;
 }
+
 .field-group:last-of-type {
   margin-bottom: 32px;
 }
@@ -456,31 +357,34 @@ onMounted(() => {
   display: block;
   font-weight: 600;
   font-size: 14px;
-  color: #334155;
+  color: var(--text-primary);
   margin-bottom: 6px;
 }
+
 .field-group label .required {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .field-group input,
 .field-group textarea {
   width: 100%;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 12px;
   padding: 12px 16px;
   font-size: 15px;
   font-family: inherit;
   transition: all 0.2s;
-  background: #fafbfc;
+  background: var(--paper-card);
 }
+
 .field-group input:focus,
 .field-group textarea:focus {
   outline: none;
-  border-color: #4f46e5;
-  background: white;
+  border-color: var(--accent-color);
+  background: var(--paper-card);
   box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.06);
 }
+
 .field-group textarea {
   resize: vertical;
   min-height: 100px;
@@ -490,107 +394,119 @@ onMounted(() => {
   display: block;
   text-align: right;
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   margin-top: 4px;
 }
 
-/* ===== 可见性选项 ===== */
 .visibility-options {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+
 .visibility-option {
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 14px 18px;
-  border: 2px solid #e2e8f0;
+  border: 2px solid var(--border-line);
   border-radius: 14px;
   cursor: pointer;
   transition: all 0.2s;
-  background: #fafbfc;
+  background: var(--paper-card);
 }
+
 .visibility-option:hover {
-  border-color: #cbd5e1;
+  border-color: var(--border-line);
 }
+
 .visibility-option.active {
-  border-color: #4f46e5;
-  background: #eef2ff;
+  border-color: var(--accent-color);
+  background: var(--accent-soft);
 }
+
 .visibility-option .icon {
   font-size: 24px;
   flex-shrink: 0;
 }
+
 .visibility-option strong {
   display: block;
   font-size: 15px;
-  color: #0f172a;
+  color: var(--text-primary);
 }
+
 .visibility-option p {
   margin: 0;
   font-size: 13px;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
-/* ===== 世界类型标签 ===== */
 .tag-select {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
+
 .tag-option {
   padding: 6px 16px;
   border-radius: 20px;
-  background: #f1f3f5;
-  color: #64748b;
+  background: var(--bg-sub);
+  color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
   user-select: none;
 }
+
 .tag-option:hover {
-  background: #e2e8f0;
-}
-.tag-option.active {
-  background: #4f46e5;
-  color: white;
-}
-.tag-option.clear {
-  background: transparent;
-  border: 1px dashed #d1d5db;
-}
-.tag-option.clear:hover {
-  background: #f1f3f5;
-}
-.tag-option.clear.active {
-  background: #e2e8f0;
-  color: #1e293b;
-  border-color: #4f46e5;
+  background: var(--bg-sub);
 }
 
-/* ===== 标签输入 ===== */
+.tag-option.active {
+  background: var(--accent-color);
+  color: var(--on-accent);
+}
+
+.tag-option.clear {
+  background: transparent;
+  border: 1px dashed var(--border-line);
+}
+
+.tag-option.clear:hover {
+  background: var(--bg-sub);
+}
+
+.tag-option.clear.active {
+  background: var(--bg-sub);
+  color: var(--text-primary);
+  border-color: var(--accent-color);
+}
+
 .tag-input {
   display: flex;
   gap: 8px;
 }
+
 .tag-input input {
   flex: 1;
 }
+
 .add-tag-btn {
   padding: 0 18px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 12px;
-  background: #fafbfc;
-  color: #64748b;
+  background: var(--paper-card);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
   font-size: 14px;
 }
+
 .add-tag-btn:hover {
-  background: #4f46e5;
-  color: white;
-  border-color: #4f46e5;
+  background: var(--accent-color);
+  color: var(--on-accent);
+  border-color: var(--accent-color);
 }
 
 .tag-list {
@@ -599,41 +515,44 @@ onMounted(() => {
   gap: 8px;
   margin-top: 10px;
 }
+
 .tag-item {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #eef2ff;
-  color: #4f46e5;
+  background: var(--accent-soft);
+  color: var(--accent-color);
   padding: 4px 10px 4px 14px;
   border-radius: 16px;
   font-size: 13px;
   font-weight: 500;
 }
+
 .remove-tag {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 16px;
   padding: 0 2px;
   line-height: 1;
   transition: color 0.2s;
 }
+
 .remove-tag:hover {
-  color: #ef4444;
+  color: var(--danger);
 }
 
-/* ===== 表单按钮 ===== */
 .form-actions {
   display: flex;
   gap: 12px;
   padding-top: 8px;
 }
+
 .btn-primary {
   padding: 12px 32px;
-  background: #4f46e5;
-  color: white;
+  background: var(--accent-color);
+  color: var(--on-accent);
   border: none;
   border-radius: 12px;
   font-size: 16px;
@@ -642,14 +561,17 @@ onMounted(() => {
   transition: all 0.2s;
   flex: 1;
 }
+
 .btn-primary:hover:not(:disabled) {
-  background: #4338ca;
+  background: var(--accent-color);
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(79, 70, 229, 0.25);
 }
+
 .btn-primary:active:not(:disabled) {
   transform: scale(0.98);
 }
+
 .btn-primary:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -658,108 +580,27 @@ onMounted(() => {
 .btn-outline {
   padding: 12px 24px;
   background: transparent;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-line);
   border-radius: 12px;
   font-size: 16px;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.2s;
 }
+
 .btn-outline:hover {
-  background: #f3f4f6;
-  border-color: #9ca3af;
+  background: var(--bg-sub);
+  border-color: var(--border-line);
 }
 
-/* ===== 右侧预览 ===== */
-.preview-section {
-  position: sticky;
-  top: 24px;
-}
-.preview-card {
-  background: white;
-  border-radius: 24px;
-  padding: 24px 28px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
-  border: 1px solid #f1f3f5;
-}
-.preview-card h4 {
-  margin: 0 0 16px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #94a3b8;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.preview-content {
-  min-height: 180px;
-}
-.preview-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.preview-header h3 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 600;
-  color: #0f172a;
-}
-.preview-tag {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 2px 12px;
-  border-radius: 20px;
-  height: 24px;
-  line-height: 24px;
-}
-.preview-tag.public {
-  background: #dcfce7;
-  color: #16a34a;
-}
-.preview-tag.private {
-  background: #f1f3f5;
-  color: #64748b;
-}
-
-.preview-desc {
-  color: #64748b;
-  font-size: 15px;
-  line-height: 1.6;
-  margin: 0 0 16px 0;
-  min-height: 50px;
-}
-
-.preview-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-  color: #94a3b8;
-}
-
-/* ===== 响应式 ===== */
 @media (max-width: 820px) {
   .create-layout {
     grid-template-columns: 1fr;
     gap: 24px;
   }
-  .preview-section {
-    position: static;
-  }
   .visibility-options {
     grid-template-columns: 1fr 1fr;
-  }
-  .quota-banner {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-  .quota-link {
-    margin-left: 0;
-    text-align: center;
   }
 }
 
@@ -777,15 +618,9 @@ onMounted(() => {
     flex-direction: column;
   }
   .btn-primary,
-  .btn-outline {
+.btn-outline {
     width: 100%;
     justify-content: center;
-  }
-  .quota-banner {
-    padding: 12px 16px;
-  }
-  .quota-item {
-    flex-wrap: wrap;
   }
 }
 </style>

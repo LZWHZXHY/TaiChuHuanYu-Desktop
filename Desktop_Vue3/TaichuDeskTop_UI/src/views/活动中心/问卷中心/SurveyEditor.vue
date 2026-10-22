@@ -1,5 +1,5 @@
 <template>
-  <div class="survey-editor-container">
+  <div v-if="!loading" class="survey-editor-container">
     <div class="form-card">
       <div class="form-header">
         <h2>
@@ -16,7 +16,7 @@
         <div class="section-title">基本信息</div>
         <div class="form-group">
           <label>问卷标题 <span class="required">*</span></label>
-          <input
+          <input aria-label="问卷标题"
             type="text"
             v-model="form.title"
             placeholder="请输入问卷标题"
@@ -25,7 +25,7 @@
         </div>
         <div class="form-group">
           <label>问卷描述</label>
-          <textarea
+          <textarea aria-label="问卷描述"
             v-model="form.description"
             placeholder="请输入问卷描述（可选）"
             rows="2"
@@ -35,7 +35,7 @@
         <div class="form-row">
           <div class="form-group">
             <label>开始时间 <span class="required">*</span></label>
-            <input
+            <input aria-label="开始时间"
               type="datetime-local"
               v-model="form.startTime"
               :min="minDateTime"
@@ -43,7 +43,7 @@
           </div>
           <div class="form-group">
             <label>结束时间 <span class="required">*</span></label>
-            <input
+            <input aria-label="结束时间"
               type="datetime-local"
               v-model="form.endTime"
               :min="form.startTime || minDateTime"
@@ -334,17 +334,18 @@
       </div>
     </div>
   </div>
+  <div v-else class="loading-state" role="status">正在读取问卷…</div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import draggable from 'vuedraggable'
-import { 
-  createSurvey, 
-  getSurveyDetail, 
+import {
+  createSurvey,
+  getSurveyDetail,
   updateSurvey as updateSurveyApi,
-  publishSurvey as publishSurveyApi 
+  publishSurvey as publishSurveyApi
 } from './api'
 
 const route = useRoute()
@@ -382,11 +383,9 @@ const submitting = ref(false)
 const loading = ref(true)
 
 // ===== 计算属性 =====
-const minDateTime = computed(() => {
-  const now = new Date()
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
-  return now.toISOString().slice(0, 16)
-})
+const localDateTime = (date: Date) =>
+  new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+const minDateTime = computed(() => localDateTime(new Date()))
 
 const isValid = computed(() => {
   if (!form.value.title.trim()) return false
@@ -428,12 +427,8 @@ const loadSurvey = async () => {
     form.value.isPublic = res.isPublic ?? true
     form.value.allowAnonymous = res.allowAnonymous ?? false
 
-    const start = new Date(res.startTime)
-    const end = new Date(res.endTime)
-    start.setMinutes(start.getMinutes() - start.getTimezoneOffset())
-    end.setMinutes(end.getMinutes() - end.getTimezoneOffset())
-    form.value.startTime = start.toISOString().slice(0, 16)
-    form.value.endTime = end.toISOString().slice(0, 16)
+    form.value.startTime = localDateTime(new Date(res.startTime))
+    form.value.endTime = localDateTime(new Date(res.endTime))
 
     questions.value = res.questions.map((q: any) => {
       const question: any = {
@@ -453,11 +448,11 @@ const loadSurvey = async () => {
       }
 
       if (q.questionType === 6 && q.config) {
-        try { question.config = JSON.parse(q.config) } 
+        try { question.config = JSON.parse(q.config) }
         catch { question.config = { rows: [''], cols: ['非常好', '好', '一般', '差'] } }
       }
       if (q.questionType === 4 && q.config) {
-        try { question.config = JSON.parse(q.config) } 
+        try { question.config = JSON.parse(q.config) }
         catch { question.config = { minScore: 1, maxScore: 5 } }
       }
       return question
@@ -712,11 +707,9 @@ onMounted(() => {
     // 初始化默认时间
     const now = new Date()
     const start = new Date(now.getTime() + 60 * 60 * 1000)
-    start.setMinutes(start.getMinutes() - start.getTimezoneOffset())
-    form.value.startTime = start.toISOString().slice(0, 16)
+    form.value.startTime = localDateTime(start)
     const end = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000)
-    end.setMinutes(end.getMinutes() - end.getTimezoneOffset())
-    form.value.endTime = end.toISOString().slice(0, 16)
+    form.value.endTime = localDateTime(end)
   }
 })
 </script>
@@ -729,29 +722,29 @@ onMounted(() => {
   padding: 20px 0;
 }
 .form-card {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 16px;
   padding: 32px 40px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-line);
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .form-header {
   margin-bottom: 28px;
   padding-bottom: 20px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-line);
 }
 .form-header h2 {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 10px;
   margin: 0 0 4px;
 }
-.form-header h2 i { color: #6366f1; }
+.form-header h2 i { color: var(--info); }
 .form-header .subtitle {
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.9rem;
   margin: 0;
 }
@@ -761,7 +754,7 @@ onMounted(() => {
 .section-title {
   font-weight: 600;
   font-size: 1rem;
-  color: #1f2937;
+  color: var(--text-primary);
   margin-bottom: 16px;
   display: flex;
   align-items: center;
@@ -770,8 +763,8 @@ onMounted(() => {
 .question-count {
   font-size: 0.8rem;
   font-weight: 400;
-  color: #9ca3af;
-  background: #f3f4f6;
+  color: var(--text-secondary);
+  background: var(--bg-sub);
   padding: 2px 12px;
   border-radius: 12px;
 }
@@ -782,28 +775,28 @@ onMounted(() => {
   display: block;
   font-weight: 500;
   font-size: 0.9rem;
-  color: #374151;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
-.form-group label .required { color: #ef4444; margin-left: 2px; }
+.form-group label .required { color: var(--danger); margin-left: 2px; }
 .form-group input[type="text"],
 .form-group input[type="datetime-local"],
 .form-group textarea {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   border-radius: 8px;
   font-size: 0.95rem;
   font-family: inherit;
   transition: border 0.2s;
-  background: #fafafa;
-  color: #1f2937;
+  background: var(--paper-card);
+  color: var(--text-primary);
 }
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #6366f1;
-  background: #fff;
+  border-color: var(--info);
+  background: var(--paper-card);
   box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
 }
 .form-group textarea { resize: vertical; min-height: 60px; }
@@ -822,19 +815,19 @@ onMounted(() => {
 .checkbox-label input[type="checkbox"] {
   width: 18px;
   height: 18px;
-  accent-color: #6366f1;
+  accent-color: var(--info);
 }
 
 .empty-questions {
   text-align: center;
   padding: 40px 20px;
-  color: #9ca3af;
-  border: 2px dashed #e5e7eb;
+  color: var(--text-secondary);
+  border: 2px dashed var(--border-line);
   border-radius: 12px;
 }
 .empty-questions i {
   font-size: 2.5rem;
-  color: #d1d5db;
+  color: var(--text-secondary);
   display: block;
   margin-bottom: 8px;
 }
@@ -846,15 +839,15 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 .question-item {
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   border-radius: 12px;
   padding: 16px 20px;
   transition: all 0.2s;
 }
 .question-item:hover {
-  border-color: #d1d5db;
-  background: #fff;
+  border-color: var(--border-line);
+  background: var(--paper-card);
 }
 
 .question-header {
@@ -865,20 +858,20 @@ onMounted(() => {
 }
 .drag-handle {
   cursor: grab;
-  color: #9ca3af;
+  color: var(--text-secondary);
   padding: 4px;
 }
-.drag-handle:hover { color: #6b7280; }
+.drag-handle:hover { color: var(--text-secondary); }
 .q-number {
   font-weight: 600;
-  color: #6366f1;
+  color: var(--info);
   font-size: 0.85rem;
   min-width: 30px;
 }
 .q-type {
   font-size: 0.7rem;
-  background: #e5e7eb;
-  color: #6b7280;
+  background: var(--bg-sub);
+  color: var(--text-secondary);
   padding: 2px 10px;
   border-radius: 12px;
   white-space: nowrap;
@@ -893,16 +886,16 @@ onMounted(() => {
   font-weight: 500;
   background: transparent;
   transition: all 0.2s;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 .q-title-input:hover {
-  background: #fff;
-  border-color: #e5e7eb;
+  background: var(--paper-card);
+  border-color: var(--border-line);
 }
 .q-title-input:focus {
   outline: none;
-  background: #fff;
-  border-color: #6366f1;
+  background: var(--paper-card);
+  border-color: var(--info);
   box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
 }
 .q-actions {
@@ -916,13 +909,13 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
 }
 .required-toggle input[type="checkbox"] {
   width: 14px;
   height: 14px;
-  accent-color: #6366f1;
+  accent-color: var(--info);
 }
 .btn-copy, .btn-delete {
   background: none;
@@ -931,27 +924,27 @@ onMounted(() => {
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
-.btn-copy:hover { background: #e5e7eb; color: #6366f1; }
-.btn-delete:hover { background: #fee2e2; color: #ef4444; }
+.btn-copy:hover { background: var(--bg-sub); color: var(--info); }
+.btn-delete:hover { background: var(--bg-sub); color: var(--danger); }
 
 .q-desc-input {
   width: 100%;
   margin-top: 6px;
   padding: 4px 0;
   border: none;
-  border-bottom: 1px dashed #e5e7eb;
+  border-bottom: 1px dashed var(--border-line);
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   background: transparent;
 }
-.q-desc-input:focus { outline: none; border-bottom-color: #6366f1; }
+.q-desc-input:focus { outline: none; border-bottom-color: var(--info); }
 
 .question-body {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-line);
 }
 
 .options-list {
@@ -967,31 +960,31 @@ onMounted(() => {
 .option-label {
   font-weight: 500;
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   min-width: 20px;
 }
 .option-input {
   flex: 1;
   padding: 6px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   font-size: 0.9rem;
-  background: #fff;
+  background: var(--paper-card);
   transition: border 0.2s;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 .option-input:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: var(--info);
   box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
 }
 .btn-remove-option {
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  color: #9ca3af;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
@@ -999,35 +992,35 @@ onMounted(() => {
   justify-content: center;
 }
 .btn-remove-option:hover:not(:disabled) {
-  background: #fee2e2;
-  border-color: #fecaca;
-  color: #ef4444;
+  background: var(--bg-sub);
+  border-color: var(--border-line);
+  color: var(--danger);
 }
 .btn-remove-option:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-add-option {
   padding: 6px 16px;
-  border: 1px dashed #e5e7eb;
+  border: 1px dashed var(--border-line);
   border-radius: 6px;
   background: transparent;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s;
   margin-top: 4px;
 }
 .btn-add-option:hover:not(:disabled) {
-  border-color: #6366f1;
-  color: #6366f1;
-  background: #f8f7ff;
+  border-color: var(--info);
+  color: var(--info);
+  background: var(--paper-card);
 }
 .btn-add-option:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .fill-hint {
   padding: 12px 16px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--bg-main);
+  border: 1px solid var(--border-line);
   border-radius: 8px;
-  color: #166534;
+  color: var(--success);
   font-size: 0.9rem;
 }
 .fill-hint i { margin-right: 8px; }
@@ -1040,7 +1033,7 @@ onMounted(() => {
 .rating-config label {
   font-size: 0.85rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-primary);
 }
 .rating-range {
   display: flex;
@@ -1050,38 +1043,38 @@ onMounted(() => {
 .rating-range input {
   width: 60px;
   padding: 6px 10px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   text-align: center;
 }
-.rating-range input:focus { outline: none; border-color: #6366f1; }
+.rating-range input:focus { outline: none; border-color: var(--info); }
 .rating-preview {
   display: flex;
   align-items: center;
   gap: 4px;
   padding: 8px 12px;
-  background: #fafafa;
+  background: var(--paper-card);
   border-radius: 8px;
 }
 .rating-preview i {
-  color: #d1d5db;
+  color: var(--text-secondary);
   font-size: 1.2rem;
 }
-.rating-preview i.active { color: #f59e0b; }
+.rating-preview i.active { color: var(--warning); }
 .rating-preview .preview-label {
   margin-left: 8px;
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .sort-options .sort-item {
-  background: #fafafa;
-  border: 1px solid #e5e7eb;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   padding: 4px 12px;
 }
 .sort-icon {
-  color: #9ca3af;
+  color: var(--text-secondary);
   font-size: 0.8rem;
 }
 
@@ -1093,7 +1086,7 @@ onMounted(() => {
 .matrix-section label {
   font-size: 0.85rem;
   font-weight: 500;
-  color: #374151;
+  color: var(--text-primary);
   display: block;
   margin-bottom: 6px;
 }
@@ -1110,43 +1103,43 @@ onMounted(() => {
 .matrix-item input {
   flex: 1;
   padding: 6px 10px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   font-size: 0.85rem;
 }
-.matrix-item input:focus { outline: none; border-color: #6366f1; }
+.matrix-item input:focus { outline: none; border-color: var(--info); }
 .btn-remove-matrix {
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  color: #9ca3af;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
+  color: var(--text-secondary);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .btn-remove-matrix:hover:not(:disabled) {
-  background: #fee2e2;
-  border-color: #fecaca;
-  color: #ef4444;
+  background: var(--bg-sub);
+  border-color: var(--border-line);
+  color: var(--danger);
 }
 .btn-remove-matrix:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn-add-matrix {
   margin-top: 4px;
   padding: 4px 14px;
-  border: 1px dashed #e5e7eb;
+  border: 1px dashed var(--border-line);
   border-radius: 6px;
   background: transparent;
-  color: #6b7280;
+  color: var(--text-secondary);
   font-size: 0.75rem;
   cursor: pointer;
   transition: all 0.2s;
 }
 .btn-add-matrix:hover:not(:disabled) {
-  border-color: #6366f1;
-  color: #6366f1;
+  border-color: var(--info);
+  color: var(--info);
 }
 .btn-add-matrix:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -1155,14 +1148,14 @@ onMounted(() => {
   gap: 8px;
   flex-wrap: wrap;
   padding-top: 8px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-line);
 }
 .add-question-btn {
   padding: 8px 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   border-radius: 8px;
-  background: #fafafa;
-  color: #374151;
+  background: var(--paper-card);
+  color: var(--text-primary);
   font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -1171,8 +1164,8 @@ onMounted(() => {
   gap: 6px;
 }
 .add-question-btn:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+  background: var(--bg-sub);
+  border-color: var(--border-line);
   transform: translateY(-2px);
 }
 .add-question-btn i { font-size: 0.9rem; }
@@ -1183,36 +1176,36 @@ onMounted(() => {
   justify-content: flex-end;
   margin-top: 28px;
   padding-top: 20px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-line);
 }
 .btn-cancel {
   padding: 10px 24px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   border-radius: 8px;
-  background: #fff;
-  color: #6b7280;
+  background: var(--paper-card);
+  color: var(--text-secondary);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 }
-.btn-cancel:hover { background: #f3f4f6; border-color: #d1d5db; }
+.btn-cancel:hover { background: var(--bg-sub); border-color: var(--border-line); }
 .btn-save-draft {
   padding: 10px 24px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   border-radius: 8px;
-  background: #f9fafb;
-  color: #374151;
+  background: var(--paper-card);
+  color: var(--text-primary);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 }
-.btn-save-draft:hover:not(:disabled) { background: #f3f4f6; border-color: #d1d5db; }
+.btn-save-draft:hover:not(:disabled) { background: var(--bg-sub); border-color: var(--border-line); }
 .btn-publish {
   padding: 10px 32px;
   border: none;
   border-radius: 8px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: #fff;
+  background: linear-gradient(135deg, var(--info), var(--accent-color));
+  color: var(--on-accent);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
@@ -1241,7 +1234,7 @@ onMounted(() => {
     width: 100%;
     justify-content: flex-end;
     padding-top: 6px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid var(--border-line);
   }
   .matrix-config { grid-template-columns: 1fr; }
   .add-question-area { justify-content: center; }

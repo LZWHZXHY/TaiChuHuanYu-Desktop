@@ -244,7 +244,7 @@ export default {
 <style scoped>
 .cm-mask {
   position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0, 0, 0, 0.78);
+  background: var(--overlay);
   backdrop-filter: blur(8px);
   display: grid; place-items: center;
   padding: 24px;
@@ -252,8 +252,8 @@ export default {
 .cm-modal {
   width: min(520px, 100%);
   max-height: 90vh; overflow-y: auto;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: #0e1720; color: #e8eef4;
+  border: 1px solid var(--line);
+  background: var(--paper-card); color: var(--text-primary);
   border-radius: 4px;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
 }
@@ -261,32 +261,32 @@ export default {
   display: flex; justify-content: space-between; align-items: flex-start;
   gap: 16px;
   padding: 20px 24px 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--bg-soft);
 }
 .cm-head h3 {
   margin: 0 0 6px;
   font-size: 17px; font-weight: 700;
-  letter-spacing: 1px; color: #f2f6fa;
+  letter-spacing: 1px; color: var(--text-primary);
 }
 .cm-sub {
   margin: 0;
-  font-family: monospace; font-size: 11px;
-  color: #8b9aab;
+  font-family: monospace; font-size: 12px;
+  color: var(--text-secondary);
 }
 .close-icon {
   background: none; border: none;
-  font-size: 24px; color: #6b7a8a;
+  font-size: 24px; color: var(--text-secondary);
   cursor: pointer; line-height: 1;
 }
-.close-icon:hover { color: #e8eef4; }
+.close-icon:hover { color: var(--text-primary); }
 .cm-body {
   padding: 20px 24px;
   display: flex; flex-direction: column; gap: 20px;
 }
 .cm-section { display: flex; flex-direction: column; gap: 10px; }
 .cm-label {
-  font-family: monospace; font-size: 10px;
-  letter-spacing: 2px; color: #ff6b1a;
+  font-family: monospace; font-size: 12px;
+  letter-spacing: 2px; color: var(--accent-color);
 }
 .cm-upload-area { position: relative; }
 .cm-file-input { display: none; }
@@ -294,8 +294,8 @@ export default {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 8px;
   padding: 28px 20px;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed var(--line);
+  background: var(--bg-soft);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.2s;
@@ -306,42 +306,42 @@ export default {
 }
 .cm-upload-icon { font-size: 26px; line-height: 1; }
 .cm-upload-text {
-  font-size: 13px; font-weight: 600; color: #f2f6fa;
+  font-size: 13px; font-weight: 600; color: var(--text-primary);
 }
 .cm-upload-desc {
-  font-family: monospace; font-size: 10px;
-  color: #6b7a8a;
+  font-family: monospace; font-size: 12px;
+  color: var(--text-secondary);
 }
 .cm-preview {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--line);
   border-radius: 4px;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--panel);
 }
 .cm-preview img {
   display: block;
   width: 100%;
   max-height: 240px;
   object-fit: contain;
-  background: #000;
+  background: var(--text-primary);
 }
 .cm-preview-actions {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px;
   padding: 8px 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--bg-soft);
 }
 .cm-preview-name {
-  font-family: monospace; font-size: 11px;
-  color: #8b9aab;
+  font-family: monospace; font-size: 12px;
+  color: var(--text-secondary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   min-width: 0;
 }
 .cm-remove-btn {
   flex-shrink: 0;
   padding: 4px 10px;
-  font-size: 11px;
-  color: #ff5050;
+  font-size: 12px;
+  color: var(--danger);
   background: transparent;
   border: 1px solid rgba(255, 80, 80, 0.4);
   border-radius: 3px;
@@ -356,44 +356,44 @@ export default {
 .cm-progress-bar {
   flex: 1;
   height: 4px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-soft);
   border-radius: 2px;
   overflow: hidden;
 }
 .cm-progress-bar em {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, rgba(120, 215, 206, 0.4), #78d7ce);
+  background: linear-gradient(90deg, rgba(120, 215, 206, 0.4), var(--success));
   transition: width 0.2s;
 }
 .cm-progress-text {
-  font-family: monospace; font-size: 11px;
-  color: #78d7ce;
+  font-family: monospace; font-size: 12px;
+  color: var(--success);
 }
 .cm-warn {
   padding: 12px 14px;
-  border-left: 3px solid #ff8c4a;
+  border-left: 3px solid var(--accent-color);
   background: rgba(255, 140, 74, 0.06);
   border-radius: 0 3px 3px 0;
 }
 .cm-warn-title {
   font-size: 12px;
   font-weight: 700;
-  color: #ff8c4a;
+  color: var(--accent-color);
   margin-bottom: 6px;
 }
 .cm-warn-body {
   font-size: 12px;
   line-height: 1.8;
-  color: #c0cbd6;
+  color: var(--text-secondary);
 }
-.cm-warn-body b { color: #ff8c4a; }
+.cm-warn-body b { color: var(--accent-color); }
 .cm-textarea {
   width: 100%;
   padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #e8eef4;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text-primary);
   border-radius: 3px;
   font-family: inherit;
   font-size: 13px;
@@ -404,7 +404,7 @@ export default {
 .cm-foot {
   display: flex; gap: 12px;
   padding: 16px 24px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--bg-soft);
 }
 .btn-ghost, .btn-solid {
   flex: 1; height: 42px;
@@ -413,14 +413,14 @@ export default {
   transition: all 0.2s;
 }
 .btn-ghost {
-  color: #8b9aab; background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-secondary); background: transparent;
+  border: 1px solid var(--line);
 }
-.btn-ghost:hover { color: #e8eef4; border-color: rgba(255, 255, 255, 0.3); }
+.btn-ghost:hover { color: var(--text-primary); border-color: var(--line); }
 .btn-solid {
-  color: #fff; background: #ff6b1a;
-  border: 1px solid #ff6b1a;
+  color: var(--on-accent); background: var(--accent-color);
+  border: 1px solid var(--accent-color);
 }
-.btn-solid:hover:not(:disabled) { background: #ff7e32; }
+.btn-solid:hover:not(:disabled) { background: var(--accent-color); }
 .btn-solid:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

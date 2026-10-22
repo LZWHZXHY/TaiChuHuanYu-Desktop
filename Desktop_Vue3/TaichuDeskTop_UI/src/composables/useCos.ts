@@ -36,7 +36,8 @@ export function useCos() {
           ExpiredTime: data.expiredTime,
         });
       } catch (err: any) {
-        console.error('获取 COS 密钥失败:', err.friendlyMessage || err);
+        // SDK 必须收到回调才能结束授权阶段；空凭证会进入其校验失败分支并拒绝上传。
+        callback({});
       }
     }
   });
@@ -57,7 +58,7 @@ export function useCos() {
     else if (file.type.startsWith('audio/')) subFolder = `${folder}/music`;
     else if (file.type === 'application/pdf') subFolder = `${folder}/pdfs`;
 
-    const fileName = `${Date.now()}-${file.name}`;
+    const fileName = `${crypto.randomUUID()}-${file.name}`;
     const Key = `${subFolder}/${fileName}`;
 
     return new Promise((resolve, reject) => {

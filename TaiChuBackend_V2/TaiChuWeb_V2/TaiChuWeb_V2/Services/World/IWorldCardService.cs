@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using TaiChuWeb_V2.Dtos.World;
@@ -23,12 +23,12 @@ namespace TaiChuWeb_V2.Services.World
         /// <summary>
         /// 获取卡片详情（验证用户是否有权访问）
         /// </summary>
-        Task<CardResponseDto> GetCardByIdAsync(Guid cardId, Guid userId);
+        Task<CardResponseDto?> GetCardByIdAsync(Guid cardId, Guid userId, Guid? projectId = null);
 
         /// <summary>
         /// 获取卡片详情（已验证权限，内部使用）
         /// </summary>
-        Task<CardResponseDto> GetCardByIdInternalAsync(Guid cardId);
+        Task<CardResponseDto?> GetCardByIdInternalAsync(Guid cardId);
 
         // ============================================================
         //  3. 卡片 CRUD
@@ -42,12 +42,12 @@ namespace TaiChuWeb_V2.Services.World
         /// <summary>
         /// 更新卡片
         /// </summary>
-        Task<CardResponseDto> UpdateCardAsync(Guid cardId, Guid userId, UpdateCardDto dto);
+        Task<CardResponseDto?> UpdateCardAsync(Guid cardId, Guid userId, UpdateCardDto dto, Guid? projectId = null);
 
         /// <summary>
         /// 删除卡片
         /// </summary>
-        Task<bool> DeleteCardAsync(Guid cardId, Guid userId);
+        Task<bool> DeleteCardAsync(Guid cardId, Guid userId, Guid? projectId = null);
 
         // ============================================================
         //  4. 权限验证

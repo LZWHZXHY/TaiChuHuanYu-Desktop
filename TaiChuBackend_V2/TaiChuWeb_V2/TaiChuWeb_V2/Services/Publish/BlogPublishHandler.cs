@@ -40,69 +40,11 @@ namespace TaiChuWeb_V2.Services.Publish
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
-                    // 4. 查找或创建广场固化实体 (PublishedNotes)
-                    var publishedNote = await _context.PublishedNotes
-                        .FirstOrDefaultAsync(pn => pn.OriginalNoteId == noteId);
-
-                    bool isNew = publishedNote == null;
-
-                    Guid.TryParse(userId, out Guid parsedUserId);
-                    var dbUser = await _context.Users.FirstOrDefaultAsync(u => u.Id == parsedUserId);
-                    string authorName = dbUser?.Username ?? "匿名隐士";
-
-                    if (isNew)
-                    {
-                        publishedNote = new PublishedNote
-                        {
-                            Id = Guid.NewGuid(),
-                            OriginalNoteId = noteId,
-                            SpaceId = note.SpaceId,
-                            Type = "blog", // 标记发布类型为博客
-                            AuthorName = authorName,
-                            Resonance = 0,
-                            PublishedAt = DateTime.UtcNow
-                        };
-                        _context.PublishedNotes.Add(publishedNote);
-                    }
-
-                    // 5. 同步更新发布实体的核心信息
-                    publishedNote.Title = note.Title;
-                    publishedNote.Tags = note.Tags;
-                    publishedNote.Excerpt = excerpt;
-                    publishedNote.ExtraData = note.ExtraData;
-                    publishedNote.PublishedAt = DateTime.UtcNow;
-
-                    // 6. 物理同步发布块 PublishedBlocks（先清空旧发布，再无缝覆写）
-                    var oldPubBlocks = await _context.PublishedBlocks
-                        .Where(pb => pb.OwnerId == publishedNote.Id.ToString())
-                        .ToListAsync();
-                    _context.PublishedBlocks.RemoveRange(oldPubBlocks);
-
-                    // 遍历存入发布专属的区块表
-                    foreach (var block in blogBlocks)
-                    {
-                        Guid.TryParse(block.Id, out Guid parsedBlockId);
-
-                        _context.PublishedBlocks.Add(new PublishedBlock
-                        {
-                            Id = parsedBlockId != Guid.Empty ? parsedBlockId : Guid.NewGuid(),
-                            OwnerId = publishedNote.Id.ToString(),
-                            // 🌟 配合组件自治契约：发布后的固化区段也标记为大统一的 "blog" 标识，方便大厅详情页拉取
-                            OwnerType = "blog",
-                            Type = block.Type,
-                            Data = block.Data,
-                            SortOrder = block.SortOrder
-                        });
-                    }
-
-                    // 7. 更改原始草稿的公开状态
-                    note.IsPublic = true;
-                    note.UpdatedAt = DateTime.UtcNow;
-
-                    await _context.SaveChangesAsync();
+                    var publishedId = await PublishedNoteStore.SaveAsync(_context, note, blogBlocks, userId,
+                        SupportType, note.Title, excerpt, note.ExtraData);
                     await transaction.CommitAsync();
 
-                    return new OkObjectResult(new { success = true, publishedId = publishedNote.Id });
+                    return new OkObjectResult(new { success = true, publishedId });
                 }
                 catch (Exception ex)
                 {
@@ -150,7 +92,7 @@ namespace TaiChuWeb_V2.Services.Publish
             // 策略 2：自动向正文截取兜底[cite: 11]
             if (string.IsNullOrEmpty(textExcerpt))
             {
-                var firstTextParagraph = blocks.FirstOrDefault(b => b.Type == "paragraph" && b.SortOrder >= 2); 
+                var firstTextParagraph = blocks.FirstOrDefault(b => b.Type == "paragraph"); 
         if (firstTextParagraph != null && !string.IsNullOrWhiteSpace(firstTextParagraph.Data))
                 {
                     try

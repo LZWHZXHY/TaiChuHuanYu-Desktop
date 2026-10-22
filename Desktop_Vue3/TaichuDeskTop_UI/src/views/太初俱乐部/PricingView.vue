@@ -63,6 +63,7 @@
 </template>
 
 <script>
+import { useUserStore } from '@/stores/user'
 import Navbar         from './Navbar.vue'
 import Footer         from './Footer.vue'
 import SectionHeading from './SectionHeading.vue'
@@ -143,7 +144,7 @@ export default {
     },
 
     handleOrder(payload) {
-  if (!localStorage.getItem('token')) {
+  if (!useUserStore().token) {
     alert('请先登录')
     return
   }
@@ -214,7 +215,7 @@ export default {
   border: 1px solid var(--line-bright);
   color: var(--text-muted);
   font-family: monospace;
-  font-size: 11px;
+  font-size: 12px;
   padding: 4px 10px;
   cursor: pointer;
   border-radius: 2px;
@@ -257,7 +258,7 @@ export default {
   letter-spacing: 1px;
   color: var(--text-muted);
   border: 1px dashed var(--line);
-  background: rgba(16, 25, 35, 0.3);
+  background: var(--panel);
 }
 .dot {
   display: inline-block;

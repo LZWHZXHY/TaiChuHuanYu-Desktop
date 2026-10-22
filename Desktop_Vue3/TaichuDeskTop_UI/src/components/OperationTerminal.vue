@@ -1,370 +1,126 @@
 <template>
-  <div class="terminal-wrapper" :class="{ 'expanded': isExpanded }">
-    <div class="terminal-trigger-btn" @click.stop="toggleTerminal">
-      <span class="trigger-icon">{{ isExpanded ? '✕' : '☰' }}</span>
-      <div v-if="!isExpanded" class="pulse-hint"></div>
+  <aside class="terminal-wrapper" @keydown.esc="closeMenu">
+    <div class="terminal-brand">
+      <RouterLink to="/" class="brand-link" @click="isExpanded = false"><span class="brand-mark">初</span><span>太初寰宇<small>创作 · 相遇 · 共建</small></span></RouterLink>
+      <button ref="trigger" class="menu-trigger" :aria-expanded="isExpanded" aria-controls="community-menu" @click="isExpanded = !isExpanded">{{ isExpanded ? '收起' : '菜单' }}</button>
     </div>
-
-    <nav class="side-panel">
-      <div class="user-profile" @click="handleAuthClick">
-        <div class="avatar">
-          <div class="avatar-placeholder">{{ userName?.[0]?.toUpperCase() || '?' }}</div>
+    <div id="community-menu" class="side-panel" :class="{ expanded: isExpanded }">
+      <nav aria-label="全站导航" class="menu-list">
+        <div v-for="group in groups" :key="group.title" class="nav-group">
+          <p class="index-label">{{ group.title }}</p>
+          <a v-for="item in group.items" :key="item.name" :href="menuHref(item)" class="menu-item" :class="{ active: isActive(item) }" :aria-current="isActive(item) ? 'page' : undefined" @click="handleSelect($event, item)">
+            <span class="menu-symbol" aria-hidden="true">{{ symbols[item.name] || '·' }}</span><span>{{ labels[item.name] || item.name }}</span>
+          </a>
         </div>
-        <div class="user-info">
-          <span class="user-name">{{ userName || '未认证漫游者' }}</span>
-          <span class="user-status">{{ isLogin ? '已接入灵脉' : '点击进行身份筑基' }}</span>
-        </div>
+        <details v-if="secondary.length" class="nav-more" :open="secondary.some(isActive)">
+          <summary>更多</summary>
+          <a v-for="item in secondary" :key="item.name" :href="menuHref(item)" class="menu-item" :class="{ active: isActive(item) }" :aria-current="isActive(item) ? 'page' : undefined" @click="handleSelect($event, item)">{{ labels[item.name] || item.name }}</a>
+        </details>
+      </nav>
+      <div class="terminal-footer">
+        <label class="theme-label" for="site-theme">显示模式</label>
+        <select id="site-theme" :value="mode" @change="setTheme(($event.target as HTMLSelectElement).value as ThemeMode)">
+          <option value="light">☀ 白天模式</option><option value="dark">☾ 夜间模式</option><option value="system">◐ 跟随系统</option>
+        </select>
+        <button class="user-profile" @click="handleAuthClick"><span class="avatar">{{ userName?.[0]?.toUpperCase() || '客' }}</span><span class="user-info"><strong>{{ userName || '访客' }}</strong><small>{{ userStore.isLoggedIn ? '打开个人中心' : '登录，加入社区' }}</small></span><span>→</span></button>
       </div>
-
-      <div class="panel-header">
-        <span class="index-label">索引 / Index</span>
-      </div>
-
-      <div class="menu-list">
-        <!-- ===== 所有菜单都由 v-for 统一渲染（包括管理菜单） ===== -->
-        <div 
-          v-for="item in filteredMenuItems" 
-          :key="item.name"
-          :class="['menu-item', { 
-            active: activeName === item.name,
-            'admin-item': item.isAdmin 
-          }]"
-          @click="handleSelect(item)"
-        >
-          <span class="name">{{ item.name }}</span>
-          <span v-if="['太初灵脉'].includes(item.name)" style="margin-left:auto; opacity:0.5;">↗</span>
-        </div>
-      </div>
-    </nav>
-
-    <Transition name="fade">
-      <div v-if="isExpanded" class="terminal-overlay" @click="toggleTerminal"></div>
-    </Transition>
-  </div>
+    </div>
+  </aside>
 </template>
-
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { onMounted } from 'vue'
-
-// ============================================================
-// Props & Emits
-// ============================================================
-const props = defineProps<{
-  menuItems: any[],
-  activeName: string
-}>()
-
-const emit = defineEmits(['navigate'])
-
-// ============================================================
-// Store
-// ============================================================
+import { canOpenAdmin } from '@/utils/adminAccess'
+import { LOGIN_PATH } from '@/router/auth'
+import { useTheme, type ThemeMode } from '@/composables/useTheme'
+interface MenuItem { name: string; url: string; isAdmin?: boolean }
+const props = defineProps<{ menuItems: MenuItem[]; activeName: string }>()
+const emit = defineEmits<{ navigate: [item: MenuItem] }>()
 const userStore = useUserStore()
-
-// ============================================================
-// 状态
-// ============================================================
+const route = useRoute()
+const router = useRouter()
+const { mode, setTheme } = useTheme()
 const isExpanded = ref(false)
-
-// ✅ 根据权限过滤菜单
-const filteredMenuItems = computed(() => {
-  const perms = userStore.permissions || []
-  const isSuperAdmin = perms.includes('SuperAdmin')
-
-  return props.menuItems.filter(item => {
-    // 基础过滤：隐藏不需要的项
-    if (['', '身份认证', '个人中心'].includes(item.name)) return false
-
-    // ✅ 管理类菜单：只有 SuperAdmin 能看见
-    if (item.isAdmin || item.name === '管理面板' || item.name === '用户治理中枢') {
-      return isSuperAdmin
-    }
-
-    return true
-  })
-})
-
-// ============================================================
-// 用户状态
-// ============================================================
-const isLogin = computed(() => !!localStorage.getItem('token'))
-const userName = computed(() => localStorage.getItem('username'))
-const currentUserId = computed(() => localStorage.getItem('userId'))
-
-// ============================================================
-// 方法
-// ============================================================
-const toggleTerminal = () => {
-  isExpanded.value = !isExpanded.value
+const trigger = ref<HTMLButtonElement>()
+const userName = computed(() => userStore.userInfo?.username)
+const labels: Record<string, string> = { 推送首页: '首页', 太初随笔: '博客与帖子', 太初协作: '协作项目', 荣誉墙: '排行榜 · 荣誉墙' }
+const symbols: Record<string, string> = { 推送首页: '⌂', 画廊展厅: '▧', 太初随笔: '≡', 知识库: '▤', 太初俱乐部: '◇', 柴圈板块: '◎', 荣誉墙: '☆', 太虚游: '⊞' }
+const sections = [
+  { title: '内容', names: ['推送首页', '画廊展厅', '太初随笔', '知识库'] },
+  { title: '创作', names: ['太初灵脉', '世界观管理', '太初协作'] },
+  { title: '社区', names: ['柴圈板块', '太虚游', '太初俱乐部'] },
+]
+const availableItems = computed(() => props.menuItems.filter(item =>
+  !['', '身份认证', '个人中心', '灵脉百科'].includes(item.name) &&
+  (!(item.isAdmin || ['管理面板', '用户治理中枢'].includes(item.name)) || canOpenAdmin(userStore.permissions))))
+const groups = computed(() => sections.map(section => ({ title: section.title,
+  items: section.names.flatMap(name => availableItems.value.find(item => item.name === name) || [])
+})).filter(group => group.items.length))
+const secondary = computed(() => availableItems.value.filter(item => {
+  if (sections.some(section => section.names.includes(item.name))) return false
+  if (item.name === '任务栏' && availableItems.value.some(i => i.name === '太初协作') && router.hasRoute('任务栏')) return false
+  if (item.name === '交易行' && userStore.isLoggedIn && router.hasRoute('交易行')) return false
+  return true
+}))
+const menuHref = (item: MenuItem) => /^https?:\/\//.test(item.url) ? item.url : router.resolve(item.url).href
+function isActive(item: MenuItem) {
+  if (item.name === '太初协作' && route.name === '任务栏') return true
+  if (item.url === '/') return route.path === '/'
+  const related: Record<string,string[]> = { 太虚游: ['/games'], 画廊展厅: ['/gallery'], 柴圈板块: ['/ocs','/joint','/battles','/community'], 太初俱乐部: ['/Club','/taichu'], 太初随笔: ['/stream','/posts','/write'], 知识库: ['/knowledge','/codex'] }
+  return [item.url, ...(related[item.name] || [])].some(path => route.path === path || route.path.startsWith(path + '/'))
 }
-
-const handleAuthClick = () => {
-  if (isLogin.value) {
-    emit('navigate', { 
-      name: '个人中心', 
-      url: `/user/${currentUserId.value}` 
-    })
-  } else {
-    emit('navigate', { 
-      name: '身份认证', 
-      url: '/LoginRegister' 
-    })
-  }
+function closeMenu() { isExpanded.value = false; trigger.value?.focus() }
+function handleAuthClick() {
+  emit('navigate', { name: userStore.isLoggedIn ? '个人中心' : '身份认证', url: userStore.isLoggedIn ? `/user/${userStore.userId}` : LOGIN_PATH })
   isExpanded.value = false
 }
-
-const handleSelect = (item: any) => {
-  const newTabPlugins = ['太初灵脉']
-
-  if (newTabPlugins.includes(item.name)) {
-    const cleanPath = item.url.startsWith('/') ? item.url : `/${item.url}`
-    const fullUrl = `${window.location.origin}/#${cleanPath}`
-
-    const win = window.open(fullUrl, '_blank')
-    if (win) {
-      win.focus()
-    } else {
-      console.warn('弹窗被拦截，正在尝试页面内跳转...')
-      emit('navigate', item)
-    }
-  } else {
-    emit('navigate', item)
-  }
-
-  if (window.innerWidth <= 768) {
-    isExpanded.value = false
-  }
+function handleSelect(event: MouseEvent, item: MenuItem) {
+  if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey || event.button !== 0) return
+  event.preventDefault()
+  emit('navigate', item)
+  isExpanded.value = false
 }
-
-// ✅ 调试：打印过滤后的菜单
-onMounted(() => {
-  console.log('UserInfo:', userStore.userInfo)
-  console.log('Permissions:', userStore.permissions)
-  console.log('Filtered Menu Items:', filteredMenuItems.value)
-})
+watch(() => route.fullPath, () => { isExpanded.value = false })
 </script>
-
 <style scoped>
-/* ... 所有样式保持不变 ... */
-.terminal-wrapper {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-}
-
-.terminal-trigger-btn {
-  position: fixed;
-  left: 24px;
-  bottom: 32px;
-  width: 48px;
-  height: 48px;
-  background: #ffffff;
-  border: 1px solid #d0d7de;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s cubic-bezier(0.2, 1, 0.3, 1);
-  z-index: 10001;
-}
-
-.terminal-trigger-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
-  border-color: #0969da;
-}
-
-.trigger-icon {
-  font-size: 18px;
-  color: #1f2328;
-}
-
-.pulse-hint {
-  position: absolute;
-  inset: -1px;
-  border: 2px solid #0969da;
-  border-radius: 50%;
-  animation: pulse 2.5s infinite;
-  pointer-events: none;
-}
-
-@keyframes pulse {
-  0% { transform: scale(1); opacity: 0.5; }
-  100% { transform: scale(1.4); opacity: 0; }
-}
-
-.side-panel {
-  position: fixed;
-  left: -300px;
-  top: 0;
-  bottom: 0;
-  width: 280px;
-  background: #ffffff;
-  border-right: 1px solid #d0d7de;
-  transition: left 0.4s cubic-bezier(0.2, 1, 0.3, 1);
-  padding: 40px 24px;
-  z-index: 10000;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-}
-
-.expanded .side-panel {
-  left: 0;
-}
-
-.user-profile {
-  display: flex;
-  align-items: center;
-  padding: 12px;
-  margin-bottom: 32px;
-  cursor: pointer;
-  border-radius: 8px;
-  transition: background 0.2s;
-  border: 1px solid transparent;
-}
-
-.user-profile:hover {
-  background: #f6f8fa;
-  border-color: #d0d7de;
-}
-
-.avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #eff1f3;
-  border: 1px solid #d0d7de;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.avatar-placeholder {
-  font-family: ui-monospace, SFMono-Regular, monospace;
-  color: #57606a;
-  font-weight: 600;
-}
-
-.user-info {
-  margin-left: 12px;
-  display: flex;
-  flex-direction: column;
-}
-
-.user-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f2328;
-}
-
-.user-status {
-  font-size: 11px;
-  color: #8c959f;
-  margin-top: 2px;
-}
-
-.panel-header {
-  margin-bottom: 16px;
-}
-
-.index-label {
-  font-size: 11px;
-  color: #8c959f;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  border-bottom: 1px solid #f0f2f4;
-  padding-bottom: 8px;
-  display: block;
-}
-
-.menu-list {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.menu-item {
-  font-size: 14px;
-  padding: 10px 12px;
-  color: #57606a;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: all 0.2s;
-  margin-bottom: 2px;
-}
-
-.menu-item:hover {
-  background: #f6f8fa;
-  color: #0969da;
-}
-
-.menu-item.active {
-  color: #1f2328;
-  font-weight: 600;
-  background: #f0f7ff;
-}
-
-/* 管理菜单项样式 */
-.menu-item.admin-item {
-  color: #1f2328;
-  font-weight: 500;
-}
-
-.menu-item.admin-item:hover {
-  background: #f6f8fa;
-  color: #0969da;
-}
-
-.menu-item.admin-item.active {
-  background: #f0f7ff;
-  color: #0969da;
-}
-
-.terminal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(4px);
-  z-index: 9999;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
-.side-panel::-webkit-scrollbar {
-  width: 4px;
-}
-.side-panel::-webkit-scrollbar-track {
-  background: #f6f8fa;
-}
-.side-panel::-webkit-scrollbar-thumb {
-  background: #d0d7de;
-  border-radius: 2px;
-}
-.side-panel::-webkit-scrollbar-thumb:hover {
-  background: #b0b8c4;
-}
-
-@media (max-width: 768px) {
-  .side-panel {
-    width: 260px;
-    padding: 28px 16px;
-  }
-  .terminal-trigger-btn {
-    left: 16px;
-    bottom: 20px;
-    width: 44px;
-    height: 44px;
-  }
+.terminal-wrapper { width: 228px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--paper-card); border-right: 1px solid var(--border-line); }
+.terminal-brand { padding: 28px 20px; display: flex; align-items: center; justify-content: space-between; }
+.brand-link { display: flex; gap: 12px; align-items: center; text-decoration: none; color: var(--text-primary); font-weight: 700; }
+.brand-link small { display: block; margin-top: 4px; color: var(--text-secondary); font-size: 10px; font-weight: 400; letter-spacing: .1em; }
+.brand-mark { display: grid; place-items: center; width: 36px; height: 38px; border-radius: 10px; color: var(--on-accent); background: var(--accent-color); font-family: serif; font-size: 22px; }
+.side-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.menu-list { padding: 0 12px; overflow: auto; flex: 1; }
+.nav-group { margin-bottom: 14px; }
+.nav-more { margin-bottom: 16px; }
+.nav-more summary { padding: 10px 14px; color: var(--text-secondary); cursor: pointer; font-size: 13px; }
+.nav-more .menu-item { padding-left: 26px; }
+.index-label { padding: 0 14px; margin: 0 0 8px; font-size: 11px; color: var(--text-secondary); letter-spacing: .12em; }
+.menu-item { width: 100%; display: flex; align-items: center; text-align: left; gap: 12px; padding: 9px 12px; border: 1px solid transparent; border-radius: 9px; font-size: 13px; color: var(--text-secondary); background: transparent; text-decoration: none; }
+.menu-item:hover { background: var(--bg-sub); color: var(--text-primary); }
+.menu-item.active { background: var(--accent-soft); color: var(--accent-color); font-weight: 600; }
+.menu-symbol { width: 20px; text-align: center; font-size: 19px; }
+.terminal-footer { padding: 16px; border-top: 1px solid var(--border-line); }
+.theme-label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
+select { width: 100%; border: 1px solid var(--border-line); border-radius: 8px; padding: 9px; font-size: 12px; }
+.user-profile { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; padding: 16px 0 0; color: var(--text-primary); background: transparent; text-align: left; }
+.avatar { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-sub); }
+.user-info { flex: 1; min-width: 0; }
+.user-info strong { display: block; overflow-wrap: anywhere; font-size: 12px; }
+.user-info small { display: block; margin-top: 3px; font-size: 11px; color: var(--text-secondary); }
+.menu-trigger { display: none; }
+@media(max-width: 900px) {
+  .terminal-wrapper { width: 100%; border: 0; border-bottom: 1px solid var(--border-line); max-height: 75dvh; }
+  .terminal-brand { padding: 12px 16px; }
+  .brand-mark { height: 32px; width: 32px; font-size: 18px; }
+  .brand-link small { display: none; }
+  .menu-trigger { display: block; padding: 6px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-sub); color: var(--text-primary); }
+  .side-panel { display: none; overflow: auto; }
+  .side-panel.expanded { display: flex; }
+  .menu-list { flex: none; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); padding-top: 12px; overflow: visible; }
+  .terminal-footer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+  .theme-label { grid-column: 1; margin: 0; }
+  select { grid-column: 1; }
+  .user-profile { grid-column: 2; grid-row: 1 / 3; padding: 0; }
 }
 </style>

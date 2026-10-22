@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,7 +23,6 @@ namespace TaiChuWeb_V2.Services.World
             var types = await _context.CardTypes
                 .Where(t => t.IsActive)
                 .OrderBy(t => t.SortOrder)
-                .ThenBy(t => t.Label)
                 .ToListAsync();
 
             return types.Select(MapToDto);
@@ -39,7 +38,7 @@ namespace TaiChuWeb_V2.Services.World
             return types.Select(MapToDto);
         }
 
-        public async Task<CardTypeDto> GetTypeByIdAsync(string id)
+        public async Task<CardTypeDto?> GetTypeByIdAsync(string id)
         {
             var type = await _context.CardTypes.FindAsync(id);
             if (type == null)
@@ -50,10 +49,11 @@ namespace TaiChuWeb_V2.Services.World
 
         public async Task<CardTypeDto> CreateTypeAsync(CreateCardTypeDto dto)
         {
+            WorldValidation.Validate(dto);
             // 检查ID是否已存在
             var exists = await _context.CardTypes.AnyAsync(t => t.Id == dto.Id);
             if (exists)
-                throw new InvalidOperationException($"类型 '{dto.Id}' 已存在");
+                throw new WorldOperationException(WorldErrorKind.Conflict, $"卡片类型 '{dto.Id}' 已存在");
 
             var type = new CardType
             {
@@ -73,50 +73,21 @@ namespace TaiChuWeb_V2.Services.World
             return MapToDto(type);
         }
 
-        public async Task<CardTypeDto> UpdateTypeAsync(string id, UpdateCardTypeDto dto)
+        public async Task<CardTypeDto?> UpdateTypeAsync(string id, UpdateCardTypeDto dto)
         {
+            WorldValidation.Validate(dto);
             var type = await _context.CardTypes.FindAsync(id);
             if (type == null)
                 return null;
 
-            // 系统类型只能修改部分字段
-            if (type.IsSystem)
-            {
-                // 系统类型只能修改显示名称、图标、描述、排序，不能删除
-                if (dto.Label != null)
-                    type.Label = dto.Label;
+            if (type.IsSystem && !string.IsNullOrEmpty(dto.Label))
+                throw new WorldOperationException(WorldErrorKind.Invalid, "系统预设类型不允许修改 Label");
 
-                if (dto.Icon != null)
-                    type.Icon = dto.Icon;
-
-                if (dto.Description != null)
-                    type.Description = dto.Description;
-
-                if (dto.SortOrder.HasValue)
-                    type.SortOrder = dto.SortOrder.Value;
-
-                // 系统类型不能停用
-                if (dto.IsActive.HasValue && !dto.IsActive.Value)
-                    throw new InvalidOperationException("系统预设类型不能停用");
-            }
-            else
-            {
-                // 非系统类型可修改所有字段
-                if (dto.Label != null)
-                    type.Label = dto.Label;
-
-                if (dto.Icon != null)
-                    type.Icon = dto.Icon;
-
-                if (dto.Description != null)
-                    type.Description = dto.Description;
-
-                if (dto.SortOrder.HasValue)
-                    type.SortOrder = dto.SortOrder.Value;
-
-                if (dto.IsActive.HasValue)
-                    type.IsActive = dto.IsActive.Value;
-            }
+            if (!string.IsNullOrEmpty(dto.Label)) type.Label = dto.Label;
+            if (dto.Icon != null) type.Icon = dto.Icon;
+            if (dto.Description != null) type.Description = dto.Description;
+            if (dto.SortOrder.HasValue) type.SortOrder = dto.SortOrder.Value;
+            if (dto.IsActive.HasValue) type.IsActive = dto.IsActive.Value;
 
             type.UpdatedAt = DateTime.UtcNow;
 
@@ -134,12 +105,12 @@ namespace TaiChuWeb_V2.Services.World
 
             // 系统类型不可删除
             if (type.IsSystem)
-                throw new InvalidOperationException("系统预设类型不能删除");
+                throw new WorldOperationException(WorldErrorKind.Invalid, "系统预设类型不可删除");
 
             // 检查是否有卡片正在使用该类型
             var hasCards = await _context.WorldCards.AnyAsync(c => c.Type == id);
             if (hasCards)
-                throw new InvalidOperationException($"有卡片正在使用类型 '{type.Label}'，无法删除");
+                throw new WorldOperationException(WorldErrorKind.Conflict, "已有卡片使用该类型，不可删除");
 
             _context.CardTypes.Remove(type);
             await _context.SaveChangesAsync();

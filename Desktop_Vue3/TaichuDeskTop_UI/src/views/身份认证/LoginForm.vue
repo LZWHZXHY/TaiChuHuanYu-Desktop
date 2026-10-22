@@ -26,8 +26,9 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { authApi } from '../../api/auth'
-import { useUserStore } from '@/stores/user'  // ✅ 新增：导入 userStore
+import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { getErrorMessage } from '@/utils/apiError'
 
 const emit = defineEmits(['login-success', 'switch'])
 
@@ -38,8 +39,10 @@ const errorMsg = ref('')
 
 // ✅ 获取 userStore 实例
 const userStore = useUserStore()
+const router = useRouter()
 
 const submit = async () => {
+  if (isSubmitting.value) return
   if (!form.value.identifier || !form.value.password) {
     errorMsg.value = '请填写完整信息'
     return
@@ -49,28 +52,15 @@ const submit = async () => {
   errorMsg.value = ''
 
   try {
-    const res = await authApi.login(form.value)
-    
-    // ✅ 1. 存储 Token
-    localStorage.setItem('token', res.token)
-    
-    // ✅ 2. 存储完整的用户信息（包含 permissions）
-    localStorage.setItem('userInfo', JSON.stringify(res.user))
-    
-    // ✅ 3. 存储用户名（方便其他地方使用）
-    if (res.user?.username) localStorage.setItem('username', res.user.username)
-    
-    // ✅ 4. 更新 userStore
-    userStore.setUser(res.user ?? null)
-    
-    // ✅ 5. 触发成功事件
+    const res = await userStore.login(form.value)
     emit('login-success', res.token)
-    
-    // ✅ 6. 跳转
-    window.location.href = '/'
-  } catch (err: any) {
-    console.error(err)
-    errorMsg.value = err.response?.data?.message || '接入失败，密钥不匹配'
+    const redirect = router.currentRoute.value.query.redirect
+    const destination = typeof redirect === 'string' && /^\/(?![\/\\])/.test(redirect) && !redirect.includes('\\') ? redirect : '/'
+    await router.replace(destination)
+    // 保留登录后的重新加载，清理各业务模块中上一个账号的缓存。
+    window.location.reload()
+  } catch (error) {
+    errorMsg.value = getErrorMessage(error, '接入失败，请检查账号和密码')
   } finally {
     isSubmitting.value = false
   }
@@ -84,47 +74,47 @@ const submit = async () => {
 label {
   display: block;
   font-size: 11px;
-  color: #57606a;
+  color: var(--text-secondary);
   margin-bottom: 8px;
   font-weight: 600;
 }
 input {
   width: 100%;
   padding: 10px 12px;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--bg-sub);
+  border: 1px solid var(--border-line);
   border-radius: 6px;
-  color: #1f2328;
+  color: var(--text-primary);
   font-size: 14px;
   transition: all 0.2s;
 }
 input:focus {
-  background: #fff;
-  border-color: #0969da;
+  background: var(--paper-card);
+  border-color: var(--accent-color);
   outline: none;
   box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
 }
 button {
   width: 100%;
   padding: 12px;
-  background: #1f2328; /* 黑色按钮 */
+  background: var(--text-primary); /* 黑色按钮 */
   border: none;
   border-radius: 6px;
-  color: #fff;
+  color: var(--paper-card);
   font-weight: 600;
   cursor: pointer;
   margin-top: 10px;
   transition: background 0.2s;
 }
-button:hover { background: #2f363d; }
+button:hover { background: var(--text-primary); }
 
 .footer-links {
   margin-top: 24px;
   text-align: center;
   font-size: 13px;
-  color: #57606a;
+  color: var(--text-secondary);
 }
 .footer-links span { cursor: pointer; }
-.footer-links span:hover { color: #0969da; text-decoration: underline; }
-.dot { margin: 0 8px; color: #d0d7de; }
+.footer-links span:hover { color: var(--accent-color); text-decoration: underline; }
+.dot { margin: 0 8px; color: var(--border-line); }
 </style>

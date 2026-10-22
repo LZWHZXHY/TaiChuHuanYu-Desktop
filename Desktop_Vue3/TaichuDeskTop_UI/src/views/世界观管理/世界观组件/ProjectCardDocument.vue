@@ -1,0 +1,286 @@
+<template>
+  <div class="doc-view">
+    <article class="doc">
+      <!-- 标题 -->
+      <header class="doc-header">
+        <h1 class="doc-title">{{ card.title }}</h1>
+        <div class="doc-meta">
+          <span class="doc-type">
+            {{ getTypeLabel(card.type) }}
+          </span>
+          <span class="dot">·</span>
+          <span>更新于 {{ formatDate(card.updatedAt) }}</span>
+        </div>
+      </header>
+
+      <!-- 封面 -->
+      <div v-if="card.coverImage" class="doc-cover">
+        <img
+          :src="coverUrl"
+          :alt="card.title"
+          @click="openPreview([coverUrl])"
+        />
+      </div>
+
+      <!-- 描述 -->
+      <section class="doc-section">
+        <div
+          v-if="card.description"
+          class="prose"
+          v-html="renderedDescription"
+        ></div>
+        <p v-else class="empty-note">暂无描述</p>
+      </section>
+
+      <!-- 图库 -->
+      <section
+        v-if="card.galleryImages?.length"
+        class="doc-section"
+      >
+        <h2 class="section-title">图库</h2>
+        <div class="gallery">
+          <img
+            v-for="(img, idx) in card.galleryImages"
+            :key="idx"
+            :src="img"
+            :alt="`图 ${idx + 1}`"
+            loading="lazy"
+            @click="openPreview(galleryImages, idx)"
+          />
+        </div>
+      </section>
+
+      <!-- 属性 -->
+      <section class="doc-section">
+        <h2 class="section-title">属性</h2>
+        <div v-if="card.attributes?.length" class="attr-list">
+          <div
+            v-for="attr in card.attributes"
+            :key="attr.key"
+            class="attr-item"
+          >
+            <span class="attr-key">{{ attr.key }}</span>
+            <span class="attr-value">{{ attr.value }}</span>
+          </div>
+        </div>
+        <p v-else class="empty-note">暂无属性</p>
+      </section>
+
+      <!-- 关联内容（内联展开） -->
+      <section class="doc-section">
+        <h2 class="section-title">
+          关联内容
+          <span v-if="embeddedCards.length" class="section-count">
+            {{ embeddedCards.length }}
+          </span>
+        </h2>
+        <div v-if="embeddedCards.length" class="embedded-list">
+          <EmbeddedCard
+            v-for="item in embeddedCards"
+            :key="item.id"
+            :card="item"
+            :project-id="projectId"
+            clickable
+            @click="$emit('select', item.id)"
+          />
+        </div>
+        <p v-else class="empty-note">暂无关联内容</p>
+      </section>
+
+      <!-- 标签 -->
+      <section v-if="cardTags.length" class="doc-section">
+        <h2 class="section-title">标签</h2>
+        <div class="tags">
+          <span v-for="tag in cardTags" :key="tag" class="tag">
+            #{{ tag }}
+          </span>
+        </div>
+      </section>
+    </article>
+    <el-image-viewer v-if="previewVisible" :url-list="previewImages" :initial-index="previewIndex" @close="closePreview" />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ElImageViewer } from 'element-plus'
+import type { CardDetail } from '@/api/types/world'
+import EmbeddedCard from './EmbeddedCard.vue'
+import { getCardTypeLabel as getTypeLabel } from '@/utils/worldPresentation'
+import { useCardPresentation } from '@/composables/世界观管理/useCardPresentation'
+import { useCardPreload } from '@/composables/世界观管理/useCardPreload'
+import { useImagePreview } from '@/composables/世界观管理/useImagePreview'
+const props = defineProps<{ card: CardDetail; projectId: string }>()
+defineEmits<{ select: [id: string] }>()
+const { embeddedIds, embeddedCards, cardTags, galleryImages, coverUrl, renderedDescription } =
+  useCardPresentation(() => props.card, () => props.projectId, 'document')
+useCardPreload(() => props.projectId, embeddedIds)
+const { visible: previewVisible, images: previewImages, index: previewIndex, open: openPreview, close: closePreview } = useImagePreview()
+const formatDate = (value: string) => value ? new Date(value).toLocaleDateString('zh-CN') : ''
+</script>
+
+<style scoped>
+* { box-sizing: border-box; }
+.doc-view {
+  padding: 48px 40px 120px;
+}
+.doc {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.doc-header {
+  margin-bottom: 32px;
+}
+.doc-title {
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 10px;
+  letter-spacing: -0.5px;
+  line-height: 1.25;
+}
+.doc-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.doc-meta .dot { color: var(--text-secondary); }
+.doc-type {
+  color: var(--accent-color);
+  font-weight: 500;
+}
+.doc-cover {
+  margin-bottom: 32px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: zoom-in;
+  background: var(--bg-sub);
+}
+.doc-cover img {
+  width: 100%;
+  height: auto;
+  display: block;
+  transition: opacity 0.15s;
+}
+.doc-cover:hover img { opacity: 0.95; }
+.doc-section {
+  margin-bottom: 40px;
+}
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-line);
+}
+.section-count {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.prose {
+  font-size: 15px;
+  line-height: 1.85;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.prose :deep(.inline-ref) {
+  display: inline-block;
+  color: var(--accent-color);
+  background: var(--accent-soft);
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  margin: 0 2px;
+  font-weight: 500;
+}
+.prose :deep(.inline-ref:hover) {
+  background: var(--accent-soft);
+}
+.prose :deep(.inline-ref.broken) {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+.empty-note {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+  padding: 4px 0;
+}
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+.gallery img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: zoom-in;
+  background: var(--bg-sub);
+  transition: opacity 0.15s;
+}
+.gallery img:hover { opacity: 0.9; }
+.attr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.attr-item {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 24px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.attr-key {
+  color: var(--text-secondary);
+}
+.attr-value {
+  color: var(--text-primary);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.embedded-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tag {
+  font-size: 13px;
+  color: var(--accent-color);
+  cursor: default;
+  transition: opacity 0.15s;
+}
+.tag:hover { opacity: 0.7; }
+@media (max-width: 820px) {
+  .doc-view { padding: 24px 20px 80px; }
+  .doc-title { font-size: 24px; }
+  .attr-item {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .attr-key {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+}
+</style>

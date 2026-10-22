@@ -35,6 +35,9 @@ namespace TaiChuWeb_V2.Services.Publish
                 var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == projectId);
                 if (project == null) return new NotFoundObjectResult(new { message = "目标协作项目不存在" });
 
+                if (!await _context.ProjectMembers.AnyAsync(m => m.ProjectId == projectId && m.UserId == userId))
+                    return new ForbidResult();
+
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
@@ -54,8 +57,7 @@ namespace TaiChuWeb_V2.Services.Publish
                         });
                     }
 
-                    // 5. 更改原始草稿的公开状态
-                    note.IsPublic = true;
+                    // 项目共享不改变笔记原有的公开状态。
                     note.UpdatedAt = DateTime.UtcNow;
 
                     await _context.SaveChangesAsync();

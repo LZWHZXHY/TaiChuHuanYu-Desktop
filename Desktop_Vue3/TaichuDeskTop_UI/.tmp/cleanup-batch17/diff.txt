@@ -1,0 +1,1968 @@
+--- src/assets/styles/content.css
++++ src/assets/styles/content.css
+@@ -11,13 +11,15 @@
+ .content-page .content-header {
+   display: flex;
+   justify-content: space-between;
+-  align-items: flex-start;
++  align-items: center;
+   flex-wrap: wrap;
+   gap: 24px;
+   height: auto;
+-  padding: 12px 0 28px;
++  padding: 28px 32px;
+   margin-bottom: 24px;
+-  border-bottom: 1px solid var(--border-line);
++  border: 1px solid var(--border-line);
++  border-radius: 16px;
++  background: var(--paper-sub);
+   position: static;
+ }
+ .content-page.content-page h1 {
+@@ -39,8 +41,8 @@
+   font-size: .9rem; line-height: 1.5; text-decoration: none;
+   color: var(--text-primary); background: var(--paper-card);
+ }
+-.content-page .content-actions .upload-link, .content-page .primary {
+-  background: var(--text-primary); color: var(--paper-card); border-color: var(--text-primary);
++.content-page .content-actions .upload-link, .content-page .content-actions .primary, .content-page .primary {
++  background: var(--accent-color); color: #fff; border-color: var(--accent-color);
+ }
+ .content-page button, .content-form button { font: inherit; cursor: pointer; }
+ .content-page button:disabled, .content-form button:disabled { opacity: .5; cursor: not-allowed; }
+@@ -50,11 +52,11 @@
+ .content-page .content-panel { padding: 20px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--content-radius); margin-bottom: 24px; }
+ .content-page [role=alert] { color: var(--accent-color); line-height: 1.7; }
+ .content-page .editor-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+-.content-page :is(.tiptap,.spirit-preview-renderer) { overflow-wrap: anywhere; }
++.content-page :is(.tiptap,.spirit-render-engine) { overflow-wrap: anywhere; }
+ .content-page .tiptap img { max-width: 100%; }
+ .content-page .tiptap a { color: var(--accent-color); text-decoration: underline; text-underline-offset: 3px; }
+ @media (max-width: 720px) {
+-  .content-page .content-header { gap: 16px; padding-top: 4px; margin-bottom: 16px; }
++  .content-page .content-header { margin-bottom: 16px; }
+   .content-page .content-actions { width: 100%; }
+   .content-page .content-actions > * { flex: 1 1 auto; }
+   .content-page .content-panel { padding: 16px; }
+@@ -62,3 +64,26 @@
+ @media (prefers-reduced-motion: reduce) {
+   .content-page *, .content-form * { animation: none !important; transition: none !important; }
+ }
++/* 同一组内容导航、筛选与状态，在画廊、文章、知识库和 Wiki 中保持一致。 */
++.content-page .community-nav { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 22px; margin-bottom: 4px; }
++.content-page .community-nav a { padding: 8px 14px; border-radius: 8px; color: var(--text-secondary); font-size: .9rem; text-decoration: none; border: 1px solid transparent; }
++.content-page .community-nav a.selected { color: var(--accent-color); background: var(--paper-card); border-color: var(--border-line); font-weight: 600; }
++.content-page .community-nav a:hover { color: var(--accent-color); background: var(--paper-sub); }
++.content-page .content-header p { margin: 0; }
++.content-page .content-header .intro { margin-top: 8px; max-width: 46em; font-size: .95rem; }
++.content-page .section-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
++.content-page .section-hint { color: var(--text-secondary); font-size: .82rem; }
++.content-page .content-filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; border: 1px solid var(--border-line); background: var(--paper-sub); border-radius: 10px; }
++.content-page .content-filters button { background: transparent; border: 1px solid transparent; border-radius: 7px; padding: 7px 16px; color: var(--text-secondary); font-size: .9rem; }
++.content-page .content-filters button[aria-pressed=true] { background: var(--paper-card); color: var(--text-primary); border-color: var(--border-line); font-weight: 600; }
++.content-page .content-badge { display: inline-flex; padding: 3px 9px; border-radius: 6px; color: var(--accent-color); background: var(--paper-sub); font-size: .78rem; }
++.content-page .content-state { padding: 48px 20px; border: 1px dashed var(--border-line); border-radius: 12px; background: var(--paper-card); text-align: center; color: var(--text-secondary); }
++.content-page .content-state a { color: var(--accent-color); }
++.content-page .content-state button, .content-page .load-more button { padding: 8px 16px; border: 1px solid var(--border-line); border-radius: 8px; color: var(--text-primary); background: var(--paper-card); }
++.content-page .content-state h2 { color: var(--text-primary); font-size: 1.2rem; }
++@media(max-width: 720px) {
++  .content-page .community-nav { gap: 2px; padding-bottom: 16px; }
++  .content-page .community-nav a { padding: 7px 10px; font-size: .85rem; }
++  .content-page .content-header { padding: 22px 20px; gap: 16px; border-radius: 12px; }
++  .content-page .section-toolbar { margin: 20px 0; }
++}
+
+--- src/components/CommunityNav.vue
++++ src/components/CommunityNav.vue
+@@ -0,0 +1,15 @@
++<template>
++  <nav class="community-nav" aria-label="社区内容导航">
++    <RouterLink v-for="item in sections" :key="item.key" :to="item.to" :class="{ selected: active === item.key }" :aria-current="active === item.key ? 'page' : undefined">{{ item.label }}</RouterLink>
++  </nav>
++</template>
++
++<script setup lang="ts">
++defineProps<{ active: 'gallery' | 'stream' | 'knowledge' | 'wiki' }>();
++const sections = [
++  { key: 'gallery', label: '画廊', to: '/gallery' },
++  { key: 'stream', label: '博客与帖子', to: '/stream' },
++  { key: 'knowledge', label: '知识库', to: '/knowledge' },
++  { key: 'wiki', label: '公共 Wiki', to: '/knowledge?type=wiki' },
++];
++</script>
+
+--- src/views/太初随笔/index.vue
++++ src/views/太初随笔/index.vue
+@@ -1,411 +1,131 @@
+ <template>
+-  <article class="curated-gallery-container animate-fade-in content-page">
+-    <header class="curated-nav content-header">
+-      <div class="nav-left">
+-        <div class="brand-group">
+-          <h1 class="brand-title" @click="changeFilter('all')">太初视界</h1>
+-          <span class="brand-sub">社区创作 · 博客与帖子</span>
++  <main class="stream-page content-page">
++    <CommunityNav active="stream" />
++    <header class="content-header">
++      <div><p class="eyebrow">社区创作 · 太初视界</p><h1>博客与帖子</h1><p class="intro">读一篇长文，分享一个想法，与社区一起交流。</p></div>
++      <nav class="content-actions" aria-label="创作入口"><RouterLink class="primary" to="/write/blog">写博客</RouterLink><RouterLink to="/write/post">发帖子</RouterLink></nav>
++    </header>
++    <div class="section-toolbar">
++      <div class="content-filters" aria-label="内容类型">
++        <button v-for="(label, key) in filters" :key="key" :aria-pressed="currentFilter === key" @click="changeFilter(key)">{{ label }}</button>
++      </div>
++      <span class="section-hint">按发布时间排列</span>
++    </div>
++    <p v-if="loading" class="content-state" role="status">正在加载社区内容…</p>
++    <div v-else-if="!posts.length && !error" class="content-state"><h2>这里还没有内容</h2><p>写一篇博客，或分享你的第一条帖子。</p><RouterLink :to="currentFilter === 'post' ? '/write/post' : '/write/blog'">开始创作 →</RouterLink></div>
++    <div v-else class="stream-grid">
++      <article v-for="item in posts" :key="item.id" class="stream-card">
++        <RouterLink v-if="item.cardCover" class="card-cover" :to="detailRoute(item.id)" tabindex="-1" aria-hidden="true"><img :src="item.cardCover" alt="" loading="lazy" @error="($event.target as HTMLImageElement).hidden = true" /></RouterLink>
++        <div class="card-content">
++          <div class="card-meta"><span class="content-badge">{{ item.type === 'post' ? '帖子' : '博客' }}</span><span>{{ item.authorName || '太初隐者' }}</span></div>
++          <h2><RouterLink :to="detailRoute(item.id)">{{ item.title || (item.type === 'post' ? '社区动态' : '无标题随笔') }}</RouterLink></h2>
++          <p class="card-excerpt">{{ wikiText(item.content) || '打开内容继续阅读。' }}</p>
++          <footer><time>{{ formatTime(item.publishedAt || item.createdAt) }}</time><span>{{ item.resonance || 0 }} 灵动</span><RouterLink :to="detailRoute(item.id)">阅读全文 →</RouterLink></footer>
+         </div>
+-        <div class="mode-selectors">
+-          <button 
+-            @click="changeFilter('all')" 
+-            :class="['mode-item', { active: currentFilter === 'all' }]"
+-          >
+-            全部
+-          </button>
+-          <button 
+-            @click="changeFilter('blog')" 
+-            :class="['mode-item', { active: currentFilter === 'blog' }]"
+-          >
+-            长文随笔
+-          </button>
+-          <button 
+-            @click="changeFilter('post')" 
+-            :class="['mode-item', { active: currentFilter === 'post' }]"
+-          >
+-            短篇简语
+-          </button>
+-        </div>
+-      </div>
+-      
+-      <nav class="compose-actions content-actions"><RouterLink to="/write/blog">写博客</RouterLink><RouterLink to="/write/post">发帖子</RouterLink><RouterLink to="/knowledge">知识库</RouterLink></nav>
+-    </header>
+-
+-    <main class="curated-view">
+-      <div v-if="loading && posts.length === 0" class="curated-loading">
+-        <div class="loading-pulse"></div>
+-        <span class="loading-text">正在共鸣太初视界...</span>
+-      </div>
+-
+-      <div v-else-if="posts.length === 0" class="curated-empty">
+-        <p class="empty-text">视界中空无一物，待你落笔生花。</p>
+-      </div>
+-
+-      <div v-else class="curated-stream-grid">
+-        <div 
+-          v-for="item in posts" :key="item.id" 
+-          class="stream-card" 
+-          :class="[(item.type === 'note' || item.type === 'blog') ? 'is-blog' : 'is-post', { 'has-image-hero': item.cardCover }]"
+-          @click="openArtwork(item.id)"
+-        >
+-          <!-- 🌟 模式 A：长文随笔/深度博客 (大版面双栏自适应设计) -->
+-          <template v-if="item.type === 'note' || item.type === 'blog'">
+-            <div class="blog-card-layout-flex">
+-              <!-- 左侧：文字描述区 -->
+-              <div class="blog-text-side">
+-                <div class="card-meta">
+-                  <span class="meta-tag">{{ item.type === 'blog' ? 'BLOG' : 'ESSAY' }}</span>
+-                  <span class="meta-dot">/</span>
+-                  <span class="meta-author">{{ item.author }}</span>
+-                </div>
+-                <div class="card-body">
+-                  <h2 class="blog-title">{{ item.title || '无标题随笔' }}</h2>
+-                  <p class="blog-excerpt">
+-                    {{ getSnippet(item.content, 140) || '暂无摘要' }}
+-                  </p>
+-                </div>
+-                <div class="card-footer">
+-                  <time class="post-time">{{ formatTime(item.publishedAt || item.createdAt) }}</time>
+-                  <div class="resonance-stat">
+-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+-                    <span>{{ item.resonance || 0 }}</span>
+-                  </div>
+-                </div>
+-              </div>
+-
+-              <!-- 右侧：高级侧边封面图 (仅当有封面图时才渲染，达成弹性自适应) -->
+-              <div v-if="item.cardCover" class="blog-cover-side">
+-                <img :src="item.cardCover" alt="文章封面" class="blog-side-img" loading="lazy" />
+-              </div>
+-            </div>
+-          </template>
+-
+-          <!-- 🌟 模式 B：微言短动态 -->
+-<template v-else-if="item.type === 'post'">
+-  <div v-if="item.cardCover" class="post-card-hero">
+-    <img :src="item.cardCover" alt="动态配图" class="hero-img" loading="lazy" />
+-  </div>
+-
+-  <div class="post-card-content-wrapper">
+-    <div class="card-meta">
+-      <span class="meta-tag post-tag">FRAGMENT</span>
+-      <span class="meta-dot">/</span>
+-      <span class="meta-author">{{ item.author }}</span>
++      </article>
+     </div>
+-    
+-    <!-- 修改点：不再使用 getSnippet 截断，直接展示内容 -->
+-    <div class="card-body">
+-      <div class="post-text">
+-        <!-- 如果 item.content 就是纯文本，直接显示；如果是 Tiptap JSON，依然可以用 extractTiptapText 转换 -->
+-        {{ extractTiptapText(item.content) || item.title || '灵脉波动中...' }}
+-      </div>
++    <div v-if="error" class="content-state" role="alert"><p>{{ error }}</p><button @click="fetchStream(posts.length > 0)">重新加载</button></div>
++    <div ref="loadMoreTrigger" class="load-more" role="status">
++      <span v-if="loadingMore">正在加载更多…</span>
++      <button v-else-if="hasMore && posts.length && !error" @click="fetchStream(true)">加载更多</button>
++      <span v-else-if="posts.length && !error && !hasMore">已显示全部内容</span>
+     </div>
+-
+-    <div class="card-footer">
+-      <time class="post-time">{{ formatTime(item.publishedAt || item.createdAt) }}</time>
+-      <div class="resonance-stat">
+-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+-        <span>{{ item.resonance || 0 }}</span>
+-      </div>
+-    </div>
+-  </div>
+-</template>
+-        </div>
+-      </div>
+-
+-      <div v-if="posts.length > 0" ref="loadMoreTrigger" class="load-more-trigger">
+-        <div v-if="loadingMore" class="loading-pulse-small"></div>
+-        <span v-else-if="!hasMore" class="end-text">—— 视界已达边界 ——</span>
+-      </div>
+-    </main>
+-
+-    <transition name="fade">
+-      <PublicNoteDetail
+-        v-if="activePostId"
+-        :id="activePostId"
+-        @close="closeArtwork"
+-      />
+-    </transition>
+-  </article>
++    <PublicNoteDetail v-if="activePostId" :key="activePostId" :id="activePostId" @close="closeArtwork" />
++  </main>
+ </template>
+ 
+ <script setup lang="ts">
+-import { ref, onMounted, onUnmounted } from 'vue';
++import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
++import { useRoute, useRouter } from 'vue-router';
++import CommunityNav from '@/components/CommunityNav.vue';
++import PublicNoteDetail from './PublicNoteDetail.vue';
++import { notePublishApi, type PublishedNoteItem } from '../../api/NotePublish';
++import { wikiText } from '@/utils/wikiContent';
+ 
+-import PublicNoteDetail from './PublicNoteDetail.vue';
+-import type { PublishedNoteItem } from '../../api/NotePublish';
+-import { notePublishApi } from '../../api/NotePublish';
++const route = useRoute(), router = useRouter();
++const filters = { all: '全部内容', blog: '博客', post: '帖子' };
++type Filter = keyof typeof filters;
++const currentFilter = computed<Filter>(() => route.query.type === 'blog' || route.query.type === 'post' ? route.query.type : 'all');
++const activePostId = computed(() => typeof route.query.post === 'string' ? route.query.post : null);
++const posts = ref<(PublishedNoteItem & { content: string; cardCover: string })[]>([]);
++const loading = ref(false), loadingMore = ref(false), hasMore = ref(true), error = ref('');
++const loadMoreTrigger = ref<HTMLElement | null>(null);
++let page = 1, generation = 0;
++let observer: IntersectionObserver | null = null;
++const pageSize = 20;
+ 
+-interface FrontMixedPost extends PublishedNoteItem {
+-  content?: string;
+-  author: string;
+-  cardCover?: string; 
++// 兼容旧博客的 JSON 摘要和帖子的配图元数据。
++function formatPost(item: PublishedNoteItem & { extraData?: string }) {
++  let content = item.excerpt || '', cardCover = '';
++  try {
++    if (item.type === 'post') cardCover = JSON.parse(item.extraData || '{}').cardCover || '';
++    else if (content.trim().startsWith('{')) {
++      const excerpt = JSON.parse(content);
++      if ('text' in excerpt || 'coverUrl' in excerpt) {
++        content = excerpt.text || '';
++        cardCover = excerpt.coverUrl || '';
++      }
++    }
++  } catch { /* 旧的纯文本摘要保持可读。 */ }
++  return { ...item, content, cardCover };
+ }
+-
+-const currentFilter = ref<'all' | 'post' | 'blog'>('all');
+-const posts = ref<FrontMixedPost[]>([]);
+-const loading = ref(false);
+-const activePostId = ref<string | null>(null);
+-
+-const page = ref(1);
+-const pageSize = ref(20);
+-const hasMore = ref(true);
+-const loadingMore = ref(false);
+-const loadMoreTrigger = ref<HTMLElement | null>(null);
+-let observer: IntersectionObserver | null = null;
+-
+-const fetchStream = async (isLoadMore = false) => {
+-  if (isLoadMore) {
++async function fetchStream(more = false) {
++  if (more && (loading.value || loadingMore.value || !hasMore.value)) return;
++  const current = more ? generation : ++generation;
++  if (more) {
+     loadingMore.value = true;
+   } else {
++    page = 1;
++    posts.value = [];
++    hasMore.value = true;
+     loading.value = true;
+-    page.value = 1; 
+-    hasMore.value = true;
+-  }
+-
+-  try {
+-    const typeQuery = currentFilter.value === 'all' ? undefined : currentFilter.value;
+-
+-    const res = await notePublishApi.getPublicStream({
+-      type: typeQuery,
+-      page: page.value,
+-      pageSize: pageSize.value
+-    });
+-    
+-    if (res && Array.isArray(res)) {
+-      const formattedData = res.map((item: any) => {
+-        let extractedCover = '';
+-        let finalSnippet = '';
+-
+-        // 🌟 1. 处理长文博客与老数据的摘要清洗规则
+-        if ((item.type === 'blog' || item.type === 'note') && item.excerpt) {
+-          if (item.excerpt.startsWith('{')) {
+-            try {
+-              // 精准反序列化 Excerpt 内嵌的 JSON 结构，绝不触碰 ExtraData
+-              const parsedExcerpt = JSON.parse(item.excerpt);
+-              extractedCover = parsedExcerpt.coverUrl || '';
+-              finalSnippet = parsedExcerpt.text || '';
+-            } catch (e) {
+-              finalSnippet = item.excerpt;
+-            }
+-          } else {
+-            finalSnippet = item.excerpt;
+-          }
+-        } 
+-        // 🌟 2. 处理微言短动态的摘要清洗规则
+-        else if (item.type === 'post') {
+-          finalSnippet = item.excerpt;
+-          if (item.extraData && item.extraData.startsWith('{')) {
+-            try {
+-              const meta = JSON.parse(item.extraData);
+-              extractedCover = meta.cardCover || '';
+-            } catch(e) {}
+-          }
+-        } else {
+-          finalSnippet = item.excerpt;
+-        }
+-
+-        return {
+-          ...item,
+-          author: item.authorName || '太初隐者', 
+-          content: finalSnippet,
+-          cardCover: extractedCover 
+-        }
+-      });
+-
+-      if (isLoadMore) {
+-        posts.value.push(...formattedData); 
+-      } else {
+-        posts.value = formattedData; 
+-      }
+-
+-      if (res.length < pageSize.value) {
+-        hasMore.value = false;
+-      } else {
+-        page.value++; 
+-      }
+-    } else {
+-      hasMore.value = false;
+-    }
+-  } catch (err) {
+-    console.error('广场数据感应失败:', err);
+-    hasMore.value = false;
+-  } toggleLoadingStates: { 
+-    loading.value = false;
+     loadingMore.value = false;
+   }
+-};
+-
+-const setupObserver = () => {
+-  if (observer) observer.disconnect();
+-
+-  observer = new IntersectionObserver((entries) => {
+-    if (entries[0].isIntersecting && !loading.value && !loadingMore.value && hasMore.value) {
+-      fetchStream(true);
++  error.value = '';
++  try {
++    const result = await notePublishApi.getPublicStream({ type: currentFilter.value === 'all' ? undefined : currentFilter.value, page, pageSize });
++    if (current !== generation) return;
++    const existing = new Set(posts.value.map(item => item.id));
++    posts.value.push(...result.filter(item => !existing.has(item.id)).map(formatPost));
++    hasMore.value = result.length === pageSize;
++    page++;
++  } catch {
++    if (current === generation) error.value = '内容加载失败，请重试；已加载的内容仍保留。';
++  } finally {
++    if (current === generation) {
++      loading.value = false;
++      loadingMore.value = false;
+     }
+-  }, {
+-    rootMargin: '200px', 
+-  });
+-
+-  if (loadMoreTrigger.value) {
+-    observer.observe(loadMoreTrigger.value);
+   }
+-};
+-
+-const extractTiptapText = (rawStr: string | undefined): string => {
+-  if (!rawStr) return '';
+-  const trimmed = rawStr.trim();
+-  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return rawStr;
+-  try {
+-    const obj = JSON.parse(rawStr);
+-    const parseNode = (node: any): string => {
+-      if (!node) return '';
+-      if (typeof node === 'string') return node;
+-      if (node.type === 'text') return node.text || '';
+-      if (Array.isArray(node.content)) return node.content.map(parseNode).join('');
+-      return '';
+-    };
+-    return parseNode(obj);
+-  } catch (e) { return rawStr; }
+-};
+-
+-const getSnippet = (rawStr: string | undefined, maxLength: number): string => {
+-  const plainText = extractTiptapText(rawStr);
+-  if (!plainText) return '';
+-  if (plainText.length <= maxLength) return plainText;
+-  return plainText.substring(0, maxLength) + '...';
+-};
+-
+-const openArtwork = (id: string) => {
+-  activePostId.value = id;
+-  window.history.pushState(null, '', `/posts/${id}`);
+-};
+-
+-const closeArtwork = () => {
+-  activePostId.value = null;
+-  window.history.pushState(null, '', '/posts');
+-};
+-
+-const changeFilter = (type: 'all' | 'post' | 'blog') => {
+-  if (currentFilter.value === type) return; 
+-  currentFilter.value = type;
+-  window.scrollTo({ top: 0, behavior: 'smooth' }); 
+-  fetchStream(false); 
+-};
+-
+-const formatTime = (timeStr: string | undefined) => {
+-  if (!timeStr) return '刚刚';
+-  const date = new Date(timeStr);
+-  return `${date.getMonth() + 1}月${date.getDate()}日`;
+-};
+-
+-onMounted(async () => {
+-  await fetchStream(false);
+-  setupObserver(); 
+-  const path = window.location.pathname;
+-  if (path.startsWith('/posts/')) {
+-    const directId = path.split('/').pop();
+-    if (directId && directId !== 'posts') activePostId.value = directId;
+-  }
++}
++const detailRoute = (id: string) => ({ path: route.path, query: { ...route.query, post: id } });
++const closeArtwork = () => router.replace({ query: { ...route.query, post: undefined } });
++const changeFilter = (type: Filter) => router.push({ query: { ...route.query, type: type === 'all' ? undefined : type, post: undefined } });
++const formatTime = (value?: string) => value ? new Date(value).toLocaleDateString('zh-CN') : '时间未知';
++watch(currentFilter, () => void fetchStream(), { immediate: true });
++onMounted(() => {
++  observer = new IntersectionObserver(entries => {
++    if (entries[0]?.isIntersecting && posts.value.length && !error.value) void fetchStream(true);
++  }, { rootMargin: '200px' });
++  if (loadMoreTrigger.value) observer.observe(loadMoreTrigger.value);
+ });
+-
+-onUnmounted(() => { if (observer) observer.disconnect(); });
++onUnmounted(() => { generation++; observer?.disconnect(); });
+ </script>
+ 
+ <style scoped>
+-.compose-actions { display: flex; gap: 16px; flex-wrap: wrap; } .compose-actions a { color: var(--accent-color); text-decoration: none; }
+-.curated-gallery-container {
+-  --font-serif: "Georgia", "Nimbus Roman No9 L", "Songti SC", "Noto Serif CJK SC", serif;
+-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+-  --color-ink: #111111;
+-  --color-slate: #6e6e73;
+-  --color-bg-ivory: #ffffff;
+-  --color-card-bg: #fafafa;
+-  --color-line: #ededf0;
+-
+-  width: 100%;
+-  min-height: 100vh;
+-  background: var(--color-bg-ivory);
+-  color: var(--color-ink);
+-  font-family: var(--font-sans);
+-  -webkit-font-smoothing: antialiased;
+-}
+-
+-.curated-nav {
+-  display: flex; justify-content: space-between; align-items: center; height: 104px; padding: 0 5%;
+-  border-bottom: 1px solid var(--color-line); position: sticky; top: 0; z-index: 100;
+-  background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px) saturate(180%);
+-}
+-
+-.nav-left { display: flex; align-items: center; gap: 64px; }
+-.brand-group { display: flex; flex-direction: column; flex-shrink: 0; }
+-.brand-title { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.05em; margin: 0; cursor: pointer; }
+-.brand-sub { font-size: 10px; font-weight: 700; letter-spacing: 0.2em; color: var(--color-slate); margin-top: 2px; }
+-
+-.mode-selectors { display: flex; gap: 32px; }
+-.mode-item { background: none; border: none; padding: 0; font-size: 0.92rem; font-weight: 500; color: var(--color-slate); cursor: pointer; white-space: nowrap; transition: color 0.25s ease; }
+-.mode-item:hover, .mode-item.active { color: var(--color-ink); }
+-.mode-item.active { font-weight: 600; }
+-.lingmai-link { background: var(--color-ink); color: #ffffff; border: none; padding: 10px 24px; border-radius: 40px; font-size: 0.85rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+-
+-.curated-view { max-width: 1400px; margin: 0 auto; padding: 72px 5% 120px; }
+-.curated-stream-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 40px 32px; }
+-
+-.stream-card { display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; border-bottom: 1px solid var(--color-line); padding-bottom: 40px; }
+-
+-.card-meta { display: flex; align-items: center; gap: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.15em; margin-bottom: 18px; }
+-.meta-tag { color: #0066cc; text-transform: uppercase; }
+-.post-tag { color: #86868b; }
+-.meta-dot { color: var(--color-line); }
+-.meta-author { color: var(--color-ink); opacity: 0.85; }
+-
+-/* 长文博客大版面双栏高级布局 */
+-.is-blog { grid-column: span 8; }
+-.blog-card-layout-flex { display: flex; width: 100%; gap: 32px; align-items: flex-start; }
+-.blog-text-side { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+-
+-.is-blog .blog-title { font-family: var(--font-serif); font-size: 1.8rem; font-weight: 700; color: var(--color-ink); margin: 0 0 12px 0; letter-spacing: -0.02em; line-height: 1.3; }
+-.is-blog .blog-excerpt { font-family: var(--font-serif); font-size: 1.05rem; line-height: 1.8; color: #333336; margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+-
+-/* 博客高级右侧边封面样式 */
+-.blog-cover-side { width: 220px; aspect-ratio: 16 / 10; border-radius: 12px; overflow: hidden; background: #f5f5f7; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.02); }
+-.blog-side-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s ease; }
+-.stream-card:hover .blog-side-img { transform: scale(1.03); }
+-
+-/* 短篇简语卡片配置 */
+-.is-post { grid-column: span 4; background: var(--color-card-bg); border-radius: 16px; border-bottom: none; overflow: hidden; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease; }
+-.is-post:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.04); }
+-.post-card-content-wrapper { padding: 32px; display: flex; flex-direction: column; justify-content: space-between; flex: 1; }
+-.post-card-hero { width: 100%; aspect-ratio: 16 / 10; overflow: hidden; background: #f5f5f7; }
+-.hero-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+-.is-post:hover .hero-img { transform: scale(1.02); }
+-.is-post .post-text { font-size: 1.05rem; font-weight: 400; line-height: 1.75; color: #2c2c2e; margin: 0; }
+-
+-.card-footer { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 500; color: var(--color-slate); margin-top: 24px; }
+-.resonance-stat { display: flex; align-items: center; gap: 4px; }
+-
+-@media (max-width: 768px) {
+-  .curated-nav { height: 72px; padding: 0 20px; }
+-  .nav-left { gap: 20px; width: 70%; }
+-  .brand-sub { display: none; }
+-  .brand-title { font-size: 1.2rem; }
+-  .mode-selectors { gap: 20px; overflow-x: auto; padding-bottom: 4px; }
+-  .mode-selectors::-webkit-scrollbar { display: none; }
+-  .mode-item { font-size: 0.85rem; }
+-  .lingmai-link { padding: 8px 14px; font-size: 0.75rem; }
+-  .lingmai-link span { display: none; }
+-  .curated-view { padding: 32px 20px 80px; }
+-  .curated-stream-grid { display: flex; flex-direction: column; gap: 40px; }
+-  .is-blog, .is-post { width: 100%; grid-column: auto; }
+-  .blog-card-layout-flex { flex-direction: column-reverse; gap: 16px; }
+-  .blog-cover-side { width: 100%; aspect-ratio: 21 / 9; }
+-  .is-blog .blog-title { font-size: 1.4rem; }
+-  .post-card-content-wrapper { padding: 24px; }
+-}
+-
+-.curated-loading, .curated-empty { padding: 120px 0; text-align: center; color: var(--color-slate); }
+-.loading-pulse { width: 28px; height: 28px; border: 2px solid var(--color-line); border-top-color: var(--color-ink); border-radius: 50%; margin: 0 auto 16px; animation: spin 0.85s linear infinite; }
+-@keyframes spin { to { transform: rotate(360deg); } }
+-.animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+-@keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
++.stream-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
++.stream-card { display: flex; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--content-radius); overflow: hidden; transition: border-color .2s; }
++.stream-card:hover, .stream-card:focus-within { border-color: var(--accent-color); }
++.card-cover { display: block; width: 30%; flex-shrink: 0; background: var(--paper-sub); }
++.card-cover img { width: 100%; height: 100%; object-fit: cover; }
++.card-content { padding: 24px; min-width: 0; flex: 1; display: flex; flex-direction: column; }
++.card-meta, footer { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; color: var(--text-secondary); font-size: .82rem; }
++h2 { font-size: 1.35rem; line-height: 1.5; margin: 16px 0 12px; overflow-wrap: anywhere; }
++h2 a { color: var(--text-primary); text-decoration: none; }
++h2 a:hover { color: var(--accent-color); }
++.card-excerpt { margin-bottom: 24px; color: var(--text-secondary); line-height: 1.85; white-space: pre-line; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
++footer { border-top: 1px solid var(--border-line); margin-top: auto; padding-top: 16px; }
++footer a { margin-left: auto; color: var(--accent-color); text-decoration: none; }
++.load-more { text-align: center; padding: 32px 0; color: var(--text-secondary); }
++@media(max-width: 720px) { .stream-grid { grid-template-columns: 1fr; gap: 16px; } .card-content { padding: 20px; } .stream-card { display: block; } .card-cover { width: 100%; aspect-ratio: 21 / 9; } }
+ </style>
+
+--- src/views/太初随笔/PublicNoteDetail.vue
++++ src/views/太初随笔/PublicNoteDetail.vue
+@@ -14,7 +14,7 @@
+         <button class="back-btn" @click="copyReference">复制引用链接</button>
+       </nav><p v-if="referenceMessage" role="status">{{ referenceMessage }}</p>
+ 
+-      <div class="md-wrapper" v-if="post">
++      <div class="md-wrapper content-panel" v-if="post">
+         <div v-if="post.type === 'blog' && extractedCoverUrl" class="blog-detail-cover-wrapper">
+           <img :src="extractedCoverUrl" class="blog-detail-cover-img" alt="文章封面" />
+         </div>
+@@ -48,8 +48,8 @@
+ 
+           <footer class="article-footer">
+             <div class="footer-divider"></div>
+-            <p class="end-mark">EOF / THE END</p>
+-            <p class="footer-sign">落笔于太初之境 · 视界广场</p>
++            <p class="end-mark">阅读完毕</p>
++            <p class="footer-sign">喜欢这篇内容？可以复制引用链接分享给社区。</p>
+           </footer>
+         </article>
+       </div>
+@@ -59,7 +59,6 @@
+       </div>
+     </div>
+ 
+-    <button class="floating-close" aria-label="关闭文章详情" @click="$emit('close')">✕</button>
+   </div>
+ </template>
+ 
+@@ -185,17 +184,18 @@
+ <style scoped>
+ .md-detail-mask {
+   position: fixed; inset: 0; z-index: 2000;
+-  background: var(--paper-bg); overflow-y: auto; scrollbar-width: none;
++  background: var(--paper-bg); overflow-y: auto;
+   cursor: zoom-out;
+ }
+-.md-detail-mask::-webkit-scrollbar { display: none; }
++
+ 
+ .md-viewport {
+-  width: 100%; max-width: 800px; margin: 0 auto;
+-  padding: 0 24px; position: relative; cursor: default;
++  width: 100%; max-width: 940px; margin: 0 auto;
++  padding: 0 24px 40px; box-sizing: border-box; position: relative; cursor: default;
+ }
+ 
+ .md-controls {
++  position: sticky; top: 0; z-index: 10; background: var(--paper-bg);
+   display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+   min-height: 72px; padding: 16px 0; border-bottom: 1px solid var(--border-line);
+ }
+@@ -211,9 +211,9 @@
+ .blog-detail-cover-wrapper {
+   width: 100%;
+   aspect-ratio: 21 / 9;
+-  border-radius: 24px;
++  border-radius: 12px;
+   overflow: hidden;
+-  margin-top: 40px;
++  margin-top: 0;
+   border: 1px solid rgba(0,0,0,0.03);
+   box-shadow: 0 10px 30px rgba(0,0,0,0.02);
+ }
+@@ -223,10 +223,10 @@
+   object-fit: cover;
+ }
+ 
+-.md-wrapper { padding: 40px 0 120px; }
+-.article-header { margin-bottom: 28px; margin-top: 12px; }
++.md-wrapper { padding: 32px 40px; margin-top: 24px; }
++.article-header { margin-bottom: 28px; margin-top: 24px; }
+ .title {
+-  font-size: 2.5rem; font-weight: 700; color: #1d1d1f;
++  font-size: 2.5rem; font-weight: 700; color: var(--text-primary);
+   letter-spacing: -0.03em; line-height: 1.2; margin: 0 0 24px 0;
+ }
+ .metadata { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: var(--text-secondary); font-size: 14px; }
+@@ -249,7 +249,7 @@
+   display: block; height: auto; border-radius: 12px; margin: 32px 0;
+ }
+ 
+-.article-footer { margin-top: 40px; padding-top: 24px; text-align: center; }
++.article-footer { margin-top: 0; padding-top: 24px; text-align: center; }
+ .footer-divider { height: 1px; background: #f2f2f2; margin-bottom: 40px; }
+ .end-mark { font-size: 10px; letter-spacing: 0.4em; color: #d2d2d7; margin-top: 20px; }
+ .footer-sign { font-size: 12px; color: #86868b; margin-top: 8px; }
+@@ -264,13 +264,6 @@
+   100% { transform: translateX(100%); }
+ }
+ 
+-.floating-close {
+-  position: fixed; top: 32px; right: 32px;
+-  width: 40px; height: 40px; border: none; background: none;
+-  font-size: 20px; cursor: pointer; opacity: 0.2; transition: opacity 0.3s;
+-}
+-.floating-close:hover { opacity: 1; }
+-
+ .empty-state { text-align: center; color: #86868b; font-size: 14px; }
+ 
+ .animate-fade-up { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+@@ -278,4 +271,5 @@
+   from { opacity: 0; transform: translateY(16px); }
+   to { opacity: 1; transform: translateY(0); }
+ }
++@media(max-width: 720px) { .md-viewport { padding: 0 16px 60px; } .md-wrapper { padding: 20px; } .metadata { font-size: .8rem; gap: 8px; } }
+ </style>
+
+--- src/views/画廊展厅/index.vue
++++ src/views/画廊展厅/index.vue
+@@ -1,23 +1,15 @@
+ <template>
+   <article class="gallery-container content-page">
++    <CommunityNav active="gallery" />
+     <p v-if="publishMessage" class="publish-message" role="status">{{ publishMessage }}</p>
+     <header class="gallery-nav content-header">
+       <div class="nav-left">
+         <div><p class="eyebrow">社区创作 · 画廊</p><h1 class="brand-title">太初艺术馆</h1><p class="intro">分享作品与练习，用标签发现同好。</p></div>
+-        <div class="mode-selectors">
+-          <button 
+-            :class="['mode-item', { active: viewMode === 'explore' }]" 
+-            @click="switchMode('explore')"
+-          >探索</button>
+-          <button 
+-            :class="['mode-item', { active: viewMode === 'ranking' }]" 
+-            @click="switchMode('ranking')"
+-          >荣誉</button>
+-        </div>
++
+       </div>
+ 
+       <!-- 右侧：直接在画布布展发布作品入口 -->
+-      <div class="nav-right content-actions"><RouterLink to="/knowledge">知识库</RouterLink>
++      <div class="nav-right content-actions">
+         <button class="upload-link" @click="handleUpload">
+           发布作品
+         </button>
+@@ -25,6 +17,16 @@
+     </header>
+ 
+     <form class="gallery-search" @submit.prevent="applySearch"><input v-model="searchInput" aria-label="搜索画作" placeholder="搜索标题、说明、作者或标签" maxlength="100" /><button>搜索</button><button type="button" v-if="route.query.q" @click="searchInput = ''; applySearch()">清除</button></form>
++    <div class="section-toolbar">        <div class="content-filters" aria-label="画廊视图">
++          <button 
++            :aria-pressed="viewMode === 'explore'" 
++            @click="switchMode('explore')"
++          >全部作品</button>
++          <button 
++            :aria-pressed="viewMode === 'ranking'" 
++            @click="switchMode('ranking')"
++          >作品榜单</button>
++        </div><span class="section-hint">发现社区创作者的作品</span></div>
+     <main class="gallery-view">
+       <transition name="fade" mode="out-in">
+         <div v-if="viewMode === 'explore'" key="explore" class="view-wrapper">
+@@ -37,17 +39,17 @@
+ 
+         <div v-else-if="viewMode === 'ranking'" key="ranking" class="view-wrapper">
+           <div class="view-header">
+-            <span class="view-label">灵脉巅峰 / {{ currentTab }}榜</span>
+-            <nav class="time-filter">
+-              <span 
++            <span class="view-label">作品榜单 / {{ currentTab }}榜</span>
++            <nav class="content-filters" aria-label="榜单周期">
++              <button 
+                 v-for="t in ['日', '周', '月', '年']" 
+                 :key="t"
+-                :class="{ active: currentTab === t }"
++                :aria-pressed="currentTab === t"
+                 @click="currentTab = t"
+-              >{{ t }}</span>
++              >{{ t }}榜</button>
+             </nav>
+           </div>
+-          <ArtworkRanking :period="currentTab" />
++          <ArtworkRanking :period="currentTab" @explore="switchMode('explore')" />
+         </div>
+       </transition>
+     </main>
+@@ -71,6 +73,7 @@
+ </template>
+ 
+ <script setup lang="ts">
++import CommunityNav from '@/components/CommunityNav.vue';
+ import { ref, nextTick, watch } from 'vue';
+ import { useRoute, useRouter } from 'vue-router';
+ import type { ArtworkWriteResult } from '../../api/artwork';
+@@ -165,14 +168,8 @@
+ .gallery-search input, .gallery-search button { padding: 10px 14px; color: var(--text-primary); background: var(--paper-bg); border: 1px solid var(--border-line); border-radius: 8px; }
+ .publish-message { color: var(--accent-color); padding: 12px 0; }
+ .nav-left { display: flex; flex-wrap: wrap; align-items: center; gap: 28px; }
+-.mode-selectors { display: flex; gap: 8px; }
+-.mode-item { background: none; border: 1px solid transparent; padding: 8px 16px; border-radius: 8px; color: var(--text-secondary); }
+-.mode-item.active { color: var(--text-primary); background: var(--paper-card); border-color: var(--border-line); }
+ .view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+ .view-label { font-size: .9rem; color: var(--text-secondary); }
+-.time-filter { display: flex; gap: 20px; }
+-.time-filter span { cursor: pointer; color: var(--text-secondary); }
+-.time-filter span.active { color: var(--text-primary); text-decoration: underline; text-underline-offset: 5px; }
+ .fade-enter-active, .fade-leave-active, .slide-up-enter-active, .slide-up-leave-active { transition: opacity .2s ease; }
+ .fade-enter-from, .fade-leave-to, .slide-up-enter-from, .slide-up-leave-to { opacity: 0; }
+ @media (max-width: 720px) { .gallery-search { padding: 12px; flex-wrap: wrap; } .nav-left { gap: 16px; } }
+
+--- src/views/画廊展厅/ArtworkInfiniteGrid.vue
++++ src/views/画廊展厅/ArtworkInfiniteGrid.vue
+@@ -5,18 +5,17 @@
+         <div 
+           v-for="art in column" 
+           :key="art.id" 
+-          class="masonry-item group" role="button" tabindex="0" @keydown.enter.self="$emit('on-click', art.id)"
+-          @click="$emit('on-click', art.id)"
++          class="masonry-item"
+         >
+-          <div class="item-visual">
+-            <img :src="getFullImageUrl(art.coverImageUrl) || '/default-cover.jpg'" class="item-image" loading="lazy" />
++          <button class="item-visual" :aria-label="'查看作品：' + art.title" @click="$emit('on-click', art.id)">
++            <img v-if="art.coverImageUrl && !failedImages.has(art.id)" :src="getFullImageUrl(art.coverImageUrl)" class="item-image" :alt="art.title" loading="lazy" @error="failedImages.add(art.id)" /><span v-else class="image-fallback">图片暂不可用 · 打开作品查看</span>
+             <div class="item-overlay">
+-              <span class="badge">{{ art.imageCount }}P</span>
++              <span class="badge">{{ art.imageCount }} 张</span>
+             </div>
+-          </div>
++          </button>
+           
+           <div class="item-details">
+-            <h4 class="item-title">{{ art.title }}</h4>
++            <h2 class="item-title"><button @click="$emit('on-click', art.id)">{{ art.title }}</button></h2>
+ 
+             <div class="item-footer">
+               <div class="author-info">
+@@ -53,6 +52,7 @@
+ const props = defineProps<{ search?: string }>();
+ const store = useArtworkStore(), user = useUserStore();
+ const error = ref('');
++const failedImages = ref(new Set<number>());
+ let generation = 0;
+ 
+ // 使用后端返回的 DTO 类型
+@@ -83,13 +83,12 @@
+ 
+ 
+ // 响应式列数控制
+-const columnCount = ref(5);
++const columnCount = ref(3);
+ const updateColumnCount = () => {
+   const width = window.innerWidth;
+-  if (width < 640) columnCount.value = 2;
+-  else if (width < 1024) columnCount.value = 3;
+-  else if (width < 1440) columnCount.value = 4;
+-  else columnCount.value = 5;
++  if (width < 600) columnCount.value = 1;
++  else if (width < 1000) columnCount.value = 2;
++  else columnCount.value = 3;
+ };
+ 
+ // 🌟 修改：将原有的 getColumnItems 方法重构为高效的计算属性
+@@ -136,7 +135,7 @@
+ };
+ const loadError = (cause: any) => { error.value = cause.friendlyMessage || '作品加载失败，请重试'; };
+ watch(() => [user.token, props.search], () => {
+-  generation++; artworks.value = []; offset.value = 0; noMore.value = false; loading.value = false;
++  generation++; failedImages.value.clear(); artworks.value = []; offset.value = 0; noMore.value = false; loading.value = false;
+   void loadData();
+ }, { immediate: true });
+ 
+@@ -161,148 +160,23 @@
+ </script>
+ 
+ <style scoped>
+-.artwork-masonry-wrapper {
+-  max-width: 1600px;
+-  margin: 0 auto;
+-  padding: 0 20px;
+-  box-sizing: border-box; /* 确保 padding 不会额外增加宽度 */
+-  width: 100%;           /* 必须显式声明宽度 */
+-  overflow-x: hidden;    /* 防止意外的横向滚动条 */
+-}
+-
+-.masonry-grid {
+-  display: flex;
+-  gap: 24px;
+-  align-items: flex-start;
+-  width: 100%;           /* 撑满父容器 */
+-  box-sizing: border-box;
+-}
+-
+-.masonry-column {
+-  flex: 1;
+-  min-width: 0;          /* 关键！防止 Flex 子元素被内部长内容撑开 */
+-  display: flex;
+-  flex-direction: column;
+-  gap: 24px;
+-}
+-
+-/* 沉浸式卡片 */
+-.masonry-item {
+-  background: var(--paper-bg);
+-  border-radius: 8px;
+-  transition: transform 0.4s ease;
+-  will-change: transform; /* 🌟 修改：提前告知浏览器此元素有动画，做好层合成准备 */
+-}
+-
+-.item-visual {
+-  position: relative;
+-  border-radius: 8px;
+-  overflow: hidden;
+-  background: var(--paper-card);
+-}
+-
+-.item-image {
+-  width: 100%;
+-  height: auto;
+-  display: block;
+-  transition: transform 0.8s cubic-bezier(0.2, 0, 0.2, 1);
+-  transform: translateZ(0); /* 🌟 修改：强制触发 GPU 硬件加速，大幅减少滚动和悬停动画掉帧 */
+-}
+-
+-.masonry-item:hover .item-image {
+-  transform: scale(1.04) translateZ(0);
+-}
+-
+-.item-overlay {
+-  position: absolute;
+-  inset: 0;
+-  background: rgba(0,0,0,0.02);
+-  opacity: 0;
+-  transition: opacity 0.3s;
+-  padding: 12px;
+-  display: flex;
+-  justify-content: flex-end;
+-}
+-
+-.masonry-item:hover .item-overlay {
+-  opacity: 1;
+-}
+-
+-.badge {
+-  background: rgba(0,0,0,0.7);
+-  color: var(--paper-bg);
+-  font-size: 10px;
+-  padding: 2px 6px;
+-  border-radius: 4px;
+-  align-self: flex-start;
+-}
+-
+-.item-details {
+-  padding: 12px 4px;
+-}
+-
+-.item-title {
+-  font-size: 0.9rem;
+-  font-weight: 600;
+-  color: var(--text-primary);
+-  margin-bottom: 8px;
+-}
+-
+-.item-footer {
+-  display: flex;
+-  justify-content: space-between;
+-  align-items: center;
+-}
+-
+-.author-info {
+-  display: flex;
+-  align-items: center;
+-  gap: 8px;
+-  font-size: 0.75rem;
+-  color: var(--text-secondary);
+-}
+-
+-.avatar {
+-  width: 20px;
+-  height: 20px;
+-  border-radius: 50%;
+-  filter: grayscale(100%);
+-}
+-
+-
+-/* 状态栏 */
+-.status-bar {
+-  padding: 80px 0;
+-  text-align: center;
+-  font-size: 0.85rem;
+-  color: var(--text-secondary);
+-  letter-spacing: 0.2em;
+-}
+-
+-.loading-text { animation: breathe 1.5s infinite; }
+-
+-@keyframes breathe {
+-  0%, 100% { opacity: 0.3; }
+-  50% { opacity: 1; }
+-}
+-
+-@media (max-width: 640px) {
+-  .artwork-masonry-wrapper {
+-    padding: 0 10px; /* 手机端边距减小，留给内容更多空间 */
+-  }
+-  .masonry-grid { 
+-    gap: 10px;    /* 列间距减小 */
+-  }
+-  .masonry-column { 
+-    gap: 10px;    /* 行间距减小 */
+-  }
+-  
+-  /* 调整标题字号，防止长标题撑开卡片 */
+-  .item-title {
+-    font-size: 0.8rem;
+-    white-space: nowrap;
+-    overflow: hidden;
+-    text-overflow: ellipsis;
+-  }
+-}
+-</style>+.artwork-masonry-wrapper { width: 100%; }
++.masonry-grid { display: flex; gap: 24px; align-items: flex-start; }
++.masonry-column { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
++.masonry-item { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 12px; overflow: hidden; transition: border-color .2s; }
++.masonry-item:hover, .masonry-item:focus-within { border-color: var(--accent-color); }
++.item-visual { position: relative; display: block; width: 100%; padding: 0; border: 0; background: var(--paper-sub); cursor: pointer; }
++.item-image { display: block; width: 100%; height: auto; }
++.image-fallback { display: grid; place-items: center; min-height: 200px; padding: 20px; color: var(--text-secondary); font-size: .85rem; }
++.item-overlay { position: absolute; right: 12px; bottom: 12px; pointer-events: none; }
++.badge { background: #0009; color: #fff; font-size: .75rem; border-radius: 6px; padding: 4px 8px; }
++.item-details { padding: 16px 18px; }
++.item-title { margin: 0 0 12px; font-size: 1.1rem; line-height: 1.5; }
++.item-title button { background: none; color: var(--text-primary); border: 0; padding: 0; text-align: left; font: inherit; font-weight: 600; overflow-wrap: anywhere; }
++.item-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
++.author-info { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text-secondary); font-size: .82rem; overflow-wrap: anywhere; }
++.avatar { width: 24px; height: 24px; object-fit: cover; border-radius: 50%; }
++.status-bar { text-align: center; color: var(--text-secondary); padding: 32px 0; }
++.status-bar button { color: var(--text-primary); background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 8px 16px; }
++@media(max-width: 720px) { .masonry-grid, .masonry-column { gap: 16px; } }
++</style>
+
+--- src/views/画廊展厅/ArtworkDetail.vue
++++ src/views/画廊展厅/ArtworkDetail.vue
+@@ -2,10 +2,10 @@
+   <div class="md-detail-mask" role="dialog" aria-modal="true" aria-label="作品详情" @click.self="$emit('close')">
+     <div v-if="loading" class="md-loading-bar"></div>
+ 
+-    <div class="md-viewport">
+-      <nav class="md-controls">
++    <div class="md-viewport content-page">
++      <nav class="md-controls content-actions">
+         <button class="back-btn" @click="$emit('close')">
+-          <span class="arrow">←</span> 返回画廊
++          <span class="arrow">←</span> 返回列表
+         </button>
+         <div class="doc-type">作品详情</div><button class="back-btn" @click="copyReference">复制引用链接</button>
+         <template v-if="artwork?.canEdit">
+@@ -83,7 +83,7 @@
+           </div>
+         </section>
+ 
+-        <article class="md-article">
++        <article class="md-article content-panel">
+           <header class="article-header">
+             <h1 class="title">{{ artwork.title }}</h1>
+             <div class="metadata">
+@@ -124,7 +124,6 @@
+       </div>
+     </div>
+     <ArtworkPublishModal v-if="editing && artwork" v-model="editing" :artwork="artwork" @published="onEdited" />
+-    <button class="floating-close" @click="$emit('close')">✕</button>
+   </div>
+ </template>
+ 
+@@ -225,23 +224,25 @@
+   z-index: 9999;
+   background: var(--paper-bg);
+   overflow-y: auto;
+-  scrollbar-width: none;
+-}
+-.md-detail-mask::-webkit-scrollbar {
+-  display: none;
+-}
++
++}
++
+ .md-viewport {
+   width: 100%;
+   max-width: 1000px;
+   margin: 0 auto;
+-  padding: 0 40px;
++  padding: 0 32px 60px;
++  box-sizing: border-box;
+   position: relative;
+ }
+ .md-controls {
++  position: sticky; top: 0; z-index: 10; background: var(--paper-bg);
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+-  padding: 40px 0;
++  padding: 20px 0;
++  flex-wrap: wrap;
++  gap: 10px;
+ }
+ .back-btn {
+   background: none;
+@@ -257,7 +258,7 @@
+   letter-spacing: 0.2em;
+ }
+ .md-visual {
+-  margin-bottom: 80px;
++  margin-bottom: 32px;
+ }
+ 
+ /* ===== Timeline ===== */
+@@ -276,7 +277,7 @@
+ }
+ .process-step {
+   position: relative;
+-  margin-bottom: 80px;
++  margin-bottom: 32px;
+   opacity: 0;
+   animation: fadeUp 0.6s ease forwards;
+ }
+@@ -469,10 +470,10 @@
+   color: var(--text-secondary);
+ }
+ .article-body {
+-  font-size: 1.25rem;
+-  line-height: 2.2;
++  font-size: 1rem;
++  line-height: 1.85;
+   color: var(--text-primary);
+-  margin-bottom: 60px;
++  margin-bottom: 24px;
+   white-space: pre-wrap;
+ }
+ .text-paragraph {
+@@ -502,27 +503,13 @@
+     transform: translateX(100%);
+   }
+ }
+-.floating-close {
+-  position: fixed;
+-  top: 40px;
+-  right: 40px;
+-  border: none;
+-  background: none;
+-  font-size: 20px;
+-  cursor: pointer;
+-  opacity: 0.65;
+-}
+-.floating-close:hover {
+-  opacity: 1;
+-}
+ @media (max-width: 768px) {
+   .process-timeline { padding-left: 0; }
+   .process-timeline::before { display: none; }
+   .step-marker { position: static; width: auto; flex-direction: row; gap: 8px; margin-bottom: 12px; }
+   .step-label { writing-mode: horizontal-tb; }
+-  .floating-close { top: 16px; right: 16px; }
+   .md-viewport {
+-    padding: 0 24px;
++    padding: 0 16px 60px;
+   }
+   .title {
+     font-size: 2.2rem;
+
+--- src/views/知识库/index.vue
++++ src/views/知识库/index.vue
+@@ -1,16 +1,14 @@
+ <template>
+   <section class="knowledge-home content-page">
++    <CommunityNav :active="type === 'wiki' ? 'wiki' : 'knowledge'" />
+     <header class="knowledge-header content-header">
+       <div>
+         <p class="eyebrow">社区资料 · 统一检索</p>
+-        <h1>知识库</h1>
+-        <p class="intro">从文章、作品和设定中找到需要的资料，直接打开原内容。</p>
++        <h1>{{ type === 'wiki' ? '公共 Wiki' : '知识库' }}</h1>
++        <p class="intro">{{ type === 'wiki' ? '一起完善公共知识，让每次修改都有据可查。' : '社区的公开资料，在这里查找、阅读与引用。' }}</p>
+       </div>
+-      <nav class="header-actions content-actions" aria-label="创作入口">
+-        <RouterLink :to="{ name: 'GalleryHome', query: { publish: '1' } }">发布作品</RouterLink>
+-        <RouterLink to="/write/blog">写博客</RouterLink>
+-        <RouterLink to="/write/post">发帖子</RouterLink>
+-        <RouterLink to="/codex/new">新建公共知识</RouterLink>
++      <nav class="knowledge-actions content-actions" aria-label="创作入口">
++        <RouterLink class="primary" to="/codex/new">新建公共知识</RouterLink>
+         <button @click="switchView">{{ graphMode ? '返回资料列表' : '关系图谱' }}</button>
+       </nav>
+     </header>
+@@ -37,7 +35,10 @@
+       </form>
+       <div class="browse-layout">
+         <aside class="type-nav" aria-label="资料类型">
++          <label class="mobile-type-filter">资料类型<select aria-label="选择资料类型" :value="type" @change="selectType(($event.target as HTMLSelectElement).value as KnowledgeType)"><option v-for="(label, key) in knowledgeTypes" :key="key" :value="key">{{ label }}</option></select></label>
++          <span class="nav-caption">浏览资料</span>
+           <button v-for="(label, key) in knowledgeTypes" :key="key" :class="{ active: type === key }" :aria-pressed="type === key" @click="selectType(key)">{{ label }}</button>
++          <div class="browse-create"><span class="nav-caption">贡献内容</span><RouterLink to="/gallery?publish=1">发布画作 ↗</RouterLink><RouterLink to="/write/blog">写博客 ↗</RouterLink><RouterLink to="/write/post">发帖子 ↗</RouterLink></div>
+         </aside>
+         <main class="results">
+           <div class="result-header">
+@@ -85,7 +86,7 @@
+                     @error="($event.target as HTMLImageElement).hidden = true"
+                   />
+                   <div class="card-body">
+-                    <span class="type-label">{{ knowledgeTypes[item.type] }}</span>
++                    <span class="type-label content-badge">{{ knowledgeTypes[item.type] }}</span>
+                     <h3>
+                       <button class="title-button" @click="openItem(item)">{{ item.title || '无标题' }}</button>
+                     </h3>
+@@ -173,6 +174,7 @@
+ </template>
+ 
+ <script setup lang="ts">
++import CommunityNav from '@/components/CommunityNav.vue';
+ import { ref, computed, watch, onUnmounted, defineAsyncComponent } from 'vue';
+ import { useRoute, useRouter } from 'vue-router';
+ import { knowledgeApi, knowledgeTypes, knowledgeRoute, type KnowledgeType, type KnowledgeItem, type PublicResource } from '@/api/knowledge';
+@@ -331,18 +333,6 @@
+ </script>
+ 
+ <style scoped>
+-.knowledge-home {
+-  max-width: 1240px;
+-  margin: auto;
+-  color: var(--text-primary);
+-}
+-.knowledge-header {
+-  display: flex;
+-  align-items: center;
+-  justify-content: space-between;
+-  gap: 24px;
+-  padding: 24px 0 32px;
+-}
+ h1 {
+   font-size: clamp(2rem, 4vw, 3rem);
+   margin: 8px 0;
+@@ -355,13 +345,13 @@
+   color: var(--text-secondary);
+   line-height: 1.7;
+ }
+-.header-actions, .search-controls, .result-header, .pagination {
++.knowledge-actions, .search-controls, .result-header, .pagination {
+   display: flex;
+   align-items: center;
+   gap: 12px;
+   flex-wrap: wrap;
+ }
+-button, .header-actions a {
++button, .knowledge-actions a {
+   border: 1px solid var(--border-line);
+   background: var(--paper-card);
+   color: var(--text-primary);
+@@ -400,14 +390,14 @@
+   padding: 12px;
+   font: inherit;
+ }
+-.primary, .type-nav .active {
++.type-nav .active {
+   background: var(--text-primary);
+   color: var(--paper-bg);
+   border-color: var(--text-primary);
+ }
+ .browse-layout {
+   display: grid;
+-  grid-template-columns: 160px minmax(0, 1fr);
++  grid-template-columns: 188px minmax(0, 1fr);
+   gap: 28px;
+   margin-top: 28px;
+ }
+@@ -417,9 +407,13 @@
+   gap: 8px;
+   align-self: start;
+ }
+-.type-nav button {
+-  text-align: left;
+-}
++.mobile-type-filter { display: none; }
++.type-nav button { text-align: left; border-color: transparent; }
++.type-nav { padding: 12px; border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); }
++.nav-caption { font-size: .78rem; color: var(--text-secondary); padding: 6px 12px; }
++.browse-create { display: flex; flex-direction: column; gap: 10px; padding-top: 16px; margin-top: 8px; border-top: 1px solid var(--border-line); }
++.browse-create a { padding: 0 12px; font-size: .85rem; color: var(--text-secondary); text-decoration: none; }
++.content-card:hover, .content-card:focus-within { border-color: var(--accent-color); }
+ .result-header {
+   border-bottom: 1px solid var(--border-line);
+   padding-bottom: 12px;
+@@ -444,6 +438,7 @@
+   gap: 12px;
+ }
+ .content-card {
++  transition: border-color .2s;
+   display: flex;
+   align-items: center;
+   gap: 20px;
+@@ -453,8 +448,8 @@
+   padding: 20px;
+ }
+ .content-card > img {
+-  width: 112px;
+-  height: 100px;
++  width: 144px;
++  height: 112px;
+   object-fit: cover;
+   border-radius: 8px;
+ }
+@@ -558,10 +553,13 @@
+   grid-template-columns: 1fr;
+   gap: 16px;
+ }
+-.type-nav {
+-  flex-direction: row;
+-  overflow-x: auto;
+-}
++.type-nav { flex-direction: row; flex-wrap: wrap; padding: 8px; gap: 4px; }
++.type-nav > .nav-caption, .type-nav > button { display: none; }
++.mobile-type-filter { display: flex; width: 100%; align-items: center; gap: 12px; padding: 4px; font-size: .9rem; }
++.mobile-type-filter select { min-width: 0; flex: 1; padding: 9px; background: var(--paper-card); color: var(--text-primary); border: 1px solid var(--border-line); border-radius: 8px; }
++.browse-create { width: 100%; flex-direction: row; flex-wrap: wrap; gap: 4px 12px; padding-top: 8px; }
++.browse-create .nav-caption { display: none; }
++.browse-create a { padding: 6px; }
+ .type-nav button {
+   white-space: nowrap;
+ }
+
+--- src/views/灵脉百科/components/WikiDetail.vue
++++ src/views/灵脉百科/components/WikiDetail.vue
+@@ -1,11 +1,12 @@
+ <template>
+   <main class="wiki-page content-page">
++    <CommunityNav active="wiki" />
+     <nav class="toolbar">
+       <RouterLink :to="{ name: 'KnowledgeHome', query: { type: 'wiki', q: route.query.q, page: route.query.page, category: route.query.category } }">← 公共知识</RouterLink>
+       <button v-if="entry && !editing" @click="startEdit">编辑词条</button>
+       <button v-if="entry" @click="copyLink">复制引用链接</button>
+     </nav>
+-    <p class="type-label">公共知识 · Wiki · 社区共同维护</p>
++    <p class="eyebrow">公共知识 · 社区共同维护</p>
+     <p v-if="loading" role="status">正在加载词条…</p>
+     <div v-else-if="loadError" role="alert">
+       <p>{{ loadError }}</p>
+@@ -17,7 +18,7 @@
+       <div v-if="entry" class="tags">
+         <span v-for="tag in wikiTags(entry.tags)" :key="tag">#{{ tag }}</span>
+       </div>
+-      <section v-if="editing">
++      <section v-if="editing" class="wiki-editor content-panel">
+         <p class="notice">提交后等待审核。保存修改说明，帮助其他贡献者理解这次编辑。</p>
+         <template v-if="isNew">
+           <label>
+@@ -69,8 +70,12 @@
+         </div>
+       </section>
+       <template v-else-if="entry">
+-        <SpiritPreview :model-value="entry.content" />
+-        <section class="history">
++        <nav class="section-toolbar" aria-label="词条视图">
++          <div class="content-filters"><button :aria-pressed="pane === 'article'" @click="pane = 'article'">词条正文</button><button :aria-pressed="pane === 'history'" @click="pane = 'history'">修订记录 · {{ entry.revisionCount || 1 }}</button></div>
++          <span class="section-hint">每个公开版本都可追溯</span>
++        </nav>
++        <article v-show="pane === 'article'" class="wiki-reading content-panel"><SpiritPreview :model-value="entry.content" /><footer class="wiki-reading-footer"><span>发现错误或想补充资料？</span><button @click="startEdit">参与编辑</button><button @click="pane = 'history'">查看修订记录</button></footer></article>
++        <section v-show="pane === 'history'" class="history content-panel">
+           <h2>修订历史</h2>
+           <p>公开记录仅包含已生效版本；待审核建议不会改变正文。</p>
+           <p v-if="historyLoading" role="status">正在加载历史…</p>
+@@ -94,7 +99,7 @@
+                   <span v-if="revision.id === entry.currentRevisionId">（当前）</span>
+                 </div>
+                 <p>{{ revision.editSummary || '未填写修改说明' }}</p>
+-                <button @click="compare(revision.id)">查看版本与段落差异</button>
++                <button :disabled="comparing" @click="compare(revision.id)">{{ comparing ? '加载版本中…' : '查看版本与段落差异' }}</button>
+               </li>
+             </ol>
+             <div class="toolbar" v-if="history.total > 20">
+@@ -108,7 +113,7 @@
+     </template>
+     <p v-if="message" role="status">{{ message }}</p>
+     <p v-if="error" role="alert">{{ error }}</p>
+-    <section v-if="comparison" class="comparison">
++    <section v-if="comparison && pane === 'history' && !editing" class="comparison content-panel" ref="comparisonPanel" tabindex="-1">
+       <h2>版本 #{{ comparison.id }}</h2>
+       <p>{{ comparison.editSummary }} · {{ date(comparison.createdAt) }}</p>
+       <button @click="comparison = null">收起对比</button>
+@@ -119,12 +124,12 @@
+           <h3>{{ change.oldParagraph ? '原第 ' + change.oldParagraph + ' 段' : '新增' }} → {{ change.newParagraph ? '第 ' + change.newParagraph + ' 段' : '删除' }}</h3>
+           <p v-if="change.structural">格式、链接或媒体信息发生变化，请对照下面的完整版本。</p>
+           <template v-else>
+-            <p class="before">
++            <p class="before"><strong class="diff-label">修改前</strong>
+               <span>{{ change.parts.prefix }}</span>
+               <del>{{ change.parts.removed }}</del>
+               <span>{{ change.parts.suffix }}</span>
+             </p>
+-            <p class="after">
++            <p class="after"><strong class="diff-label">修改后</strong>
+               <span>{{ change.parts.prefix }}</span>
+               <ins>{{ change.parts.added }}</ins>
+               <span>{{ change.parts.suffix }}</span>
+@@ -146,7 +151,8 @@
+ </template>
+ 
+ <script setup lang="ts">
+-import { ref, computed, watch, onUnmounted, defineAsyncComponent } from 'vue';
++import CommunityNav from '@/components/CommunityNav.vue';
++import { ref, computed, watch, nextTick, onUnmounted, defineAsyncComponent } from 'vue';
+ import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
+ import { wikiApi, type IWikiCategory } from '@/api/Wiki';
+ import { useUserStore } from '@/stores/user';
+@@ -156,6 +162,9 @@
+ const SpiritText = defineAsyncComponent(() => import('@/components/SpiritText.vue'));
+ const route = useRoute(), router = useRouter(), user = useUserStore();
+ const isNew = computed(() => route.params.id === 'new'), entry = ref<any>(null), loading = ref(false), loadError = ref(''), error = ref(''), message = ref('');
++const pane = ref<'article' | 'history'>('article');
++const comparisonPanel = ref<HTMLElement>();
++const comparing = ref(false);
+ const editing = ref(false), saving = ref(false), dirty = ref(false), editor = ref<any>(), draft = ref<any>(), editorKey = ref(0), baseRevision = ref(0);
+ const title = ref(''), categoryId = ref(0), categories = ref<IWikiCategory[]>([]), tags = ref(''), excerpt = ref(''), summary = ref('');
+ const history = ref<any>(null), historyPage = ref(1), historyLoading = ref(false), historyError = ref(''), comparison = ref<any>(null), changes = ref<any[]>([]), diffError = ref(''), conflict = ref(false), latest = ref<any>(null);
+@@ -164,9 +173,11 @@
+ const relative = (value: string) => { const seconds = Math.max(0, (Date.now() - new Date(value).getTime()) / 1000); return seconds < 60 ? '刚刚' : seconds < 3600 ? Math.floor(seconds / 60) + ' 分钟前' : seconds < 86400 ? Math.floor(seconds / 3600) + ' 小时前' : seconds < 2592000 ? Math.floor(seconds / 86400) + ' 天前' : date(value); };
+ function login() { return router.push({ name: '身份认证', query: { redirect: route.fullPath } }); }
+ async function load() {
++    pane.value = 'article';
+     const current = ++version;
+     historyVersion++;
+     comparisonVersion++;
++    comparing.value = false;
+     loading.value = true;
+     loadError.value = '';
+     entry.value = null;
+@@ -215,7 +226,7 @@
+     }
+ }
+ function startEdit() { if (!user.isLoggedIn)
+-    return login(); draft.value = entry.value.content; baseRevision.value = entry.value.currentRevisionId; editing.value = true; editorKey.value++; summary.value = ''; comparison.value = null; }
++    return login(); draft.value = entry.value.content; baseRevision.value = entry.value.currentRevisionId; editing.value = true; editorKey.value++; summary.value = ''; comparisonVersion++; comparing.value = false; comparison.value = null; }
+ function cancelEdit() { if (!dirty.value || window.confirm('放弃未提交的编辑？')) {
+     editing.value = false;
+     dirty.value = false;
+@@ -291,6 +302,8 @@
+ }
+ async function compare(id: number) {
+     const current = ++comparisonVersion;
++    comparing.value = true;
++    comparison.value = null;
+     error.value = '';
+     diffError.value = '';
+     changes.value = [];
+@@ -307,11 +320,13 @@
+                 diffError.value = cause.message;
+             }
+         }
++        await nextTick();
++        if (current === comparisonVersion && pane.value === 'history' && !editing.value) { comparisonPanel.value?.focus({ preventScroll: true }); comparisonPanel.value?.scrollIntoView({ block: 'start' }); }
+     }
+     catch {
+         if (current === comparisonVersion)
+             error.value = '历史版本加载失败，请重试';
+-    }
++    } finally { if (current === comparisonVersion) comparing.value = false; }
+ }
+ async function copyLink() { try {
+     await navigator.clipboard.writeText(window.location.href);
+@@ -337,8 +352,8 @@
+ 
+ <style scoped>
+ .wiki-page {
+-  max-width: 900px;
+-  margin: 24px auto 80px;
++  max-width: 1200px;
++  margin: 0 auto 40px;
+   color: var(--text-primary);
+   line-height: 1.8;
+ }
+@@ -386,14 +401,11 @@
+   opacity: .5;
+   cursor: wait;
+ }
+-.primary {
+-  background: var(--text-primary);
+-  color: var(--paper-bg);
+-}
+ fieldset {
+   min-width: 0;
+   border: 1px solid var(--border-line);
+   border-radius: 10px;
++  padding: 20px;
+ }
+ fieldset:disabled {
+   pointer-events: none;
+@@ -407,11 +419,14 @@
+ [role=alert] {
+   color: var(--accent-color);
+ }
+-.history, .comparison {
+-  border-top: 1px solid var(--border-line);
+-  margin-top: 36px;
+-  padding-top: 20px;
+-}
++.history, .comparison { margin-top: 24px; }
++.wiki-reading { padding: 36px 48px; }
++.wiki-reading :deep(.spirit-render-engine) { max-width: 760px; margin: auto; font-size: 1.05rem; line-height: 1.9; }
++.wiki-reading-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border-top: 1px solid var(--border-line); margin-top: 32px; padding-top: 20px; color: var(--text-secondary); font-size: .9rem; }
++.diff-label { display: block; color: var(--text-secondary); font-size: .78rem; margin-bottom: 6px; }
++.tags span, .contributor { padding: 3px 10px; background: var(--paper-sub); border-radius: 6px; font-size: .85rem; }
++.history li { border-left: 2px solid var(--border-line); padding-left: 20px; }
++@media(max-width: 720px) { .wiki-reading { padding: 20px; } fieldset { padding: 12px; } }
+ ol {
+   list-style: none;
+   padding: 0;
+
+--- src/router/index.ts
++++ src/router/index.ts
+@@ -3,7 +3,7 @@
+ import { LOGIN_PATH } from './auth'
+ 
+ // 工具箱页面沿用目录生成路由，所有页面均在访问时加载。
+-const toolModules = import.meta.glob('../views/工具箱/*/index.vue')+const toolModules = import.meta.glob('../views/工具箱/*/index.vue')
+ const toolsRoutes = Object.entries(toolModules).map(([path, component]) => {
+   const name = path.split('/')[3]
+   return { path: name, name, component }
+@@ -14,6 +14,8 @@
+     { path: '/write/:type(blog|post)', name: 'Compose', component: () => import('@/views/太初随笔/ComposeView.vue'), meta: { requiresAuth: true } },
+     { path: '/', name: 'root', component: () => import('../views/推送首页/index.vue') },
+     { path: '/gallery', name: 'GalleryHome', component: () => import('../views/画廊展厅/index.vue') },
++    { path: '/stream', alias: '/posts', name: 'CommunityStream', component: () => import('../views/太初随笔/index.vue') },
++    { path: '/posts/:id', redirect: to => ({ name: 'CommunityStream', query: { ...to.query, post: String(to.params.id) } }) },
+     { path: '/knowledge', name: 'KnowledgeHome', component: () => import('../views/知识库/index.vue') },
+     { path: '/codex', redirect: to => ({ name: 'KnowledgeHome', query: { ...to.query, type: 'wiki' } }) },
+ 
+@@ -172,7 +174,7 @@
+       ]
+     }
+   ]
+-})+})
+ // ===== 路由守卫 =====
+ router.beforeEach((to) => {
+   if (to.meta.requiresAuth && !useUserStore().isLoggedIn) return { path: LOGIN_PATH, query: { redirect: to.fullPath } }
+
+--- tests/fixtures/community-preview.cjs
++++ tests/fixtures/community-preview.cjs
+@@ -8,7 +8,22 @@
+ const drafts = new Map(), published = new Map(), artworks = new Map();
+ const items = [{ id: 'wiki-one', type: 'wiki', title: '如何整理创作资料', summary: '共同维护的公共知识，保留每次修订。', author: '社区贡献者', tags: '创作,资料', updatedAt: now }];
+ let failSave = true, failResource = true, failUpload = true;
+-const image = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#d9d4c7"/><path d="M0 500L240 150 450 450 650 220 800 500Z" fill="#596c61"/></svg>');
++const image = 'http://127.0.0.1:5193/fixture-image/0.svg';
++const palettes = [['#e5d8c4','#5c756a','#324d4c'],['#e4dbe8','#9993ae','#665c80'],['#e3c9ad','#b3795e','#6e514c']];
++for (let i = 0; i < 6; i++) {
++  const id = String(i + 1), cover = `http://127.0.0.1:5193/fixture-image/${i}.svg`;
++  const title = ['山间来信','暮色里的远行者','夏末的海岸','雨后的城市','林间小屋 · 色彩练习','群山之上'][i];
++  artworks.set(id, { id: +id, title, description: '记录光影与色彩的一次练习。作品独立发布，也可以通过标签被找到。', tags: ['风景','原创'], author: { username: '社区画师' }, uploadAt: now, images: [{url: cover, isCover: true}], canEdit: true, canInteract: true, likesCount: i * 3, favoritesCount: i, commentsCount: 0 });
++  items.push({id, type:'artwork',title,summary:'记录光影与色彩的一次练习。',author:'社区画师',tags:'风景,原创',updatedAt:now,coverUrl:cover});
++}
++for (let i = 0; i < 6; i++) {
++  const id = 'reading-' + i, type = i % 2 ? 'post' : 'blog';
++  const title = ['从一张草图开始：我的创作笔记','今天在山里看到的颜色','如何为故事建立一份资料索引','分享一份近期的练习记录','把灵感变成可以完成的作品','你通常在哪里记录突然出现的灵感？'][i];
++  const text = '创作并不总是从完整的计划开始。有时是一束光、一句对话，或一次偶然的相遇。把这些片段记下来，再慢慢找到它们之间的联系。';
++  const cover = `http://127.0.0.1:5193/fixture-image/${i}.svg`;
++  published.set(id,{id,type,title,authorName:'社区创作者',publishedAt:now,resonance:i*2,excerpt:type==='blog'?JSON.stringify({text,coverUrl:i===0?cover:''}):text,extraData:JSON.stringify({cardCover:i===3?cover:''}),blocks:[{id:'p-one',type:'paragraph',data:JSON.stringify(paragraph(text)),sortOrder:0}],canEdit:false});
++  items.push({id,type,title,summary:text,author:'社区创作者',tags:'创作,记录',updatedAt:now});
++}
+ function catalogItem(note, id) { return { id, type: note.type, title: note.title, summary: '本地验收发布内容', author: user.username, tags: (note.tags || []).join(','), updatedAt: now }; }
+ const api = http.createServer(async (req, res) => {
+   res.setHeader('Access-Control-Allow-Origin', 'http://127.0.0.1:5192');
+@@ -20,7 +35,16 @@
+   const bytes = Buffer.concat(chunks); let body = {};
+   try { body = JSON.parse(bytes.toString()); } catch {}
+   let data; const fail = message => { res.statusCode = 503; return { message }; };
+-  if (url.pathname === '/api/Plugins') data = [{ name: '知识库', url: '/knowledge' }, { name: '画廊展厅', url: '/gallery' }, { name: '太初随笔', url: '/stream' }];
++  if (url.pathname.startsWith('/fixture-image/')) {
++    const i = parseInt(url.pathname.split('/').pop()) || 0, c = palettes[i % palettes.length];
++    res.setHeader('Content-Type','image/svg+xml');
++    return res.end(`<svg xmlns="http://www.w3.org/2000/svg" width="800" height="${i % 2 ? 700 : 540}"><rect width="800" height="800" fill="${c[0]}"/><circle cx="580" cy="150" r="65" fill="#fff7"/><path d="M0 500L240 150 450 450 650 220 800 500V800H0Z" fill="${c[1]}"/><path d="M0 560L180 350 400 580 590 420 800 600V800H0Z" fill="${c[2]}"/></svg>`);
++  }
++  else if (url.pathname === '/api/LingMaiPublish/public-stream') {
++    const type=url.searchParams.get('type'), page=+(url.searchParams.get('page')||1), size=+(url.searchParams.get('pageSize')||20);
++    data=[...published.values()].filter(p=>!type||p.type===type).slice((page-1)*size,page*size);
++  }
++  else if (url.pathname === '/api/Plugins') data = [{ name: '知识库', url: '/knowledge' }, { name: '画廊展厅', url: '/gallery' }, { name: '太初随笔', url: '/stream' }];
+   else if (url.pathname === '/api/User/me') data = user;
+   else if (url.pathname === '/api/knowledge-base/catalog') {
+     const type = url.searchParams.get('type'), q = url.searchParams.get('search') || '', page = +(url.searchParams.get('page') || 1);
+@@ -58,7 +82,7 @@
+     }
+   } else if (/\/api\/Artwork\/\d+\/comments/.test(url.pathname)) data = { items: [], total: 0, hasMore: false };
+   else if (/\/api\/Artwork\/\d+$/.test(url.pathname)) data = artworks.get(url.pathname.split('/').pop());
+-  else if (url.pathname === '/api/Artwork') { const rows = [...artworks.values()].map(a => ({ ...a, coverImageUrl: image, authorName: user.username, imageCount: 1 })); data = { data: rows, total: rows.length, hasMore: false }; }
++  else if (url.pathname === '/api/Artwork') { const rows = [...artworks.values()].filter(a=>JSON.stringify(a).includes(url.searchParams.get('search') || '')).map(a => ({ ...a, coverImageUrl: a.images[0].url, authorName: a.author.username, imageCount: 1 })); data = { data: rows, total: rows.length, hasMore: false }; }
+   else { res.statusCode = 404; data = { message: '本地验收未配置此接口' }; }
+   if (!data) { res.statusCode = 404; data = { message: '内容不存在' }; }
+   res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(data));
+
+--- tests/community-layout.test.mjs
++++ tests/community-layout.test.mjs
+@@ -0,0 +1,85 @@
++import assert from 'node:assert/strict'
++import { readFileSync } from 'node:fs'
++import { createRequire } from 'node:module'
++import { test } from 'node:test'
++import { parse, compileScript } from '@vue/compiler-sfc'
++import ts from 'typescript'
++import * as vue from 'vue'
++
++const require = createRequire(import.meta.url)
++function load(file, mocks = {}) {
++  const source = readFileSync(new URL('../src/' + file, import.meta.url), 'utf8')
++  const text = file.endsWith('.vue') ? compileScript(parse(source).descriptor, { id: file }).content : source
++  const exports = {}
++  new Function('require', 'exports', ts.transpileModule(text, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText)(id => {
++    if (id in mocks) return mocks[id]
++    if (id.endsWith('.vue')) return {}
++    if (id.startsWith('@/utils/')) return load(id.replace('@/', '') + '.ts', mocks)
++    if (id === './wikiContent') return load('utils/wikiContent.ts')
++    return require(id)
++  }, exports)
++  return exports
++}
++function mount(t, file, mocks, props = {}) {
++  let state
++  const component = load(file, mocks).default
++  const renderer = vue.createRenderer({ createComment: () => ({}), insert() {}, remove() {}, parentNode() {}, nextSibling() {} })
++  const app = renderer.createApp({ setup() { state = component.setup(props, { expose() {}, emit() {} }); return () => null } })
++  app.mount({}); t.after(() => app.unmount()); return state
++}
++const settle = async () => { await vue.nextTick(); await new Promise(resolve => setImmediate(resolve)); await vue.nextTick() }
++const deferred = () => { let resolve, reject; const promise = new Promise((a,b) => {resolve=a;reject=b}); return {promise,resolve,reject} }
++const paragraph = (text, id = 'one') => ({ type: 'paragraph', attrs: { id }, content: [{ type: 'text', text }] })
++const doc = text => ({ type: 'doc', content: [paragraph(text)] })
++function browser(t) { const old = globalThis.window; globalThis.window = { addEventListener() {}, removeEventListener() {}, confirm: () => false }; t.after(() => { if (old) globalThis.window = old }) }
++
++async function stream(t, getPublicStream) {
++  const route = vue.reactive({ path:'/stream', query:{} }), calls=[];
++  const old=globalThis.IntersectionObserver;
++  globalThis.IntersectionObserver=class {observe(){} disconnect(){}};
++  t.after(()=>{globalThis.IntersectionObserver=old});
++  const navigate=async value=>{ calls.push(value); route.query=value.query };
++  const state=mount(t,'views/太初随笔/index.vue',{
++    'vue-router':{useRoute:()=>route,useRouter:()=>({push:navigate,replace:navigate})},
++    '../../api/NotePublish':{notePublishApi:{getPublicStream}},
++  });
++  await settle(); return {state,route,calls};
++}
++
++test('stream ignores stale filter responses and preserves current loading state', async t=>{
++  const first=deferred(), second=deferred();let calls=0;
++  const {state:s,route}=await stream(t,()=>++calls===1?first.promise:second.promise);
++  route.query={type:'post'};await settle();
++  first.resolve([{id:'old',type:'blog',excerpt:'old'}]);await settle();
++  assert.equal(s.loading.value,true);assert.equal(s.posts.value.length,0);
++  second.resolve([{id:'new',type:'post',excerpt:'new',extraData:'{"cardCover":"/cover"}'}]);await settle();
++  assert.equal(s.loading.value,false);assert.equal(s.posts.value[0].id,'new');assert.equal(s.posts.value[0].cardCover,'/cover');
++});
++
++test('stream retries the failed page without duplicates or losing loaded content', async t=>{
++  const requests=[];let fail=true;
++  const {state:s}=await stream(t,async p=>{
++    requests.push(p.page);
++    if(p.page===1)return Array.from({length:20},(_,i)=>({id:String(i),type:'blog',excerpt:'text'}));
++    if(fail){fail=false;throw Error('offline')}
++    return [{id:'19',type:'blog'},{id:'20',type:'post'}];
++  });
++  await s.fetchStream(true);assert.equal(s.posts.value.length,20);assert.ok(s.error.value);
++  await s.fetchStream(true);assert.deepEqual(requests,[1,2,2]);assert.equal(s.posts.value.length,21);assert.equal(s.hasMore.value,false);
++});
++
++test('stream detail and filters use router query, retaining list context',async t=>{
++  const {state:s,route}=await stream(t,async()=>[]);
++  await s.changeFilter('post');await settle();
++  const target=s.detailRoute('public-one');assert.deepEqual(target,{path:'/stream',query:{type:'post',post:'public-one'}});
++  route.query=target.query;await settle();assert.equal(s.activePostId.value,'public-one');
++  await s.closeArtwork();assert.equal(s.activePostId.value,null);assert.equal(route.query.type,'post');
++});
++
++test('stream retains legacy blog cover, plain text and rich-text excerpts',async t=>{
++  const {state:s}=await stream(t,async()=>[]);
++  assert.equal(s.formatPost({id:'a',type:'blog',excerpt:'{"text":"摘要","coverUrl":"/cover"}'}).content,'摘要');
++  assert.equal(s.formatPost({id:'b',type:'note',excerpt:'old text'}).content,'old text');
++  const rich=JSON.stringify(doc('正文'));assert.equal(s.formatPost({id:'c',type:'blog',excerpt:rich}).content,rich);
++  assert.equal(s.formatPost({id:'d',type:'post',excerpt:'短文',extraData:'{broken'}).content,'短文');
++});
+
+--- README.md
++++ README.md
+@@ -114,31 +114,31 @@
+ 
+ 打手订单页合并个人信息读取和接单/弃单后的刷新逻辑，首次加载请求由 3 次降为 2 次；客服工作台复用当前订单列表的 total，正常首次加载由 9 次降为 8 次，列表失败时仍独立读取数量。客诉标签继续单独统计 pending。移除下单重复校验、恒为 true 的评价状态和单纯转发事件的方法；4 段展示函数由订单与客诉页面共用，保留不同角色的状态与进度显示规则。含新增的 20 行 orderHelpers.js，业务源码净减少 72 行。
+ 
+-新增 5 项回归用例，覆盖登录/审核拦截、请求数量、分页与客诉统计、失败回退、接单弃单刷新和下单参数；全部 84 项测试、类型检查及生产构建通过。共享展示函数与修改前结果对照一致，组件样式未改动。本批使用模拟 API，未进行真实后端联调或浏览器端到端验证；原有 Three.js 大文件警告仍保留。
+-
+-## 灵脉编辑、保存与上传清理（第九批）
+-
+-主编辑区、快捷抽屉、侧栏及数据层共用保存参数组装；主编辑区与抽屉共用内容块转换。编辑输入、图片和 PDF 上传完成共用一次正文变更通知，避免上传事务与完成回调重复上报。移除博客编辑器不可达的挂载初始化和未使用的导入/解构。只修改 9 个已有业务文件，源码删除 121 行、增加 60 行，净减少 61 行；测试净增 106 行、本文档增加 8 行，全部改动合计净增 53 行（按去除末尾空行后的物理行统计，临时产物另计）。
+-
+-自动保存仍按同一笔记 2 秒防抖，但不同笔记分别排队，避免主编辑区与抽屉互相覆盖。保留 rawContent 的 API 拍平、blocks 直接提交、原有数据层 1 秒防抖、上传资源登记及异常清理。新增 6 项回归检查，全部 90 项测试、应用与构建配置类型检查及生产构建通过；另对照修改前基线验证了 24 组保存场景，5 个组件的模板和样式未改动。本批使用模拟 API 与编辑器事务，未做真实后端/COS 联调或浏览器端到端验证；原有 Three.js 大文件警告仍保留。
+-
+-已发现但本批未改动：历史面板手动保存入口只显示提示，没有调用 createSnapshot；本批不将其计为已完成的快照保存功能。
+-
+-## 灵脉手动保存与快照恢复（第十批）
+-
+-历史面板现已连接立即同步、创建快照和列表刷新，补齐重复点击拦截、处理中状态、加载失败重试及笔记切换时的旧响应隔离。保存读取当前编辑器内容，等待文件上传完成后才允许固化；快照额外保留原始 blocks，兼容旧 Tiptap content 快照，保留博客系统块、白板和日程数据。快照恢复正文与块，标题、标签及其他元数据继续保持当前值，接口路径、请求外层字段和最近 20 份保留规则不变。
+-
+-恢复前暂停目标笔记的自动保存并等待正在执行的写入，成功后丢弃旧队列并重载主编辑区；恢复失败则重新排队原有草稿。正文 1 秒、内容块 2 秒的防抖节奏保留。后端恢复复用正常同步的事务、分类型存储、双链与搜索索引更新，删除旧的重复恢复、无调用方的块同步及其双链辅助代码；日程删除旧块改用直接删除，避免相同 ID 的实体追踪冲突。10 个已有业务文件共删除 324 行、增加 212 行，净减少 112 行（前端净增 100 行，后端净减 212 行）；测试净增 186 行、文档增加 8 行，全部改动合计净增 82 行，临时检查产物另计。
+-
+-新增 11 项前端回归用例，全部 101 项测试、两套 TypeScript 检查和生产构建通过；后端构建 0 错误、174 条项目警告，并直接执行了快照解析代码的 26 项检查。覆盖新旧快照、附件字段、空内容、无效格式、请求失败、重复点击、切换笔记、上传中拦截及恢复与自动保存的顺序。未连接真实数据库或 COS，也未执行浏览器端到端测试；Three.js 单体大文件警告仍保留。
+-
+-## 后端灵脉职责与重复逻辑清理（第十一批）
+-
+-仅修改后端两个已有业务文件：同步与快照恢复共用的持久化事务、分类型内容块写入、链接/索引投影以及配额查询归入 LingMaiService；控制器保留登录与配额门槛、HTTP 响应和异常信息映射。普通笔记与日程共用块构造逻辑，保留各自的 ID 去重规则；三处 GUID 引用扫描合并，预览和索引共用文本遍历，预览仍包含 title 而索引只提取 text。合并重复配额计算，删除额外的空间计数查询、无用的配额布尔结果和导入；创建空间的检查由 4 次查询降为 3 次，创建 >=、编辑 > 的门槛保留。
+-
+-业务源码删除 519 行、增加 373 行，净减少 146 行；不计空行、独立行注释和 region 指令后净减少 68 行。未新增业务文件；独立回归项目增加 276 行，本文档增加 8 行，全部改动合计净增 138 行，临时基线和构建产物另计。
+-
+-新增后端测试位于 TaiChuBackend_V2/tests/LingMai.Regression。先构建后端主项目，再从后端根目录执行 dotnet run --project tests/LingMai.Regression/LingMai.Regression.csproj；测试无需第三方测试包，以模拟 EF 存储执行真实控制器和服务，不能替代 MySQL 的约束、事务隔离及完整状态追踪验证。本批 369 项断言通过，127 组记录与修改前基线一致，覆盖路由/响应、权限拦截、配额边界、块顺序、链接、索引、快照解析和并发异常。前端 101 项测试及生产构建通过，后端构建 0 错误、174 条项目警告，修改文件未出现构建警告；未连接真实数据库或执行浏览器端到端测试，Three.js 单体大文件警告仍保留。
++新增 5 项回归用例，覆盖登录/审核拦截、请求数量、分页与客诉统计、失败回退、接单弃单刷新和下单参数；全部 84 项测试、类型检查及生产构建通过。共享展示函数与修改前结果对照一致，组件样式未改动。本批使用模拟 API，未进行真实后端联调或浏览器端到端验证；原有 Three.js 大文件警告仍保留。
++
++## 灵脉编辑、保存与上传清理（第九批）
++
++主编辑区、快捷抽屉、侧栏及数据层共用保存参数组装；主编辑区与抽屉共用内容块转换。编辑输入、图片和 PDF 上传完成共用一次正文变更通知，避免上传事务与完成回调重复上报。移除博客编辑器不可达的挂载初始化和未使用的导入/解构。只修改 9 个已有业务文件，源码删除 121 行、增加 60 行，净减少 61 行；测试净增 106 行、本文档增加 8 行，全部改动合计净增 53 行（按去除末尾空行后的物理行统计，临时产物另计）。
++
++自动保存仍按同一笔记 2 秒防抖，但不同笔记分别排队，避免主编辑区与抽屉互相覆盖。保留 rawContent 的 API 拍平、blocks 直接提交、原有数据层 1 秒防抖、上传资源登记及异常清理。新增 6 项回归检查，全部 90 项测试、应用与构建配置类型检查及生产构建通过；另对照修改前基线验证了 24 组保存场景，5 个组件的模板和样式未改动。本批使用模拟 API 与编辑器事务，未做真实后端/COS 联调或浏览器端到端验证；原有 Three.js 大文件警告仍保留。
++
++已发现但本批未改动：历史面板手动保存入口只显示提示，没有调用 createSnapshot；本批不将其计为已完成的快照保存功能。
++
++## 灵脉手动保存与快照恢复（第十批）
++
++历史面板现已连接立即同步、创建快照和列表刷新，补齐重复点击拦截、处理中状态、加载失败重试及笔记切换时的旧响应隔离。保存读取当前编辑器内容，等待文件上传完成后才允许固化；快照额外保留原始 blocks，兼容旧 Tiptap content 快照，保留博客系统块、白板和日程数据。快照恢复正文与块，标题、标签及其他元数据继续保持当前值，接口路径、请求外层字段和最近 20 份保留规则不变。
++
++恢复前暂停目标笔记的自动保存并等待正在执行的写入，成功后丢弃旧队列并重载主编辑区；恢复失败则重新排队原有草稿。正文 1 秒、内容块 2 秒的防抖节奏保留。后端恢复复用正常同步的事务、分类型存储、双链与搜索索引更新，删除旧的重复恢复、无调用方的块同步及其双链辅助代码；日程删除旧块改用直接删除，避免相同 ID 的实体追踪冲突。10 个已有业务文件共删除 324 行、增加 212 行，净减少 112 行（前端净增 100 行，后端净减 212 行）；测试净增 186 行、文档增加 8 行，全部改动合计净增 82 行，临时检查产物另计。
++
++新增 11 项前端回归用例，全部 101 项测试、两套 TypeScript 检查和生产构建通过；后端构建 0 错误、174 条项目警告，并直接执行了快照解析代码的 26 项检查。覆盖新旧快照、附件字段、空内容、无效格式、请求失败、重复点击、切换笔记、上传中拦截及恢复与自动保存的顺序。未连接真实数据库或 COS，也未执行浏览器端到端测试；Three.js 单体大文件警告仍保留。
++
++## 后端灵脉职责与重复逻辑清理（第十一批）
++
++仅修改后端两个已有业务文件：同步与快照恢复共用的持久化事务、分类型内容块写入、链接/索引投影以及配额查询归入 LingMaiService；控制器保留登录与配额门槛、HTTP 响应和异常信息映射。普通笔记与日程共用块构造逻辑，保留各自的 ID 去重规则；三处 GUID 引用扫描合并，预览和索引共用文本遍历，预览仍包含 title 而索引只提取 text。合并重复配额计算，删除额外的空间计数查询、无用的配额布尔结果和导入；创建空间的检查由 4 次查询降为 3 次，创建 >=、编辑 > 的门槛保留。
++
++业务源码删除 519 行、增加 373 行，净减少 146 行；不计空行、独立行注释和 region 指令后净减少 68 行。未新增业务文件；独立回归项目增加 276 行，本文档增加 8 行，全部改动合计净增 138 行，临时基线和构建产物另计。
++
++新增后端测试位于 TaiChuBackend_V2/tests/LingMai.Regression。先构建后端主项目，再从后端根目录执行 dotnet run --project tests/LingMai.Regression/LingMai.Regression.csproj；测试无需第三方测试包，以模拟 EF 存储执行真实控制器和服务，不能替代 MySQL 的约束、事务隔离及完整状态追踪验证。本批 369 项断言通过，127 组记录与修改前基线一致，覆盖路由/响应、权限拦截、配额边界、块顺序、链接、索引、快照解析和并发异常。前端 101 项测试及生产构建通过，后端构建 0 错误、174 条项目警告，修改文件未出现构建警告；未连接真实数据库或执行浏览器端到端测试，Three.js 单体大文件警告仍保留。
+ 
+ ## 灵脉发布与图谱清理（第十二批）
+ 
+
+--- src/views/画廊展厅/ArtworkRanking.vue
++++ src/views/画廊展厅/ArtworkRanking.vue
+@@ -1,112 +1,12 @@
+ <script setup lang="ts">
+-import { ref, watch } from 'vue';
+-defineEmits(['on-click']);
+-const props = defineProps<{
+-  period: string;
+-}>();
+-
+-// 模拟前三名数据
+-const topWorks = ref([
+-  { id: 1, title: '太初幻境', author: '长风大士', likes: 1240, cover: 'https://picsum.photos/800/600?r=1' },
+-  { id: 2, title: '灵脉核心', author: '青衫客', likes: 980, cover: 'https://picsum.photos/800/600?r=2' },
+-  { id: 3, title: '混沌之初', author: '云游子', likes: 850, cover: 'https://picsum.photos/800/600?r=3' }
+-]);
+-
+-// 监听时间维度变化，触发数据重载
+-watch(() => props.period, (newVal) => {
+-  console.log(`正在请求${newVal}榜单数据...`);
+-  // 这里写 API 请求逻辑
+-});
++defineProps<{ period: string }>();
++defineEmits(['explore']);
+ </script>
+ 
+ <template>
+-  <div class="podium">
+-    <div 
+-      v-for="(work, index) in topWorks" 
+-      :key="work.id" 
+-      :class="['podium-item', `rank-${index + 1}`]"
+-      @click="$emit('on-click', work.id)"
+-    >
+-      <div class="crown" v-if="index === 0">👑</div>
+-      <div class="artwork-card">
+-        <div class="rank-tag">#{{ index + 1 }}</div>
+-        <img :src="work.cover" class="cover" />
+-        <div class="info">
+-          <h3>{{ work.title }}</h3>
+-          <p>@{{ work.author }}</p>
+-          <div class="score">影响力: {{ work.likes }}</div>
+-        </div>
+-      </div>
+-    </div>
+-  </div>
++  <section class="content-state" role="status">
++    <h2>{{ period }}榜暂未开放</h2>
++    <p>当前还没有可用的公开榜单数据。你仍可在全部作品中浏览、点赞和收藏。</p>
++    <button @click="$emit('explore')">浏览全部作品</button>
++  </section>
+ </template>
+-
+-<style scoped>
+-.podium {
+-  display: grid;
+-  grid-template-columns: repeat(3, 1fr);
+-  gap: 30px;
+-  align-items: end; /* 模拟领奖台高度差 */
+-  padding-top: 40px;
+-}
+-
+-.podium-item {
+-  position: relative;
+-  transition: transform 0.3s ease;
+-}
+-
+-/* 领奖台高度差逻辑 */
+-.rank-1 { order: 2; transform: translateY(-30px); } /* 第一名居中且最高 */
+-.rank-2 { order: 1; }
+-.rank-3 { order: 3; }
+-
+-.podium-item:hover {
+-  transform: translateY(-40px);
+-}
+-
+-.artwork-card {
+-  background: #fff;
+-  border: 1px solid #f0f0f0;
+-  border-radius: 16px;
+-  overflow: hidden;
+-  box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+-}
+-
+-.rank-tag {
+-  position: absolute;
+-  top: 10px;
+-  left: 10px;
+-  background: #24292f;
+-  color: #fff;
+-  padding: 4px 12px;
+-  border-radius: 20px;
+-  font-weight: 800;
+-  z-index: 10;
+-}
+-
+-.cover {
+-  width: 100%;
+-  aspect-ratio: 4/5;
+-  object-fit: cover;
+-}
+-
+-.info {
+-  padding: 20px;
+-  text-align: center;
+-}
+-
+-.crown {
+-  position: absolute;
+-  top: -40px;
+-  left: 50%;
+-  transform: translateX(-50%);
+-  font-size: 2rem;
+-}
+-
+-@media (max-width: 900px) {
+-  .podium { grid-template-columns: 1fr; align-items: stretch; }
+-  .rank-1 { order: 1; transform: none; }
+-  .rank-2 { order: 2; }
+-  .rank-3 { order: 3; }
+-}
+-</style>
+--- src/views/太初随笔/ComposeView.vue
++++ src/views/太初随笔/ComposeView.vue
+@@ -1,12 +1,13 @@
+ <template>
+   <main class="compose-page content-page">
++    <CommunityNav active="stream" />
+     <header class="content-header">
+       <div>
+       <RouterLink :to="{ name: 'KnowledgeHome' }">← 知识库</RouterLink>
+       <h1>{{ isPost ? '发帖子' : '写博客' }}</h1>
+       <p>独立发布即可，标签和正文引用均可选。草稿会保存到你的创作空间。</p>
+       </div>
+-      <button :disabled="busy" @click="showDrafts = !showDrafts; showDrafts && loadDrafts()">我的{{ isPost ? '帖子' : '博客' }}</button>
++      <div class="content-actions"><button :disabled="busy" @click="showDrafts = !showDrafts; showDrafts && loadDrafts()">我的{{ isPost ? '帖子' : '博客' }}</button></div>
+     </header>
+     <section v-if="showDrafts" class="draft-list content-panel" aria-label="我的创作">
+       <h2>继续创作</h2>
+@@ -59,6 +60,7 @@
+ </template>
+ 
+ <script setup lang="ts">
++import CommunityNav from '@/components/CommunityNav.vue';
+ import { ref, computed, watch, onUnmounted } from 'vue';
+ import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
+ import SpiritText from '@/components/SpiritText.vue';
+
+--- tests/artwork-publish.test.mjs
++++ tests/artwork-publish.test.mjs
+@@ -14,7 +14,7 @@
+   const source = readFileSync(new URL('../src/' + file, import.meta.url), 'utf8')
+   const { content } = compileScript(parse(source).descriptor, { id: file })
+   const js = ts.transpileModule(content, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
+-  const exports = {}; new Function('require', 'exports', js)(id => id === '@/utils/wikiContent' ? helper : id in mocks ? mocks[id] : require(id), exports)
++  const exports = {}; new Function('require', 'exports', js)(id => id === '@/utils/wikiContent' ? helper : id in mocks ? mocks[id] : id.endsWith('.vue') ? {} : require(id), exports)
+   let state; const events = []
+   const renderer = vue.createRenderer({ createComment: () => ({}), insert() {}, remove() {}, parentNode() {}, nextSibling() {} })
+   const app = renderer.createApp({ setup() { state = exports.default.setup(props, { expose() {}, emit: (...args) => events.push(args) }); return () => null } })
+
+--- src/views/画廊展厅/ArtworkPublishModal.vue
++++ src/views/画廊展厅/ArtworkPublishModal.vue
+@@ -213,7 +213,7 @@
+ </script>
+ 
+ <style scoped>
+-.modal-body { margin: 0; border: 0; min-width: 0; }
++.modal-body { margin: 0; border: 0; min-width: 0; min-height: 0; flex: 1; }
+ .form-error { margin: 0; padding: 12px 32px; color: var(--accent-color); }
+ input, textarea, select { color: var(--text-primary); background: var(--paper-card); }
+ button:disabled { opacity: .5; cursor: default; }
+@@ -245,6 +245,8 @@
+ }
+ 
+ .modal-header {
++  flex-shrink: 0;
++  gap: 16px;
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+@@ -253,7 +255,7 @@
+ }
+ .modal-title { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-primary); }
+ .modal-subtitle { margin: 4px 0 0; font-size: 0.8rem; color: var(--text-secondary); }
+-.close-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-secondary); }
++.close-btn { flex-shrink: 0; align-self: flex-start; background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-secondary); }
+ 
+ .modal-body {
+   padding: 32px;
+@@ -359,17 +361,21 @@
+ .color-picker { width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px; background: none; }
+ 
+ .modal-footer {
++  flex-shrink: 0;
++  background: var(--paper-bg);
+   display: flex;
+   justify-content: flex-end;
+   gap: 12px;
+   padding: 20px 32px;
+   border-top: 1px solid var(--border-line);
+ }
+-.btn-cancel { background: var(--paper-card); border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
++.btn-cancel { color: var(--text-primary); background: var(--paper-card); border: 1px solid var(--border-line); padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+ .btn-submit { background: var(--accent-color); color: #fff; border: none; padding: 8px 22px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+ .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+ 
+ @media (max-width: 768px) {
+-  .modal-body { grid-template-columns: 1fr; }
++  .modal-body { grid-template-columns: 1fr; padding: 20px; gap: 24px; }
++  .modal-header, .modal-footer { padding: 20px; }
++  .item-mask { opacity: 1; }
+ }
+ </style>

@@ -446,8 +446,8 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 /* ================================================================ */
 .universe-workspace {
   min-height: 100vh;
-  background-color: #f7f7f9;
-  color: #1d1d1f;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
   padding: 30px 40px 60px;
   box-sizing: border-box;
@@ -456,7 +456,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 
 /* 查看模式下的柔和背景 */
 .universe-workspace.view-mode .narrative-canvas {
-  background: #fafafc;
+  background: var(--paper-card);
 }
 
 /* ================================================================ */
@@ -482,7 +482,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 .breadcrumb {
   font-size: 13px;
   font-weight: 600;
-  color: #86868b;
+  color: var(--text-secondary);
   letter-spacing: 0.03em;
   display: flex;
   align-items: center;
@@ -490,15 +490,15 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   flex-wrap: wrap;
 }
 .breadcrumb .highlight {
-  color: #0066cc;
+  color: var(--accent-color);
 }
 .entry-type-badge {
   padding: 2px 12px;
   border-radius: 20px;
   font-size: 11px;
   font-weight: 700;
-  color: #1d1d1f;
-  background: #e5f0ff;
+  color: var(--text-primary);
+  background: var(--accent-soft);
   letter-spacing: 0.02em;
 }
 
@@ -512,10 +512,10 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 /* 视图切换胶囊 */
 .view-toggle {
   display: flex;
-  background: #f2f2f7;
+  background: var(--bg-sub);
   border-radius: 30px;
   padding: 3px;
-  border: 1px solid #e5e5ea;
+  border: 1px solid var(--border-line);
 }
 .toggle-btn {
   border: none;
@@ -524,49 +524,49 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   border-radius: 30px;
   font-size: 12px;
   font-weight: 600;
-  color: #86868b;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 .toggle-btn.active {
-  background: #ffffff;
-  color: #1d1d1f;
+  background: var(--paper-card);
+  color: var(--text-primary);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 .toggle-btn:hover:not(.active) {
-  color: #1d1d1f;
+  color: var(--text-primary);
 }
 
 .save-status {
   font-size: 12px;
-  color: #34c759;
+  color: var(--success);
   font-weight: 500;
   transition: all 0.3s;
 }
 .save-status.saving {
-  color: #ff9500;
+  color: var(--warning);
 }
 
 .action-btn {
   padding: 6px 18px;
   border-radius: 30px;
-  border: 1px solid #d2d2d7;
-  background: white;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 }
 .action-btn:hover {
-  background: #f2f2f7;
+  background: var(--bg-sub);
 }
 .action-btn.primary {
-  background: #0066cc;
-  color: white;
+  background: var(--accent-color);
+  color: var(--on-accent);
   border: none;
 }
 .action-btn.primary:hover {
-  background: #0055b3;
+  background: var(--accent-color);
   box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
 }
 
@@ -586,7 +586,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 /* 左侧主内容 */
 /* ================================================================ */
 .narrative-canvas {
-  background: #ffffff;
+  background: var(--paper-card);
   border-radius: 24px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
   min-height: 70vh;
@@ -604,7 +604,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  border-bottom: 1px solid #f2f2f7;
+  border-bottom: 1px solid var(--border-line);
   padding-bottom: 16px;
   gap: 20px;
   flex-wrap: wrap;
@@ -620,7 +620,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   border: none;
   background: transparent;
   outline: none;
-  color: #1d1d1f;
+  color: var(--text-primary);
   padding: 0;
   line-height: 1.2;
   transition: opacity 0.2s;
@@ -630,20 +630,20 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   cursor: default;
 }
 .title-input::placeholder {
-  color: #d2d2d7;
+  color: var(--text-secondary);
 }
 .char-count {
   position: absolute;
   right: 0;
   bottom: -20px;
   font-size: 11px;
-  color: #a1a1a6;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 .header-meta .meta-hint {
   font-size: 12px;
-  color: #0066cc;
-  background: #e5f0ff;
+  color: var(--accent-color);
+  background: var(--accent-soft);
   padding: 4px 12px;
   border-radius: 20px;
   font-weight: 500;
@@ -663,10 +663,10 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 }
 
 .entry-footer {
-  border-top: 1px solid #f2f2f7;
+  border-top: 1px solid var(--border-line);
   padding-top: 16px;
   font-size: 12px;
-  color: #a1a1a6;
+  color: var(--text-secondary);
   display: flex;
   justify-content: flex-end;
 }
@@ -683,7 +683,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 }
 
 .inspector-card {
-  background: #ffffff;
+  background: var(--paper-card);
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
   border: 1px solid rgba(0, 0, 0, 0.03);
@@ -713,27 +713,27 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   display: none;
 }
 .card-header:hover {
-  background: #fafafc;
+  background: var(--paper-card);
 }
 .card-header h3 {
   font-size: 13px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--text-primary);
   margin: 0;
   letter-spacing: 0.02em;
 }
 .card-header .badge {
   font-size: 10px;
-  background: #f2f2f7;
+  background: var(--bg-sub);
   padding: 2px 10px;
   border-radius: 12px;
   font-weight: 600;
-  color: #86868b;
+  color: var(--text-secondary);
 }
 .card-header .add-btn {
   background: none;
-  border: 1px dashed #d2d2d7;
-  color: #86868b;
+  border: 1px dashed var(--border-line);
+  color: var(--text-secondary);
   border-radius: 6px;
   padding: 2px 12px;
   font-size: 11px;
@@ -742,9 +742,9 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   transition: all 0.2s;
 }
 .card-header .add-btn:hover {
-  border-color: #0066cc;
-  color: #0066cc;
-  background: #f5f9ff;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  background: var(--bg-main);
 }
 
 .card-body {
@@ -764,15 +764,15 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   font-size: 13px;
 }
 .meta-label {
-  color: #86868b;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 .meta-value {
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-weight: 500;
 }
 .type-tag-display {
-  background: #f2f2f7;
+  background: var(--bg-sub);
   padding: 2px 10px;
   border-radius: 12px;
   font-size: 12px;
@@ -783,21 +783,21 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   gap: 8px;
 }
 .status-select {
-  border: 1px solid #d2d2d7;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 12px;
-  background: white;
+  background: var(--paper-card);
   outline: none;
   font-weight: 500;
 }
 .status-select:disabled {
-  background: #f7f7f9;
-  color: #86868b;
+  background: var(--bg-main);
+  color: var(--text-secondary);
 }
 .edit-hint {
   font-size: 10px;
-  color: #34c759;
+  color: var(--success);
   font-weight: 500;
 }
 
@@ -811,15 +811,15 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #fbfbfd;
+  background: var(--paper-card);
   border-radius: 8px;
   padding: 4px 4px 4px 12px;
   border: 1px solid transparent;
   transition: all 0.2s;
 }
 .prop-item:focus-within {
-  border-color: #0066cc;
-  background: #ffffff;
+  border-color: var(--accent-color);
+  background: var(--paper-card);
   box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.05);
 }
 .prop-fields {
@@ -835,15 +835,15 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   padding: 6px 0;
   font-size: 12px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   outline: none;
   min-width: 60px;
 }
 .prop-key:disabled {
-  color: #86868b;
+  color: var(--text-secondary);
 }
 .prop-separator {
-  color: #d2d2d7;
+  color: var(--text-secondary);
   font-weight: 300;
 }
 .prop-value {
@@ -852,16 +852,16 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   background: transparent;
   padding: 6px 0;
   font-size: 12px;
-  color: #3a3a3c;
+  color: var(--text-primary);
   outline: none;
 }
 .prop-value:disabled {
-  color: #a1a1a6;
+  color: var(--text-secondary);
 }
 .remove-btn {
   background: none;
   border: none;
-  color: #ff3b30;
+  color: var(--danger);
   cursor: pointer;
   font-size: 14px;
   padding: 0 8px;
@@ -874,7 +874,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 
 .empty-state {
   font-size: 12px;
-  color: #a1a1a6;
+  color: var(--text-secondary);
   text-align: center;
   padding: 12px 0;
   font-weight: 400;
@@ -895,7 +895,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #f2f2f7;
+  background: var(--bg-sub);
   padding: 4px 10px 4px 8px;
   border-radius: 30px;
   font-size: 12px;
@@ -904,8 +904,8 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   border: 1px solid transparent;
 }
 .relation-chip:hover {
-  background: #e5f0ff;
-  border-color: #0066cc;
+  background: var(--accent-soft);
+  border-color: var(--accent-color);
   transform: translateY(-1px);
 }
 .chip-icon {
@@ -913,19 +913,19 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 }
 .chip-title {
   font-weight: 500;
-  color: #1d1d1f;
+  color: var(--text-primary);
 }
 .chip-type {
   font-size: 9px;
-  color: #86868b;
-  background: rgba(255,255,255,0.6);
+  color: var(--text-secondary);
+  background: var(--paper-card);
   padding: 1px 6px;
   border-radius: 10px;
 }
 .chip-remove {
   background: none;
   border: none;
-  color: #ff3b30;
+  color: var(--danger);
   font-size: 12px;
   cursor: pointer;
   padding: 0 2px;
@@ -946,22 +946,22 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   top: 50%;
   transform: translateY(-50%);
   font-size: 14px;
-  color: #a1a1a6;
+  color: var(--text-secondary);
 }
 .search-input {
   width: 100%;
   padding: 8px 12px 8px 36px;
-  border: 1px solid #e5e5ea;
+  border: 1px solid var(--border-line);
   border-radius: 10px;
   font-size: 13px;
   outline: none;
-  background: #ffffff;
+  background: var(--paper-card);
   box-sizing: border-box;
   transition: box-shadow 0.2s;
 }
 .search-input:focus {
   box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.08);
-  border-color: #0066cc;
+  border-color: var(--accent-color);
 }
 
 .index-scroll {
@@ -981,7 +981,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   transition: background 0.15s;
 }
 .index-item:hover {
-  background: #f2f2f7;
+  background: var(--bg-sub);
 }
 .item-icon {
   font-size: 14px;
@@ -989,7 +989,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 .item-name {
   flex: 1;
   font-size: 13px;
-  color: #1d1d1f;
+  color: var(--text-primary);
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
@@ -997,8 +997,8 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 }
 .item-type {
   font-size: 10px;
-  color: #86868b;
-  background: #f2f2f7;
+  color: var(--text-secondary);
+  background: var(--bg-sub);
   padding: 1px 8px;
   border-radius: 10px;
 }
@@ -1009,7 +1009,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 .picker-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--overlay);
   backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
@@ -1017,7 +1017,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   z-index: 9999;
 }
 .picker-modal {
-  background: #ffffff;
+  background: var(--paper-card);
   border-radius: 20px;
   padding: 24px;
   width: 420px;
@@ -1042,10 +1042,10 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   margin: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--text-primary);
 }
 .close-picker {
-  background: #f2f2f7;
+  background: var(--bg-sub);
   border: none;
   width: 30px;
   height: 30px;
@@ -1055,12 +1055,12 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   transition: background 0.2s;
 }
 .close-picker:hover {
-  background: #e5e5ea;
+  background: var(--bg-sub);
 }
 .picker-search {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #e5e5ea;
+  border: 1px solid var(--border-line);
   border-radius: 12px;
   font-size: 14px;
   outline: none;
@@ -1068,7 +1068,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   box-sizing: border-box;
 }
 .picker-search:focus {
-  border-color: #0066cc;
+  border-color: var(--accent-color);
 }
 .picker-list {
   flex: 1;
@@ -1088,14 +1088,14 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   transition: background 0.15s;
 }
 .picker-item:hover {
-  background: #f2f2f7;
+  background: var(--bg-sub);
 }
 .pi-icon { font-size: 16px; }
 .pi-title { flex: 1; font-weight: 500; }
-.pi-type { font-size: 11px; color: #86868b; }
+.pi-type { font-size: 11px; color: var(--text-secondary); }
 .pi-add {
-  background: #0066cc;
-  color: white;
+  background: var(--accent-color);
+  color: var(--on-accent);
   border: none;
   padding: 2px 12px;
   border-radius: 20px;
@@ -1104,7 +1104,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   cursor: pointer;
 }
 .pi-add:hover {
-  background: #0055b3;
+  background: var(--accent-color);
 }
 .picker-empty {
   padding: 30px 0;

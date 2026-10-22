@@ -47,6 +47,7 @@
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { authApi } from '../../api/auth'
+import { getErrorMessage } from '@/utils/apiError'
 
 const emit = defineEmits(['switch'])
 
@@ -77,9 +78,9 @@ const handleSendCode = async () => {
       countdown.value--
       if (countdown.value <= 0) clearInterval(timer)
     }, 1000)
-  } catch (err: any) {
+  } catch (err) {
     isError.value = true
-    message.value = err.friendlyMessage || '发送失败'
+    message.value = getErrorMessage(err, '发送失败')
   }
 }
 
@@ -98,9 +99,9 @@ const handleRegister = async () => {
     isError.value = false
     message.value = '认知成功，即将返回登录'
     setTimeout(() => emit('switch', 'login'), 1500)
-  } catch (err: any) {
+  } catch (err) {
     isError.value = true
-    message.value = err.response?.data?.message || '认知失败'
+    message.value = getErrorMessage(err, '认知失败')
   } finally {
     loading.value = false
   }
@@ -110,7 +111,7 @@ const handleRegister = async () => {
 <style scoped>
 /* 保持原有样式，增加发送按钮样式 */
 .input-group { margin-bottom: 16px; }
-label { font-size: 11px; color: #57606a; font-weight: 600; margin-bottom: 6px; display: block; }
+label { font-size: 11px; color: var(--text-secondary); font-weight: 600; margin-bottom: 6px; display: block; }
 
 .email-input-wrapper {
   display: flex;
@@ -123,8 +124,8 @@ label { font-size: 11px; color: #57606a; font-weight: 600; margin-bottom: 6px; d
 
 .send-code-btn {
   padding: 0 12px;
-  background: #f6f8fa;
-  border: 1px solid #d0d7de;
+  background: var(--bg-sub);
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   font-size: 12px;
   font-weight: 600;
@@ -133,25 +134,25 @@ label { font-size: 11px; color: #57606a; font-weight: 600; margin-bottom: 6px; d
 }
 
 .send-code-btn:disabled {
-  color: #afb8c1;
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
 input {
-  width: 100%; padding: 8px 12px; background: #f6f8fa; border: 1px solid #d0d7de;
+  width: 100%; padding: 8px 12px; background: var(--bg-sub); border: 1px solid var(--border-line);
   border-radius: 6px; font-size: 14px;
 }
-input:focus { border-color: #0969da; background: #fff; outline: none; }
+input:focus { border-color: var(--accent-color); background: var(--paper-card); outline: none; }
 
 .black-btn {
-  width: 100%; padding: 12px; background: #24292f; border-radius: 6px;
+  width: 100%; padding: 12px; background: var(--text-primary); border-radius: 6px;
   color: white; font-weight: 600; border: none; cursor: pointer; margin-top: 10px;
 }
-.black-btn:hover { background: #1f2328; }
+.black-btn:hover { background: var(--text-primary); }
 
 .message { margin-top: 16px; text-align: center; font-size: 12px; }
-.error { color: #cf222e; background: #ffebe9; padding: 8px; border-radius: 6px; }
-.success { color: #1a7f37; background: #dafbe1; padding: 8px; border-radius: 6px; }
+.error { color: var(--danger); background: var(--accent-soft); padding: 8px; border-radius: 6px; }
+.success { color: var(--success); background: var(--success-soft); padding: 8px; border-radius: 6px; }
 
-.footer-links { margin-top: 24px; text-align: center; font-size: 13px; color: #0969da; cursor: pointer; }
+.footer-links { margin-top: 24px; text-align: center; font-size: 13px; color: var(--accent-color); cursor: pointer; }
 </style>

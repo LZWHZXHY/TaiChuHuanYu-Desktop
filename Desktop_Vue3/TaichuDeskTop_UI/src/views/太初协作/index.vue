@@ -6,7 +6,7 @@
         
         <div v-if="quotaInfo" class="quota-dashboard">
           <span class="quota-text">
-            活跃灵脉负载：<strong>{{ quotaInfo.activeCount }}</strong> / {{ quotaInfo.maxCount }}
+            活跃项目：<strong>{{ quotaInfo.activeCount }}</strong> / {{ quotaInfo.maxCount }}
           </span>
           <div class="quota-progress-track">
             <div 
@@ -18,11 +18,12 @@
         </div>
 
         <nav class="portal-tabs">
+          <RouterLink v-if="router.hasRoute('任务栏')" class="tab-link" :to="{ name: '任务栏' }">任务总览</RouterLink>
           <button 
             :class="['tab-link', { active: viewMode === 'mine' }]" 
             @click="viewMode = 'mine'"
           >
-            我的灵脉
+            我的项目
           </button>
           <button 
             :class="['tab-link', { active: viewMode === 'public' }]" 
@@ -39,7 +40,7 @@
         @click="triggerCreateModal"
       >
         <span class="plus">{{ quotaInfo?.isFull ? '⚠️' : '+' }}</span> 
-        {{ quotaInfo?.isFull ? '活跃灵脉已满' : '开启新项目' }}
+        {{ quotaInfo?.isFull ? '项目额度已满' : '开启新项目' }}
       </button>
     </header>
 
@@ -54,7 +55,7 @@
         <div class="entry-content">
           <div class="entry-header">
             <template v-if="viewMode === 'mine'">
-              <span class="role-indicator">{{ getRoleLabel(project.roleId) }}</span>
+              <span class="role-indicator">{{ getRoleLabel(project) }}</span>
             </template>
             <template v-else>
               <span class="role-indicator joined-tag" v-if="project.isJoined">已加入</span>
@@ -64,7 +65,7 @@
               <span class="role-indicator lock-tag" v-else>仅限邀请</span>
             </template>
             <span class="role-indicator">
-              {{ viewMode === 'mine' ? getRoleLabel(project.roleId) : 'OWNER' }} 
+              项目负责人 
               | {{ project.ownerName }}
             </span>
             <h2 class="entry-name">{{ project.name }}</h2>
@@ -98,7 +99,7 @@
       >
         <div class="placeholder-content">
           <div class="placeholder-icon">{{ quotaInfo?.isFull ? '⚠️' : '+' }}</div>
-          <p>{{ quotaInfo?.isFull ? '灵脉负载已满' : '新增项目' }}</p>
+          <p>{{ quotaInfo?.isFull ? '项目额度已满' : '新增项目' }}</p>
         </div>
       </div>
     </main>
@@ -107,8 +108,8 @@
       <div v-if="showCreateModal" class="modal-overlay" @click.self="closeModal">
         <div class="minimal-modal">
           <header class="modal-inner-header">
-            <h2>开启新灵脉</h2>
-            <p>定义一段新的时空协作</p>
+            <h2>创建协作项目</h2>
+            <p>填写目标与计划，开始协作</p>
           </header>
           
           <div class="modal-body">
@@ -243,9 +244,9 @@ const displayProjects = computed(() => {
   return viewMode.value === 'mine' ? myProjects.value : publicProjects.value;
 });
 
-const getRoleLabel = (role: number) => {
-  const labels: Record<number, string> = { 0: 'OWNER', 1: 'DEV', 2: 'GUEST' };
-  return labels[role] || 'MEMBER';
+const getRoleLabel = (project: any) => {
+  if (project.ownerId?.toLowerCase() === userStore.userId?.toLowerCase()) return '负责人';
+  return project.roleIds?.includes('role_system_viewer') ? '观察者' : '协作成员';
 };
 
 const getStatusLabel = (status: number) => {
@@ -278,7 +279,7 @@ onMounted(fetchProjects);
 // 🌟 新增：拦截点击，确保额度已满时在前端即时拦截，严格校准小驼峰
 const triggerCreateModal = () => {
   if (quotaInfo.value && quotaInfo.value.isFull) {
-    alert(`您的活跃灵脉负载已达上限（${quotaInfo.value.activeCount}/${quotaInfo.value.maxCount}）。\n请前往项目配置封存闲置项目释放额度，或去交易行购置更多空间。`);
+    alert(`您的活跃项目已达上限（${quotaInfo.value.activeCount}/${quotaInfo.value.maxCount}）。\n请前往项目配置封存闲置项目释放额度，或去交易行购置更多空间。`);
     return;
   }
   showCreateModal.value = true;
@@ -379,10 +380,12 @@ const formatShortDate = (dateStr: string) => {
 
 <style scoped>
 .collaboration-portal {
-  min-height: 100vh;
-  background-color: #ffffff;
-  padding: 80px 8% 120px;
-  color: #1a1a1a;
+  min-height: 0;
+  background-color: var(--paper-card);
+  padding: 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-line);
+  color: var(--text-primary);
   font-family: "PingFang SC", "Inter", system-ui, sans-serif;
 }
 
@@ -390,7 +393,7 @@ const formatShortDate = (dateStr: string) => {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  margin-bottom: 80px;
+  margin-bottom: 28px;
 }
 
 /* 🌟 将品牌区改为纵向弹性，优雅容纳额度条 */
@@ -416,27 +419,27 @@ const formatShortDate = (dateStr: string) => {
 }
 .quota-text {
   font-size: 0.8rem;
-  color: #888;
+  color: var(--text-secondary);
   font-weight: 300;
 }
 .quota-text strong {
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-weight: 600;
 }
 .quota-progress-track {
   width: 120px;
   height: 3px;
-  background: #f0f0f0;
-  border-radius: 2px;
+  background: var(--bg-sub);
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 .quota-progress-bar {
   height: 100%;
-  background: #1a1a1a;
+  background: var(--text-primary);
   transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .quota-progress-bar.is-full {
-  background: #ff4d4f;
+  background: var(--danger);
 }
 
 .portal-tabs {
@@ -449,7 +452,7 @@ const formatShortDate = (dateStr: string) => {
   background: none;
   border: none;
   font-size: 0.9rem;
-  color: #bbb;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 8px 0;
   position: relative;
@@ -457,7 +460,7 @@ const formatShortDate = (dateStr: string) => {
 }
 
 .tab-link.active {
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -468,91 +471,91 @@ const formatShortDate = (dateStr: string) => {
   left: 0;
   right: 0;
   height: 1px;
-  background: #1a1a1a;
+  background: var(--text-primary);
 }
 
 .create-trigger {
-  background: #1a1a1a;
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--on-accent);
   border: none;
   padding: 12px 28px;
   font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 
 .create-trigger:hover {
-  background: #444;
+  background: var(--text-primary);
   transform: translateY(-2px);
 }
 
 /* 🌟 新增：额度被锁定时按钮的外观弱化 */
 .create-trigger.quota-locked {
-  background: #f5f5f5;
-  color: #bbb;
-  border: 1px solid #e5e5e5;
+  background: var(--bg-sub);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-line);
   cursor: pointer;
 }
 .create-trigger.quota-locked:hover {
   transform: none;
-  background: #f5f5f5;
+  background: var(--bg-sub);
 }
 
 .project-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 40px;
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
+  gap: 20px;
 }
 
 .project-entry {
-  background: #fff;
-  border: 1px solid #f2f2f2;
-  padding: 40px;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
+  padding: 24px;
   transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 280px;
+  min-height: 220px;
 }
 
 .project-entry:hover {
-  border-color: #e5e5e5;
+  border-color: var(--border-line);
   transform: translateY(-6px);
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.05);
 }
 
 .actionable-entry:hover {
-  border-color: #cbd5e1;
+  border-color: var(--border-line);
 }
 
 .role-indicator {
   font-size: 0.6rem;
   font-weight: 700;
   letter-spacing: 0.15em;
-  color: #c0c0c0;
+  color: var(--text-secondary);
   margin-bottom: 16px;
   display: block;
   text-transform: uppercase;
 }
 
-.joined-tag { color: #1a1a1a; }
-.pending-tag { color: #d97706; } 
-.open-tag { color: #059669; }    
-.apply-tag { color: #2563eb; }   
-.lock-tag { color: #94a3b8; }    
+.joined-tag { color: var(--text-primary); }
+.pending-tag { color: var(--warning); } 
+.open-tag { color: var(--success); }    
+.apply-tag { color: var(--accent-color); }   
+.lock-tag { color: var(--text-secondary); }    
 
 .entry-name {
   font-size: 1.35rem;
   font-weight: 500;
   margin: 0 0 16px 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .entry-desc {
   font-size: 0.88rem;
-  color: #777;
+  color: var(--text-secondary);
   line-height: 1.8;
   margin: 0;
   display: -webkit-box;
@@ -564,7 +567,7 @@ const formatShortDate = (dateStr: string) => {
 .entry-meta {
   margin-top: 32px;
   padding-top: 24px;
-  border-top: 1px solid #f8f8f8;
+  border-top: 1px solid var(--border-line);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -579,53 +582,53 @@ const formatShortDate = (dateStr: string) => {
 .status-tag {
   font-size: 0.65rem;
   padding: 2px 8px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 
-.status-0 { color: #aaa; background: #f9f9f9; }
-.status-1 { color: #fff; background: #1a1a1a; }
-.status-2 { color: #1a1a1a; border: 1px solid #1a1a1a; }
-.status-3 { color: #888; background: #f0f0f0; text-decoration: line-through; } /* 🌟 封存项目线 */
+.status-0 { color: var(--text-secondary); background: var(--bg-main); }
+.status-1 { color: var(--paper-card); background: var(--text-primary); }
+.status-2 { color: var(--text-primary); border: 1px solid var(--border-line); }
+.status-3 { color: var(--text-secondary); background: var(--bg-sub); text-decoration: line-through; } /* 🌟 封存项目线 */
 
 .count {
   font-size: 0.75rem;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .time-flow {
   font-size: 0.7rem;
-  color: #ccc;
+  color: var(--text-secondary);
   display: flex;
   gap: 4px;
 }
 
 .flow-sep { opacity: 0.5; }
-.ongoing { color: #999; font-style: italic; }
+.ongoing { color: var(--text-secondary); font-style: italic; }
 
 .empty-placeholder {
-  border: 1px dashed #e5e5e5;
+  border: 1px dashed var(--border-line);
   background: transparent;
   justify-content: center;
   align-items: center;
 }
 /* 🌟 新增：额度满时占位卡的警示色 */
 .empty-placeholder.placeholder-locked:hover {
-  border-color: #ff4d4f;
+  border-color: var(--danger);
 }
 .empty-placeholder.placeholder-locked .placeholder-icon {
-  color: #ff4d4f;
+  color: var(--danger);
 }
 
 .placeholder-icon {
   font-size: 2rem;
-  color: #eee;
+  color: var(--text-secondary);
   margin-bottom: 10px;
 }
 
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -634,12 +637,14 @@ const formatShortDate = (dateStr: string) => {
 }
 
 .minimal-modal {
-  background: #fff;
+  background: var(--paper-card);
   width: 100%;
   max-width: 540px;
-  padding: 60px;
-  border: 1px solid #eee;
+  padding: clamp(20px, 4vw, 36px);
+  border: 1px solid var(--border-line);
   box-shadow: 0 40px 100px rgba(0,0,0,0.03);
+
+  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
 }
 
 .modal-inner-header h2 {
@@ -650,7 +655,7 @@ const formatShortDate = (dateStr: string) => {
 
 .modal-inner-header p {
   font-size: 0.8rem;
-  color: #999;
+  color: var(--text-secondary);
   margin: 0 0 40px 0;
 }
 
@@ -660,7 +665,7 @@ const formatShortDate = (dateStr: string) => {
 .apply-target-preview label {
   display: block;
   font-size: 0.65rem;
-  color: #aaa;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1.5px;
   margin-bottom: 8px;
@@ -669,7 +674,7 @@ const formatShortDate = (dateStr: string) => {
   font-size: 1.2rem;
   font-weight: 400;
   margin: 0;
-  color: #1a1a1a;
+  color: var(--text-primary);
 }
 
 .date-range-row {
@@ -686,7 +691,7 @@ const formatShortDate = (dateStr: string) => {
 .input-group label {
   display: block;
   font-size: 0.65rem;
-  color: #aaa;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1.5px;
   margin-bottom: 12px;
@@ -695,7 +700,7 @@ const formatShortDate = (dateStr: string) => {
 .input-group input, .input-group textarea {
   width: 100%;
   border: none;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-line);
   padding: 12px 0;
   font-size: 1.1rem;
   outline: none;
@@ -703,14 +708,14 @@ const formatShortDate = (dateStr: string) => {
 }
 
 .input-group textarea {
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--border-line);
   padding: 12px;
   font-size: 0.95rem;
   resize: none;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 .input-group textarea:focus {
-  border-color: #1a1a1a;
+  border-color: var(--border-line);
 }
 
 .modal-footer {
@@ -723,28 +728,29 @@ const formatShortDate = (dateStr: string) => {
 .cancel-btn {
   background: none;
   border: none;
-  color: #999;
+  color: var(--text-secondary);
   padding: 14px 24px;
   font-size: 0.85rem;
   cursor: pointer;
 }
-.cancel-btn:hover { color: #1a1a1a; }
+.cancel-btn:hover { color: var(--text-primary); }
 
 .confirm-btn {
-  background: #1a1a1a;
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--on-accent);
   border: none;
   padding: 14px 40px;
   font-size: 0.85rem;
   cursor: pointer;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 .confirm-btn:disabled {
-  background: #f5f5f5;
-  color: #ccc;
+  background: var(--bg-sub);
+  color: var(--text-secondary);
   cursor: not-allowed;
 }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.5s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+@media (max-width: 700px) { .collaboration-portal { padding: 16px; } .portal-header { align-items: stretch; flex-direction: column; gap: 20px; } .quota-dashboard { flex-wrap: wrap; } .modal-overlay { padding: 16px; } }
 </style>

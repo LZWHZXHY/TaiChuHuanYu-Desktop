@@ -1,17 +1,18 @@
 <template>
   <transition name="fade">
-    <div v-if="modelValue" class="md-overlay" @click.self="$emit('update:modelValue', false)">
+    <div v-if="modelValue" class="md-overlay" @click.self="close()">
       <div class="md-container">
         <header class="md-header">
           <div class="md-title">
             <span class="md-label">发布碎片</span>
             <h1>{{ publishTitle }}</h1>
           </div>
-          <button class="md-close" @click="$emit('update:modelValue', false)">✕</button>
+          <button class="md-close" @click="close()">✕</button>
         </header>
 
         <div class="md-body">
-          <div class="simple-confirm-text">
+          <div v-if="noteType === 'doc'" class="simple-confirm-text">分享后，项目成员可以阅读当前文档；后续修改也会同步显示。此操作不改变文档原有的公开状态。</div>
+          <div v-else class="simple-confirm-text">
             即将将此 <strong>{{ displayType }}</strong> 固化至灵脉广场。
           </div>
 
@@ -54,14 +55,15 @@
           </transition>
         </div>
 
+        <p v-if="error" class="publish-error" role="alert">{{ error }}</p>
         <footer class="md-footer">
-          <button class="btn-cancel" @click="$emit('update:modelValue', false)">放弃</button>
+          <button class="btn-cancel" @click="close()">放弃</button>
           <button 
             class="btn-primary" 
             :disabled="isProcessing || !canSubmit"
             @click="handleConfirm"
           >
-            {{ isProcessing ? '正在锚定...' : '确认发布' }}
+            {{ isProcessing ? '正在保存...' : noteType === 'doc' ? '确认分享' : '确认发布' }}
           </button>
         </footer>
       </div>
@@ -70,7 +72,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, watch, onUnmounted } from 'vue';
 import { wikiApi, type IWikiCategory } from '@/api/Wiki';
 import { lingmaiApi } from '../../../api/lingmai';
 import projectService from '@/api/projectService'; 
@@ -79,12 +81,16 @@ const props = defineProps<{
   modelValue: boolean; 
   noteId: string; 
   noteType: string; 
-  spaceName: string; 
+  spaceName: string;
+  beforePublish?: (noteId: string) => Promise<void>; 
 }>();
 
 const emit = defineEmits(['update:modelValue', 'success']);
 
-const isProcessing = ref(false);
+const isProcessing = ref(false), error = ref('');
+let generation = 0;
+const close = () => { if (!isProcessing.value) emit('update:modelValue', false); };
+onUnmounted(() => { generation++; });
 
 // Wiki 数据
 const wikiData = reactive({ categoryId: 3, tags: [] as string[] }); 
@@ -125,8 +131,8 @@ const flatCategories = computed(() => {
 
 // 拦截逻辑：不同类型校验不同必填项
 const canSubmit = computed(() => {
-  if (props.noteType === 'wiki') return !!wikiData.categoryId;
-  if (props.noteType === 'doc') return !!projectData.projectId;
+  if (props.noteType === 'wiki') return !isLoadingCategories.value && flatCategories.value.some(c => c.id === wikiData.categoryId);
+  if (props.noteType === 'doc') return !isLoadingProjects.value && !!projectData.projectId;
   return true;
 });
 
@@ -139,93 +145,67 @@ const addTag = () => {
 const removeTag = (i: number) => wikiData.tags.splice(i, 1);
 
 const handleConfirm = async () => {
-  console.log("即将发送的发布形态:", props.noteType);
-
-  isProcessing.value = true;
+  if (isProcessing.value || !canSubmit.value) return;
+  const noteId = props.noteId, type = props.noteType, scope = generation;
+  isProcessing.value = true; error.value = '';
   try {
-    const payload: any = {
-      type: props.noteType
-    };
-
-    if (props.noteType === 'wiki') {
-      payload.categoryId = wikiData.categoryId;
-      payload.tags = wikiData.tags;
-    } else if (props.noteType === 'doc') {
-      payload.projectId = projectData.projectId; 
-    }
-
-    await lingmaiApi.publishNote(props.noteId, payload);
-
-    emit('success');
-    emit('update:modelValue', false);
-  } catch (err) { 
-    console.error(err);
-    alert('发布系统感应到干扰'); 
-  } finally {
-    isProcessing.value = false;
-  }
+    await props.beforePublish?.(noteId);
+    if (scope !== generation) return;
+    const payload = { type, ...(type === 'wiki' ? { categoryId: wikiData.categoryId, tags: wikiData.tags } : {}),
+      ...(type === 'doc' ? { projectId: projectData.projectId } : {}) };
+    const result = await lingmaiApi.publishNote(noteId, payload);
+    if (scope !== generation) return;
+    emit('success', { noteId, message: result.message }); emit('update:modelValue', false);
+  } catch (cause: any) {
+    if (scope === generation) error.value = cause.friendlyMessage || cause.message || '发布失败，请重试';
+  } finally { isProcessing.value = false; }
 };
 
-onMounted(async () => {
-  // --- 拉取 Wiki 界域 ---
-  if (props.noteType === 'wiki') {
-    console.log("【调试】发布弹窗已挂载，开始拉取界域...");
-    isLoadingCategories.value = true;
-    try {
+watch(() => [props.modelValue, props.noteId, props.noteType], async () => {
+  const scope = ++generation;
+  error.value = ''; isLoadingCategories.value = false; isLoadingProjects.value = false;
+  if (!props.modelValue) return;
+  projectData.projectId = ''; rawCategories.value = []; availableProjects.value = [];
+  wikiData.categoryId = 3; wikiData.tags = []; tagInput.value = '';
+  try {
+    if (props.noteType === 'wiki') {
+      isLoadingCategories.value = true;
       const data = await wikiApi.getCategories();
-      rawCategories.value = data || [];
-    } catch (error) {
-      console.error("【调试】界域读取崩溃:", error);
-    } finally {
-      isLoadingCategories.value = false;
+      if (scope === generation) rawCategories.value = data || [];
+    } else if (props.noteType === 'doc') {
+      isLoadingProjects.value = true;
+      const data = await projectService.getMyProjects();
+      if (scope === generation) availableProjects.value = data.map(item => ({ id: item.id, name: item.name }));
     }
+  } catch (cause: any) {
+    if (scope === generation) error.value = cause.friendlyMessage || '发布选项加载失败，请关闭后重新打开';
+  } finally {
+    if (scope === generation) { isLoadingCategories.value = false; isLoadingProjects.value = false; }
   }
-
-  // --- 🌟 拉取参与的项目列表 ---
-  if (props.noteType === 'doc') {
-    isLoadingProjects.value = true;
-    try {
-      // 1. 通过 unknown 优雅解开拦截器的响应包装，彻底根除 never 报错
-      const res = await projectService.getMyProjects() as unknown as any;
-      
-      // 2. 智能化平铺数据，同时包容 axios 拦截器处理完或未处理的两种状态
-      const rawList = Array.isArray(res) ? res : (res?.data || []);
-      
-      // 3. 🌟【核心对齐逻辑】：强制将后端返回的属性（不论大写还是小写）统一清洗为模板需要的小写
-      availableProjects.value = rawList.map((item: any) => ({
-        id: item.id || item.Id,
-        name: item.name || item.Name
-      }));
-      
-      console.log("【调试】清洗后的可用协作项目列表:", availableProjects.value);
-    } catch (error) {
-      console.error("获取项目列表失败:", error);
-      alert("无法加载协作项目列表");
-    } finally {
-      isLoadingProjects.value = false;
-    }
-  }
-});
+}, { immediate: true });
 </script>
 
 <style scoped>
-.md-overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.8); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 5000; }
-.md-container { width: 440px; background: #fff; padding: 32px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
+.publish-error { color: var(--accent-color); font-size: .85rem; }
+input, select { background: var(--paper-card); color: var(--text-primary); }
+.md-container { max-width: calc(100vw - 32px); box-sizing: border-box; max-height: 90vh; overflow-y: auto; }
+.md-overlay { position: fixed; inset: 0; background: var(--paper-card); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 5000; }
+.md-container { width: 440px; background: var(--paper-bg); padding: 32px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
 .md-header { margin-bottom: 32px; display: flex; justify-content: space-between; }
-.md-label { font-size: 10px; color: #86868b; text-transform: uppercase; letter-spacing: 0.1em; }
+.md-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.1em; }
 .md-title h1 { font-size: 20px; font-weight: 700; margin: 4px 0 0; }
-.simple-confirm-text { padding: 20px; color: #1d1d1f; font-size: 14px; text-align: center; border: 1px solid #f2f2f7; border-radius: 12px; }
+.simple-confirm-text { padding: 20px; color: var(--text-primary); font-size: 14px; text-align: center; border: 1px solid var(--border-line); border-radius: 12px; }
 .extra-zone { padding-top: 10px; }
 .form-group { margin-bottom: 16px; }
-.form-group label { display: block; font-size: 11px; color: #86868b; margin-bottom: 8px; }
-select { width: 100%; border: 1px solid #f2f2f7; padding: 8px; border-radius: 6px; font-size: 13px; outline: none; }
-.tag-input-box { border: 1px solid #f2f2f7; border-radius: 6px; padding: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
-.tag-pill { background: #f2f2f7; padding: 2px 8px; border-radius: 4px; font-size: 11px; display: flex; align-items: center; gap: 4px; }
+.form-group label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
+select { width: 100%; border: 1px solid var(--border-line); padding: 8px; border-radius: 6px; font-size: 13px; outline: none; }
+.tag-input-box { border: 1px solid var(--border-line); border-radius: 6px; padding: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+.tag-pill { background: var(--border-line); padding: 2px 8px; border-radius: 4px; font-size: 11px; display: flex; align-items: center; gap: 4px; }
 .tag-pill button { border: none; background: none; cursor: pointer; }
 .tag-input-box input { border: none; padding: 4px; font-size: 12px; outline: none; flex: 1; }
 .md-footer { margin-top: 32px; display: flex; gap: 12px; }
-.btn-cancel { flex: 1; background: none; border: none; color: #86868b; font-size: 13px; cursor: pointer; }
-.btn-primary { flex: 2; padding: 10px; background: #000; color: #fff; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.btn-cancel { flex: 1; background: none; border: none; color: var(--text-secondary); font-size: 13px; cursor: pointer; }
+.btn-primary { flex: 2; padding: 10px; background: var(--accent-color); color: var(--paper-card); border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
-.md-close { background: none; border: none; color: #c7c7cc; cursor: pointer; }
+.md-close { background: none; border: none; color: var(--text-secondary); cursor: pointer; }
 </style>

@@ -4,6 +4,10 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test:auth": "node --test tests/auth.test.mjs",
+    "test:world": "node --test tests/world.test.mjs",
+    "test:world-components": "node --test tests/world-components.test.mjs",
+    "test:build": "node --test tests/build.test.mjs",
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview"

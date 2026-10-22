@@ -60,7 +60,7 @@
     <div v-else class="empty-state">
       <i class="fas fa-calendar-plus"></i>
       <p>你还没有参与任何活动</p>
-      <button class="btn-primary" @click="$router.push('/activity')">
+      <button class="btn-primary" @click="$router.push('/activity/checkin')">
         去发现广场 <i class="fas fa-arrow-right"></i>
       </button>
     </div>
@@ -88,7 +88,7 @@ const statusClass = (status: string) => ({
 
 // 跳转到详情
 const goToDetail = (id: number) => {
-  router.push(`/activity/detail/${id}`);
+  router.push(`/activity/checkin/detail/${id}`);
 };
 
 // 加载我的活动
@@ -162,17 +162,17 @@ onMounted(() => {
 .page-header h2 {
   font-size: 1.4rem;
   font-weight: 600;
-  color: #1f2937;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 10px;
 }
 .page-header h2 i {
-  color: #6366f1;
+  color: var(--info);
 }
 .page-header .subtitle {
   font-size: 0.9rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .activity-grid {
@@ -181,16 +181,16 @@ onMounted(() => {
   gap: 24px;
 }
 .card {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-line);
   transition: transform 0.2s, border-color 0.2s;
   cursor: pointer;
 }
 .card:hover {
   transform: translateY(-3px);
-  border-color: #d1d5db;
+  border-color: var(--border-line);
 }
 .card-cover {
   height: 140px;
@@ -203,9 +203,9 @@ onMounted(() => {
   padding: 10px 14px;
 }
 .type-tag {
-  background: rgba(0,0,0,0.5);
+  background: var(--overlay);
   backdrop-filter: blur(2px);
-  color: #fff;
+  color: var(--on-overlay);
   padding: 2px 10px;
   border-radius: 20px;
   font-size: 0.6rem;
@@ -216,18 +216,18 @@ onMounted(() => {
   border-radius: 20px;
   font-size: 0.6rem;
   font-weight: 500;
-  color: #fff;
+  color: var(--text-primary);
 }
-.status-badge.recruiting { background: #10b981; }
-.status-badge.ongoing { background: #6366f1; }
-.status-badge.ended { background: #9ca3af; }
+.status-badge.recruiting { background: var(--success); }
+.status-badge.ongoing { background: var(--info); }
+.status-badge.ended { background: var(--bg-sub); }
 
 .card-body { padding: 16px 18px 12px; }
 .card-meta {
   display: flex;
   gap: 12px;
   font-size: 0.65rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   margin-bottom: 6px;
 }
 .card-meta span { display: flex; align-items: center; gap: 4px; }
@@ -235,11 +235,11 @@ onMounted(() => {
   font-size: 1rem;
   font-weight: 600;
   margin: 0 0 4px;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 .card-body .desc {
   font-size: 0.8rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -249,7 +249,7 @@ onMounted(() => {
 }
 .card-body .author {
   font-size: 0.7rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -265,25 +265,25 @@ onMounted(() => {
 .progress-bar {
   flex: 1;
   height: 6px;
-  background: #e5e7eb;
+  background: var(--bg-sub);
   border-radius: 3px;
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
-  background: #6366f1;
+  background: var(--info);
   border-radius: 3px;
   transition: width 0.3s;
 }
 .progress-text {
   font-size: 0.7rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
 .card-footer {
   padding: 10px 18px 16px;
-  border-top: 1px solid #f3f4f6;
+  border-top: 1px solid var(--border-line);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -292,30 +292,30 @@ onMounted(() => {
   padding: 6px 14px;
   border-radius: 20px;
   border: none;
-  background: #f3f4f6;
+  background: var(--bg-sub);
   font-weight: 500;
   font-size: 0.7rem;
-  color: #374151;
+  color: var(--text-primary);
   cursor: pointer;
   transition: background 0.2s;
   display: inline-flex;
   align-items: center;
   gap: 4px;
 }
-.card-footer .action-btn:hover { background: #e5e7eb; }
+.card-footer .action-btn:hover { background: var(--bg-sub); }
 .card-footer .participant-count {
   font-size: 0.7rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .empty-state {
   text-align: center;
   padding: 80px 20px;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 .empty-state i {
   font-size: 3.5rem;
-  color: #d1d5db;
+  color: var(--text-secondary);
   display: block;
   margin-bottom: 16px;
 }
@@ -324,8 +324,8 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 .btn-primary {
-  background: #1f2937;
-  color: #fff;
+  background: var(--bg-sub);
+  color: var(--text-primary);
   border: none;
   padding: 10px 24px;
   border-radius: 30px;
@@ -337,7 +337,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
 }
-.btn-primary:hover { background: #374151; }
+.btn-primary:hover { background: var(--bg-sub); }
 
 @media (max-width: 768px) {
   .activity-grid { grid-template-columns: 1fr; }

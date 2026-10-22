@@ -6,14 +6,14 @@
   outline: none;
   font-size: 1.1rem;
   line-height: 1.8;
-  color: #1d1d1f;
+  color: var(--text-primary);
   word-break: break-word;
 }
 
 /* 双链节点样式 */
 .spirit-render-engine .spirit-link-node,
 .spirit-typography-engine .spirit-link-node {
-  color: #0066cc;
+  color: var(--accent-color);
   background: rgba(0, 102, 204, 0.05);
   text-decoration: none;
   padding: 0 4px;
@@ -26,7 +26,7 @@
 .spirit-render-engine .spirit-mention-node,
 .spirit-typography-engine .spirit-mention-node {
   background: rgba(0, 102, 204, 0.1);
-  color: #0066cc;
+  color: var(--accent-color);
   border-radius: 4px;
   padding: 0 4px;
   font-weight: 600;
@@ -91,7 +91,7 @@
   width: 16px;
   height: 16px;
   cursor: pointer;
-  accent-color: #0066cc; /* 使用你的灵脉蓝主题色 */
+  accent-color: var(--accent-color); /* 使用你的灵脉蓝主题色 */
 }
 
 /* 5. 核心：干掉 p 标签默认边距，防止文字掉下去 */
@@ -106,7 +106,7 @@
 
 /* 6. 打勾后的划线与置灰状态 */
 .spirit-task-item[data-checked="true"] > div {
-  color: #a1a1a6; /* 文字变灰 */
+  color: var(--text-secondary); /* 文字变灰 */
   text-decoration: line-through; /* 添加删除线 */
   opacity: 0.7;
 }
@@ -114,17 +114,17 @@
 /* ---------------- 折叠区块 (Details/Summary) ---------------- */
 .spirit-render-engine details,
 .spirit-typography-engine details {
-  border: 1px solid #f2f2f7;
+  border: 1px solid var(--border-line);
   border-radius: 12px;
   margin: 1.5rem 0;
-  background: #ffffff;
+  background: var(--paper-card);
   overflow: hidden;
 }
 .spirit-render-engine summary,
 .spirit-typography-engine summary {
   padding: 12px 20px;
-  background: #fbfbfd;
-  border-bottom: 1px solid #f2f2f7;
+  background: var(--paper-card);
+  border-bottom: 1px solid var(--border-line);
   cursor: pointer;
   font-weight: 700;
   list-style: none;
@@ -134,7 +134,7 @@
   content: '▼';
   font-size: 10px;
   margin-right: 12px;
-  color: #0066cc;
+  color: var(--accent-color);
   display: inline-block;
   transition: transform 0.2s ease;
 }

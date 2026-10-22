@@ -1,7 +1,8 @@
 <template>
   <div class="project-kanban-root">
     
-    <div class="kanban-wrapper" v-if="!isLoading">
+    <p v-if="loadError" role="alert">{{ loadError }} <button @click="loadBoard">重试</button></p>
+    <div class="kanban-wrapper" v-if="!isLoading && !loadError">
       <div class="kanban-scroll-viewport">
         
         <!-- 🌟 分类泳道：支持整个列表左右拖动排期，并根据 categoryType 触发特效 -->
@@ -36,7 +37,7 @@
                 class="lane-name-input"
                 @change="renameCategory(lane.id, lane.name)"
                 @keyup.enter="($event.target as HTMLInputElement).blur()"
-                placeholder="命名此维度..."
+                placeholder="输入分组名称..."
               />
               <span class="lane-count">{{ lane.tasks?.length ?? 0 }}</span>
             </div>
@@ -100,7 +101,7 @@
             </TransitionGroup>
 
             <div class="lane-actions">
-              <button class="add-task-trigger" @click="triggerQuickTask(lane.id)">+ 注入意图</button>
+              <button class="add-task-trigger" @click="triggerQuickTask(lane.id)">+ 新建任务</button>
             </div>
           </div>
         </div>
@@ -112,7 +113,7 @@
         >
           <header class="lane-header">
             <div class="lane-title-area">
-              <h3 class="static-lane-title">游离意图 (未分类)</h3>
+              <h3 class="static-lane-title">未分类任务</h3>
               <span class="lane-count">{{ unclassifiedTasks.length }}</span>
             </div>
           </header>
@@ -160,7 +161,7 @@
               </div>
             </TransitionGroup>
             <div class="lane-actions">
-              <button class="add-task-trigger" @click="triggerQuickTask(null)">+ 注入游离意图</button>
+              <button class="add-task-trigger" @click="triggerQuickTask(null)">+ 新建任务</button>
             </div>
           </div>
         </div>
@@ -168,7 +169,7 @@
         <!-- 新建分栏卡片 -->
         <div class="kanban-lane lane-creator-card">
           <button class="create-lane-btn" @click="addNewCategory">
-            <span class="plus">+</span> 铸造新分栏维度
+            <span class="plus">+</span> 新建任务分组
           </button>
         </div>
 
@@ -230,7 +231,7 @@ import TaskDetailDrawer from './ProjectTaskDetail.vue';
 const props = defineProps<{ projectId: string; initialData?: any; }>();
 const emit = defineEmits(['updated']);
 
-const isLoading = ref(true);
+const isLoading = ref(true), loadError = ref('');
 const boardData = ref<any[]>([]);          
 const unclassifiedTasks = ref<any[]>([]);  
 const projectMembers = ref<any[]>([]);     
@@ -292,7 +293,7 @@ const handleModalCancel = () => {
 };
 
 const loadBoard = async () => {
-  isLoading.value = true;
+  isLoading.value = true; loadError.value = '';
   try {
     const [boardRes, membersRes] = await Promise.all([
       projectService.getKanbanBoard(props.projectId),
@@ -305,7 +306,7 @@ const loadBoard = async () => {
     
     emit('updated');
   } catch (err) {
-    console.error("协作看板载入失败:", err);
+    loadError.value = "看板加载失败，请重试。";
   } finally {
     isLoading.value = false;
   }
@@ -326,7 +327,7 @@ const openTaskModal = (task: any, currentCategoryId: string | null) => {
 
 
 const addNewCategory = async () => {
-  const name = await customPrompt("铸造新维度", "请输入新分栏维度的称谓...");
+  const name = await customPrompt("新建任务分组", "请输入分组名称");
   if (!name || !name.trim()) return;
   const palette = ['#1a1a1a', '#6f42c1', '#007bff', '#20c997', '#fd7e14', '#e83e8c'];
   const randomColor = palette[Math.floor(Math.random() * palette.length)];
@@ -356,7 +357,7 @@ const updateCategoryType = async (categoryId: string, newType: number) => {
 };
 
 const removeCategory = async (categoryId: string) => {
-  const isConfirmed = await customConfirm("解构分栏维度", "确定要解构这一分栏吗？其中的意图卡片将会退回到『游离意图』池中。");
+  const isConfirmed = await customConfirm("删除任务分组", "确定删除这个分组吗？其中的任务会移到『未分类任务』中。");
   if (!isConfirmed) return;
   try {
     await projectService.deleteKanbanCategory(props.projectId, categoryId);
@@ -471,7 +472,7 @@ const executeMoveTask = async (taskId: string, targetLaneId: string | null, prev
 };
 
 const triggerQuickTask = async (laneId: string | null) => {
-  const title = await customPrompt("注入新意图", "请输入要注入的任务意图...");
+  const title = await customPrompt("新建任务", "请输入任务标题");
   if (!title || !title.trim()) return;
   try {
     await projectService.createTask(props.projectId, { title: title.trim(), status: 0, categoryId: laneId });
@@ -490,14 +491,14 @@ const formatShortDate = (dateStr: string) => {
 <style scoped>
 .project-kanban-root { width: 100%; }
 .kanban-wrapper { width: 100%; animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
-.kanban-scroll-viewport { display: flex; gap: 32px; overflow-x: auto; padding: 10px 0 30px; align-items: flex-start; min-height: calc(100vh - 350px); }
+.kanban-scroll-viewport { display: flex; gap: 16px; overflow-x: auto; padding: 10px 0 30px; align-items: flex-start; min-height: 400px; }
 .kanban-scroll-viewport::-webkit-scrollbar { height: 4px; }
-.kanban-scroll-viewport::-webkit-scrollbar-thumb { background: #eaeaea; border-radius: 2px; }
+.kanban-scroll-viewport::-webkit-scrollbar-thumb { background: var(--bg-sub); border-radius: var(--radius-sm); }
 
 .kanban-lane { 
   flex: 0 0 320px; 
-  background: #ffffff; 
-  border: 1px solid #f6f6f6; 
+  background: var(--paper-card); 
+  border: 1px solid var(--border-line); 
   padding: 24px 20px; 
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.01); 
   min-height: 450px; 
@@ -508,23 +509,23 @@ const formatShortDate = (dateStr: string) => {
 
 /* ==================== 🌟 特效 1：已完成 (CategoryType === 1) 样式 ==================== */
 .kanban-lane.status-lane-done {
-  background: #fcfcfc;
-  border-color: #e5e5e5;
+  background: var(--paper-card);
+  border-color: var(--border-line);
 }
 .kanban-lane.status-lane-done .task-title {
   text-decoration: line-through;
-  color: #888;
+  color: var(--text-secondary);
 }
 .kanban-lane.status-lane-done .task-card {
-  background: #fafafa;
+  background: var(--bg-main);
   border-style: dashed;
   opacity: 0.85;
 }
 
 /* ==================== 🌟 特效 2：已归档/封档 (CategoryType === 2) 样式 ==================== */
 .kanban-lane.status-lane-archived {
-  background: #f4f4f4;
-  border-color: #dedede;
+  background: var(--bg-sub);
+  border-color: var(--border-line);
   filter: grayscale(85%);
   opacity: 0.65;
 }
@@ -534,105 +535,107 @@ const formatShortDate = (dateStr: string) => {
 }
 .kanban-lane.status-lane-archived .lane-name-input {
   text-decoration: line-through;
-  color: #666;
+  color: var(--text-secondary);
 }
 .kanban-lane.status-lane-archived .task-card {
-  background: #efefef;
+  background: var(--bg-sub);
   box-shadow: none;
-  border-color: #ddd;
+  border-color: var(--border-line);
 }
 .kanban-lane.status-lane-archived .task-title,
 .kanban-lane.status-lane-archived .task-desc {
-  color: #999;
+  color: var(--text-secondary);
 }
 
 /* 栏类型切换选择器微调 */
 .lane-type-switcher select {
   font-size: 0.7rem;
   padding: 2px 4px;
-  background: #fafafa;
-  border: 1px solid #eee;
-  color: #666;
+  background: var(--bg-main);
+  border: 1px solid var(--border-line);
+  color: var(--text-secondary);
   cursor: pointer;
   outline: none;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
 }
 .lane-type-switcher select:hover {
-  border-color: #ccc;
+  border-color: var(--border-line);
 }
 
 .lane-drag-handle {
   cursor: grab;
-  color: #ccc;
+  color: var(--text-secondary);
   font-size: 1rem;
   user-select: none;
   transition: color 0.2s;
   padding: 0 4px;
 }
-.lane-drag-handle:hover { color: #1a1a1a; }
+.lane-drag-handle:hover { color: var(--text-primary); }
 .lane-drag-handle:active { cursor: grabbing; }
 
-.lane-header { border-top: 3px solid #eee; padding-top: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.lane-header { border-top: 3px solid var(--border-line); padding-top: 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
 .lane-title-area { display: flex; align-items: center; gap: 8px; flex-grow: 1; }
-.lane-name-input { border: none; background: transparent; font-size: 0.9rem; font-weight: 500; letter-spacing: 0.5px; color: #1a1a1a; outline: none; width: 55%; transition: border-color 0.3s; }
-.lane-name-input:focus { border-bottom: 1px solid #1a1a1a; }
-.lane-count { font-size: 0.7rem; font-family: monospace; color: #bbb; background: #fafafa; padding: 2px 6px; }
-.lane-delete-btn { background: none; border: none; color: #ccc; cursor: pointer; font-size: 1.2rem; line-height: 1; transition: color 0.3s; }
-.lane-delete-btn:hover { color: #ff4757; }
+.lane-name-input { border: none; background: transparent; font-size: 0.9rem; font-weight: 500; letter-spacing: 0.5px; color: var(--text-primary); outline: none; width: 55%; transition: border-color 0.3s; }
+.lane-name-input:focus { border-bottom: 1px solid var(--border-line); }
+.lane-count { font-size: 0.7rem; font-family: monospace; color: var(--text-secondary); background: var(--bg-main); padding: 2px 6px; }
+.lane-delete-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem; line-height: 1; transition: color 0.3s; }
+.lane-delete-btn:hover { color: var(--danger); }
 .lane-body { display: flex; flex-direction: column; gap: 16px; flex-grow: 1; min-height: 220px; }
 
-.task-card { background: #ffffff; border: 1px solid #eee; cursor: grab; position: relative; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s, box-shadow 0.3s; }
+.task-card { background: var(--paper-card); border: 1px solid var(--border-line); cursor: grab; position: relative; transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s, box-shadow 0.3s; }
 .task-card:active { cursor: grabbing; }
-.task-card:hover { border-color: #1a1a1a; transform: translateY(-2px); box-shadow: 0 15px 35px rgba(0,0,0,0.03); }
+.task-card:hover { border-color: var(--border-line); transform: translateY(-2px); box-shadow: 0 15px 35px rgba(0,0,0,0.03); }
 .task-card-inner { padding: 20px; pointer-events: none; }
 
 .card-top-meta { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
 .tag-pills { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .tiny-quant-pill {
-  background: #1a1a1a; color: #fff; font-size: 0.6rem; padding: 1px 5px; border-radius: 2px;
+  background: var(--text-primary); color: var(--paper-card); font-size: 0.6rem; padding: 1px 5px; border-radius: var(--radius-sm);
   font-family: monospace;
 }
-.tiny-quant-pill.hours { background: #f0f0f0; color: #555; }
-.tiny-tag { background: #f9f9f9; color: #888; font-size: 0.6rem; padding: 1px 5px; border-radius: 2px; }
+.tiny-quant-pill.hours { background: var(--bg-sub); color: var(--text-secondary); }
+.tiny-tag { background: var(--bg-main); color: var(--text-secondary); font-size: 0.6rem; padding: 1px 5px; border-radius: var(--radius-sm); }
 
 .priority-icon { font-weight: bold; font-size: 0.8rem; }
-.priority-icon.high { color: #fd7e14; }
-.priority-icon.urgent { color: #dc3545; }
+.priority-icon.high { color: var(--warning); }
+.priority-icon.urgent { color: var(--danger); }
 
-.task-title { font-size: 0.9rem; font-weight: 400; color: #1a1a1a; margin: 0 0 8px 0; line-height: 1.4; }
-.task-desc { font-size: 0.78rem; color: #777; line-height: 1.6; margin: 0 0 16px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.task-meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; color: #bbb; }
+.task-title { font-size: 0.9rem; font-weight: 400; color: var(--text-primary); margin: 0 0 8px 0; line-height: 1.4; }
+.task-desc { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6; margin: 0 0 16px 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.task-meta { display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; color: var(--text-secondary); }
 .meta-right { display: flex; align-items: center; gap: 8px; }
-.task-id { font-family: monospace; color: #ddd; }
-.task-assignee { color: #666; font-weight: 500; }
+.task-id { font-family: monospace; color: var(--text-secondary); }
+.task-assignee { color: var(--text-secondary); font-weight: 500; }
 
-.lane-creator-card { background: transparent; border: 1px dashed #e5e5e5; justify-content: center; align-items: center; min-height: 180px; box-shadow: none; }
-.create-lane-btn { background: none; border: none; color: #bbb; font-size: 0.8rem; letter-spacing: 1px; cursor: pointer; transition: color 0.3s; }
-.create-lane-btn:hover { color: #1a1a1a; }
-.add-task-trigger { width: 100%; background: none; border: 1px dashed #eee; padding: 12px; color: #ccc; font-size: 0.75rem; cursor: pointer; transition: all 0.3s; }
-.add-task-trigger:hover { color: #1a1a1a; border-color: #1a1a1a; background: #fafafa; }
-.unclassified-lane { background: #fafafa; border-style: dashed; }
-.static-lane-title { font-size: 0.85rem; font-weight: 500; letter-spacing: 0.5px; color: #999; margin: 0; text-transform: uppercase; }
+.lane-creator-card { background: transparent; border: 1px dashed var(--border-line); justify-content: center; align-items: center; min-height: 180px; box-shadow: none; }
+.create-lane-btn { background: none; border: none; color: var(--text-secondary); font-size: 0.8rem; letter-spacing: 1px; cursor: pointer; transition: color 0.3s; }
+.create-lane-btn:hover { color: var(--text-primary); }
+.add-task-trigger { width: 100%; background: none; border: 1px dashed var(--border-line); padding: 12px; color: var(--text-secondary); font-size: 0.75rem; cursor: pointer; transition: all 0.3s; }
+.add-task-trigger:hover { color: var(--text-primary); border-color: var(--border-line); background: var(--bg-main); }
+.unclassified-lane { background: var(--bg-main); border-style: dashed; }
+.static-lane-title { font-size: 0.85rem; font-weight: 500; letter-spacing: 0.5px; color: var(--text-secondary); margin: 0; text-transform: uppercase; }
 
 .color-picker-wrapper { width: 14px; height: 14px; border-radius: 50%; overflow: hidden; position: relative; cursor: pointer; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.1); }
 .color-picker-wrapper input[type="color"] { position: absolute; top: -10px; left: -10px; width: 40px; height: 40px; opacity: 0; cursor: pointer; }
 
-.due-date { font-size: 0.65rem; padding: 2px 4px; background: #eee; border-radius: 2px; color: #666; }
-.due-date.overdue { background: #fee; color: #c00; }
+.due-date { font-size: 0.65rem; padding: 2px 4px; background: var(--bg-sub); border-radius: var(--radius-sm); color: var(--text-secondary); }
+.due-date.overdue { background: var(--bg-sub); color: var(--danger); }
 
-.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999; /* 🌟 核心：拉高层级，压过抽屉组件 */ }
-.minimal-modal { background: #fff; width: 100%; max-width: 440px; padding: 48px; border: 1px solid #eee; box-shadow: 0 40px 100px rgba(0,0,0,0.04); }
-.modal-inner-header h2 { font-size: 1.2rem; font-weight: 500; margin: 0 0 12px 0; color: #1a1a1a; }
-.modal-inner-header p { font-size: 0.85rem; color: #777; line-height: 1.6; margin: 0; }
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--overlay); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999; /* 🌟 核心：拉高层级，压过抽屉组件 */ }
+.minimal-modal { background: var(--paper-card); width: 100%; max-width: 440px; padding: clamp(20px, 4vw, 32px); border: 1px solid var(--border-line); box-shadow: 0 40px 100px rgba(0,0,0,0.04); 
+  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
+}
+.modal-inner-header h2 { font-size: 1.2rem; font-weight: 500; margin: 0 0 12px 0; color: var(--text-primary); }
+.modal-inner-header p { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin: 0; }
 .modal-footer { margin-top: 40px; display: flex; justify-content: flex-end; gap: 16px; }
-.cancel-btn { background: none; border: none; color: #999; font-size: 0.85rem; cursor: pointer; padding: 10px 20px; transition: color 0.3s; }
-.cancel-btn:hover { color: #1a1a1a; }
-.confirm-btn { background: #1a1a1a; color: #fff; border: none; font-size: 0.85rem; cursor: pointer; padding: 10px 28px; border-radius: 2px; transition: background 0.3s; }
-.confirm-btn:hover { background: #333; }
+.cancel-btn { background: none; border: none; color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; padding: 10px 20px; transition: color 0.3s; }
+.cancel-btn:hover { color: var(--text-primary); }
+.confirm-btn { background: var(--accent-color); color: var(--on-accent); border: none; font-size: 0.85rem; cursor: pointer; padding: 10px 28px; border-radius: var(--radius-sm); transition: background 0.3s; }
+.confirm-btn:hover { background: var(--text-primary); }
 
 .task-list-enter-from, .task-list-leave-to { opacity: 0; transform: scale(0.95); }
 .kanban-loading { height: 200px; display: flex; align-items: center; justify-content: center; }
-.loading-bar { width: 60px; height: 1px; background: #1a1a1a; animation: pulse 1.5s infinite; }
+.loading-bar { width: 60px; height: 1px; background: var(--text-primary); animation: pulse 1.5s infinite; }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

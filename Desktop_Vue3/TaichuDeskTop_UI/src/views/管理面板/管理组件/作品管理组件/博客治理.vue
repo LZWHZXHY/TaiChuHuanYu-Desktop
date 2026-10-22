@@ -81,8 +81,8 @@ onMounted(fetchBlogs);
   border-collapse: separate; /* 使用 separate 以便控制圆角 */
   border-spacing: 0;
   margin-top: 16px;
-  background: #fff;
-  border: 1px solid #f0f0f0;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -92,25 +92,25 @@ onMounted(fetchBlogs);
   text-align: left;
   font-size: 0.7rem;
   font-weight: 700;
-  color: #a0a0a0;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   padding: 16px 20px;
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
+  background: var(--bg-main);
+  border-bottom: 1px solid var(--border-line);
 }
 
 /* 行：悬浮时的微妙灰度切换 */
 .ink-table td {
   padding: 16px 20px;
   font-size: 0.85rem;
-  color: #333;
-  border-bottom: 1px solid #f7f7f7;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-line);
   transition: background 0.2s ease;
 }
 
 .ink-table tr:hover td {
-  background: #fdfdfd;
+  background: var(--paper-card);
 }
 
 /* 按钮：隐形到突显的交互 */
@@ -126,20 +126,20 @@ onMounted(fetchBlogs);
 }
 
 .btn-action.danger {
-  color: #a3a3a3;
+  color: var(--text-secondary);
 }
 
 .btn-action.danger:hover {
-  color: #dc2626;
-  border-color: #fee2e2;
-  background: #fff1f2;
+  color: var(--danger);
+  border-color: var(--danger-soft);
+  background: var(--bg-sub);
 }
 
 /* 补充：如果没有数据时的空状态 */
 .empty-msg {
   text-align: center;
   padding: 40px;
-  color: #ccc;
+  color: var(--text-secondary);
   font-size: 0.8rem;
   font-style: italic;
 }

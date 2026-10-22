@@ -1,5 +1,5 @@
 <template>
-  <div class="create-page">
+  <div class="community-detail create-page">
     <header class="page-header">
       <div class="header-left">
         <div class="title-group">
@@ -235,7 +235,7 @@
 
         <div class="form-group">
           <label>约战标题 <span class="required">*</span></label>
-          <input v-model="form.title" type="text" placeholder="给这场约战起个名字" maxlength="100" required />
+          <input aria-label="约战标题" v-model="form.title" type="text" placeholder="给这场约战起个名字" maxlength="100" required />
           <span class="char-count">{{ form.title.length }}/100</span>
         </div>
 
@@ -262,13 +262,13 @@
 
         <div class="form-group">
           <label>战斗类型 <span class="required">*</span></label>
-          <input v-model="form.battleType" type="text" placeholder="如：2v2、3v3、车轮战、自定义..." maxlength="50" required />
+          <input aria-label="战斗类型" v-model="form.battleType" type="text" placeholder="如：2v2、3v3、车轮战、自定义..." maxlength="50" required />
           <p class="hint">完全自定义，想怎么打就怎么打</p>
         </div>
 
         <div class="form-group">
           <label>详细规则 <span class="required">*</span></label>
-          <textarea v-model="form.rules" rows="5" placeholder="描述具体规则..." maxlength="2000" required></textarea>
+          <textarea aria-label="详细规则" v-model="form.rules" rows="5" placeholder="描述具体规则..." maxlength="2000" required></textarea>
           <span class="char-count">{{ form.rules.length }}/2000</span>
         </div>
       </section>
@@ -279,10 +279,10 @@
 
         <div class="radio-group">
           <label class="radio-option" :class="{ active: form.judgmentType === 'vote' }">
-            <input type="radio" v-model="form.judgmentType" value="vote" />
+            <input type="radio" v-model="form.judgmentType" value="vote" disabled />
             <div class="radio-content">
               <span class="radio-label">📊 投票制</span>
-              <span class="radio-desc">社区投票决定胜负，公开透明</span>
+              <span class="radio-desc">暂不可用，请选择参与者协商判定</span>
             </div>
           </label>
 
@@ -299,7 +299,7 @@
       <!-- ===== 提交 ===== -->
       <div class="form-actions">
         <button type="button" class="btn-cancel" @click="router.back()">取消</button>
-        <button type="submit" class="btn-submit" :disabled="loading || !isValid">
+        <button type="submit" class="btn-submit" :disabled="loading || uploading || !isValid">
           {{ loading ? '发布中...' : '发布约战' }}
         </button>
       </div>
@@ -308,8 +308,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useBattleStore } from '../battle_Store'
 import { useCos } from '@/composables/useCos'
 import { stickmanApi } from '../../OCs/stickman'
@@ -317,6 +317,7 @@ import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const route = useRoute()
 const battleStore = useBattleStore()
 const userStore = useUserStore()
 const { uploadFile } = useCos()
@@ -334,7 +335,7 @@ const loading = ref(false)
 const uploading = ref(false)
 let searchTimer: any = null
 
-const userId = computed(() => userStore.userInfo?.id || '')
+const userId = computed(() => userStore.userId || '')
 
 // ===== 所有 OC 缓存 =====
 const allOcList = ref<any[]>([])
@@ -358,21 +359,17 @@ const form = reactive({
   coverUrl: '',
   battleType: '',
   rules: '',
-  judgmentType: 'vote' as 'vote' | 'internal',
+  judgmentType: 'internal' as 'vote' | 'internal',
 })
 
 // ===== 计算属性 =====
 const isValid = computed(() => {
   if (!form.title.trim() || !form.battleType.trim() || !form.rules.trim()) return false
 
-  // 队伍A至少有一个OC
-  const hasA = teamA.value.some((m) => m.ocIds.length > 0)
-  if (!hasA) return false
-
-  // 队伍B如果有成员但没有OC，视为无效
-  for (const m of teamB.value) {
-    if (m.userId.trim() && m.ocIds.length === 0) return false
-  }
+  const members = [...teamA.value, ...teamB.value]
+  if (!userId.value || teamA.value[0]?.userId !== userId.value) return false
+  if (members.some(m => !m.userId.trim() || !m.ocIds.length)) return false
+  if (new Set(members.map(m => m.userId.toLowerCase())).size !== members.length) return false
 
   return true
 })
@@ -420,7 +417,7 @@ const searchOcForMember = async (team: 'A' | 'B', index: number) => {
     )
     // 如果已经指定了 userId，只显示该用户的 OC
     if (member.userId.trim()) {
-      filtered = filtered.filter((oc: any) => oc.authorId === member.userId.trim())
+      filtered = filtered.filter((oc: any) => oc.authorId?.toLowerCase() === member.userId.trim().toLowerCase())
     }
     member.ocList = filtered
     if (filtered.length === 0) {
@@ -468,6 +465,7 @@ const addOcToMember = (team: 'A' | 'B', index: number, oc: any) => {
 
   if (!member.ocIds.includes(oc.id)) {
     member.ocIds.push(oc.id)
+    if (!allOcList.value.some(item => item.id === oc.id)) allOcList.value.push(oc)
     // 自动设置 userId（如果还没有）
     if (!member.userId) {
       member.userId = oc.authorId
@@ -510,7 +508,7 @@ const removeMemberOc = (team: 'A' | 'B', index: number, ocId: string) => {
   const member = team === 'A' ? teamA.value[index] : teamB.value[index]
   if (!member) return
   member.ocIds = member.ocIds.filter((id) => id !== ocId)
-  if (member.ocIds.length === 0) {
+  if (member.ocIds.length === 0 && !(team === 'A' && index === 0)) {
     member.userId = ''
   }
 }
@@ -558,31 +556,20 @@ const uploadCover = async () => {
 
 // ===== 提交 =====
 const handleSubmit = async () => {
+  if (loading.value || uploading.value) return
   if (!isValid.value) {
     ElMessage.warning('请完整填写约战信息')
     return
   }
 
-  // 队伍A所有OC
-  const challengerOcIds: string[] = []
-  for (const member of teamA.value) {
-    challengerOcIds.push(...member.ocIds)
-  }
-
-  // 队伍B按用户分组
-  const opponentOcIds: Record<string, string[]> = {}
-  for (const member of teamB.value) {
-    if (member.userId.trim() && member.ocIds.length > 0) {
-      if (opponentOcIds[member.userId.trim()]) {
-        opponentOcIds[member.userId.trim()] = [
-          ...opponentOcIds[member.userId.trim()],
-          ...member.ocIds,
-        ]
-      } else {
-        opponentOcIds[member.userId.trim()] = member.ocIds
-      }
-    }
-  }
+  // 发起者只提交自己的 OC；同队成员和对手都需要本人接受邀请。
+  const challengerOcIds = [...teamA.value[0].ocIds]
+  const opponentOcIds = Object.fromEntries([...teamA.value.slice(1), ...teamB.value]
+    .map(member => [member.userId.trim(), [...member.ocIds]]))
+  const teams = Object.fromEntries([
+    ...teamA.value.map(member => [member.userId.trim(), 1]),
+    ...teamB.value.map(member => [member.userId.trim(), 2]),
+  ])
 
   loading.value = true
   try {
@@ -593,7 +580,8 @@ const handleSubmit = async () => {
       battleType: form.battleType.trim(),
       rules: form.rules.trim(),
       judgmentType: form.judgmentType,
-      challengerOcIds: challengerOcIds,
+      challengerOcIds,
+      battleConfigJson: JSON.stringify({ teams }),
     }
 
     if (Object.keys(opponentOcIds).length > 0) {
@@ -611,11 +599,24 @@ const handleSubmit = async () => {
   }
 }
 
+onUnmounted(() => clearTimeout(searchTimer))
+
 onMounted(async () => {
   await fetchAllOcs()
   if (teamA.value.length > 0 && userId.value) {
     teamA.value[0].userId = userId.value
   }
+  const ocId = typeof route.query.ocId === 'string' ? route.query.ocId : ''
+  if (!ocId) return
+  try {
+    const oc = allOcList.value.find(item => item.id === ocId) ?? await stickmanApi.getDetail(ocId)
+    if (oc.status !== 'published' || !oc.isBattleEnabled) {
+      ElMessage.warning('该 OC 尚未发布或未开启约战')
+      return
+    }
+    if (oc.authorId?.toLowerCase() === userId.value.toLowerCase()) addOcToMember('A', 0, oc)
+    else { addMember('B'); addOcToMember('B', 0, oc) }
+  } catch { ElMessage.error('指定 OC 读取失败，请搜索后重试') }
 })
 </script>
 
@@ -627,14 +628,14 @@ onMounted(async () => {
   max-width: 860px;
   margin: 0 auto;
   padding: 32px 20px 60px;
-  background: #f5f0eb;
+  background: var(--bg-sub);
   min-height: 100vh;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .page-header {
   padding-bottom: 20px;
-  border-bottom: 2px solid #d8d0c4;
+  border-bottom: 2px solid var(--border-line);
   margin-bottom: 32px;
 }
 
@@ -654,14 +655,14 @@ onMounted(async () => {
   background: none;
   border: none;
   font-size: 15px;
-  color: #999;
+  color: var(--text-secondary);
   cursor: pointer;
   font-family: inherit;
   padding: 0;
   transition: color 0.25s;
 }
 .back-btn:hover {
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .title-group h1 {
@@ -669,12 +670,12 @@ onMounted(async () => {
   font-weight: 400;
   letter-spacing: 0.15em;
   margin: 0;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .subtitle {
   font-size: 14px;
-  color: #999;
+  color: var(--text-secondary);
   margin: 0;
   letter-spacing: 0.08em;
 }
@@ -686,8 +687,8 @@ onMounted(async () => {
 }
 
 .form-section {
-  background: #fcfaf7;
-  border: 1px solid #d8d0c4;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   padding: 24px 28px;
 }
 
@@ -697,8 +698,8 @@ onMounted(async () => {
   letter-spacing: 0.12em;
   margin: 0 0 18px 0;
   padding-bottom: 12px;
-  border-bottom: 1px dashed #d8d0c4;
-  color: #2c2a29;
+  border-bottom: 1px dashed var(--border-line);
+  color: var(--text-primary);
 }
 
 /* ===== 队伍 ===== */
@@ -724,33 +725,33 @@ onMounted(async () => {
 
 .btn-add-member {
   padding: 2px 14px;
-  border: 1px dashed #d8d0c4;
+  border: 1px dashed var(--border-line);
   background: transparent;
   cursor: pointer;
   font-family: inherit;
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
   transition: all 0.25s;
 }
 .btn-add-member:hover {
-  border-color: #2c2a29;
-  color: #2c2a29;
+  border-color: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .vs-divider {
   text-align: center;
   font-size: 24px;
-  color: #9e2a2b;
+  color: var(--accent-color);
   padding: 8px 0;
   letter-spacing: 0.2em;
 }
 
 /* ===== 成员 ===== */
 .member-group {
-  border: 1px solid #d8d0c4;
+  border: 1px solid var(--border-line);
   padding: 12px 16px;
   margin-top: 10px;
-  background: #fff;
+  background: var(--paper-card);
 }
 
 .member-header {
@@ -763,13 +764,13 @@ onMounted(async () => {
 .member-label {
   font-size: 13px;
   font-weight: 500;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .btn-remove-member {
   background: none;
   border: none;
-  color: #f44336;
+  color: var(--danger);
   cursor: pointer;
   font-size: 12px;
 }
@@ -791,26 +792,26 @@ onMounted(async () => {
 .member-field input,
 .member-field select {
   padding: 6px 12px;
-  border: 1px solid #d8d0c4;
-  background: #fff;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   font-family: inherit;
   font-size: 13px;
-  color: #2c2a29;
+  color: var(--text-primary);
   outline: none;
 }
 .member-field input:focus,
 .member-field select:focus {
-  border-color: #2c2a29;
+  border-color: var(--text-primary);
 }
 
 .member-field input:disabled {
-  background: #f0ebe5;
-  color: #999;
+  background: var(--bg-sub);
+  color: var(--text-secondary);
 }
 
 .sub-label {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   letter-spacing: 0.05em;
   margin-bottom: 2px;
 }
@@ -823,25 +824,25 @@ onMounted(async () => {
 .search-wrapper input {
   flex: 1;
   padding: 6px 12px;
-  border: 1px solid #d8d0c4;
-  background: #fff;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   font-family: inherit;
   font-size: 13px;
-  color: #2c2a29;
+  color: var(--text-primary);
   outline: none;
 }
 .search-wrapper input:focus {
-  border-color: #2c2a29;
+  border-color: var(--text-primary);
 }
 
 .btn-search {
   width: 34px;
   height: 34px;
-  border: 1px solid #d8d0c4;
-  background: #fff;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   cursor: pointer;
   font-size: 14px;
-  color: #999;
+  color: var(--text-secondary);
   transition: all 0.25s;
   display: flex;
   align-items: center;
@@ -849,8 +850,8 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 .btn-search:hover:not(:disabled) {
-  border-color: #2c2a29;
-  color: #2c2a29;
+  border-color: var(--text-primary);
+  color: var(--text-primary);
 }
 .btn-search:disabled {
   opacity: 0.5;
@@ -866,21 +867,21 @@ onMounted(async () => {
 }
 .userId-input-wrapper button {
   padding: 4px 12px;
-  border: 1px solid #d8d0c4;
-  background: #fff;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   cursor: pointer;
   white-space: nowrap;
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
 }
 .userId-input-wrapper button:hover {
-  border-color: #2c2a29;
-  color: #2c2a29;
+  border-color: var(--text-primary);
+  color: var(--text-primary);
 }
 
 .searching-hint {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
@@ -888,9 +889,9 @@ onMounted(async () => {
 .search-results {
   max-height: 160px;
   overflow-y: auto;
-  border: 1px solid #e8e0d8;
+  border: 1px solid var(--border-line);
   border-radius: 4px;
-  background: #fff;
+  background: var(--paper-card);
   margin-top: 4px;
 }
 
@@ -899,43 +900,43 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 4px 12px;
-  border-bottom: 1px solid #f0ebe5;
+  border-bottom: 1px solid var(--bg-sub);
 }
 .search-result-item:last-child {
   border-bottom: none;
 }
 .search-result-item:hover {
-  background: #f8f5f0;
+  background: var(--bg-sub);
 }
 
 .result-info strong {
   font-size: 13px;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 .result-author {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   margin-left: 6px;
 }
 
 .btn-add-oc {
   padding: 1px 12px;
-  border: 1px solid #d8d0c4;
+  border: 1px solid var(--border-line);
   background: transparent;
   cursor: pointer;
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
   transition: all 0.25s;
   white-space: nowrap;
 }
 .btn-add-oc:hover:not(:disabled) {
-  border-color: #9e2a2b;
-  color: #9e2a2b;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 .btn-add-oc:disabled {
   opacity: 0.4;
   cursor: not-allowed;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 /* ===== 已选标签 ===== */
@@ -951,29 +952,29 @@ onMounted(async () => {
   align-items: center;
   gap: 4px;
   padding: 2px 10px;
-  background: #ede8e2;
-  border: 1px solid #d8d0c4;
+  background: var(--bg-sub);
+  border: 1px solid var(--border-line);
   border-radius: 4px;
   font-size: 12px;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .selected-tag.opponent-tag {
-  background: #f5ece8;
-  border-color: #d8c8c0;
+  background: var(--bg-sub);
+  border-color: var(--border-line);
 }
 
 .tag-remove {
   background: none;
   border: none;
-  color: #999;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 14px;
   padding: 0 2px;
   line-height: 1;
 }
 .tag-remove:hover {
-  color: #9e2a2b;
+  color: var(--accent-color);
 }
 
 /* ===== 其他 ===== */
@@ -989,28 +990,28 @@ onMounted(async () => {
   font-size: 13px;
   letter-spacing: 0.08em;
   margin-bottom: 4px;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .required {
-  color: #9e2a2b;
+  color: var(--accent-color);
 }
 
 .form-group input,
 .form-group textarea {
   width: 100%;
   padding: 8px 14px;
-  border: 1px solid #d8d0c4;
-  background: #fff;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   font-family: inherit;
   font-size: 14px;
-  color: #2c2a29;
+  color: var(--text-primary);
   outline: none;
   transition: border-color 0.25s;
 }
 .form-group input:focus,
 .form-group textarea:focus {
-  border-color: #2c2a29;
+  border-color: var(--text-primary);
 }
 
 .form-group textarea {
@@ -1023,21 +1024,21 @@ onMounted(async () => {
   display: block;
   text-align: right;
   font-size: 12px;
-  color: #ccc;
+  color: var(--border-line);
   margin-top: 2px;
 }
 
 .hint {
   font-size: 12px;
-  color: #bbb;
+  color: var(--text-secondary);
   letter-spacing: 0.05em;
   margin: 4px 0 0;
 }
 
 /* ===== 上传 ===== */
 .upload-area {
-  border: 1px dashed #d8d0c4;
-  background: #fff;
+  border: 1px dashed var(--border-line);
+  background: var(--paper-card);
   border-radius: 4px;
   cursor: pointer;
   transition: border-color 0.25s;
@@ -1047,7 +1048,7 @@ onMounted(async () => {
   justify-content: center;
 }
 .upload-area:hover {
-  border-color: #2c2a29;
+  border-color: var(--text-primary);
 }
 
 .cover-preview {
@@ -1060,7 +1061,7 @@ onMounted(async () => {
   width: 100%;
   aspect-ratio: 16/9;
   object-fit: cover;
-  border: 1px solid #d8d0c4;
+  border: 1px solid var(--border-line);
   border-radius: 4px;
 }
 
@@ -1072,8 +1073,8 @@ onMounted(async () => {
   height: 24px;
   border-radius: 50%;
   border: none;
-  background: #9e2a2b;
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--on-accent);
   font-size: 16px;
   cursor: pointer;
   display: flex;
@@ -1082,7 +1083,7 @@ onMounted(async () => {
   transition: background 0.25s;
 }
 .remove-btn:hover {
-  background: #2c2a29;
+  background: var(--text-primary);
 }
 
 .upload-placeholder {
@@ -1091,19 +1092,19 @@ onMounted(async () => {
   align-items: center;
   gap: 4px;
   padding: 16px;
-  color: #bbb;
+  color: var(--text-secondary);
 }
 .upload-icon {
   font-size: 28px;
 }
 .upload-hint {
   font-size: 12px;
-  color: #ddd;
+  color: var(--border-line);
 }
 
 .upload-status {
   font-size: 13px;
-  color: #999;
+  color: var(--text-secondary);
   margin-top: 4px;
 }
 
@@ -1119,25 +1120,25 @@ onMounted(async () => {
   align-items: center;
   gap: 14px;
   padding: 12px 16px;
-  border: 1px solid #d8d0c4;
-  background: #fff;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   cursor: pointer;
   transition: all 0.25s;
   border-radius: 4px;
 }
 .radio-option:hover {
-  border-color: #aaa;
+  border-color: var(--text-secondary);
 }
 .radio-option.active {
-  border-color: #9e2a2b;
-  background: #fcf6f4;
+  border-color: var(--accent-color);
+  background: var(--bg-sub);
 }
 
 .radio-option input[type="radio"] {
   flex-shrink: 0;
   width: 16px;
   height: 16px;
-  accent-color: #9e2a2b;
+  accent-color: var(--accent-color);
   cursor: pointer;
 }
 
@@ -1149,11 +1150,11 @@ onMounted(async () => {
 
 .radio-label {
   font-size: 14px;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 .radio-desc {
   font-size: 12px;
-  color: #bbb;
+  color: var(--text-secondary);
 }
 
 /* ===== 提交 ===== */
@@ -1161,30 +1162,30 @@ onMounted(async () => {
   display: flex;
   gap: 12px;
   padding-top: 20px;
-  border-top: 2px solid #d8d0c4;
+  border-top: 2px solid var(--border-line);
 }
 
 .btn-cancel {
   padding: 10px 28px;
-  border: 1px solid #d8d0c4;
+  border: 1px solid var(--border-line);
   background: transparent;
   cursor: pointer;
   font-family: inherit;
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   transition: all 0.25s;
 }
 .btn-cancel:hover {
-  border-color: #9e2a2b;
-  color: #9e2a2b;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
 .btn-submit {
   flex: 1;
   padding: 10px 28px;
-  border: 1px solid #2c2a29;
-  background: #2c2a29;
-  color: #f5f0eb;
+  border: 1px solid var(--text-primary);
+  background: var(--text-primary);
+  color: var(--bg-sub);
   font-family: inherit;
   font-size: 14px;
   letter-spacing: 0.12em;
@@ -1192,8 +1193,8 @@ onMounted(async () => {
   transition: all 0.25s;
 }
 .btn-submit:hover:not(:disabled) {
-  background: #f5f0eb;
-  color: #2c2a29;
+  background: var(--bg-sub);
+  color: var(--text-primary);
 }
 .btn-submit:disabled {
   opacity: 0.4;

@@ -1,7 +1,9 @@
 // useEditorImageUpload.ts
+import { ref } from 'vue';
 import { useCos } from './useCos'
 
-export function useEditorImageUpload(currentNoteID: any, updateNoteContent: Function, emit: Function) {
+export function useEditorImageUpload(onChange: (editor: any) => void) {
+  const pendingUploads = ref(0), uploadError = ref('');
   const {
     uploadAndRegister,
     progress: cosProgress,
@@ -10,7 +12,8 @@ export function useEditorImageUpload(currentNoteID: any, updateNoteContent: Func
 
   const handleImageProcess = async (editor: any, view: any, file: File, pos?: number) => {
     if (!file.type.startsWith('image/')) return; // 类型拦截
-    const placeholderId = `spirit_img_loading_${Date.now()}`;
+    pendingUploads.value++; uploadError.value = '';
+    const placeholderId = `spirit_img_loading_${crypto.randomUUID()}`;
 
     try {
       const { schema } = view.state;
@@ -22,11 +25,12 @@ export function useEditorImageUpload(currentNoteID: any, updateNoteContent: Func
         alt: placeholderId
       });
 
-      let tr = pos ? view.state.tr.insert(pos, placeholderNode) : view.state.tr.replaceSelectionWith(placeholderNode);
+      let tr = pos !== undefined ? view.state.tr.insert(pos, placeholderNode) : view.state.tr.replaceSelectionWith(placeholderNode);
       view.dispatch(tr);
 
       // 🌟 走 uploadAndRegister：上传 + 登记 assets 表
       const asset = await uploadAndRegister(file, 'lingmai');
+      if (!editor.value || editor.value.isDestroyed) return;
 
       // 替换占位节点为真实图片节点（带 assetId）
       view.state.doc.descendants((node: any, nodePos: number) => {
@@ -44,17 +48,11 @@ export function useEditorImageUpload(currentNoteID: any, updateNoteContent: Func
         }
       });
 
-      const finalJson = editor.value?.getJSON();
-      if (finalJson) {
-        updateNoteContent(currentNoteID.value, finalJson);
-        editor.value?.view.dom.dispatchEvent(new CustomEvent('change-content', {
-          bubbles: true,
-          detail: finalJson
-        }));
-        emit('change', finalJson);
-      }
+      onChange(editor.value);
 
     } catch (err) {
+      if (!editor.value || editor.value.isDestroyed) return;
+      uploadError.value = file.name + ' 上传失败，请重新选择文件重试。';
       // 上传或登记失败：删掉占位图
       view.state.doc.descendants((node: any, nodePos: number) => {
         if (node.type.name === 'image' && node.attrs.alt === placeholderId) {
@@ -64,7 +62,7 @@ export function useEditorImageUpload(currentNoteID: any, updateNoteContent: Func
         }
       });
       console.error('图片处理失败:', err);
-    }
+    } finally { pendingUploads.value--; }
   };
 
 
@@ -73,10 +71,12 @@ export function useEditorImageUpload(currentNoteID: any, updateNoteContent: Func
   // ========================================================================
   const handlePdfProcess = async (editor: any, view: any, file: File, pos?: number) => {
     if (file.type !== 'application/pdf') return;
+    pendingUploads.value++; uploadError.value = '';
 
     try {
       const { schema } = view.state;
       const asset = await uploadAndRegister(file, 'lingmai');
+      if (!editor.value || editor.value.isDestroyed) return;
 
       const pdfNode = schema.nodes.pdfEmbed.create({
         assetId: asset.assetId,
@@ -90,22 +90,17 @@ export function useEditorImageUpload(currentNoteID: any, updateNoteContent: Func
         : view.state.tr.replaceSelectionWith(pdfNode);
       view.dispatch(tr);
 
-      const finalJson = editor.value?.getJSON();
-      if (finalJson) {
-        updateNoteContent(currentNoteID.value, finalJson);
-        editor.value?.view.dom.dispatchEvent(new CustomEvent('change-content', {
-          bubbles: true,
-          detail: finalJson
-        }));
-        emit('change', finalJson);
-      }
+      onChange(editor.value);
     } catch (err) {
+      if (!editor.value || editor.value.isDestroyed) return;
+      uploadError.value = file.name + ' 上传失败，请重新选择文件重试。';
       console.error('PDF 处理失败:', err);
-    }
+    } finally { pendingUploads.value--; }
   };
 
 
   return {
+    pendingUploads, uploadError,
     cosProgress,
     isUploadingImage,
     handleImageProcess,

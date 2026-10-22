@@ -14,9 +14,9 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #16a34a;
+  background: var(--success-soft);
+  border: 1px solid var(--success-soft);
+  color: var(--success);
   padding: 8px 14px;
   border-radius: 6px;
   font-size: 13px;
@@ -25,7 +25,7 @@
 .editor-banner .cancel-btn {
   background: none;
   border: none;
-  color: #16a34a;
+  color: var(--success);
   font-size: 12px;
   cursor: pointer;
   text-decoration: underline;
@@ -41,7 +41,7 @@
   background: transparent;
   font-size: 32px;
   font-weight: 600;
-  color: #111;
+  color: var(--text-primary);
   letter-spacing: -0.5px;
   line-height: 1.25;
   padding: 4px 8px;
@@ -52,16 +52,16 @@
   box-sizing: border-box;
 }
 .doc-title-input:hover {
-  border-color: #f0f0f0;
-  background: #fafafa;
+  border-color: var(--border-line);
+  background: var(--bg-main);
 }
 .doc-title-input:focus {
   outline: none;
-  border-color: #d0d0d0;
-  background: #fff;
+  border-color: var(--border-line);
+  background: var(--paper-card);
 }
 .doc-title-input::placeholder {
-  color: #ccc;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -74,11 +74,13 @@
   gap: 4px;
   margin-bottom: 32px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-line);
 }
 .type-chip {
+  background: var(--bg-sub);
+  border: 1px solid var(--border-line);
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   padding: 3px 10px;
   border-radius: 4px;
   cursor: pointer;
@@ -87,13 +89,13 @@
   user-select: none;
 }
 .type-chip:hover {
-  color: #666;
-  background: #f5f5f5;
+  color: var(--text-secondary);
+  background: var(--bg-sub);
 }
 .type-chip.active {
-  color: #4f46e5;
-  background: #eef2ff;
-  border-color: #e0e7ff;
+  color: var(--accent-color);
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
   font-weight: 500;
 }
 
@@ -107,12 +109,12 @@
 .section-title {
   font-size: 12px;
   font-weight: 600;
-  color: #999;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1px;
   margin: 0 0 14px;
   padding-bottom: 8px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-line);
 }
 
 /* ============================================================
@@ -120,13 +122,13 @@
    ============================================================ */
 .doc-desc-input {
   width: 100%;
-  border: 1px solid #f0f0f0;
-  background: #fafafa;
+  border: 1px solid var(--border-line);
+  background: var(--bg-main);
   border-radius: 8px;
   padding: 12px 16px;
   font-size: 15px;
   line-height: 1.85;
-  color: #1a1a1a;
+  color: var(--text-primary);
   font-family: inherit;
   resize: vertical;
   min-height: 120px;
@@ -135,11 +137,11 @@
 }
 .doc-desc-input:focus {
   outline: none;
-  border-color: #d0d0d0;
-  background: #fff;
+  border-color: var(--border-line);
+  background: var(--paper-card);
 }
 .doc-desc-input::placeholder {
-  color: #ccc;
+  color: var(--text-secondary);
 }
 
 /* ============================================================
@@ -164,8 +166,8 @@
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  background: var(--overlay);
+  color: var(--on-overlay);
   border: none;
   border-radius: 50%;
   width: 26px;
@@ -178,7 +180,7 @@
   justify-content: center;
   transition: background 0.15s;
 }
-.cover-remove:hover { background: #ef4444; }
+.cover-remove:hover { background: var(--danger); }
 
 /* ============================================================
    幽灵按钮（添加封面/图片）
@@ -188,19 +190,19 @@
   align-items: center;
   gap: 6px;
   background: none;
-  border: 1px dashed #e0e0e0;
+  border: 1px dashed var(--border-line);
   border-radius: 8px;
   padding: 10px 20px;
-  color: #999;
+  color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
   font-family: inherit;
 }
 .add-btn-ghost:hover {
-  border-color: #4f46e5;
-  color: #4f46e5;
-  background: #fafbff;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  background: var(--paper-card);
 }
 
 /* ============================================================
@@ -217,7 +219,7 @@
   aspect-ratio: 1;
   border-radius: 6px;
   overflow: hidden;
-  background: #f5f5f5;
+  background: var(--bg-sub);
 }
 .gallery-item img {
   width: 100%;
@@ -229,8 +231,8 @@
   position: absolute;
   top: 4px;
   right: 4px;
-  background: rgba(0, 0, 0, 0.55);
-  color: #fff;
+  background: var(--overlay);
+  color: var(--on-overlay);
   border: none;
   border-radius: 50%;
   width: 22px;
@@ -245,11 +247,11 @@
   transition: opacity 0.15s, background 0.15s;
 }
 .gallery-item:hover .gallery-remove { opacity: 1; }
-.gallery-remove:hover { background: #ef4444; }
+.gallery-remove:hover { background: var(--danger); }
 
 .upload-hint {
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   margin-top: 6px;
 }
 
@@ -268,12 +270,12 @@
 .coord-label {
   font-size: 12px;
   font-weight: 600;
-  color: #999;
+  color: var(--text-secondary);
 }
 .coord-item input {
   width: 100px;
-  border: 1px solid #f0f0f0;
-  background: #fafafa;
+  border: 1px solid var(--border-line);
+  background: var(--bg-main);
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 13px;
@@ -282,21 +284,23 @@
 }
 .coord-item input:focus {
   outline: none;
-  border-color: #d0d0d0;
-  background: #fff;
+  border-color: var(--border-line);
+  background: var(--paper-card);
 }
 
 /* ============================================================
    底部操作栏
    ============================================================ */
 .editor-footer {
+  position: sticky; bottom: 0; z-index: 5; background: var(--paper-card);
+  padding: 16px 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
   margin-top: 40px;
   padding-top: 20px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-line);
 }
 .footer-left {
   display: flex;
@@ -319,23 +323,23 @@
 
 /* 正常：绿 */
 .quota-info.quota-normal {
-  color: #16a34a;
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+  color: var(--success);
+  background: var(--success-soft);
+  border-color: var(--success-soft);
 }
 
 /* 警告：黄 */
 .quota-info.quota-warning {
-  color: #d97706;
-  background: #fefce8;
-  border-color: #fde68a;
+  color: var(--warning);
+  background: var(--warning-soft);
+  border-color: var(--warning-soft);
 }
 
 /* 已满：红 */
 .quota-info.quota-full {
-  color: #dc2626;
-  background: #fef2f2;
-  border-color: #fecaca;
+  color: var(--danger);
+  background: var(--danger-soft);
+  border-color: var(--danger-soft);
 }
 
 .quota-remaining {
@@ -357,8 +361,8 @@
 
 .btn-primary {
   padding: 8px 24px;
-  background: #111;
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--on-accent);
   border: none;
   border-radius: 6px;
   font-size: 14px;
@@ -367,14 +371,14 @@
   transition: background 0.15s;
   font-family: inherit;
 }
-.btn-primary:hover:not(:disabled) { background: #333; }
+.btn-primary:hover:not(:disabled) { background: var(--text-primary); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-danger {
   padding: 8px 16px;
   background: none;
-  color: #999;
-  border: 1px solid #f0f0f0;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   font-size: 14px;
   cursor: pointer;
@@ -382,9 +386,9 @@
   font-family: inherit;
 }
 .btn-danger:hover {
-  color: #ef4444;
-  border-color: #fecaca;
-  background: #fef2f2;
+  color: var(--danger);
+  border-color: var(--danger-soft);
+  background: var(--danger-soft);
 }
 
 /* ============================================================
@@ -400,8 +404,8 @@
 .card-editor-inline.card-editor-inline :deep(.relation-input),
 .card-editor-inline.card-editor-inline :deep(.picker-search input),
 .card-editor-inline.card-editor-inline :deep(.picker-context .context-input) {
-  border-color: #f0f0f0;
-  background: #fafafa;
+  border-color: var(--border-line);
+  background: var(--bg-main);
   transition: border-color 0.15s, background 0.15s;
 }
 
@@ -414,8 +418,8 @@
 .card-editor-inline.card-editor-inline :deep(.relation-input:focus),
 .card-editor-inline.card-editor-inline :deep(.picker-search input:focus),
 .card-editor-inline.card-editor-inline :deep(.picker-context .context-input:focus) {
-  border-color: #d0d0d0;
-  background: #fff;
+  border-color: var(--border-line);
+  background: var(--paper-card);
   outline: none;
 }
 
@@ -442,6 +446,8 @@
     margin-bottom: 28px;
   }
   .editor-footer {
+  position: sticky; bottom: 0; z-index: 5; background: var(--paper-card);
+  padding: 16px 0;
     flex-direction: column-reverse;
     align-items: stretch;
   }
@@ -457,3 +463,7 @@
     max-width: 100%;
   }
 }
+.optional-section { border: 1px solid var(--border-line); border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px; }
+.optional-section summary { cursor: pointer; font-size: 15px; font-weight: 600; color: var(--text-primary); }
+.optional-section summary small { margin-left: 10px; font-weight: 400; color: var(--text-secondary); }
+.optional-section[open] summary { margin-bottom: 16px; }

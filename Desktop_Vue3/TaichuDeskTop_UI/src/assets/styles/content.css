@@ -1,0 +1,89 @@
+/* 社区内容页面共用的排版与表单基础；不影响俱乐部、管理端等其他页面。 */
+.content-page {
+  --content-radius: 12px;
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-bottom: 40px;
+  color: var(--text-primary);
+  line-height: 1.65;
+}
+.content-page .content-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px;
+  height: auto;
+  padding: 28px 32px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border-line);
+  border-radius: 16px;
+  background: var(--paper-sub);
+  position: static;
+}
+.content-page.content-page h1 {
+  margin: 6px 0 10px;
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  letter-spacing: -.025em;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+}
+.content-page .eyebrow { color: var(--accent-color); font-size: .78rem; letter-spacing: .08em; }
+.content-page .intro, .content-page header p, .content-page small { color: var(--text-secondary); }
+.content-page .content-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0 0; }
+.content-page .content-actions a, .content-page .content-actions button,
+.content-page > .toolbar a, .content-page > .toolbar button {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 40px; padding: 8px 14px; margin: 0;
+  border: 1px solid var(--border-line); border-radius: 8px;
+  font-size: .9rem; line-height: 1.5; text-decoration: none;
+  color: var(--text-primary); background: var(--paper-card);
+}
+.content-page .content-actions .upload-link, .content-page .content-actions .primary, .content-page .primary {
+  background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color);
+}
+.content-page button, .content-form button { font: inherit; cursor: pointer; }
+.content-page button:disabled, .content-form button:disabled { opacity: .5; cursor: not-allowed; }
+.content-page :is(input,textarea,select), .content-form :is(input,textarea,select) { font: inherit; }
+.content-page :is(button,a,input,textarea,select,summary):focus-visible,
+.content-form :is(button,a,input,textarea,select):focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
+.content-page .content-panel { padding: 20px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--content-radius); margin-bottom: 24px; }
+.content-page [role=alert] { color: var(--accent-color); line-height: 1.7; }
+.content-page .editor-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.content-page :is(.tiptap,.spirit-render-engine) { overflow-wrap: anywhere; }
+.content-page .tiptap img { max-width: 100%; }
+.content-page .tiptap a { color: var(--accent-color); text-decoration: underline; text-underline-offset: 3px; }
+@media (max-width: 720px) {
+  .content-page .content-header { margin-bottom: 16px; }
+  .content-page .content-actions { width: 100%; }
+  .content-page .content-actions > * { flex: 1 1 auto; }
+  .content-page .content-panel { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .content-page *, .content-form * { animation: none !important; transition: none !important; }
+}
+/* 同一组内容导航、筛选与状态，在画廊、文章、知识库和 Wiki 中保持一致。 */
+.content-page .community-nav { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 22px; margin-bottom: 4px; }
+.content-page .community-nav a { padding: 8px 14px; border-radius: 8px; color: var(--text-secondary); font-size: .9rem; text-decoration: none; border: 1px solid transparent; }
+.content-page .community-nav a.selected { color: var(--accent-color); background: var(--paper-card); border-color: var(--border-line); font-weight: 600; }
+.content-page .community-nav a:hover { color: var(--accent-color); background: var(--paper-sub); }
+.content-page .content-header p { margin: 0; }
+.content-page .content-header .intro { margin-top: 8px; max-width: 46em; font-size: .95rem; }
+.content-page .section-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
+.content-page .section-hint { color: var(--text-secondary); font-size: .82rem; }
+.content-page .content-filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; border: 1px solid var(--border-line); background: var(--paper-sub); border-radius: 10px; }
+.content-page .content-filters button { background: transparent; border: 1px solid transparent; border-radius: 7px; padding: 7px 16px; color: var(--text-secondary); font-size: .9rem; }
+.content-page .content-filters button[aria-pressed=true] { background: var(--paper-card); color: var(--text-primary); border-color: var(--border-line); font-weight: 600; }
+.content-page .content-badge { display: inline-flex; padding: 3px 9px; border-radius: 6px; color: var(--accent-color); background: var(--paper-sub); font-size: .78rem; }
+.content-page .content-state { padding: 48px 20px; border: 1px dashed var(--border-line); border-radius: 12px; background: var(--paper-card); text-align: center; color: var(--text-secondary); }
+.content-page .content-state a { color: var(--accent-color); }
+.content-page .content-state button, .content-page .load-more button { padding: 8px 16px; border: 1px solid var(--border-line); border-radius: 8px; color: var(--text-primary); background: var(--paper-card); }
+.content-page .content-state h2 { color: var(--text-primary); font-size: 1.2rem; }
+@media(max-width: 720px) {
+  .content-page .community-nav { gap: 2px; padding-bottom: 16px; }
+  .content-page .community-nav a { padding: 7px 10px; font-size: .85rem; }
+  .content-page .content-header { padding: 22px 20px; gap: 16px; border-radius: 12px; }
+  .content-page .section-toolbar { margin: 20px 0; }
+}

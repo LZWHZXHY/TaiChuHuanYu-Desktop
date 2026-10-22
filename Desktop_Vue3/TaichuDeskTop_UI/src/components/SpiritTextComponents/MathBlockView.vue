@@ -72,7 +72,7 @@ const cancel = () => {
 .math-block-display {
   display: block;
   padding: 12px 16px;
-  background: #fbfbfd;
+  background: var(--paper-card);
   border-radius: 8px;
   border: 1px solid transparent;
   cursor: text;
@@ -81,18 +81,18 @@ const cancel = () => {
   transition: all 0.15s;
 }
 .math-block-display:hover {
-  border-color: #e5e5ea;
-  background: #ffffff;
+  border-color: var(--border-line);
+  background: var(--paper-card);
 }
 .math-placeholder {
-  color: #c7c7cc;
+  color: var(--text-secondary);
   font-style: italic;
   font-size: 13px;
 }
 .math-block-editor {
   padding: 12px 16px;
-  background: #ffffff;
-  border: 1px solid #0066cc;
+  background: var(--paper-card);
+  border: 1px solid var(--accent-color);
   border-radius: 8px;
   box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.08);
 }

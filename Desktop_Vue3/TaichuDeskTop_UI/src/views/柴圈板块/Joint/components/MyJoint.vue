@@ -1,5 +1,5 @@
 <template>
-  <div class="my-joint">
+  <div class="community-detail my-joint">
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-left">
@@ -208,7 +208,7 @@ onMounted(() => {
 
 .tab-btn.active .tab-count {
   background: var(--cinnabar);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .joint-grid {

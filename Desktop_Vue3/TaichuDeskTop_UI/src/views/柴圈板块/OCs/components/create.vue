@@ -1,30 +1,35 @@
 <template>
-  <div class="create-page">
+  <div class="community-detail create-page">
     <div class="page-header">
       <h1 class="page-title">✎ 创建新 OC</h1>
       <p class="page-subtitle">为柴圈注入新的灵魂</p>
     </div>
 
     <div class="form-wrapper">
-      <CharacterForm @submit="handleSubmit" />
+      <p v-if="error" role="alert">{{ error }}</p>
+      <CharacterForm :loading="store.loading" @submit="handleSubmit" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { ref } from 'vue'
 import { useStickmanStore } from '../stickman_store.ts'
 import CharacterForm from '../../components/CharacterForm.vue'
 
 const router = useRouter()
 const store = useStickmanStore()
+const error = ref('')
 
 async function handleSubmit(data: any) {
+  if (store.loading) return
+  error.value = ''
   try {
     const result = await store.createCharacter(data)
     router.push(`/ocs/${result.id}`)
-  } catch (error) {
-    console.error('创建失败:', error)
+  } catch {
+    error.value = '保存失败，请重试。已填写的内容仍保留。'
   }
 }
 </script>

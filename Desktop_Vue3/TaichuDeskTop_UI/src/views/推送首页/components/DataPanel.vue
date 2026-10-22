@@ -46,12 +46,12 @@ const rawData = ref<StatsOverviewDto>({
 
 // 格式化展示数据流：整合 6 个核心指标
 const statsItems = computed(() => [
-  { label: 'EXPLORER // 太初行者', value: rawData.value.userCount.toLocaleString(), unit: '位' },
-  { label: 'CREATIONS // 寰宇作品', value: rawData.value.workCount.toLocaleString(), unit: '幅' },
-  { label: 'PROJECTS // 灵脉项目', value: rawData.value.projectCount.toLocaleString(), unit: '个' },
-  { label: 'CHRONICLES // 太初博客', value: rawData.value.blogCount.toLocaleString(), unit: '篇' },
-  { label: 'ECHOES // 闲聊碎帖', value: rawData.value.postCount.toLocaleString(), unit: '条' },
-  { label: 'WIKI // 知识百科', value: rawData.value.wikiCount.toLocaleString(), unit: '条' }
+  { label: '成员数量', value: rawData.value.userCount.toLocaleString(), unit: '位' },
+  { label: '画廊作品', value: rawData.value.workCount.toLocaleString(), unit: '幅' },
+  { label: '灵脉项目', value: rawData.value.projectCount.toLocaleString(), unit: '个' },
+  { label: '太初博客', value: rawData.value.blogCount.toLocaleString(), unit: '篇' },
+  { label: '闲聊碎帖', value: rawData.value.postCount.toLocaleString(), unit: '条' },
+  { label: '知识百科', value: rawData.value.wikiCount.toLocaleString(), unit: '条' }
 ]);
 
 const fetchStats = async () => {
@@ -85,8 +85,8 @@ onMounted(fetchStats);
 }
 
 .data-card {
-  background: #f6f8fa;
-  border: 1px solid #e1e4e8;
+  background: var(--bg-sub);
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   padding: 14px 12px;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -95,8 +95,8 @@ onMounted(fetchStats);
 }
 
 .data-card:hover {
-  background: #ffffff;
-  border-color: #1f2328;
+  background: var(--paper-card);
+  border-color: var(--text-primary);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.03);
   transform: translateY(-2px);
 }
@@ -109,18 +109,18 @@ onMounted(fetchStats);
 
 .data-label {
   font-size: 0.65rem; /* 针对 6 个卡片，微调字号防止折行 */
-  color: #8c959f;
+  color: var(--text-secondary);
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 .prefix {
-  color: #6e7781;
+  color: var(--text-secondary);
   font-weight: bold;
 }
 .data-card:hover .prefix {
-  color: #1f2328;
+  color: var(--text-primary);
 }
 
 .data-value-wrapper {
@@ -132,7 +132,7 @@ onMounted(fetchStats);
 .data-value {
   font-size: 1.25rem; /* 适应侧边栏密集布局 */
   font-weight: 400;
-  color: #1f2328;
+  color: var(--text-primary);
   font-family: 'JetBrains Mono', ui-monospace, monospace;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -140,17 +140,17 @@ onMounted(fetchStats);
 
 .data-unit {
   font-size: 0.65rem;
-  color: #8c959f;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .skeleton-item {
   height: 60px;
-  background: linear-gradient(90deg, #f6f8fa 25%, #eaecef 37%, #f6f8fa 63%);
+  background: linear-gradient(90deg, var(--bg-sub) 25%, var(--border-line) 37%, var(--bg-sub) 63%);
   background-size: 400% 100%;
   animation: skeleton-loading 1.4s ease infinite;
   border-radius: 6px;
-  border: 1px solid #e1e4e8;
+  border: 1px solid var(--border-line);
 }
 
 @keyframes skeleton-loading {

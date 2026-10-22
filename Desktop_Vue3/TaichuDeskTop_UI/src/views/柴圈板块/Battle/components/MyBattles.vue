@@ -1,5 +1,5 @@
 <template>
-  <div class="my-battles">
+  <div class="community-detail my-battles">
     <div class="page-header">
       <div class="header-left">
         <button class="back-btn" @click="goBack">← 返回</button>
@@ -199,9 +199,9 @@ onMounted(() => {
   max-width: 960px;
   margin: 0 auto;
   padding: 32px 20px 60px;
-  background: #f5f0eb;
+  background: var(--bg-sub);
   min-height: 100vh;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .page-header {
@@ -209,7 +209,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: flex-end;
   padding-bottom: 16px;
-  border-bottom: 2px solid #d8d0c4;
+  border-bottom: 2px solid var(--border-line);
   margin-bottom: 24px;
   flex-wrap: wrap;
   gap: 12px;
@@ -225,14 +225,14 @@ onMounted(() => {
   background: none;
   border: none;
   font-size: 15px;
-  color: #999;
+  color: var(--text-secondary);
   cursor: pointer;
   font-family: inherit;
   padding: 4px 8px 4px 0;
   transition: color 0.25s;
 }
 .back-btn:hover {
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .page-title {
@@ -240,21 +240,21 @@ onMounted(() => {
   font-weight: 400;
   letter-spacing: 0.15em;
   margin: 0 0 4px 0;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .page-subtitle {
   font-size: 14px;
-  color: #999;
+  color: var(--text-secondary);
   letter-spacing: 0.08em;
   margin: 0;
 }
 
 .btn-primary {
   padding: 8px 20px;
-  border: 1px solid #2c2a29;
-  background: #2c2a29;
-  color: #f5f0eb;
+  border: 1px solid var(--text-primary);
+  background: var(--text-primary);
+  color: var(--bg-sub);
   text-decoration: none;
   font-size: 13px;
   letter-spacing: 0.1em;
@@ -262,13 +262,13 @@ onMounted(() => {
 }
 .btn-primary:hover {
   background: transparent;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .tab-bar {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid #d8d0c4;
+  border-bottom: 1px solid var(--border-line);
   margin-bottom: 16px;
 }
 
@@ -279,7 +279,7 @@ onMounted(() => {
   font-family: inherit;
   font-size: 14px;
   letter-spacing: 0.1em;
-  color: #999;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.3s;
   display: flex;
@@ -287,23 +287,23 @@ onMounted(() => {
   gap: 8px;
 }
 .tab-btn:hover {
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 .tab-btn.active {
-  color: #2c2a29;
-  border-bottom: 2px solid #9e2a2b;
+  color: var(--text-primary);
+  border-bottom: 2px solid var(--accent-color);
 }
 
 .tab-count {
   font-size: 12px;
-  color: #999;
-  background: #e8e2da;
+  color: var(--text-secondary);
+  background: var(--border-line);
   padding: 0 8px;
   border-radius: 10px;
 }
 .tab-btn.active .tab-count {
-  background: #9e2a2b;
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--on-accent);
 }
 
 .filter-bar {
@@ -312,11 +312,11 @@ onMounted(() => {
 
 .filter-bar select {
   padding: 6px 14px;
-  border: 1px solid #d8d0c4;
-  background: #fcfaf7;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   font-family: inherit;
   font-size: 13px;
-  color: #2c2a29;
+  color: var(--text-primary);
   outline: none;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23999' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
@@ -326,7 +326,7 @@ onMounted(() => {
   cursor: pointer;
 }
 .filter-bar select:focus {
-  border-color: #2c2a29;
+  border-color: var(--text-primary);
 }
 
 .loading-state {
@@ -336,14 +336,14 @@ onMounted(() => {
   justify-content: center;
   padding: 60px 0;
   gap: 16px;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 2px solid #d8d0c4;
-  border-top-color: #2c2a29;
+  border: 2px solid var(--border-line);
+  border-top-color: var(--text-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -355,7 +355,7 @@ onMounted(() => {
 .empty-state {
   padding: 60px 0;
   text-align: center;
-  color: #999;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 .empty-state p {
@@ -363,13 +363,13 @@ onMounted(() => {
 }
 
 .empty-link {
-  color: #9e2a2b;
+  color: var(--accent-color);
   text-decoration: none;
-  border-bottom: 1px solid #d8d0c4;
+  border-bottom: 1px solid var(--border-line);
   padding-bottom: 2px;
 }
 .empty-link:hover {
-  border-color: #9e2a2b;
+  border-color: var(--accent-color);
 }
 
 .battle-list {
@@ -382,13 +382,13 @@ onMounted(() => {
   display: flex;
   gap: 16px;
   padding: 14px 18px;
-  border: 1px solid #d8d0c4;
-  background: #fcfaf7;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   cursor: pointer;
   transition: all 0.2s;
 }
 .battle-item:hover {
-  border-color: #2c2a29;
+  border-color: var(--text-primary);
   transform: translateY(-2px);
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
@@ -397,7 +397,7 @@ onMounted(() => {
   flex-shrink: 0;
   width: 64px;
   height: 64px;
-  background: #ede8e2;
+  background: var(--bg-sub);
   border-radius: 4px;
   overflow: hidden;
   display: flex;
@@ -411,7 +411,7 @@ onMounted(() => {
 }
 .item-cover .placeholder {
   font-size: 24px;
-  color: #9e2a2b;
+  color: var(--accent-color);
 }
 
 .item-info {
@@ -423,7 +423,7 @@ onMounted(() => {
   font-weight: 400;
   letter-spacing: 0.08em;
   margin: 0 0 4px 0;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .item-meta {
@@ -434,33 +434,33 @@ onMounted(() => {
 }
 .item-meta .status {
   padding: 0 10px;
-  border: 1px solid #d8d0c4;
+  border: 1px solid var(--border-line);
 }
-.item-meta .status.open { border-color: #4CAF50; color: #4CAF50; }
-.item-meta .status.ongoing { border-color: #FF9800; color: #FF9800; }
-.item-meta .status.judging { border-color: #FF9800; color: #FF9800; }
-.item-meta .status.finished { border-color: #9E9E9E; color: #9E9E9E; }
-.item-meta .status.cancelled { border-color: #F44336; color: #F44336; }
+.item-meta .status.open { border-color: var(--success); color: var(--success); }
+.item-meta .status.ongoing { border-color: var(--warning); color: var(--warning); }
+.item-meta .status.judging { border-color: var(--warning); color: var(--warning); }
+.item-meta .status.finished { border-color: var(--text-secondary); color: var(--text-secondary); }
+.item-meta .status.cancelled { border-color: var(--danger); color: var(--danger); }
 
 .item-meta .type {
-  color: #888;
+  color: var(--text-secondary);
 }
 .item-meta .judgment {
-  color: #9e2a2b;
+  color: var(--accent-color);
 }
 .item-meta .role {
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .item-opponent {
   font-size: 13px;
-  color: #888;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
 .item-time {
   font-size: 12px;
-  color: #bbb;
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
@@ -470,11 +470,11 @@ onMounted(() => {
   align-items: center;
   padding-left: 12px;
   font-size: 13px;
-  color: #ccc;
+  color: var(--border-line);
   transition: color 0.2s;
 }
 .battle-item:hover .item-action {
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 @media (max-width: 640px) {
@@ -484,7 +484,7 @@ onMounted(() => {
   .btn-primary { width: 100%; text-align: center; }
   .battle-item { flex-direction: column; }
   .item-cover { width: 100%; height: 80px; }
-  .item-action { padding-left: 0; padding-top: 8px; border-top: 1px solid #eee; justify-content: flex-end; }
+  .item-action { padding-left: 0; padding-top: 8px; border-top: 1px solid var(--border-line); justify-content: flex-end; }
   .tab-btn { padding: 8px 16px; font-size: 13px; }
 }
 </style>

@@ -172,7 +172,7 @@ const handleDelete = async (id: string) => {
 <style scoped>
 .admin-feedback-container {
   padding: 24px;
-  background-color: #f8fafc; /* 极浅灰背景，适合后台大盘 */
+  background-color: var(--bg-main); /* 极浅灰背景，适合后台大盘 */
   min-height: 100vh;
   font-family: system-ui, -apple-system, sans-serif;
 }
@@ -187,29 +187,29 @@ const handleDelete = async (id: string) => {
 .page-title {
   margin: 0;
   font-size: 1.25rem;
-  color: #1e293b;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .refresh-btn {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   padding: 8px 16px;
   border-radius: 6px;
-  color: #475569;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.9rem;
   transition: all 0.2s;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
 .refresh-btn:hover:not(:disabled) {
-  border-color: #cbd5e1;
-  color: #1e293b;
+  border-color: var(--border-line);
+  color: var(--text-primary);
 }
 
 /* 表格主体样式 */
 .table-wrapper {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 8px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   overflow-x: auto;
@@ -223,35 +223,35 @@ const handleDelete = async (id: string) => {
 }
 
 .admin-table th {
-  background-color: #f8fafc;
-  color: #64748b;
+  background-color: var(--bg-main);
+  color: var(--text-secondary);
   font-weight: 500;
   padding: 12px 16px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-line);
   white-space: nowrap;
 }
 
 .admin-table td {
   padding: 16px;
-  border-bottom: 1px solid #f1f5f9;
-  color: #334155;
+  border-bottom: 1px solid var(--border-line);
+  color: var(--text-primary);
   vertical-align: top;
 }
 
 .table-row:hover td {
-  background-color: #f8fafc;
+  background-color: var(--bg-main);
 }
 
 .empty-cell {
   text-align: center;
   padding: 40px !important;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .mono-text {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.85rem;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .text-truncate {
@@ -262,7 +262,7 @@ const handleDelete = async (id: string) => {
   font-size: 0.85rem;
   margin-top: 4px;
 }
-.text-muted { color: #cbd5e1; }
+.text-muted { color: var(--text-secondary); }
 
 .user-info {
   display: flex;
@@ -273,11 +273,11 @@ const handleDelete = async (id: string) => {
 .badge-anonymous {
   align-self: flex-start;
   font-size: 0.7rem;
-  background: #fef2f2;
-  color: #ef4444;
+  background: var(--danger-soft);
+  color: var(--danger);
   padding: 2px 6px;
   border-radius: 4px;
-  border: 1px solid #fecaca;
+  border: 1px solid var(--danger-soft);
   margin-bottom: 4px;
 }
 
@@ -298,7 +298,7 @@ const handleDelete = async (id: string) => {
   height: 36px;
   object-fit: cover;
   border-radius: 4px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   cursor: zoom-in;
 }
 
@@ -311,12 +311,12 @@ const handleDelete = async (id: string) => {
   font-weight: 500;
 }
 .status-pending {
-  background-color: #f1f5f9;
-  color: #64748b;
+  background-color: var(--bg-sub);
+  color: var(--text-secondary);
 }
 .status-resolved {
-  background-color: #dcfce7;
-  color: #16a34a;
+  background-color: var(--success-soft);
+  color: var(--success);
 }
 
 /* 操作按钮 */
@@ -335,9 +335,9 @@ const handleDelete = async (id: string) => {
   transition: color 0.2s;
 }
 .toggle-btn { color: #3b82f6; }
-.toggle-btn:hover { color: #2563eb; }
-.toggle-btn:disabled { color: #94a3b8; cursor: not-allowed; }
+.toggle-btn:hover { color: var(--accent-color); }
+.toggle-btn:disabled { color: var(--text-secondary); cursor: not-allowed; }
 
-.delete-btn { color: #ef4444; }
-.delete-btn:hover { color: #dc2626; }
+.delete-btn { color: var(--danger); }
+.delete-btn:hover { color: var(--danger); }
 </style>

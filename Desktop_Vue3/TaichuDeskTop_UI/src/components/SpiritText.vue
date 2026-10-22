@@ -8,6 +8,9 @@
       ></div>
     </transition>
 
+    <div class="editor-tools"><button type="button" @click="chooseFile('image/*')">添加图片</button><button type="button" @click="chooseFile('application/pdf')">添加 PDF</button><span v-if="pendingUploads" role="status">文件上传中，请稍候…</span></div>
+    <p v-if="uploadError" role="alert">{{ uploadError }}</p>
+    <ContentReferencePicker @select="insertReference" />
     <EditorBubbleMenu 
       v-if="editor" 
       :editor="editor" 
@@ -96,10 +99,12 @@ import { spiritExtensions, spiritColors} from '../utils/editorConfig'
 import { useSpiritData } from '../composables/useSpiritData'
 import { useEditorImageUpload} from '@/composables/useEditorImageUpload.ts'
 import { SlashMenuExtension } from '@/composables/slashExtension.ts'
+import ContentReferencePicker from './ContentReferencePicker.vue'
 import { lingmaiApi } from '@/api/lingmai'
 
+const props = defineProps<{ standalone?: boolean; initialContent?: any; disabled?: boolean }>()
 const emit = defineEmits(['change'])
-const { notes, currentNoteId, updateNoteContent, selectNote } = useSpiritData()
+const { notes, currentNoteId, updateNoteContent } = useSpiritData()
 const router = useRouter()
 const targetNote = notes.value.find(n => n.id === currentNoteId.value);
 
@@ -126,7 +131,7 @@ const assignMissingIds = (node: any) => {
   }
 }
 
-const rawInitial = targetNote?.content || { type: 'doc', content: [] }
+const rawInitial = (props.standalone ? props.initialContent : targetNote?.content) || { type: 'doc', content: [] }
 const initialContent = JSON.parse(JSON.stringify(rawInitial))
 assignMissingIds(initialContent)
 // ========================================================================
@@ -136,7 +141,17 @@ let lastSyncedJson = JSON.stringify(initialContent)
 const showLinkSelector = ref(false)
 const menuPos = ref({ top: 0, left: 0 })
 
-const { cosProgress, isUploadingImage, handleImageProcess, handlePdfProcess } = useEditorImageUpload(currentNoteId, updateNoteContent, emit)
+const { cosProgress, isUploadingImage, handleImageProcess, handlePdfProcess, pendingUploads, uploadError } = useEditorImageUpload(syncEditorContent)
+
+// 编辑输入与上传完成走同一通知入口，避免相同正文重复保存和重复上报。
+function syncEditorContent(instance: any, json = instance?.getJSON(), serialized = JSON.stringify(json)) {
+  if (!json || instance?.isDestroyed) return;
+  if (serialized === lastSyncedJson) return;
+  instance.view.dom.dispatchEvent(new CustomEvent('change-content', { bubbles: true, detail: json }));
+  if (!props.standalone) updateNoteContent(currentNoteId.value, json);
+  lastSyncedJson = serialized;
+  emit('change', json);
+}
 
 const menuStyle = computed(() => ({top: `${menuPos.value.top}px`, left: `${menuPos.value.left}px` }))
 
@@ -341,7 +356,7 @@ const editor = useEditor({
 
         // 🌟 匹配 [[ 后面的内容
         const match = textBefore.match(/\[\[([^\[\]]*)$/);
-        if (match) {
+        if (match && !props.standalone) {
           showLinkSelector.value = true;
           searchQuery.value = match[1];
         } else {
@@ -354,18 +369,12 @@ const editor = useEditor({
       showLinkSelector.value = false;
     }
 
-    editor.view.dom.dispatchEvent(new CustomEvent('change-content', {
-      bubbles: true, 
-      detail: currentJson
-    }));
-
-    updateNoteContent(currentNoteId.value, currentJson);
-    lastSyncedJson = currentJsonStr; 
-    
-    emit('change', currentJson);
+    syncEditorContent(editor, currentJson, currentJsonStr);
   }
 })
 
+
+watch(() => props.disabled, value => editor.value?.setEditable?.(!value), { immediate: true });
 
 const handleLinkNavigation = (e: MouseEvent) => {
   const target = e.target as HTMLElement;
@@ -411,6 +420,13 @@ const insertLink = (item: any, isBlock: boolean) => {
   searchQuery.value = ''
 }
 
+function chooseFile(accept: string) {
+  const input = document.createElement('input'); input.type = 'file'; input.accept = accept;
+  input.onchange = () => { const file = input.files?.[0]; if (!file || !editor.value) return; const process = accept === 'image/*' ? handleImageProcess : handlePdfProcess; void process(editor, editor.value.view, file); }; input.click();
+}
+function insertReference(value: { title: string; href: string }) {
+  editor.value?.chain().focus().insertContent({ type: 'text', text: value.title, marks: [{ type: 'link', attrs: { href: value.href } }] }).insertContent(' ').run();
+}
 const closeMenus = (e: MouseEvent) => {
   if (!(e.target as HTMLElement).closest('.spirit-floating-menu')) {
     showLinkSelector.value = false
@@ -451,6 +467,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer);
+  if (previewTimer) clearTimeout(previewTimer);
+  if (hideTimer) clearTimeout(hideTimer);
   window.removeEventListener('mousedown', closeMenus);
   document.removeEventListener('click', handleLinkNavigation, { capture: true });
 
@@ -464,7 +483,11 @@ onUnmounted(() => {
   }
 });
 
-defineExpose({ 
+defineExpose({
+  getSnapshot: () => {
+    if (pendingUploads.value) throw new Error('请等待文件上传完成后再保存');
+    return editor.value?.getJSON();
+  },
   editor: editor,           
   isInitialized: isInitialized, 
   lastSyncedJson: lastSyncedJson,
@@ -477,6 +500,9 @@ defineExpose({
 </style>
 
 <style scoped>
+.editor-tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.editor-tools button { padding: 8px 12px; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-primary); border-radius: 6px; cursor: pointer; }
+[role=alert] { color: var(--accent-color); }
 .spirit-editor-wrapper {
   position: relative;
   width: 100%;
@@ -488,7 +514,7 @@ defineExpose({
   top: 0;
   left: 0;
   height: 4px;
-  background: linear-gradient(90deg, #0066cc, #34c759); 
+  background: linear-gradient(90deg, var(--accent-color), var(--success)); 
   z-index: 10000;
   box-shadow: 0 1px 6px rgba(0, 102, 204, 0.3);
   transition: width 0.2s cubic-bezier(0.1, 0.8, 0.1, 1);
@@ -498,7 +524,7 @@ defineExpose({
   width: 100%;
   height: 180px; 
   border-radius: 12px;
-  background: linear-gradient(90deg, #f5f5f7 25%, #e8e8ed 37%, #f5f5f7 63%);
+  background: linear-gradient(90deg, var(--bg-sub) 25%, var(--bg-sub) 37%, var(--bg-sub) 63%);
   background-size: 400% 100%;
   animation: spiritSkeletonShimmer 1.4s ease infinite;
   content: "" !important; 
@@ -515,12 +541,12 @@ defineExpose({
 }
 
 :deep(.ProseMirror-dropcursor) {
-  color: #0066cc;
+  color: var(--accent-color);
   width: 2px;
 }
 
 :deep(.ProseMirror-selectednode) {
-  outline: 2px solid #0066cc;
+  outline: 2px solid var(--accent-color);
   box-shadow: 0 4px 20px rgba(0, 102, 204, 0.15);
 }
 
@@ -528,7 +554,7 @@ defineExpose({
   position: fixed; 
   width: 300px;
   max-height: 320px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--paper-card);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 14px;
@@ -543,7 +569,7 @@ defineExpose({
 
 .menu-header {
   font-size: 11px;
-  color: #a1a1a6;
+  color: var(--text-secondary);
   padding: 8px 12px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -552,7 +578,7 @@ defineExpose({
 
 .menu-section-label {
   font-size: 10px;
-  color: #a1a1a6;
+  color: var(--text-secondary);
   padding: 8px 12px 4px;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -578,25 +604,25 @@ defineExpose({
 .menu-item:hover,
 .menu-item.is-active {
   background: rgba(0, 102, 204, 0.06);
-  color: #0066cc;
+  color: var(--accent-color);
 }
 
 .menu-item:hover .item-icon,
 .menu-item.is-active .item-icon {
-  background: #0066cc;
-  color: #ffffff;
+  background: var(--accent-color);
+  color: var(--on-accent);
 }
 
 .item-icon {
   width: 28px;
   height: 28px;
-  background: #f2f2f7;
+  background: var(--bg-sub);
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 13px;
-  color: #1d1d1f;
+  color: var(--text-primary);
   transition: all 0.2s;
   flex-shrink: 0;
 }
@@ -611,7 +637,7 @@ defineExpose({
 .main-title {
   font-size: 13px;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -619,7 +645,7 @@ defineExpose({
 
 .sub-info {
   font-size: 11px;
-  color: #86868b;
+  color: var(--text-secondary);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -629,7 +655,7 @@ defineExpose({
 .menu-empty {
   padding: 30px 20px;
   text-align: center;
-  color: #c7c7cc;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
@@ -659,7 +685,7 @@ defineExpose({
   z-index: 99999;
   width: 340px;
   max-height: 260px;
-  background: rgba(255, 255, 255, 0.98);
+  background: var(--paper-card);
   backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 12px;
@@ -681,7 +707,7 @@ defineExpose({
 .preview-title {
   font-size: 14px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -706,7 +732,7 @@ defineExpose({
 .preview-excerpt {
   font-size: 12px;
   line-height: 1.6;
-  color: #515154;
+  color: var(--text-primary);
   display: -webkit-box;
   -webkit-line-clamp: 8;
   -webkit-box-orient: vertical;
@@ -728,9 +754,9 @@ defineExpose({
 .preview-meta {
   margin-top: 8px;
   padding-top: 8px;
-  border-top: 1px dashed #e5e5ea;
+  border-top: 1px dashed var(--border-line);
   font-size: 11px;
-  color: #86868b;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 

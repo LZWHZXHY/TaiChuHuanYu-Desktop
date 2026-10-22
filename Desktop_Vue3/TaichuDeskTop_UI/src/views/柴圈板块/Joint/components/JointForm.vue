@@ -6,12 +6,12 @@
 
       <div class="form-group">
         <label>活动名称 <span class="required">*</span></label>
-        <input v-model="form.title" type="text" placeholder="给联合活动取个名字" required />
+        <input aria-label="活动名称" v-model="form.title" type="text" placeholder="给联合活动取个名字" required />
       </div>
 
       <div class="form-group">
         <label>活动描述 <span class="required">*</span></label>
-        <textarea v-model="form.description" rows="5" placeholder="详细描述这次联合活动的内容、主题、目标..." required />
+        <textarea aria-label="活动描述" v-model="form.description" rows="5" placeholder="详细描述这次联合活动的内容、主题、目标..." required />
       </div>
 
       <div class="form-group">
@@ -37,7 +37,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>活动类型 <span class="required">*</span></label>
-          <select v-model="form.type">
+          <select aria-label="活动类型" v-model="form.type">
             <option value="joint">联合</option>
             <option value="relay">接力</option>
             <option value="project">企划</option>
@@ -47,7 +47,7 @@
         </div>
         <div class="form-group">
           <label>活动状态 <span class="required">*</span></label>
-          <select v-model="form.status">
+          <select aria-label="活动状态" v-model="form.status">
             <option value="open">报名中</option>
             <option value="closed">已截止</option>
             <option value="ended">已结束</option>
@@ -61,7 +61,7 @@
       <div class="form-row">
         <div class="form-group">
           <label>开始时间 <span class="required">*</span></label>
-          <input
+          <input aria-label="开始时间"
             v-model="form.startDate"
             type="datetime-local"
             required
@@ -70,7 +70,7 @@
         </div>
         <div class="form-group">
           <label>结束时间</label>
-          <input
+          <input aria-label="结束时间"
             v-model="form.endDate"
             type="datetime-local"
           />
@@ -81,7 +81,7 @@
       <!-- ===== 来源类型（仅管理员可见） ===== -->
       <div v-if="canCreateOfficial" class="form-group">
         <label>活动来源 <span class="required">*</span></label>
-        <select v-model="form.organizerType">
+        <select aria-label="活动来源" v-model="form.organizerType">
           <option value="user">用户自建（需管理员审核）</option>
           <option value="official">太虚绘院官方（直接发布）</option>
         </select>
@@ -103,13 +103,13 @@
 
       <div class="form-group">
         <label>群聊号 / 联系方式</label>
-        <input v-model="form.contact" type="text" placeholder="QQ群号、微信群、Discord 等" />
+        <input aria-label="群聊号 / 联系方式" v-model="form.contact" type="text" placeholder="QQ群号、微信群、Discord 等" />
         <p class="hint">参与者可以通过此方式联系举办者</p>
       </div>
 
       <div class="form-group">
         <label>参与要求</label>
-        <textarea v-model="form.requirements" rows="3" placeholder="参与门槛、需要具备的技能、注意事项等" />
+        <textarea aria-label="参与要求" v-model="form.requirements" rows="3" placeholder="参与门槛、需要具备的技能、注意事项等" />
       </div>
     </div>
 
@@ -132,6 +132,7 @@ import type { JointStatus, JointType, JointActivity } from '../joint'
 const props = defineProps<{
   initialData?: JointActivity
   submitLabel?: string
+  submitting?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -142,7 +143,6 @@ const emit = defineEmits<{
 const { uploadFile } = useCos()
 const userStore = useUserStore()
 
-const submitting = ref(false)
 const uploadingCover = ref(false)
 const coverProgress = ref(0)
 
@@ -171,7 +171,8 @@ const form = reactive({
 const isFormValid = computed(() => {
   return form.title.trim().length > 0 &&
          form.description.trim().length > 0 &&
-         form.startDate.length > 0
+         form.startDate.length > 0 &&
+         (!form.endDate || new Date(form.endDate) > new Date(form.startDate))
 })
 
 // ===== 监听初始数据变化 =====
@@ -239,6 +240,7 @@ async function uploadCover() {
 
 // ===== 提交 =====
 function handleSubmit() {
+  if (props.submitting || uploadingCover.value) return
   if (!form.title.trim()) {
     alert('请输入活动名称')
     return
@@ -251,23 +253,27 @@ function handleSubmit() {
     alert('请选择活动开始时间')
     return
   }
+  if (form.endDate && new Date(form.endDate) <= new Date(form.startDate)) {
+    alert('结束时间必须晚于开始时间')
+    return
+  }
 
   // 如果用户没有权限，强制设为 user（防止伪造请求）
   const organizerType = canCreateOfficial.value ? form.organizerType : 'user'
 
   // ✅ 将 datetime-local 格式转换为 ISO 格式（加秒）
   const startDate = form.startDate ? form.startDate + ':00' : ''
-  const endDate = form.endDate ? form.endDate + ':00' : undefined
+  const endDate = form.endDate ? form.endDate + ':00' : null
 
   const data = {
     title: form.title.trim(),
     description: form.description.trim(),
-    coverUrl: form.coverUrl.trim() || undefined,
+    coverUrl: form.coverUrl.trim(),
     type: form.type,
     status: form.status,
     auditRequired: form.auditRequired,
-    contact: form.contact.trim() || undefined,
-    requirements: form.requirements.trim() || undefined,
+    contact: form.contact.trim(),
+    requirements: form.requirements.trim(),
     organizerType: organizerType,
     // ✅ 新增：时间字段
     startDate: startDate,
@@ -416,7 +422,7 @@ function handleSubmit() {
   border-radius: 50%;
   border: none;
   background: rgba(44, 42, 41, 0.8);
-  color: #fff;
+  color: var(--text-primary);
   cursor: pointer;
   font-size: 14px;
   display: flex;

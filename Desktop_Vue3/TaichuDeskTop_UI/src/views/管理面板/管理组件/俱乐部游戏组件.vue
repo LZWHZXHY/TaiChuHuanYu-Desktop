@@ -55,25 +55,25 @@ const currentComponent = computed(() =>
 <style scoped>
 .club-game-manager { display: flex; flex-direction: column; animation: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
 .module-header { margin-bottom: 30px; }
-.page-title { font-size: 1.6rem; font-weight: 700; color: #111; margin: 0; }
-.md-subtitle { font-size: 0.85rem; color: #888; margin: 6px 0 0; }
+.page-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.md-subtitle { font-size: 0.85rem; color: var(--text-secondary); margin: 6px 0 0; }
 
 .md-tabs {
   display: flex;
   gap: 32px;
-  border-bottom: 1px solid #f2f2f7;
+  border-bottom: 1px solid var(--border-line);
   margin-bottom: 24px;
   flex-wrap: wrap;   /* ⭐ 加这行 */
 }
 .tab-item {
-  cursor: pointer; color: #86868b; padding-bottom: 12px;
+  cursor: pointer; color: var(--text-secondary); padding-bottom: 12px;
   font-size: 0.95rem; font-weight: 600;
   transition: all 0.2s ease; position: relative;
 }
-.tab-item.active { color: #111; }
+.tab-item.active { color: var(--text-primary); }
 .tab-item.active::after {
   content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
-  height: 2px; background: #111;
+  height: 2px; background: var(--text-primary);
 }
 
 .tab-panel { animation: fadeIn 0.3s ease; }

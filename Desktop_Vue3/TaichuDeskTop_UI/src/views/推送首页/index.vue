@@ -1,83 +1,33 @@
 <template>
-  <article class="doc-body">
+  <article class="home-page content-page">
+    <header class="home-welcome">
+      <div><p class="eyebrow">TAICHU COMMUNITY</p><h1>在这里，留下你的创造。</h1><p class="intro">发现作品、交流想法，和社区一起把灵感变成现实。</p></div>
+
+    </header>
     <div class="content-layout">
-      <!-- 左侧内容 -->
-      <section class="main-content">
-        <p class="lead-text">
-          欢迎进入<strong>太初寰宇</strong> 
-        </p>
-        <div class="info-block">
-          <p>这里是太初寰宇的首页，你可以在这里进行每日签到，也可以获得最新的相关资讯和信息</p>
-        </div>
-        
+      <section class="main-content" aria-label="社区动态">
         <LatestNews />
         <feedback />
         <updateLog />
       </section>
-
-      <!-- 右侧边栏 -->
-      <aside class="side-widgets">
-        <!-- 1. 签到卡片 -->
-        <SignCard />
-        
-        <!-- 2. 数据看板 -->
-        <DataPanel class="side-data-panel" />
-
-        <!-- 3. 🌟 财政公开看板 -->
-        <FinancePanel />
-      </aside>
+      <aside class="side-widgets" aria-label="签到与社区数据"><SignCard /><DataPanel /><FinancePanel /></aside>
     </div>
   </article>
 </template>
-
 <script setup lang="ts">
 import SignCard from '../../components/SignCard.vue'
-import feedback from './components/feedback.vue';
-import LatestNews from './components/LatestNews.vue';
-import updateLog from './components/updateLog.vue';
-import DataPanel from './components/DataPanel.vue'; 
-// 🌟 引入财政报告组件
-import FinancePanel from './components/FinancePanel.vue'; 
+import feedback from './components/feedback.vue'
+import LatestNews from './components/LatestNews.vue'
+import updateLog from './components/updateLog.vue'
+import DataPanel from './components/DataPanel.vue'
+import FinancePanel from './components/FinancePanel.vue'
 </script>
-
 <style scoped>
-.content-layout {
-  display: flex;
-  gap: 40px;
-  align-items: flex-start;
-}
-
-.main-content {
-  flex: 1;
-}
-
-.side-widgets {
-  width: 400px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 24px; /* 🌟 完美的组件纵向间距，三个卡片天然对齐 */
-}
-
-.doc-body {
-  width: 100%;
-  color: #24292f;
-}
-
-@media (max-width: 1024px) {
-  .content-layout {
-    flex-direction: column;
-    gap: 20px;
-  }
-  .side-widgets { width: 100%; }
-}
-
-.lead-text { font-size: 1.25rem; line-height: 1.6; margin-bottom: 24px; }
-.info-block {
-  background: #f6f8fa;
-  border-left: 4px solid #24292f;
-  padding: 16px 24px;
-  margin-bottom: 32px;
-  border-radius: 4px;
-}
+.home-welcome { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 28px 0 32px; }
+.home-welcome h1 { font-size: clamp(1.8rem, 3vw, 2.5rem); margin: 12px 0; }
+.content-layout { display: grid; grid-template-columns: minmax(0,1fr) 320px; gap: 24px; align-items: start; }
+.main-content, .side-widgets { min-width: 0; display: grid; gap: 24px; }
+.main-content > *, .side-widgets > * { min-width: 0; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 12px; padding: 24px; margin: 0; }
+@media(max-width: 1150px) { .content-layout { grid-template-columns: minmax(0,1fr) 280px; } }
+@media(max-width: 680px) { .home-welcome { padding-top: 8px; } .content-layout { grid-template-columns: minmax(0,1fr); } .main-content > *, .side-widgets > * { padding: 18px; } }
 </style>

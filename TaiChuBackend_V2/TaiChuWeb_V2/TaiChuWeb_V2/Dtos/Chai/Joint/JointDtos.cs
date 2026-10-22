@@ -123,7 +123,15 @@ namespace TaiChuWeb_V2.Dtos.Chai.Joint
         /// <summary>
         /// 活动结束时间
         /// </summary>
-        public DateTime? EndDate { get; set; }
+        private DateTime? _endDate;
+        public DateTime? EndDate
+        {
+            get => _endDate;
+            set { _endDate = value; EndDateSpecified = true; }
+        }
+        // 区分未提交字段与显式清空，保持局部更新的兼容性。
+        [System.Text.Json.Serialization.JsonIgnore]
+        public bool EndDateSpecified { get; private set; }
 
         // 注意：OrganizerType 和 ApprovalStatus 不允许通过更新接口修改
         // 它们由系统管理：OrganizerType 在创建时设定，ApprovalStatus 通过审核接口变更

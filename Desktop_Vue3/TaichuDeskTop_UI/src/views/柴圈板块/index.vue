@@ -1,20 +1,7 @@
 <template>
-  <div class="home" :class="{ 'theme-aged': isAged }">
-    <!-- 顶部导航 -->
-    <nav class="navbar">
-      <div class="nav-brand">柴圈 · 墨划集所</div>
-      <ul class="nav-links">
-        <li class="nav-item active">首页总览</li>
-        <li class="nav-item" @click="goTo('/ocs')">OC画阁</li>
-        <li class="nav-item" @click="goTo('/joint')">合演大作</li>
-        <li class="nav-item" @click="goTo('/battles')">擂台约战</li>
-      </ul>
-      <div class="nav-controls">
-        <button class="btn-line" @click="togglePaper">
-          {{ isAged ? '新纸' : '旧纸' }}
-        </button>
-      </div>
-    </nav>
+  <div class="home content-page">
+    <header class="content-header"><div><p class="eyebrow">创作与同好</p><h1>柴圈社区</h1><p class="intro">为角色留下故事，找到一起创作的伙伴。</p></div><div class="content-actions"><RouterLink to="/ocs/create" class="primary">创建角色</RouterLink><RouterLink to="/joint/create">发起联合</RouterLink></div></header>
+    <nav class="community-nav" aria-label="柴圈导航"><RouterLink to="/community" class="selected">社区总览</RouterLink><RouterLink to="/ocs">OC 角色</RouterLink><RouterLink to="/joint">联合创作</RouterLink><RouterLink to="/battles">约战广场</RouterLink></nav>
 
     <!-- 主内容 -->
     <div class="container">
@@ -54,7 +41,7 @@
         <!-- ===== 板块2：约战榜 ===== -->
         <section class="battle-section">
           <div class="section-header">
-            <h2 class="section-title">TCV · 太初论战</h2>
+            <h2 class="section-title">TCV · 我的约战</h2>
             <div class="section-header-right">
               <router-link to="/battles" class="section-more">
                 共 {{ battleTotal }} 场 · 全部战书 ＞
@@ -174,13 +161,12 @@
       <aside class="sidebar">
         <div class="notice-board">
           <div class="section-header" style="margin-bottom: 12px;">
-            <h3 class="section-title" style="font-size: 15px;">集所告示</h3>
+            <h3 class="section-title" style="font-size: 15px;">我的创作</h3>
           </div>
           <ul class="notice-list">
-            <li>墨划系统 UI 设计规范 1.0 发布</li>
-            <li>关于柴圈约战系统判分规则调整</li>
-            <li>喜讯：第三届柴圈联合大作获奖公布</li>
-            <li>新手作画教程：如何保持线条柔顺</li>
+            <li><RouterLink to="/ocs/my">管理我的角色</RouterLink></li>
+            <li><RouterLink to="/joint/my">我的联合创作</RouterLink></li>
+            <li><RouterLink to="/battles/my">查看我的约战</RouterLink></li>
           </ul>
         </div>
 
@@ -189,35 +175,37 @@
             <h3 class="section-title" style="font-size: 15px;">集所数据</h3>
           </div>
           <div class="stats-data">
-            <div>在线柴友：1,280 人</div>
+            <div>进行中的联合：{{ jointTotal || 0 }} 场</div>
             <div>归档 OC：{{ ocCount || 0 }} 位</div>
-            <div>累计约战：{{ battleTotal || 0 }} 场</div>
+            <div>我的约战：{{ battleTotal || 0 }} 场</div>
           </div>
         </div>
       </aside>
     </div>
 
     <footer>
-      <div>墨划 · 纸张极简设计 — 柴圈社区</div>
+      <div>柴圈社区 · 角色与共同创作</div>
       <div class="footer-sub">线条无界 · 呼吸自然</div>
     </footer>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 import { useStickmanStore } from './OCs/stickman_store.ts'
 import { useJointStore } from './Joint/joint_store'
 import { useBattleStore } from './Battle/battle_Store'
 import CharacterCard from './components/CharacterCard.vue'
 
 const router = useRouter()
+const userStore = useUserStore()
 const store = useStickmanStore()
 const jointStore = useJointStore()
 const battleStore = useBattleStore()
 
-const isAged = ref(false)
+
 
 // ===== OC 数据 =====
 const ocLoading = computed(() => store.loading)
@@ -230,9 +218,9 @@ const jointLoading = computed(() => jointStore.loading)
 const jointTotal = computed(() => jointStore.total)
 
 // ===== 约战数据 =====
-const battleList = computed(() => battleStore.myBattles)
+const battleList = computed(() => userStore.isLoggedIn ? battleStore.myBattles : [])
 const battleLoading = computed(() => battleStore.myBattlesLoading)
-const battleTotal = computed(() => battleStore.myBattles.length || 0)
+const battleTotal = computed(() => battleList.value.length)
 
 // ===== 状态权重 =====
 const battleStatusWeight: Record<string, number> = {
@@ -241,14 +229,6 @@ const battleStatusWeight: Record<string, number> = {
   judging: 3,
   finished: 4,
   cancelled: 5,
-}
-
-const jointStatusWeight: Record<string, number> = {
-  open: 1,
-  closed: 2,
-  ended: 3,
-  banned: 4,
-  abandoned: 5,
 }
 
 // ===== 排序后的约战列表 =====
@@ -353,28 +333,6 @@ function goDetail(id: string) {
   router.push(`/ocs/${id}`)
 }
 
-// ===== 纸张切换 =====
-function togglePaper() {
-  isAged.value = !isAged.value
-  const root = document.documentElement
-
-  if (isAged.value) {
-    root.style.setProperty('--paper-bg', '#EAE4D6')
-    root.style.setProperty('--paper-card', '#F0EBDF')
-    root.style.setProperty('--paper-sub', '#E5DFD0')
-    root.style.setProperty('--ink-black', '#2A2826')
-    root.style.setProperty('--ink-gray', '#7A7570')
-    root.style.setProperty('--line-raw', '#C8BFB3')
-  } else {
-    root.style.setProperty('--paper-bg', '#F7F4EE')
-    root.style.setProperty('--paper-card', '#FCFAF7')
-    root.style.setProperty('--paper-sub', '#F0EBE1')
-    root.style.setProperty('--ink-black', '#2A2826')
-    root.style.setProperty('--ink-gray', '#7A7570')
-    root.style.setProperty('--line-raw', '#D5CEC5')
-  }
-}
-
 // ===== ⭐ 加载数据 =====
 async function loadData() {
   // OC：取前3条
@@ -384,7 +342,7 @@ async function loadData() {
   await jointStore.fetchList({ page: 1, pageSize: 3, status: 'open' })
 
   // 约战：我的约战
-  await battleStore.fetchMyBattles()
+  if (userStore.isLoggedIn) await battleStore.fetchMyBattles()
 }
 
 onMounted(() => {
@@ -395,94 +353,15 @@ onMounted(() => {
 
 <style scoped>
 .home {
-  --bg-main: #F4F1EA;
-  --bg-sub: #ECE8E0;
-  --text-primary: #2C2A29;
-  --text-secondary: #7A7571;
-  --border-line: #D8D2C7;
-  --accent-color: #9E2A2B;
-  --font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif;
 
-  --paper-bg: var(--bg-main);
-  --paper-card: #FCFAF7;
-  --paper-sub: var(--bg-sub);
-  --ink-black: var(--text-primary);
-  --ink-gray: var(--text-secondary);
-  --line-raw: var(--border-line);
-  --cinnabar: var(--accent-color);
 
   background-color: var(--paper-bg);
   color: var(--ink-black);
   font-family: var(--font-family);
-  min-height: 100vh;
+  min-height: 0;
   transition: all 0.5s ease;
 }
 
-/* 夜墨模式 */
-.home.theme-night {
-  --bg-main: #181818;
-  --bg-sub: #121212;
-  --text-primary: #C5C0B6;
-  --text-secondary: #66625D;
-  --border-line: #2C2B29;
-  --accent-color: #A63B3B;
-
-  --paper-bg: var(--bg-main);
-  --paper-sub: var(--bg-sub);
-  --ink-black: var(--text-primary);
-  --ink-gray: var(--text-secondary);
-  --line-raw: var(--border-line);
-  --cinnabar: var(--accent-color);
-}
-
-/* ====== 顶部导航 ====== */
-.navbar {
-  height: 64px;
-  border-bottom: 1px solid var(--line-raw);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 60px;
-  background: var(--paper-bg);
-  transition: background 0.6s ease, border-color 0.6s ease;
-}
-
-.nav-brand {
-  font-size: 20px;
-  letter-spacing: 0.3em;
-  font-weight: 400;
-  color: var(--ink-black);
-}
-
-.nav-links {
-  display: flex;
-  gap: 30px;
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.nav-item {
-  font-size: 14px;
-  letter-spacing: 0.15em;
-  color: var(--ink-gray);
-  cursor: pointer;
-  padding: 4px 0;
-  transition: color 0.3s;
-  border-bottom: 2px solid transparent;
-}
-
-.nav-item:hover,
-.nav-item.active {
-  color: var(--ink-black);
-  border-bottom-color: var(--cinnabar);
-}
-
-.nav-controls {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
 
 /* ====== 通用组件 ====== */
 .btn-line {
@@ -577,10 +456,10 @@ onMounted(() => {
 .container {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 40px;
+  padding: 0;
   display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 40px;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 24px;
 }
 
 /* ====== OC 展厅 ====== */
@@ -739,24 +618,24 @@ onMounted(() => {
 }
 
 .battle-status.open {
-  border-color: #4CAF50;
-  color: #4CAF50;
+  border-color: var(--success);
+  color: var(--success);
 }
 .battle-status.ongoing {
-  border-color: #FF9800;
-  color: #FF9800;
+  border-color: var(--warning);
+  color: var(--warning);
 }
 .battle-status.judging {
-  border-color: #FF9800;
-  color: #FF9800;
+  border-color: var(--warning);
+  color: var(--warning);
 }
 .battle-status.finished {
-  border-color: #9E9E9E;
-  color: #9E9E9E;
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
 }
 .battle-status.cancelled {
-  border-color: #F44336;
-  color: #F44336;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .battle-skeleton {
@@ -869,24 +748,24 @@ onMounted(() => {
 }
 
 .status-open {
-  border-color: #4CAF50;
-  color: #4CAF50;
+  border-color: var(--success);
+  color: var(--success);
 }
 .status-closed {
-  border-color: #FF9800;
-  color: #FF9800;
+  border-color: var(--warning);
+  color: var(--warning);
 }
 .status-ended {
-  border-color: #9E9E9E;
-  color: #9E9E9E;
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
 }
 .status-banned {
-  border-color: #F44336;
-  color: #F44336;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 .status-abandoned {
-  border-color: #795548;
-  color: #795548;
+  border-color: var(--warning);
+  color: var(--warning);
 }
 
 .joint-home-count {
@@ -904,11 +783,11 @@ onMounted(() => {
 }
 
 .joint-home-remain {
-  color: #4CAF50;
+  color: var(--success);
 }
 
 .joint-home-expired {
-  color: #F44336;
+  color: var(--danger);
 }
 
 .joint-skeleton {
@@ -959,7 +838,7 @@ onMounted(() => {
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 40px;
+  gap: 24px;
 }
 
 .notice-board {
@@ -1114,4 +993,10 @@ footer {
     gap: 8px;
   }
 }
+.notice-board, .battle-item, .joint-home-item, .oc-card { border-radius: 12px; background: var(--paper-card); }
+.notice-list a { color: var(--text-primary); text-decoration: none; }
+.notice-list a:hover { color: var(--accent-color); }
+.home .navbar { padding: 0; }
+@media(max-width: 1100px) { .container { grid-template-columns: minmax(0,1fr); } .sidebar { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; } }
+@media(max-width: 600px) { .sidebar { grid-template-columns: minmax(0,1fr); } .section-header-right { flex-wrap: wrap; } }
 </style>

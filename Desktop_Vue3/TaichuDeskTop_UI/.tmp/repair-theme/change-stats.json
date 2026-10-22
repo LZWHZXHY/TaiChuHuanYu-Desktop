@@ -1,0 +1,349 @@
+{
+  "source": {
+    "added": 1594,
+    "deleted": 4843,
+    "net": -3249
+  },
+  "tests": {
+    "added": 64,
+    "deleted": 3,
+    "net": 61
+  },
+  "files": [
+    {
+      "file": "src/views/太初俱乐部/Navbar.vue",
+      "added": 13,
+      "deleted": 138
+    },
+    {
+      "file": "src/views/太初俱乐部/MyProfile.vue",
+      "added": 10,
+      "deleted": 10
+    },
+    {
+      "file": "src/views/太初俱乐部/index.vue",
+      "added": 49,
+      "deleted": 2218
+    },
+    {
+      "file": "src/views/太初俱乐部/OperatorReviews.vue",
+      "added": 3,
+      "deleted": 3
+    },
+    {
+      "file": "src/views/太初俱乐部/PricingView.vue",
+      "added": 1,
+      "deleted": 1
+    },
+    {
+      "file": "src/views/推送首页/index.vue",
+      "added": 35,
+      "deleted": 69
+    },
+    {
+      "file": "src/views/太初俱乐部/OperatorOrders.vue",
+      "added": 15,
+      "deleted": 15
+    },
+    {
+      "file": "src/views/太初俱乐部/Footer.vue",
+      "added": 1,
+      "deleted": 1
+    },
+    {
+      "file": "src/views/柴圈板块/Joint/components/JointCard.vue",
+      "added": 3,
+      "deleted": 3
+    },
+    {
+      "file": "index.html",
+      "added": 7,
+      "deleted": 1
+    },
+    {
+      "file": "src/views/太初俱乐部/CsRegister.vue",
+      "added": 11,
+      "deleted": 11
+    },
+    {
+      "file": "src/router/index.ts",
+      "added": 3,
+      "deleted": 0
+    },
+    {
+      "file": "src/views/太初俱乐部/OperatorRegister.vue",
+      "added": 12,
+      "deleted": 12
+    },
+    {
+      "file": "src/views/柴圈板块/Battle/components/BattleDetail.vue",
+      "added": 88,
+      "deleted": 88
+    },
+    {
+      "file": "src/views/太初俱乐部/OperatorWallet.vue",
+      "added": 13,
+      "deleted": 13
+    },
+    {
+      "file": "src/views/柴圈板块/Joint/components/MyJoint.vue",
+      "added": 1,
+      "deleted": 1
+    },
+    {
+      "file": "src/views/柴圈板块/Battle/components/CreateBattle.vue",
+      "added": 95,
+      "deleted": 95
+    },
+    {
+      "file": "src/assets/styles/variables.css",
+      "added": 39,
+      "deleted": 20
+    },
+    {
+      "file": "src/views/太初俱乐部/CsWallet.vue",
+      "added": 13,
+      "deleted": 13
+    },
+    {
+      "file": "src/views/荣誉墙/index.vue",
+      "added": 30,
+      "deleted": 41
+    },
+    {
+      "file": "src/views/推送首页/components/DataPanel.vue",
+      "added": 11,
+      "deleted": 11
+    },
+    {
+      "file": "src/style.css",
+      "added": 0,
+      "deleted": 13
+    },
+    {
+      "file": "src/views/太初俱乐部/CsReviewModal.vue",
+      "added": 22,
+      "deleted": 22
+    },
+    {
+      "file": "src/views/太初俱乐部/ReviewModal.vue",
+      "added": 25,
+      "deleted": 25
+    },
+    {
+      "file": "src/views/太初俱乐部/OperatorsSection.vue",
+      "added": 71,
+      "deleted": 71
+    },
+    {
+      "file": "src/views/柴圈板块/Battle/components/MyBattles.vue",
+      "added": 47,
+      "deleted": 47
+    },
+    {
+      "file": "src/views/太初俱乐部/PriceBoard.vue",
+      "added": 4,
+      "deleted": 4
+    },
+    {
+      "file": "src/views/太初俱乐部/MyComplaints.vue",
+      "added": 11,
+      "deleted": 11
+    },
+    {
+      "file": "src/views/柴圈板块/components/CharacterCard.vue",
+      "added": 1,
+      "deleted": 1
+    },
+    {
+      "file": "src/views/太初俱乐部/DividendRules.vue",
+      "added": 5,
+      "deleted": 5
+    },
+    {
+      "file": "src/views/太初俱乐部/MyOrders.vue",
+      "added": 34,
+      "deleted": 34
+    },
+    {
+      "file": "src/components/SignCard.vue",
+      "added": 42,
+      "deleted": 37
+    },
+    {
+      "file": "src/views/太初俱乐部/ComplaintModal.vue",
+      "added": 51,
+      "deleted": 51
+    },
+    {
+      "file": "src/assets/styles/base.css",
+      "added": 17,
+      "deleted": 42
+    },
+    {
+      "file": "src/components/OperationTerminal.vue",
+      "added": 90,
+      "deleted": 344
+    },
+    {
+      "file": "src/views/太初俱乐部/OnlineStatusBadge.vue",
+      "added": 5,
+      "deleted": 5
+    },
+    {
+      "file": "src/views/太初俱乐部/CsDashboard.vue",
+      "added": 110,
+      "deleted": 110
+    },
+    {
+      "file": "src/views/柴圈板块/index.vue",
+      "added": 34,
+      "deleted": 141
+    },
+    {
+      "file": "src/main.ts",
+      "added": 4,
+      "deleted": 2
+    },
+    {
+      "file": "src/views/推送首页/components/feedback.vue",
+      "added": 42,
+      "deleted": 42
+    },
+    {
+      "file": "src/views/荣誉墙/UniverseHonorWall.vue",
+      "added": 2,
+      "deleted": 135
+    },
+    {
+      "file": "src/views/柴圈板块/OCs/index.vue",
+      "added": 39,
+      "deleted": 39
+    },
+    {
+      "file": "src/App.vue",
+      "added": 28,
+      "deleted": 128
+    },
+    {
+      "file": "src/views/太初俱乐部/theme.css",
+      "added": 13,
+      "deleted": 49
+    },
+    {
+      "file": "src/views/推送首页/components/LatestNews.vue",
+      "added": 18,
+      "deleted": 18
+    },
+    {
+      "file": "src/views/太初俱乐部/CompleteOrderModal.vue",
+      "added": 39,
+      "deleted": 39
+    },
+    {
+      "file": "src/views/太初俱乐部/OrderModal.vue",
+      "added": 97,
+      "deleted": 97
+    },
+    {
+      "file": "src/views/柴圈板块/Battle/index.vue",
+      "added": 68,
+      "deleted": 68
+    },
+    {
+      "file": "src/views/柴圈板块/Joint/components/JointDetail.vue",
+      "added": 11,
+      "deleted": 11
+    },
+    {
+      "file": "src/views/推送首页/components/updateLog.vue",
+      "added": 10,
+      "deleted": 10
+    },
+    {
+      "file": "src/views/推送首页/components/FinancePanel.vue",
+      "added": 46,
+      "deleted": 40
+    },
+    {
+      "file": "src/views/太虚游/index.vue",
+      "added": 51,
+      "deleted": 370
+    },
+    {
+      "file": "src/views/柴圈板块/Joint/index.vue",
+      "added": 1,
+      "deleted": 1
+    },
+    {
+      "file": "src/components/GlobalNotify.vue",
+      "added": 12,
+      "deleted": 12
+    },
+    {
+      "file": "src/views/身份认证/ForgotForm.vue",
+      "added": 18,
+      "deleted": 18
+    },
+    {
+      "file": "src/views/身份认证/index.vue",
+      "added": 7,
+      "deleted": 7
+    },
+    {
+      "file": "src/views/身份认证/LoginForm.vue",
+      "added": 12,
+      "deleted": 12
+    },
+    {
+      "file": "src/views/身份认证/RegisterForm.vue",
+      "added": 11,
+      "deleted": 11
+    },
+    {
+      "file": "src/assets/styles/content.css",
+      "added": 1,
+      "deleted": 1
+    },
+    {
+      "file": "tests\\cleanup.test.mjs",
+      "added": 4,
+      "deleted": 1
+    },
+    {
+      "file": "src/composables/useTheme.ts",
+      "added": 33,
+      "deleted": 0
+    },
+    {
+      "file": "tests/theme.test.mjs",
+      "added": 41,
+      "deleted": 0
+    },
+    {
+      "file": "backend/ArtworkController.cs",
+      "added": 1,
+      "deleted": 1
+    },
+    {
+      "file": "backend/CatalogController.cs",
+      "added": 3,
+      "deleted": 3
+    },
+    {
+      "file": "backend/ContentFlowChecks.cs",
+      "added": 12,
+      "deleted": 0
+    },
+    {
+      "file": "backend/LingMaiPublishController.cs",
+      "added": 1,
+      "deleted": 1
+    },
+    {
+      "file": "backend/TestContext.cs",
+      "added": 11,
+      "deleted": 3
+    }
+  ]
+}

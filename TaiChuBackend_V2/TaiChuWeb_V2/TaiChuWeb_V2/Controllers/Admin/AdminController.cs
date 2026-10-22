@@ -65,7 +65,10 @@ namespace TaiChuWeb_V2.Controllers.Admin
         public async Task<IActionResult> CheckAdminStatus()
         {
             var userId = GetUserId();
-            var hasPermission = await _context.UserPermissions.AnyAsync(p => p.UserId == userId);
+            var hasPermission = await _context.UserPermissions.AnyAsync(p => p.UserId == userId &&
+                (p.Permission == AdminPermission.SuperAdmin || p.Permission == AdminPermission.Trade_Manage ||
+                 p.Permission == AdminPermission.User_Audit || p.Permission == AdminPermission.Wiki_Editor ||
+                 p.Permission == AdminPermission.System_Monitor));
 
             return Ok(new
             {

@@ -1,114 +1,58 @@
 <template>
-  <div class="interact-actions" :class="{ 'is-vertical': vertical }">
-    <button 
-      class="action-item like" 
-      :class="{ 'active': localStatus.isLiked }"
-      @click.stop="handleAction('Like')"
-    >
-      <span class="icon">{{ localStatus.isLiked ? '❤️' : '🤍' }}</span>
-      <span class="count" v-if="showCount">{{ localStatus.likesCount }}</span>
-    </button>
-
-    <button 
-      class="action-item favorite" 
-      :class="{ 'active': localStatus.isFavorited }"
-      @click.stop="handleAction('Favorite')"
-    >
-      <span class="icon">{{ localStatus.isFavorited ? '⭐' : '☆' }}</span>
-    </button>
-
-    <button class="action-item report" @click.stop="handleReport">
-      <span class="icon">🚩</span>
-    </button>
+  <div class="interaction" @click.stop>
+    <div class="interact-actions" :class="{ 'is-vertical': vertical }" :aria-busy="busy">
+      <button type="button" :class="{ active: status.isLiked }" :aria-pressed="status.isLiked" :disabled="busy" @click="handleAction('Like')">
+        {{ status.isLiked ? '已点赞' : '点赞' }}<span v-if="showCount !== false"> {{ status.likesCount }}</span>
+      </button>
+      <button type="button" :class="{ active: status.isFavorited }" :aria-pressed="status.isFavorited" :disabled="busy" @click="handleAction('Favorite')">
+        {{ status.isFavorited ? '已收藏' : '收藏' }}
+      </button>
+      <button type="button" disabled title="举报流程尚未开放">举报</button>
+    </div>
+    <p v-if="error" class="interaction-error" role="alert">{{ error }}</p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, watch, ref } from 'vue';
-import { interactApi, type InteractionResponse } from '../api/interact'; // 确保导入了接口类型
+import { computed, ref, watch } from 'vue'
+import { interactApi } from '../api/interact'
+import { useArtworkStore } from '../stores/artwork'
+import { useUserStore } from '../stores/user'
 
 const props = defineProps<{
-  targetId: number | string;
-  targetType: 'Artwork' | 'Post' | 'Blog';
-  initialStats: {
-    likesCount: number;
-    isLiked?: boolean;
-    isFavorited?: boolean;
-  };
-  showCount?: boolean;
-  vertical?: boolean;
-}>();
+  targetId: number | string
+  targetType: 'Artwork' | 'Post' | 'Blog'
+  initialStats: { likesCount: number; isLiked?: boolean; isFavorited?: boolean }
+  showCount?: boolean
+  vertical?: boolean
+}>()
+const store = useArtworkStore()
+const user = useUserStore()
+const error = ref('')
+const status = computed(() => store.stats[Number(props.targetId)] ?? props.initialStats)
+const busy = computed(() => !!store.pending[Number(props.targetId)])
+watch(() => [props.targetId, user.token], () => { error.value = '' })
 
-const loading = ref(false);
-
-const localStatus = reactive({
-  likesCount: props.initialStats.likesCount,
-  isLiked: props.initialStats.isLiked || false,
-  isFavorited: props.initialStats.isFavorited || false
-});
-
-// 监听初始值的变化（这很重要，因为列表滚动时组件会被复用）
-watch(() => props.initialStats, (newVal) => {
-  localStatus.likesCount = newVal.likesCount;
-  localStatus.isLiked = newVal.isLiked ?? false;
-  localStatus.isFavorited = newVal.isFavorited ?? false;
-}, { deep: true });
-
-const handleAction = async (actionType: 'Like' | 'Favorite') => {
-  if (loading.value) return;
-  
-  loading.value = true;
+async function handleAction(action: 'Like' | 'Favorite') {
+  if (busy.value) return
+  if (!user.isLoggedIn) { error.value = '请先登录后再点赞或收藏'; return }
+  const id = props.targetId, token = user.token
+  error.value = ''
   try {
-    // 显式指定 res 的类型，防止 TS 报错
-    const res: InteractionResponse = await interactApi.toggleAction(
-      props.targetId, 
-      props.targetType, 
-      actionType
-    );
-    
-    // 从 res 中解构出后端返回的字段
-    const { isActive, newCount } = res;
-
-    if (actionType === 'Like') {
-      localStatus.isLiked = isActive;
-      localStatus.likesCount = newCount;
-    } else {
-      localStatus.isFavorited = isActive;
-      // 如果收藏以后也要显示数量，可以在这里赋值 newCount
-    }
-  } catch (err: any) {
-    if (err.response?.status === 401) {
-      alert("道友请留步！点赞收藏需先登录账号。");
-    } else {
-      console.error(`${actionType} 交互失败:`, err);
-    }
-  } finally {
-    loading.value = false;
+    const active = action === 'Like' ? status.value.isLiked : status.value.isFavorited
+    await store.mutate(Number(id), () => interactApi.toggleAction(id, props.targetType, action, !active))
+  } catch (e: any) {
+    if (props.targetId === id && user.token === token) error.value = e.friendlyMessage || '操作失败，请重试'
   }
-};
-
-const handleReport = () => {
-  console.log('触发针对', props.targetType, 'ID:', props.targetId, '的举报流程');
-};
+}
 </script>
 
 <style scoped>
-.interact-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
+.interact-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .is-vertical { flex-direction: column; }
-.action-item {
-  background: none;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  transition: all 0.2s;
-}
-.action-item.active { transform: scale(1.1); }
-.like.active { color: #ff3b30; }
-.favorite.active { color: #ffcc00; }
+button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: .8rem; padding: 6px 10px; border: 1px solid var(--border-line); border-radius: 4px; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; }
+button.active { color: var(--accent-color); border-color: var(--accent-color); }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+.interaction-error { color: var(--accent-color); font-size: .8rem; margin: 8px 0 0; }
 </style>

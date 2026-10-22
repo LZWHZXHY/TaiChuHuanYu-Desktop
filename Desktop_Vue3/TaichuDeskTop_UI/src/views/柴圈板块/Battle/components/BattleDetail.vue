@@ -1,5 +1,5 @@
 <template>
-  <div class="battle-detail">
+  <div class="community-detail battle-detail">
     <!-- 加载状态 -->
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
@@ -8,7 +8,7 @@
 
     <!-- 空状态 -->
     <div v-else-if="!battle" class="empty-state">
-      <p>约战不存在</p>
+      <p>{{ loadError || '约战不存在' }}</p>
       <router-link to="/battles" class="empty-link">返回约战大厅</router-link>
     </div>
 
@@ -38,7 +38,7 @@
           <button
             v-if="isInitiator && battle.status !== 'finished' && battle.status !== 'cancelled'"
             class="btn-line danger"
-            @click="handleCancel"
+            :disabled="actionBusy" @click="handleCancel"
           >
             取消约战
           </button>
@@ -53,7 +53,7 @@
           class="combatant"
           :class="{ challenger: index === 0, opponent: index > 0 }"
         >
-          <span class="role">{{ index === 0 ? '发起方' : `参与者 ${index + 1}` }}</span>
+          <span class="role">{{ p.teamNumber ? `队伍 ${p.teamNumber === 1 ? 'A' : 'B'}` : (index === 0 ? '发起方' : `参与者 ${index + 1}`) }}</span>
           <strong>{{ p.userName }}</strong>
           <span class="oc-name">（{{ p.ocNames?.join('、') || '未知OC' }}）</span>
         </div>
@@ -132,7 +132,7 @@
           <button
             v-if="isInitiator && battle.status === 'open'"
             class="btn-action btn-primary"
-            @click="handleCloseRegistration"
+            :disabled="actionBusy || battle.participants.length < 2" @click="handleCloseRegistration"
           >
             结束报名 → 进入创作期
           </button>
@@ -141,7 +141,7 @@
           <button
             v-if="isInitiator && battle.status === 'ongoing'"
             class="btn-action btn-primary"
-            @click="handleCloseCreation"
+            :disabled="actionBusy" @click="handleCloseCreation"
           >
             结束创作 → 进入判定期
           </button>
@@ -159,14 +159,14 @@
           <button
             v-if="isInitiator && battle.status === 'judging'"
             class="btn-action btn-publish"
-            @click="handlePublishResult"
+            :disabled="actionBusy" @click="handlePublishResult"
           >
             发布结果 → 完成约战
           </button>
 
           <!-- 投票制提示 -->
           <span v-if="battle.status === 'judging' && battle.judgmentType === 'vote'" class="vote-hint">
-            📊 投票进行中，等待问卷结果
+            📊 投票判定暂不可用，此约战尚未产生投票结果
           </span>
 
           <span v-if="isInitiator" class="organizer-tip">（你发起的约战）</span>
@@ -243,22 +243,15 @@
       </div>
 
       <!-- ===== 报名弹窗 ===== -->
-      <el-dialog v-model="showRegisterModal" title="选择出战 OC" width="500px">
+      <el-dialog v-model="showRegisterModal" title="选择出战 OC" width="min(500px, calc(100vw - 32px))" class="battle-dialog" :close-on-click-modal="!actionBusy && !joining" :close-on-press-escape="!actionBusy && !joining" :show-close="!actionBusy && !joining">
         <div class="modal-body">
           <p class="modal-hint">选择你用于此约战的 OC（可多选）：</p>
           <div class="oc-select-wrapper">
-            <select v-model="selectedRegisterOcIds" multiple class="oc-select" style="height: auto; min-height: 100px; padding: 8px;">
-              <option
-                v-for="oc in myOcList"
-                :key="oc.id"
-                :value="oc.id"
-                :disabled="oc.status !== 'published' || !oc.isBattleEnabled"
-              >
-                {{ oc.title }}
-                <span v-if="oc.status !== 'published'" class="oc-disabled-tag">（未发布）</span>
-                <span v-if="!oc.isBattleEnabled" class="oc-disabled-tag">（不可约战）</span>
-              </option>
-            </select>
+            <label v-for="oc in myOcList" :key="oc.id" class="register-oc" :class="{ selected: selectedRegisterOcIds.includes(oc.id) }">
+              <input type="checkbox" v-model="selectedRegisterOcIds" :value="oc.id" :disabled="joining" />
+              <span>{{ oc.title }}</span>
+            </label>
+            <p v-if="!myOcList.length" class="hint">暂无可用 OC，请先发布人设并开启约战。</p>
           </div>
           <div v-if="selectedRegisterOcIds.length" class="selected-ocs" style="margin-top: 8px;">
             <span
@@ -269,43 +262,43 @@
               {{ getOcTitle(myOcList, id) }}
             </span>
           </div>
-          <p class="hint">按住 Ctrl 键可多选</p>
+          <p class="hint">已选择 {{ selectedRegisterOcIds.length }} 个 OC，点击条目可多选。</p>
         </div>
         <template #footer>
-          <el-button @click="showRegisterModal = false">取消</el-button>
-          <el-button type="primary" @click="handleRegisterSubmit" :disabled="!selectedRegisterOcIds.length">
+          <el-button :disabled="actionBusy || joining" @click="showRegisterModal = false">取消</el-button>
+          <el-button type="primary" @click="handleRegisterSubmit" :loading="joining" :disabled="!selectedRegisterOcIds.length">
             确认报名
           </el-button>
         </template>
       </el-dialog>
 
       <!-- 提交作品弹窗 -->
-      <el-dialog v-model="showSubmitModal" title="提交作品" width="500px">
+      <el-dialog v-model="showSubmitModal" title="提交作品" width="min(500px, calc(100vw - 32px))" class="battle-dialog" :close-on-click-modal="!actionBusy && !joining" :close-on-press-escape="!actionBusy && !joining" :show-close="!actionBusy && !joining">
         <div class="modal-body">
           <div class="form-group">
             <label>作品标题 <span class="required">*</span></label>
-            <input v-model="submitForm.title" placeholder="给作品起个名字" />
+            <input aria-label="作品标题" v-model="submitForm.title" placeholder="给作品起个名字" />
           </div>
           <div class="form-group">
             <label>作品链接 <span class="required">*</span></label>
-            <input v-model="submitForm.contentUrl" placeholder="输入作品链接（视频/漫画/图文等）" />
+            <input aria-label="作品链接" v-model="submitForm.contentUrl" placeholder="输入作品链接（视频/漫画/图文等）" />
             <p class="hint">支持任何链接形式，用户点击即可查看</p>
           </div>
           <div class="form-group">
             <label>简介</label>
-            <textarea v-model="submitForm.description" rows="3" placeholder="简要描述作品内容"></textarea>
+            <textarea aria-label="简介" v-model="submitForm.description" rows="3" placeholder="简要描述作品内容"></textarea>
           </div>
         </div>
         <template #footer>
-          <el-button @click="showSubmitModal = false">取消</el-button>
-          <el-button type="primary" @click="handleSubmitWork" :disabled="!submitForm.title || !submitForm.contentUrl">
+          <el-button :disabled="actionBusy || joining" @click="showSubmitModal = false">取消</el-button>
+          <el-button type="primary" @click="handleSubmitWork" :loading="actionBusy" :disabled="!submitForm.title.trim() || !submitForm.contentUrl.trim()">
             提交
           </el-button>
         </template>
       </el-dialog>
 
       <!-- 内定结果弹窗 -->
-      <el-dialog v-model="showInternalResultModal" title="录入内定结果" width="500px">
+      <el-dialog v-model="showInternalResultModal" title="录入内定结果" width="min(500px, calc(100vw - 32px))" class="battle-dialog" :close-on-click-modal="!actionBusy && !joining" :close-on-press-escape="!actionBusy && !joining" :show-close="!actionBusy && !joining">
         <div class="modal-body">
           <p class="modal-hint">选择胜利的参与者（可多选，支持平局）：</p>
           <div class="winner-checkboxes">
@@ -316,12 +309,12 @@
           </div>
           <div class="form-group">
             <label>结果说明</label>
-            <input v-model="internalResult.resultDescription" placeholder="可简单描述结果原因" />
+            <input aria-label="结果说明" v-model="internalResult.resultDescription" placeholder="可简单描述结果原因" />
           </div>
         </div>
         <template #footer>
-          <el-button @click="showInternalResultModal = false">取消</el-button>
-          <el-button type="primary" @click="handleSetInternalResult" :disabled="!internalResult.winnerIds.length">
+          <el-button :disabled="actionBusy || joining" @click="showInternalResultModal = false">取消</el-button>
+          <el-button type="primary" @click="handleSetInternalResult" :loading="actionBusy" :disabled="!internalResult.winnerIds.length">
             确认结果
           </el-button>
         </template>
@@ -331,7 +324,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useBattleStore } from '../battle_Store'
@@ -343,12 +336,15 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const battleStore = useBattleStore()
+const confirmOptions = { confirmButtonText: '确定', cancelButtonText: '取消' }
 
+const loadError = ref('')
 const battle = computed(() => battleStore.currentBattle)
 const loading = computed(() => battleStore.loading)
 
 const joining = ref(false)
-const cancelling = ref(false)
+const actionBusy = ref(false)
+const cancelling = actionBusy
 const rejecting = ref(false)
 const showSubmitModal = ref(false)
 const showInternalResultModal = ref(false)
@@ -375,7 +371,7 @@ const internalResult = ref({
 
 // ===== 身份判断 =====
 const isInitiator = computed(() =>
-  battle.value?.participants?.[0]?.userId === userStore.userInfo?.id
+  (battle.value?.initiatorId || battle.value?.participants?.[0]?.userId)?.toLowerCase() === userStore.userId?.toLowerCase()
 )
 
 const isParticipant = computed(() =>
@@ -416,7 +412,7 @@ const fetchDetail = async () => {
 const fetchMyOcs = async () => {
   try {
     const res = await stickmanApi.getMyCharacters({ status: 'published' })
-    myOcList.value = Array.isArray(res) ? res : []
+    myOcList.value = Array.isArray(res) ? res.filter(oc => oc.isBattleEnabled) : []
   } catch (error) {
     console.error('获取OC列表失败:', error)
   }
@@ -490,14 +486,16 @@ const handleJoin = () => {
 
 // ⭐ 抽取报名逻辑
 const doRegister = async (ocIds: string[]) => {
-  if (!battle.value) return
+  if (!battle.value || joining.value) return false
   joining.value = true
   try {
-    await battleApi.register(battle.value.id, { ocIds, remark: '' })
-    await fetchDetail()
+    const updated = await battleApi.register(battle.value.id, { ocIds, remark: '' })
+    if (battleStore.currentBattle?.id === updated.id) battleStore.currentBattle = updated
     ElMessage.success('报名成功！')
+    return true
   } catch (error: any) {
     ElMessage.error(error.response?.data?.message || '报名失败')
+    return false
   } finally {
     joining.value = false
   }
@@ -505,9 +503,10 @@ const doRegister = async (ocIds: string[]) => {
 
 const handleRegisterSubmit = async () => {
   if (!battle.value || !selectedRegisterOcIds.value.length) return
-  await doRegister(selectedRegisterOcIds.value)
-  showRegisterModal.value = false
-  selectedRegisterOcIds.value = []
+  if (await doRegister([...selectedRegisterOcIds.value])) {
+    showRegisterModal.value = false
+    selectedRegisterOcIds.value = []
+  }
 }
 
 // ===== 拒绝约战 =====
@@ -515,14 +514,14 @@ const handleReject = async () => {
   if (!battle.value) return
   try {
     await ElMessageBox.confirm(
-      '确定拒绝此约战吗？拒绝后你将无法参与，该约战将变为公开约战。',
+      '确定拒绝此邀请吗？其他人的邀请会保留；无人受邀时约战将转为公开报名。',
       '确认拒绝',
-      { type: 'warning' }
+      { ...confirmOptions, type: 'warning' }
     )
     rejecting.value = true
-    await battleApi.reject(battle.value.id)
+    const updated = await battleApi.reject(battle.value.id)
+    if (battleStore.currentBattle?.id === updated.id) battleStore.currentBattle = updated
     isRejected.value = true
-    await fetchDetail()
     ElMessage.success('已拒绝此约战')
   } catch (error: any) {
     if (error !== 'cancel') {
@@ -535,127 +534,151 @@ const handleReject = async () => {
 
 // ===== 取消报名 =====
 const handleCancelJoin = async () => {
-  if (!battle.value) return
+  if (!battle.value || actionBusy.value) return
+  actionBusy.value = true
   try {
-    await ElMessageBox.confirm('确定要取消报名吗？', '确认')
-    await battleApi.unregister(battle.value.id)
-    await fetchDetail()
+    await ElMessageBox.confirm('确定要取消报名吗？', '确认', confirmOptions)
+    const updated = await battleApi.unregister(battle.value.id)
+    if (battleStore.currentBattle?.id === updated.id) battleStore.currentBattle = updated
     ElMessage.success('已取消报名')
   } catch (error: any) {
     if (error !== 'cancel') {
       ElMessage.error(error.response?.data?.message || '操作失败')
     }
+  } finally {
+    actionBusy.value = false
   }
 }
 
 // ===== 结束报名 =====
 const handleCloseRegistration = async () => {
-  if (!battle.value) return
+  if (!battle.value || actionBusy.value) return
+  actionBusy.value = true
   try {
-    await ElMessageBox.confirm('确定结束报名吗？之后不可再报名。', '确认')
-    await battleApi.closeRegistration(battle.value.id)
-    await fetchDetail()
+    await ElMessageBox.confirm('确定结束报名吗？之后不可再报名。', '确认', confirmOptions)
+    const updated = await battleApi.closeRegistration(battle.value.id)
+    if (battleStore.currentBattle?.id === updated.id) battleStore.currentBattle = updated
     ElMessage.success('已进入创作期')
   } catch (error: any) {
     if (error !== 'cancel') {
       ElMessage.error(error.response?.data?.message || '操作失败')
     }
+  } finally {
+    actionBusy.value = false
   }
 }
 
 // ===== 结束创作 =====
 const handleCloseCreation = async () => {
-  if (!battle.value) return
+  if (!battle.value || actionBusy.value) return
+  actionBusy.value = true
   try {
-    await ElMessageBox.confirm('确定结束创作吗？参与者不可再修改作品。', '确认')
-    await battleApi.closeCreation(battle.value.id)
-    await fetchDetail()
+    await ElMessageBox.confirm('确定结束创作吗？参与者不可再修改作品。', '确认', confirmOptions)
+    const updated = await battleApi.closeCreation(battle.value.id)
+    if (battleStore.currentBattle?.id === updated.id) battleStore.currentBattle = updated
     ElMessage.success('已进入判定期')
   } catch (error: any) {
     if (error !== 'cancel') {
       ElMessage.error(error.response?.data?.message || '操作失败')
     }
+  } finally {
+    actionBusy.value = false
   }
 }
 
 // ===== 提交作品 =====
 const handleSubmitWork = async () => {
-  if (!battle.value) return
-  if (!submitForm.value.title || !submitForm.value.contentUrl) {
+  if (!battle.value || actionBusy.value) return
+  if (!submitForm.value.title.trim() || !submitForm.value.contentUrl.trim()) {
     ElMessage.warning('请填写作品标题和链接')
     return
   }
+  actionBusy.value = true
   try {
-    await battleApi.submit(battle.value.id, {
-      title: submitForm.value.title,
+    const updated = await battleApi.submit(battle.value.id, {
+      title: submitForm.value.title.trim(),
       description: submitForm.value.description || undefined,
-      contentUrl: submitForm.value.contentUrl,
+      contentUrl: submitForm.value.contentUrl.trim(),
     })
+    if (battleStore.currentBattle?.id === updated.id) battleStore.currentBattle = updated
     showSubmitModal.value = false
     submitForm.value = { title: '', description: '', contentUrl: '' }
-    await fetchDetail()
     ElMessage.success('作品提交成功！')
   } catch (error: any) {
     ElMessage.error(error.response?.data?.message || '提交失败')
+  } finally {
+    actionBusy.value = false
   }
 }
 
 // ===== 录入内定结果 =====
 const handleSetInternalResult = async () => {
-  if (!battle.value) return
+  if (!battle.value || actionBusy.value) return
   if (!internalResult.value.winnerIds.length) {
     ElMessage.warning('请至少选择一位胜者')
     return
   }
+  actionBusy.value = true
   try {
-    await battleApi.setInternalResult(battle.value.id, {
+    const updated = await battleApi.setInternalResult(battle.value.id, {
       winnerIds: internalResult.value.winnerIds,
       resultDescription: internalResult.value.resultDescription || undefined,
     })
+    if (battleStore.currentBattle?.id === updated.id) battleStore.currentBattle = updated
     showInternalResultModal.value = false
     internalResult.value = { winnerIds: [], resultDescription: '' }
-    await fetchDetail()
     ElMessage.success('结果录入成功！')
   } catch (error: any) {
     ElMessage.error(error.response?.data?.message || '操作失败')
+  } finally {
+    actionBusy.value = false
   }
 }
 
 // ===== 发布结果 =====
 const handlePublishResult = async () => {
-  if (!battle.value) return
+  if (!battle.value || actionBusy.value) return
+  actionBusy.value = true
   try {
-    await ElMessageBox.confirm('确定发布最终结果吗？发布后不可修改。', '确认')
-    await battleApi.publishResult(battle.value.id)
-    await fetchDetail()
+    await ElMessageBox.confirm('确定发布最终结果吗？发布后不可修改。', '确认', confirmOptions)
+    const updated = await battleApi.publishResult(battle.value.id)
+    if (battleStore.currentBattle?.id === updated.id) battleStore.currentBattle = updated
     ElMessage.success('约战完成！')
   } catch (error: any) {
     if (error !== 'cancel') {
       ElMessage.error(error.response?.data?.message || '操作失败')
     }
+  } finally {
+    actionBusy.value = false
   }
 }
 
 // ===== 取消约战 =====
 const handleCancel = async () => {
-  if (!battle.value) return
+  if (!battle.value || actionBusy.value) return
+  actionBusy.value = true
   try {
-    await ElMessageBox.confirm('确定取消约战吗？', '确认')
-    await battleApi.cancel(battle.value.id)
-    await fetchDetail()
+    await ElMessageBox.confirm('确定取消约战吗？', '确认', confirmOptions)
+    const updated = await battleApi.cancel(battle.value.id)
+    if (battleStore.currentBattle?.id === updated.id) battleStore.currentBattle = updated
     ElMessage.success('已取消')
   } catch (error: any) {
     if (error !== 'cancel') {
       ElMessage.error(error.response?.data?.message || '操作失败')
     }
+  } finally {
+    actionBusy.value = false
   }
 }
 
-onMounted(() => {
+watch(() => route.params.id, async () => {
   isRejected.value = false
+  showRegisterModal.value = showSubmitModal.value = showInternalResultModal.value = false
+  loadError.value = ''
   fetchMyOcs()
-  fetchDetail()
-})
+  try { await fetchDetail() }
+  catch { loadError.value = '约战详情加载失败，请刷新重试' }
+}, { immediate: true })
 
 onUnmounted(() => {
   battleStore.clear()
@@ -663,13 +686,17 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.register-oc { display: flex; gap: 12px; align-items: center; padding: 14px; margin-bottom: 8px; border: 1px solid var(--border-line); border-radius: 10px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; }
+.register-oc.selected { border-color: var(--accent-color); background: var(--bg-soft); }
+.register-oc input { width: 18px; height: 18px; accent-color: var(--accent-color); }
+.register-oc span { overflow-wrap: anywhere; }
 .battle-detail {
   max-width: 960px;
   margin: 0 auto;
   padding: 32px 20px 60px;
-  background: #f5f0eb;
+  background: var(--bg-sub);
   min-height: 100vh;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .loading-state {
@@ -679,14 +706,14 @@ onUnmounted(() => {
   justify-content: center;
   padding: 80px 0;
   gap: 16px;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 2px solid #d8d0c4;
-  border-top-color: #2c2a29;
+  border: 2px solid var(--border-line);
+  border-top-color: var(--text-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -698,17 +725,17 @@ onUnmounted(() => {
 .empty-state {
   padding: 80px 0;
   text-align: center;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .empty-link {
-  color: #9e2a2b;
+  color: var(--accent-color);
   text-decoration: none;
-  border-bottom: 1px solid #d8d0c4;
+  border-bottom: 1px solid var(--border-line);
 }
 
 .empty-link:hover {
-  border-color: #9e2a2b;
+  border-color: var(--accent-color);
 }
 
 .page-header {
@@ -716,7 +743,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: flex-start;
   padding-bottom: 16px;
-  border-bottom: 2px solid #d8d0c4;
+  border-bottom: 2px solid var(--border-line);
   margin-bottom: 24px;
   flex-wrap: wrap;
   gap: 12px;
@@ -732,14 +759,14 @@ onUnmounted(() => {
   background: none;
   border: none;
   font-size: 15px;
-  color: #999;
+  color: var(--text-secondary);
   cursor: pointer;
   font-family: inherit;
   padding: 4px 8px 4px 0;
   transition: color 0.25s;
 }
 .back-btn:hover {
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .page-title {
@@ -747,7 +774,7 @@ onUnmounted(() => {
   font-weight: 400;
   letter-spacing: 0.15em;
   margin: 0 0 8px 0;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .page-meta {
@@ -759,34 +786,34 @@ onUnmounted(() => {
 .meta-tag {
   font-size: 12px;
   padding: 2px 12px;
-  border: 1px solid #d8d0c4;
-  background: #fcfaf7;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   letter-spacing: 0.08em;
 }
 
-.meta-tag.status.open { border-color: #4CAF50; color: #4CAF50; }
-.meta-tag.status.ongoing { border-color: #FF9800; color: #FF9800; }
-.meta-tag.status.judging { border-color: #FF9800; color: #FF9800; }
-.meta-tag.status.finished { border-color: #9E9E9E; color: #9E9E9E; }
-.meta-tag.status.cancelled { border-color: #F44336; color: #F44336; }
+.meta-tag.status.open { border-color: var(--success); color: var(--success); }
+.meta-tag.status.ongoing { border-color: var(--warning); color: var(--warning); }
+.meta-tag.status.judging { border-color: var(--warning); color: var(--warning); }
+.meta-tag.status.finished { border-color: var(--text-secondary); color: var(--text-secondary); }
+.meta-tag.status.cancelled { border-color: var(--danger); color: var(--danger); }
 
 .meta-tag.judgment {
-  border-color: #9e2a2b;
-  color: #9e2a2b;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
 .meta-tag.type {
-  border-color: #d8d0c4;
-  color: #666;
+  border-color: var(--border-line);
+  color: var(--text-secondary);
 }
 
 .meta-tag.public {
-  border-color: #4CAF50;
-  color: #4CAF50;
+  border-color: var(--success);
+  color: var(--success);
 }
 .meta-tag.private {
-  border-color: #FF9800;
-  color: #FF9800;
+  border-color: var(--warning);
+  color: var(--warning);
 }
 
 .header-right {
@@ -797,8 +824,8 @@ onUnmounted(() => {
 
 .btn-line {
   background: none;
-  border: 1px solid #d8d0c4;
-  color: #2c2a29;
+  border: 1px solid var(--border-line);
+  color: var(--text-primary);
   padding: 6px 16px;
   font-family: inherit;
   font-size: 13px;
@@ -807,16 +834,16 @@ onUnmounted(() => {
   transition: all 0.3s;
 }
 .btn-line:hover {
-  border-color: #9e2a2b;
-  color: #9e2a2b;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 .btn-line.danger {
-  border-color: #F44336;
-  color: #F44336;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 .btn-line.danger:hover {
-  background: #F44336;
-  color: #fff;
+  background: var(--danger);
+  color: var(--on-accent);
 }
 
 .combatants {
@@ -824,7 +851,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 20px 0;
-  border-bottom: 1px solid #d8d0c4;
+  border-bottom: 1px solid var(--border-line);
   margin-bottom: 24px;
   gap: 20px;
   flex-wrap: wrap;
@@ -837,31 +864,31 @@ onUnmounted(() => {
 .combatant .role {
   display: block;
   font-size: 12px;
-  color: #999;
+  color: var(--text-secondary);
   letter-spacing: 0.08em;
 }
 .combatant strong {
   font-size: 20px;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 .combatant .oc-name {
   font-size: 14px;
-  color: #888;
+  color: var(--text-secondary);
   margin-left: 4px;
 }
 .combatant .open-text {
   font-size: 16px;
-  color: #999;
+  color: var(--text-secondary);
   font-style: italic;
 }
 
 .vs {
   font-size: 24px;
-  color: #9e2a2b;
+  color: var(--accent-color);
 }
 
 .detail-section {
-  border-bottom: 1px solid #d8d0c4;
+  border-bottom: 1px solid var(--border-line);
   padding-bottom: 20px;
   margin-bottom: 24px;
 }
@@ -874,17 +901,17 @@ onUnmounted(() => {
   font-weight: 400;
   letter-spacing: 0.12em;
   margin: 0 0 12px 0;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .rules-content {
   padding: 12px 16px;
-  background: #fcfaf7;
-  border-left: 3px solid #9e2a2b;
+  background: var(--paper-card);
+  border-left: 3px solid var(--accent-color);
   white-space: pre-wrap;
   font-size: 14px;
   line-height: 1.8;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .section-header {
@@ -899,7 +926,7 @@ onUnmounted(() => {
 }
 .section-count {
   font-size: 13px;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .participant-actions {
@@ -908,13 +935,13 @@ onUnmounted(() => {
   align-items: center;
   flex-wrap: wrap;
   padding: 12px 0;
-  border-bottom: 1px solid #d8d0c4;
+  border-bottom: 1px solid var(--border-line);
   margin-bottom: 12px;
 }
 
 .btn-action {
   padding: 8px 20px;
-  border: 1px solid #d8d0c4;
+  border: 1px solid var(--border-line);
   background: transparent;
   font-family: inherit;
   font-size: 13px;
@@ -923,8 +950,8 @@ onUnmounted(() => {
   transition: all 0.3s;
 }
 .btn-action:hover:not(:disabled) {
-  border-color: #9e2a2b;
-  color: #9e2a2b;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 .btn-action:disabled {
   opacity: 0.5;
@@ -932,89 +959,89 @@ onUnmounted(() => {
 }
 
 .btn-join {
-  border-color: #9e2a2b;
-  color: #9e2a2b;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 .btn-join:hover:not(:disabled) {
-  background: #9e2a2b;
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--on-accent);
 }
 
 .btn-reject {
-  border-color: #F44336;
-  color: #F44336;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 .btn-reject:hover:not(:disabled) {
-  background: #F44336;
-  color: #fff;
+  background: var(--danger);
+  color: var(--on-accent);
 }
 
 .btn-cancel {
-  border-color: #999;
-  color: #999;
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
 }
 .btn-cancel:hover:not(:disabled) {
-  border-color: #F44336;
-  color: #F44336;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .btn-primary {
-  background: #2c2a29;
-  color: #f5f0eb;
-  border-color: #2c2a29;
+  background: var(--text-primary);
+  color: var(--bg-sub);
+  border-color: var(--text-primary);
 }
 .btn-primary:hover:not(:disabled) {
   background: transparent;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .btn-publish {
-  background: #4CAF50;
-  color: #fff;
-  border-color: #4CAF50;
+  background: var(--success);
+  color: var(--on-accent);
+  border-color: var(--success);
 }
 .btn-publish:hover:not(:disabled) {
-  background: #388E3C;
-  border-color: #388E3C;
-  color: #fff;
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--on-accent);
 }
 
 .btn-submit-work {
-  border-color: #2196F3;
-  color: #2196F3;
+  border-color: var(--info);
+  color: var(--info);
 }
 .btn-submit-work:hover:not(:disabled) {
-  background: #2196F3;
-  color: #fff;
+  background: var(--info);
+  color: var(--on-accent);
 }
 
 .organizer-tip {
   font-size: 13px;
-  color: #999;
+  color: var(--text-secondary);
 }
 
 .vote-hint {
   font-size: 13px;
-  color: #FF9800;
+  color: var(--warning);
   padding: 6px 14px;
-  background: #fff3e0;
-  border: 1px solid #FF9800;
+  background: var(--accent-soft);
+  border: 1px solid var(--warning);
 }
 
 .locked-hint {
   font-size: 13px;
-  color: #999;
+  color: var(--text-secondary);
   padding: 6px 14px;
-  border: 1px solid #d8d0c4;
-  background: #fcfaf7;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
 }
 
 .rejected-hint {
   font-size: 13px;
-  color: #F44336;
+  color: var(--danger);
   padding: 6px 14px;
-  border: 1px solid #F44336;
-  background: #fff5f5;
+  border: 1px solid var(--danger);
+  background: var(--accent-soft);
 }
 
 .participant-list {
@@ -1028,47 +1055,47 @@ onUnmounted(() => {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  border: 1px solid #d8d0c4;
-  background: #fcfaf7;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   flex-wrap: wrap;
 }
 
 .participant-name {
   font-size: 14px;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 .participant-oc {
   font-size: 13px;
-  color: #888;
+  color: var(--text-secondary);
 }
 .participant-status {
   font-size: 12px;
   padding: 1px 10px;
-  border: 1px solid #d8d0c4;
+  border: 1px solid var(--border-line);
 }
-.participant-status.registered { border-color: #FF9800; color: #FF9800; }
-.participant-status.submitted { border-color: #4CAF50; color: #4CAF50; }
-.participant-status.eliminated { border-color: #F44336; color: #F44336; }
-.participant-status.finished { border-color: #9E9E9E; color: #9E9E9E; }
+.participant-status.registered { border-color: var(--warning); color: var(--warning); }
+.participant-status.submitted { border-color: var(--success); color: var(--success); }
+.participant-status.eliminated { border-color: var(--danger); color: var(--danger); }
+.participant-status.finished { border-color: var(--text-secondary); color: var(--text-secondary); }
 
 .participant-result {
   font-size: 13px;
   margin-left: auto;
 }
-.participant-result.win { color: #4CAF50; }
-.participant-result.lose { color: #F44336; }
-.participant-result.draw { color: #FF9800; }
+.participant-result.win { color: var(--success); }
+.participant-result.lose { color: var(--danger); }
+.participant-result.draw { color: var(--warning); }
 
 .participant-empty {
   padding: 12px 0;
   text-align: center;
-  color: #999;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .submitted-hint {
   font-size: 13px;
-  color: #4CAF50;
+  color: var(--success);
 }
 
 .submissions-list {
@@ -1082,23 +1109,23 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 10px 14px;
-  border: 1px solid #d8d0c4;
-  background: #fcfaf7;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   flex-wrap: wrap;
   gap: 8px;
 }
 
 .sub-title {
   font-weight: 500;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 .sub-author {
   font-size: 13px;
-  color: #888;
+  color: var(--text-secondary);
   margin-left: 8px;
 }
 .sub-link {
-  color: #9e2a2b;
+  color: var(--accent-color);
   text-decoration: none;
 }
 .sub-link:hover {
@@ -1108,20 +1135,20 @@ onUnmounted(() => {
 .submissions-empty {
   padding: 12px 0;
   text-align: center;
-  color: #999;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .result-display {
   padding: 12px 16px;
-  background: #fcfaf7;
-  border: 2px solid #2c2a29;
+  background: var(--paper-card);
+  border: 2px solid var(--text-primary);
   margin-bottom: 12px;
 }
 .result-text {
   font-size: 20px;
   font-weight: 500;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 .participants-result {
@@ -1134,12 +1161,12 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 6px 12px;
-  background: #fcfaf7;
-  border: 1px solid #d8d0c4;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
 }
-.result-badge.win { color: #4CAF50; }
-.result-badge.lose { color: #F44336; }
-.result-badge.draw { color: #FF9800; }
+.result-badge.win { color: var(--success); }
+.result-badge.lose { color: var(--danger); }
+.result-badge.draw { color: var(--warning); }
 
 .modal-body .form-group {
   margin-bottom: 14px;
@@ -1148,30 +1175,30 @@ onUnmounted(() => {
   display: block;
   font-size: 13px;
   margin-bottom: 4px;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 .modal-body .form-group input,
 .modal-body .form-group textarea {
   width: 100%;
   padding: 6px 12px;
-  border: 1px solid #d8d0c4;
-  background: #fff;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
   font-family: inherit;
   font-size: 14px;
   outline: none;
 }
 .modal-body .form-group input:focus,
 .modal-body .form-group textarea:focus {
-  border-color: #2c2a29;
+  border-color: var(--text-primary);
 }
 .modal-body .hint {
   font-size: 12px;
-  color: #bbb;
+  color: var(--text-secondary);
   margin: 4px 0 0;
 }
 .modal-hint {
   margin-bottom: 12px;
-  color: #666;
+  color: var(--text-secondary);
 }
 .winner-checkboxes {
   display: flex;
@@ -1184,11 +1211,11 @@ onUnmounted(() => {
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  border: 1px solid #d8d0c4;
+  border: 1px solid var(--border-line);
   cursor: pointer;
 }
 .winner-option:hover {
-  background: #f5f0eb;
+  background: var(--bg-sub);
 }
 .winner-option input[type="checkbox"] {
   width: 16px;
@@ -1206,12 +1233,12 @@ onUnmounted(() => {
   padding: 4px 8px;
 }
 .oc-select-wrapper select[multiple] option:checked {
-  background: #9e2a2b;
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--on-accent);
 }
 
 .oc-disabled-tag {
-  color: #ccc;
+  color: var(--border-line);
   font-size: 12px;
 }
 
@@ -1227,11 +1254,11 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   padding: 2px 10px;
-  background: #ede8e2;
-  border: 1px solid #d8d0c4;
+  background: var(--bg-sub);
+  border: 1px solid var(--border-line);
   border-radius: 4px;
   font-size: 12px;
-  color: #2c2a29;
+  color: var(--text-primary);
 }
 
 @media (max-width: 640px) {

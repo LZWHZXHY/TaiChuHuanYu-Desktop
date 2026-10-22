@@ -1,6 +1,6 @@
 <template>
   <div v-if="visible" class="order-modal-mask">
-    <div class="order-modal">
+    <div class="order-modal" role="dialog" aria-modal="true" aria-label="确认订单">
 
       <!-- ============ 成功态 ============ -->
       <div v-if="successOrderNo" class="om-success">
@@ -54,7 +54,7 @@
             ⚠ 付款后请点击下方【我已完成付款】，客服核对后打手方可接单
           </div>
           <div class="om-pay-cs">
-            客服微信：<b>{{ customerServiceWechat }}</b>
+            客服微信：<b>{{ customerServiceWechat || '暂未提供，请在订单详情查看客服信息' }}</b>
           </div>
         </div>
 
@@ -231,9 +231,6 @@
               <span class="och-label">打手数量</span>
               <b class="och-count">{{ selectedOpIds.length }} / {{ opCountRange }}</b>
               <span v-if="isOpCountLocked" class="och-tag locked">本单必须 {{ minOpCount }} 人</span>
-              <span v-else-if="minOpCount === maxOpCount" class="och-tag locked">
-                本单必须 {{ minOpCount }} 人
-              </span>
               <span v-else class="och-tag">
                 请选择 {{ minOpCount }}–{{ maxOpCount }} 位
               </span>
@@ -365,7 +362,7 @@ export default {
       successOrderNo: '',
       userPaidMarked: false,
       markingPaid: false,
-      customerServiceWechat: 'taichu_service',
+      customerServiceWechat: '',
 
       submittedCsLabel: '',
       submittedOpLabel: ''
@@ -430,13 +427,14 @@ export default {
 
     // ⭐ 提交校验
     canSubmit() {
+      if (this.loadingOps || this.loadingCs) return false
       if (this.orderSource === 'cs') {
-        if (this.customerServices.length === 0) return false
-        if (!this.selectedCsId) return false
+        if (!this.customerServices.some(cs => cs.id === this.selectedCsId)) return false
       }
       if (this.operatorMode === 'manual') {
         if (this.selectedOpIds.length < this.minOpCount) return false
         if (this.selectedOpIds.length > this.maxOpCount) return false
+        if (this.selectedOpIds.some(id => !this.availableOps.some(op => op.userId === id && op.status !== 'offline'))) return false
       }
       return true
     }
@@ -448,6 +446,7 @@ export default {
 
   methods: {
     async onOpen() {
+      this.customerServiceWechat = ''
       this.successOrderNo = ''
       this.userPaidMarked = false
       this.selectedOpIds = []
@@ -529,7 +528,8 @@ export default {
 
     // ⭐ 多选切换
     toggleOp(opId) {
-      if (this.operatorMode !== 'manual') return
+      if (this.operatorMode !== 'manual' || this.submitting || this.loadingOps) return
+      if (!this.availableOps.some(op => op.userId === opId && op.status !== 'offline')) return
       const idx = this.selectedOpIds.indexOf(opId)
       if (idx >= 0) {
         this.selectedOpIds.splice(idx, 1)
@@ -551,16 +551,6 @@ export default {
 
     async submit() {
       if (!this.canSubmit || this.submitting) return
-
-      // 前端兜底再校验一次
-      if (this.operatorMode === 'manual') {
-        if (this.selectedOpIds.length < this.minOpCount) {
-          return alert(`本订单至少需要 ${this.minOpCount} 位打手`)
-        }
-        if (this.selectedOpIds.length > this.maxOpCount) {
-          return alert(`本订单最多 ${this.maxOpCount} 位打手`)
-        }
-      }
 
       this.submitting = true
 
@@ -634,7 +624,7 @@ export default {
       }
     },
 
-    close() { this.$emit('close') }
+    close() { if (!this.submitting && !this.markingPaid) this.$emit('close') }
   }
 }
 </script>
@@ -645,32 +635,34 @@ export default {
 ================================================== */
 .order-modal-mask {
   position: fixed; inset: 0; z-index: 9999;
-  background: rgba(0, 0, 0, 0.78);
+  background: var(--overlay);
   backdrop-filter: blur(8px);
   display: grid; place-items: center;
   padding: 24px;
 }
 .order-modal {
   width: min(620px, 100%);
-  max-height: 88vh; overflow-y: auto;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: #0e1720; color: #e8eef4;
-  border-radius: 4px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  max-height: 88dvh; overflow-y: auto;
+  border: 1px solid var(--line);
+  background: var(--paper-card); color: var(--text-primary);
+  border-radius: 16px;
+  box-shadow: 0 24px 80px var(--overlay);
 }
+.order-modal .om-head { position: sticky; top: 0; z-index: 2; background: var(--paper-card); }
+.order-modal .om-foot { position: sticky; bottom: 0; z-index: 2; background: var(--paper-card); }
 
 /* ============ 成功态 ============ */
 .om-success { padding: 48px 32px; text-align: center; }
 .om-success-icon {
   width: 60px; height: 60px; margin: 0 auto 20px;
   display: grid; place-items: center;
-  border-radius: 50%; border: 2px solid #78d7ce;
-  color: #78d7ce; font-size: 32px; font-weight: 700;
+  border-radius: 50%; border: 2px solid var(--success);
+  color: var(--success); font-size: 32px; font-weight: 700;
 }
-.om-success h3 { margin: 0 0 10px; font-size: 20px; color: #f2f6fa; }
-.om-success-no { margin: 0 0 6px; font-family: monospace; font-size: 14px; color: #ff6b1a; }
-.om-success-amount { margin: 4px 0 22px; font-family: monospace; font-size: 13px; color: #8b9aab; }
-.om-success-amount b { color: #ff6b1a; font-size: 18px; margin-left: 4px; }
+.om-success h3 { margin: 0 0 10px; font-size: 20px; color: var(--text-primary); }
+.om-success-no { margin: 0 0 6px; font-family: monospace; font-size: 14px; color: var(--accent-color); }
+.om-success-amount { margin: 4px 0 22px; font-family: monospace; font-size: 13px; color: var(--text-secondary); }
+.om-success-amount b { color: var(--accent-color); font-size: 18px; margin-left: 4px; }
 
 .om-assign {
   margin: 0 auto 22px;
@@ -686,32 +678,32 @@ export default {
   display: flex; justify-content: space-between; align-items: center;
   font-size: 12px;
 }
-.oa-row span { color: #8b9aab; font-family: monospace; letter-spacing: 1px; }
-.oa-row b { color: #78d7ce; font-weight: 600; }
+.oa-row span { color: var(--text-secondary); font-family: monospace; letter-spacing: 1px; }
+.oa-row b { color: var(--success); font-weight: 600; }
 
 /* ============ 收款区 ============ */
 .om-pay {
   margin: 0 auto 20px; padding: 20px; max-width: 520px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
   border-radius: 4px;
 }
 .om-pay-title {
-  margin-bottom: 16px; font-family: monospace; font-size: 11px;
-  letter-spacing: 1.5px; color: #8b9aab; text-align: center;
+  margin-bottom: 16px; font-family: monospace; font-size: 12px;
+  letter-spacing: 1.5px; color: var(--text-secondary); text-align: center;
 }
 .om-pay-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 .om-pay-item { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .om-pay-label {
   display: flex; align-items: center; gap: 6px;
-  font-family: monospace; font-size: 11px; letter-spacing: 1px; font-weight: 600;
+  font-family: monospace; font-size: 12px; letter-spacing: 1px; font-weight: 600;
 }
-.om-pay-label.wechat { color: #4ecb71; }
-.om-pay-label.alipay { color: #4a9eff; }
+.om-pay-label.wechat { color: var(--success); }
+.om-pay-label.alipay { color: var(--accent-color); }
 .pay-icon { font-size: 13px; }
 .om-pay-qr {
   display: grid; place-items: center;
-  padding: 8px; background: #fff; border-radius: 4px;
+  padding: 8px; background: var(--paper-card); border-radius: 4px;
   width: 100%;
 }
 .om-pay-qr img {
@@ -719,21 +711,21 @@ export default {
   object-fit: contain; display: block;
 }
 .om-pay-tip {
-  font-size: 11px; line-height: 1.7; color: #ff8c4a;
+  font-size: 12px; line-height: 1.7; color: var(--accent-color);
   margin-bottom: 10px; text-align: center;
 }
 .om-pay-cs {
   font-family: monospace; font-size: 12px;
-  color: #8b9aab; text-align: center;
+  color: var(--text-secondary); text-align: center;
 }
-.om-pay-cs b { color: #78d7ce; font-size: 14px; margin-left: 4px; }
+.om-pay-cs b { color: var(--success); font-size: 14px; margin-left: 4px; }
 
 .om-confirm-pay { margin: 0 auto 26px; max-width: 520px; text-align: center; }
 .btn-confirm-pay {
   width: 100%; height: 52px;
   font-size: 15px; letter-spacing: 2px; font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, #ff6b1a, #ff8c4a);
+  color: var(--text);
+  background: linear-gradient(135deg, var(--accent-color), var(--accent-color));
   border: none; border-radius: 4px; cursor: pointer;
   transition: all 0.25s;
   box-shadow: 0 6px 20px rgba(255, 107, 26, 0.25);
@@ -745,7 +737,7 @@ export default {
 .btn-confirm-pay:disabled { opacity: 0.6; cursor: not-allowed; }
 .om-confirm-hint {
   margin: 10px 0 0; font-family: monospace;
-  font-size: 11px; color: #8b9aab;
+  font-size: 12px; color: var(--text-secondary);
 }
 
 .om-paid-done {
@@ -757,37 +749,37 @@ export default {
 .om-paid-done-icon {
   width: 36px; height: 36px; margin: 0 auto 12px;
   display: grid; place-items: center;
-  border-radius: 50%; border: 2px solid #78d7ce;
-  color: #78d7ce; font-size: 18px; font-weight: 700;
+  border-radius: 50%; border: 2px solid var(--success);
+  color: var(--success); font-size: 18px; font-weight: 700;
 }
-.om-paid-done-title { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: #78d7ce; }
-.om-paid-done-hint { margin: 0; font-size: 12px; line-height: 1.7; color: #8b9aab; }
+.om-paid-done-title { margin: 0 0 8px; font-size: 15px; font-weight: 700; color: var(--success); }
+.om-paid-done-hint { margin: 0; font-size: 12px; line-height: 1.7; color: var(--text-secondary); }
 
 .om-success-actions { display: flex; gap: 12px; justify-content: center; }
 
 /* ============ 表单头部 ============ */
 .om-head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 26px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 20px 26px; border-bottom: 1px solid var(--bg-soft);
 }
 .om-head h3 {
   margin: 0; font-size: 18px; font-weight: 700;
-  letter-spacing: 1px; color: #f2f6fa;
+  letter-spacing: 1px; color: var(--text-primary);
 }
 .close-icon {
   background: none; border: none; font-size: 22px;
-  color: #6b7a8a; cursor: pointer; line-height: 1;
+  color: var(--text-secondary); cursor: pointer; line-height: 1;
 }
-.close-icon:hover { color: #e8eef4; }
+.close-icon:hover { color: var(--text-primary); }
 
 .om-block {
   padding: 20px 26px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--bg-soft);
 }
 .om-block:last-of-type { border-bottom: none; }
 .om-title {
   margin: 0 0 14px; font-family: monospace;
-  font-size: 10px; letter-spacing: 2px; color: #ff6b1a;
+  font-size: 12px; letter-spacing: 2px; color: var(--accent-color);
 }
 
 /* ============ 订单信息 ============ */
@@ -796,21 +788,21 @@ export default {
   display: flex; justify-content: space-between;
   font-size: 13px; padding: 6px 0;
 }
-.om-info-row span { color: #8b9aab; }
-.om-info-row b { color: #f2f6fa; }
+.om-info-row span { color: var(--text-secondary); }
+.om-info-row b { color: var(--text-primary); }
 /* ⭐ 价格明细行 */
 .om-info-row.sub {
   font-size: 12px;
   padding: 2px 0 2px 8px;
   opacity: 0.85;
 }
-.om-info-row.sub span { color: #6b7a8a; font-family: monospace; }
-.om-info-row.sub b { color: #78d7ce; font-family: monospace; }
+.om-info-row.sub span { color: var(--text-secondary); font-family: monospace; }
+.om-info-row.sub b { color: var(--success); font-family: monospace; }
 .om-info-row.total {
   margin-top: 6px; padding-top: 12px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+  border-top: 1px dashed var(--line);
 }
-.om-price { font-family: monospace; font-size: 20px !important; color: #ff6b1a !important; }
+.om-price { font-family: monospace; font-size: 20px !important; color: var(--accent-color) !important; }
 
 /* ============ 客服来源 ============ */
 .source-grid {
@@ -820,12 +812,12 @@ export default {
 .source-item {
   display: flex; align-items: center; gap: 12px;
   padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--bg-soft);
+  background: var(--bg-soft);
   border-radius: 3px;
   cursor: pointer; transition: all 0.2s;
 }
-.source-item:hover { border-color: rgba(255, 255, 255, 0.2); }
+.source-item:hover { border-color: var(--line); }
 .source-item.on {
   border-color: rgba(255, 107, 26, 0.5);
   background: rgba(255, 107, 26, 0.06);
@@ -834,10 +826,10 @@ export default {
 .source-icon { font-size: 22px; line-height: 1; }
 .source-info { min-width: 0; }
 .source-name {
-  font-size: 13px; font-weight: 700; color: #f2f6fa;
+  font-size: 13px; font-weight: 700; color: var(--text-primary);
   margin-bottom: 3px;
 }
-.source-desc { font-size: 11px; color: #8b9aab; line-height: 1.5; }
+.source-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
 
 /* 客服选择器 */
 .cs-picker-wrap { margin-top: 4px; }
@@ -848,12 +840,12 @@ export default {
 .cs-item {
   display: flex; align-items: center; gap: 12px;
   padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--bg-soft);
+  background: var(--bg-soft);
   border-radius: 3px;
   cursor: pointer; transition: 0.2s;
 }
-.cs-item:hover:not(.off) { border-color: rgba(255, 255, 255, 0.2); }
+.cs-item:hover:not(.off) { border-color: var(--line); }
 .cs-item.on {
   border-color: rgba(255, 107, 26, 0.5);
   background: rgba(255, 107, 26, 0.06);
@@ -864,19 +856,19 @@ export default {
 .cs-avatar {
   width: 38px; height: 38px;
   display: grid; place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.03);
-  color: #ff6b1a; font-weight: 700;
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  color: var(--accent-color); font-weight: 700;
   border-radius: 50%;
   flex-shrink: 0;
 }
 .cs-info { flex: 1; min-width: 0; }
 .cs-name {
   display: flex; align-items: center; gap: 8px;
-  font-size: 14px; font-weight: 700; color: #f2f6fa;
+  font-size: 14px; font-weight: 700; color: var(--text-primary);
   margin-bottom: 3px;
 }
-.cs-meta { font-size: 11px; color: #8b9aab; font-family: monospace; }
+.cs-meta { font-size: 12px; color: var(--text-secondary); font-family: monospace; }
 
 /* ============ 打手模式切换 ============ */
 .mode-grid {
@@ -885,23 +877,23 @@ export default {
 }
 .mode-item {
   padding: 14px 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--bg-soft);
+  background: var(--bg-soft);
   border-radius: 3px;
   cursor: pointer; text-align: left;
   transition: 0.2s;
   font-family: inherit; color: inherit;
 }
-.mode-item:hover { border-color: rgba(255, 255, 255, 0.2); }
+.mode-item:hover { border-color: var(--line); }
 .mode-item.on {
   border-color: rgba(255, 107, 26, 0.5);
   background: rgba(255, 107, 26, 0.06);
 }
 .mode-name {
   font-size: 13px; font-weight: 700;
-  color: #f2f6fa; margin-bottom: 3px;
+  color: var(--text-primary); margin-bottom: 3px;
 }
-.mode-desc { font-size: 11px; color: #8b9aab; line-height: 1.5; }
+.mode-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
 
 /* ⭐ 数量提示条 */
 .op-count-hint {
@@ -922,21 +914,21 @@ export default {
   background: rgba(80, 200, 120, 0.08);
 }
 .och-label {
-  font-family: monospace; font-size: 10px;
-  letter-spacing: 1px; color: #8b9aab;
+  font-family: monospace; font-size: 12px;
+  letter-spacing: 1px; color: var(--text-secondary);
 }
 .och-count {
   font-family: monospace; font-size: 14px;
-  font-weight: 700; color: #ff6b1a;
+  font-weight: 700; color: var(--accent-color);
 }
-.op-count-hint.locked .och-count { color: #78d7ce; }
-.op-count-hint.full .och-count { color: #4ecb71; }
+.op-count-hint.locked .och-count { color: var(--success); }
+.op-count-hint.full .och-count { color: var(--success); }
 .och-tag {
   margin-left: auto;
-  font-family: monospace; font-size: 10px;
-  color: #8b9aab;
+  font-family: monospace; font-size: 12px;
+  color: var(--text-secondary);
 }
-.och-tag.locked { color: #78d7ce; }
+.och-tag.locked { color: var(--success); }
 
 .op-picker-wrap { margin-top: 4px; }
 .op-picker {
@@ -946,41 +938,42 @@ export default {
 .op-item {
   display: flex; align-items: center; gap: 12px;
   padding: 12px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--bg-soft);
+  background: var(--bg-soft);
   border-radius: 3px;
   cursor: pointer; transition: 0.2s;
 }
-.op-item:hover:not(.off) { border-color: rgba(255, 255, 255, 0.2); }
+.op-item:hover:not(.off) { border-color: var(--line); }
 .op-item.on {
   border-color: rgba(255, 107, 26, 0.5);
   background: rgba(255, 107, 26, 0.06);
 }
 .op-item.off { opacity: 0.35; cursor: not-allowed; }
-.op-item input { display: none; }
+.op-item input { width: 18px; height: 18px; flex-shrink: 0; accent-color: var(--accent-color); }
+.op-item:focus-within { outline: 2px solid var(--accent-color); outline-offset: 2px; }
 .op-avatar {
   width: 38px; height: 38px;
   display: grid; place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.03);
-  color: #ff6b1a; font-weight: 700; border-radius: 2px;
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+  color: var(--accent-color); font-weight: 700; border-radius: 2px;
   flex-shrink: 0;
 }
 .op-info { flex: 1; min-width: 0; }
 .op-name {
-  font-size: 14px; font-weight: 700; color: #f2f6fa;
+  font-size: 14px; font-weight: 700; color: var(--text-primary);
   margin-bottom: 3px;
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
 .op-level {
   padding: 1px 6px;
-  font-family: monospace; font-size: 10px;
-  color: #ff6b1a;
+  font-family: monospace; font-size: 12px;
+  color: var(--accent-color);
   border: 1px solid rgba(255, 107, 26, 0.4);
   border-radius: 2px;
 }
-.op-meta { font-size: 11px; color: #8b9aab; }
-.op-surcharge { color: #78d7ce; font-family: monospace; }
+.op-meta { font-size: 12px; color: var(--text-secondary); }
+.op-surcharge { color: var(--success); font-family: monospace; }
 
 /* ============ 自动分配提示 ============ */
 .auto-hint {
@@ -990,23 +983,23 @@ export default {
   border-radius: 3px;
   font-size: 12px;
   line-height: 1.6;
-  color: #78d7ce;
+  color: var(--success);
 }
 .auto-hint-sub {
-  font-family: monospace; font-size: 10px;
-  color: #8b9aab;
+  font-family: monospace; font-size: 12px;
+  color: var(--text-secondary);
 }
 
 /* ============ 空态 ============ */
 .om-empty {
   padding: 24px; text-align: center;
-  font-family: monospace; font-size: 12px; color: #6b7a8a;
-  border: 1px dashed rgba(255, 255, 255, 0.1);
+  font-family: monospace; font-size: 12px; color: var(--text-secondary);
+  border: 1px dashed var(--line);
   border-radius: 3px;
 }
 .dot {
   display: inline-block; width: 6px; height: 6px;
-  margin-right: 6px; border-radius: 50%; background: #ff6b1a;
+  margin-right: 6px; border-radius: 50%; background: var(--accent-color);
   animation: pulse 1.4s infinite;
 }
 @keyframes pulse { 50% { opacity: 0.3; } }
@@ -1014,9 +1007,9 @@ export default {
 /* ============ 备注 ============ */
 .om-textarea {
   width: 100%; padding: 10px 12px;
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #e8eef4; border-radius: 3px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--text-primary); border-radius: 3px;
   font-family: inherit; font-size: 13px;
   outline: none; resize: vertical;
 }
@@ -1026,7 +1019,7 @@ export default {
 .om-foot {
   display: flex; gap: 12px;
   padding: 20px 26px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--bg-soft);
 }
 .btn-ghost, .btn-solid {
   flex: 1; height: 42px;
@@ -1037,15 +1030,15 @@ export default {
   text-decoration: none;
 }
 .btn-ghost {
-  color: #8b9aab; background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-secondary); background: transparent;
+  border: 1px solid var(--line);
 }
-.btn-ghost:hover { color: #e8eef4; border-color: rgba(255, 255, 255, 0.3); }
+.btn-ghost:hover { color: var(--text-primary); border-color: var(--line); }
 .btn-solid {
-  color: #fff; background: #ff6b1a;
-  border: 1px solid #ff6b1a;
+  color: var(--on-accent); background: var(--accent-color);
+  border: 1px solid var(--accent-color);
 }
-.btn-solid:hover:not(:disabled) { background: #ff7e32; }
+.btn-solid:hover:not(:disabled) { background: var(--accent-color); }
 .btn-solid:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ============ 移动端 ============ */

@@ -78,12 +78,12 @@ const cancel = () => {
   background: rgba(0, 102, 204, 0.06);
 }
 .math-inline-placeholder {
-  color: #0066cc;
+  color: var(--accent-color);
   font-style: italic;
   font-weight: 700;
 }
 .math-inline-editor input {
-  border: 1px solid #0066cc;
+  border: 1px solid var(--accent-color);
   border-radius: 4px;
   padding: 2px 6px;
   outline: none;

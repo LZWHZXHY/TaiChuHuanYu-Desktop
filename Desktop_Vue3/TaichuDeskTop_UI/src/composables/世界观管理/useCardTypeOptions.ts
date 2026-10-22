@@ -8,10 +8,7 @@ export function useCardTypeOptions() {
 
   const cardTypeOptions = computed(() => {
     if (store.cardTypes && store.cardTypes.length) {
-      return store.cardTypes.map((t: any) => ({
-        value: t.id || t.value,
-        label: t.label,
-      }))
+      return store.cardTypes
     }
     return Object.entries(CardTypeMeta).map(([value, meta]) => ({
       value,

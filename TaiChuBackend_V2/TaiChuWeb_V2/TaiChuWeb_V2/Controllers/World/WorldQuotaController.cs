@@ -1,15 +1,15 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using TaiChuWeb_V2.Dtos.World;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
+using System.ComponentModel.DataAnnotations;
 using TaiChuWeb_V2.Services.World;
 using TaiChuWeb_V2.Utils;
 
 namespace TaiChuWeb_V2.Controllers.World
 {
     [Route("api/world/quota")]
-    [ApiController]
     [Authorize]
-    public class WorldQuotaController : ControllerBase
+    public class WorldQuotaController : WorldControllerBase
     {
         private readonly IWorldQuotaService _quotaService;
 
@@ -24,7 +24,7 @@ namespace TaiChuWeb_V2.Controllers.World
         [HttpGet("my")]
         public async Task<IActionResult> GetMyQuota()
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             var stats = await _quotaService.GetUserStatsAsync(userId);
 
             return Ok(new
@@ -45,7 +45,7 @@ namespace TaiChuWeb_V2.Controllers.World
         [HttpGet("can-create-project")]
         public async Task<IActionResult> CanCreateProject()
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             var result = await _quotaService.CanCreateProjectAsync(userId);
 
             return Ok(new
@@ -63,7 +63,7 @@ namespace TaiChuWeb_V2.Controllers.World
         [HttpGet("can-add-card/{projectId}")]
         public async Task<IActionResult> CanAddCard(Guid projectId)
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             var result = await _quotaService.CanAddCardAsync(projectId, userId);
 
             return Ok(new
@@ -81,7 +81,7 @@ namespace TaiChuWeb_V2.Controllers.World
         [HttpPost("upgrade")]
         public async Task<IActionResult> UpgradeQuota([FromBody] UpgradeQuotaRequest request)
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             var result = await _quotaService.UpgradeQuotaAsync(userId, request.UpgradeType);
 
             if (!result.Success)
@@ -110,9 +110,9 @@ namespace TaiChuWeb_V2.Controllers.World
         /// 获取扩容历史
         /// </summary>
         [HttpGet("history")]
-        public async Task<IActionResult> GetHistory([FromQuery] int limit = 20)
+        public async Task<IActionResult> GetHistory([FromQuery, Range(0, int.MaxValue)] int limit = 20)
         {
-            var userId = GetCurrentUserId();
+            var userId = CurrentUserId;
             var history = await _quotaService.GetUpgradeHistoryAsync(userId, limit);
 
             return Ok(history.Select(h => new
@@ -126,17 +126,5 @@ namespace TaiChuWeb_V2.Controllers.World
             }));
         }
 
-        private Guid GetCurrentUserId()
-        {
-            var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userIdClaim))
-                throw new UnauthorizedAccessException("用户未认证");
-            return Guid.Parse(userIdClaim);
-        }
-    }
-
-    public class UpgradeQuotaRequest
-    {
-        public QuotaUpgradeType UpgradeType { get; set; }
     }
 }

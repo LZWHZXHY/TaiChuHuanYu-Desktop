@@ -1,5 +1,5 @@
 <template>
-  <div class="joint-detail">
+  <div class="community-detail joint-detail">
     <!-- 加载状态 -->
     <div v-if="loading" class="loading-state">
       <div class="spinner"></div>
@@ -8,7 +8,7 @@
 
     <!-- 空状态 -->
     <div v-else-if="!activity" class="empty-state">
-      <p>联合活动不存在</p>
+      <p>{{ loadError || '联合活动不存在' }}</p>
       <router-link to="/joint" class="empty-link">返回联合列表</router-link>
     </div>
 
@@ -51,14 +51,14 @@
           </router-link>
 
           <template v-if="canApprove">
-            <button class="btn-line" @click="handleApprove('approved')">✓ 通过</button>
-            <button class="btn-line danger" @click="handleApprove('rejected')">✕ 拒绝</button>
+            <button class="btn-line" :disabled="actionBusy" @click="handleApprove('approved')">✓ 通过</button>
+            <button class="btn-line danger" :disabled="actionBusy" @click="handleApprove('rejected')">✕ 拒绝</button>
           </template>
 
           <button
             v-if="canBan"
             class="btn-line danger"
-            @click="handleToggleBan"
+            :disabled="actionBusy" @click="handleToggleBan"
           >
             {{ activity.status === 'banned' ? '解封' : '封禁' }}
           </button>
@@ -66,7 +66,7 @@
           <button
             v-if="canDelete"
             class="btn-line danger"
-            @click="handleDelete"
+            :disabled="actionBusy" @click="handleDelete"
           >
             🗑 删除
           </button>
@@ -154,6 +154,7 @@
             <span v-else-if="!canJoin && activity.organizerType === 'user' && activity.approvalStatus !== 'approved'">
               审核中，暂不可报名
             </span>
+            <span v-else-if="!canJoin">当前状态不可报名</span>
             <span v-else-if="joining">报名中...</span>
             <span v-else>报名参与</span>
           </button>
@@ -185,13 +186,13 @@
               <template v-if="p.status === 'pending'">
                 <button
                   class="btn-sm approve"
-                  @click="handleAuditParticipant(p.userId, 'approved')"
+                  :disabled="actionBusy" @click="handleAuditParticipant(p.userId, 'approved')"
                 >
                   通过
                 </button>
                 <button
                   class="btn-sm reject"
-                  @click="handleAuditParticipant(p.userId, 'rejected')"
+                  :disabled="actionBusy" @click="handleAuditParticipant(p.userId, 'rejected')"
                 >
                   拒绝
                 </button>
@@ -199,7 +200,7 @@
               <button
                 v-if="p.status === 'approved'"
                 class="btn-sm kick"
-                @click="handleKick(p.userId)"
+                :disabled="actionBusy" @click="handleKick(p.userId)"
               >
                 踢出
               </button>
@@ -216,7 +217,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useJointStore } from '../joint_store'
 import { useUserStore } from '@/stores/user'
@@ -227,6 +228,8 @@ const route = useRoute()
 const store = useJointStore()
 const userStore = useUserStore()
 
+const actionBusy = ref(false)
+const loadError = ref('')
 const joining = ref(false)
 const cancelling = ref(false)
 
@@ -242,7 +245,7 @@ const isExpired = computed(() => {
 // ===== 实际显示的状态（如果过期则强制显示为 'ended'） =====
 const displayStatus = computed<JointStatus>(() => {
   if (!activity.value) return 'open'
-  if (isExpired.value && activity.value.status !== 'ended') {
+  if (isExpired.value && activity.value.status === 'open') {
     return 'ended'
   }
   return activity.value.status
@@ -328,7 +331,7 @@ const canApprove = computed(() => {
 
 // ===== 报名权限 =====
 const canJoin = computed(() => {
-  if (!activity.value) return false
+  if (!activity.value || activity.value.status !== 'open') return false
   if (activity.value.organizerType === 'user' && activity.value.approvalStatus !== 'approved') {
     return false
   }
@@ -404,7 +407,7 @@ function goBack() {
 }
 
 async function handleJoin() {
-  if (!activity.value) return
+  if (!activity.value || joining.value) return
   if (!canJoin.value) {
     alert('该活动暂不可报名')
     return
@@ -425,7 +428,7 @@ async function handleJoin() {
 }
 
 async function handleCancelJoin() {
-  if (!activity.value) return
+  if (!activity.value || cancelling.value) return
   if (!confirm('确定要取消报名吗？')) return
   cancelling.value = true
   try {
@@ -439,38 +442,44 @@ async function handleCancelJoin() {
 }
 
 async function handleAuditParticipant(userId: string, status: 'approved' | 'rejected') {
-  if (!activity.value) return
+  if (!activity.value || actionBusy.value) return
+  actionBusy.value = true
   try {
     await store.auditParticipant(activity.value.id, userId, status)
-    await store.fetchDetail(activity.value.id)
   } catch (error) {
     console.error('审核失败:', error)
     alert('操作失败，请重试')
+  } finally {
+    actionBusy.value = false
   }
 }
 
 async function handleKick(userId: string) {
-  if (!activity.value) return
+  if (!activity.value || actionBusy.value) return
   if (!confirm('确定要踢出该参与者吗？')) return
+  actionBusy.value = true
   try {
     await store.kickParticipant(activity.value.id, userId)
-    await store.fetchDetail(activity.value.id)
   } catch (error) {
     console.error('踢出失败:', error)
     alert('操作失败，请重试')
+  } finally {
+    actionBusy.value = false
   }
 }
 
 async function handleApprove(status: 'approved' | 'rejected') {
-  if (!activity.value) return
+  if (!activity.value || actionBusy.value) return
   const action = status === 'approved' ? '通过' : '拒绝'
   if (!confirm(`确定要${action}该联合活动吗？`)) return
+  actionBusy.value = true
   try {
     await store.approve(activity.value.id, status)
-    await store.fetchDetail(activity.value.id)
   } catch (error) {
     console.error('审批失败:', error)
     alert('操作失败，请重试')
+  } finally {
+    actionBusy.value = false
   }
 }
 
@@ -489,34 +498,40 @@ const canEdit = computed(() => {
 })
 
 async function handleToggleBan() {
-  if (!activity.value) return
+  if (!activity.value || actionBusy.value) return
   const action = activity.value.status === 'banned' ? '解封' : '封禁'
   if (!confirm(`确定要${action}该联合活动吗？`)) return
+  actionBusy.value = true
   try {
     await store.toggleBan(activity.value.id)
-    await store.fetchDetail(activity.value.id)
   } catch (error) {
     console.error('操作失败:', error)
     alert('操作失败，请重试')
+  } finally {
+    actionBusy.value = false
   }
 }
 
 async function handleDelete() {
-  if (!activity.value) return
+  if (!activity.value || actionBusy.value) return
   if (!confirm(`确定要永久删除「${activity.value.title}」吗？此操作不可恢复！`)) return
+  actionBusy.value = true
   try {
     await store.remove(activity.value.id)
     router.push('/joint')
   } catch (error) {
     console.error('删除失败:', error)
     alert('删除失败，请重试')
+  } finally {
+    actionBusy.value = false
   }
 }
 
-onMounted(async () => {
-  const id = route.params.id as string
-  await store.fetchDetail(id)
-})
+watch(() => route.params.id, async id => {
+  loadError.value = ''
+  try { await store.fetchDetail(String(id)) }
+  catch { loadError.value = '联合详情加载失败，请刷新重试' }
+}, { immediate: true })
 </script>
 
 <style scoped>
@@ -637,52 +652,52 @@ onMounted(async () => {
 }
 
 .meta-tag.type.joint {
-  border-color: #4A6CF7;
-  color: #4A6CF7;
+  border-color: var(--info);
+  color: var(--info);
 }
 .meta-tag.type.relay {
-  border-color: #FF9800;
-  color: #FF9800;
+  border-color: var(--warning);
+  color: var(--warning);
 }
 .meta-tag.type.project {
-  border-color: #9C27B0;
-  color: #9C27B0;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 .meta-tag.type.free {
-  border-color: #4CAF50;
-  color: #4CAF50;
+  border-color: var(--success);
+  color: var(--success);
 }
 .meta-tag.type.other {
-  border-color: #9E9E9E;
-  color: #9E9E9E;
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
 }
 
 .meta-tag.status.open {
-  border-color: #4CAF50;
-  color: #4CAF50;
+  border-color: var(--success);
+  color: var(--success);
 }
 .meta-tag.status.closed {
-  border-color: #FF9800;
-  color: #FF9800;
+  border-color: var(--warning);
+  color: var(--warning);
 }
 .meta-tag.status.ended {
-  border-color: #9E9E9E;
-  color: #9E9E9E;
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
 }
 .meta-tag.status.banned {
-  border-color: #F44336;
-  color: #F44336;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 .meta-tag.status.abandoned {
-  border-color: #795548;
-  color: #795548;
+  border-color: var(--warning);
+  color: var(--warning);
 }
 
 /* ⭐ 过期标签 */
 .meta-tag.expired {
-  border-color: #F44336;
-  color: #F44336;
-  background: #fff5f5;
+  border-color: var(--danger);
+  color: var(--danger);
+  background: var(--accent-soft);
 }
 
 .meta-tag.audit {
@@ -695,25 +710,25 @@ onMounted(async () => {
 }
 
 .meta-tag.source.user {
-  border-color: #6c7a89;
-  color: #6c7a89;
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
 }
 .meta-tag.source.official {
-  border-color: #9E2A2B;
-  color: #9E2A2B;
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
 .meta-tag.approval.pending {
-  border-color: #FF9800;
-  color: #FF9800;
+  border-color: var(--warning);
+  color: var(--warning);
 }
 .meta-tag.approval.approved {
-  border-color: #4CAF50;
-  color: #4CAF50;
+  border-color: var(--success);
+  color: var(--success);
 }
 .meta-tag.approval.rejected {
-  border-color: #F44336;
-  color: #F44336;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .cover-area {
@@ -770,26 +785,26 @@ onMounted(async () => {
 
 /* ⭐ 过期警告 */
 .expired-warning {
-  background: #fff5f5;
-  border-left: 3px solid #F44336;
+  background: var(--accent-soft);
+  border-left: 3px solid var(--danger);
   padding-left: 12px;
 }
 
 .expired-text {
-  color: #F44336 !important;
+  color: var(--danger) !important;
 }
 
 /* ⭐ 倒计时样式 */
 .countdown-normal {
-  color: #4CAF50;
+  color: var(--success);
 }
 
 .countdown-warning {
-  color: #FF9800;
+  color: var(--warning);
 }
 
 .countdown-urgent {
-  color: #F44336;
+  color: var(--danger);
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -880,7 +895,7 @@ onMounted(async () => {
 
 .btn-join:hover {
   background: var(--cinnabar);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .btn-join:disabled {
@@ -918,7 +933,7 @@ onMounted(async () => {
 
 .expired-tip {
   font-size: 13px;
-  color: #F44336;
+  color: var(--danger);
   letter-spacing: 0.1em;
 }
 
@@ -952,16 +967,16 @@ onMounted(async () => {
 }
 
 .participant-status.pending {
-  border-color: #FF9800;
-  color: #FF9800;
+  border-color: var(--warning);
+  color: var(--warning);
 }
 .participant-status.approved {
-  border-color: #4CAF50;
-  color: #4CAF50;
+  border-color: var(--success);
+  color: var(--success);
 }
 .participant-status.rejected {
-  border-color: #F44336;
-  color: #F44336;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .participant-actions-admin {
@@ -981,30 +996,30 @@ onMounted(async () => {
 }
 
 .btn-sm.approve {
-  border-color: #4CAF50;
-  color: #4CAF50;
+  border-color: var(--success);
+  color: var(--success);
 }
 .btn-sm.approve:hover {
-  background: #4CAF50;
-  color: #fff;
+  background: var(--success);
+  color: var(--on-accent);
 }
 
 .btn-sm.reject {
-  border-color: #F44336;
-  color: #F44336;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 .btn-sm.reject:hover {
-  background: #F44336;
-  color: #fff;
+  background: var(--danger);
+  color: var(--on-accent);
 }
 
 .btn-sm.kick {
-  border-color: #FF9800;
-  color: #FF9800;
+  border-color: var(--warning);
+  color: var(--warning);
 }
 .btn-sm.kick:hover {
-  background: #FF9800;
-  color: #fff;
+  background: var(--warning);
+  color: var(--on-accent);
 }
 
 .participant-empty {
@@ -1035,13 +1050,13 @@ onMounted(async () => {
 }
 
 .btn-line.danger {
-  border-color: #F44336;
-  color: #F44336;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .btn-line.danger:hover {
-  background: #F44336;
-  color: #fff;
+  background: var(--danger);
+  color: var(--on-accent);
 }
 
 @media (max-width: 860px) {

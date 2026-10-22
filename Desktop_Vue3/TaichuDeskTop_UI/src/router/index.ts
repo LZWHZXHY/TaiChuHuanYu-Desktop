@@ -1,66 +1,30 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { useUserStore } from '@/stores/user'
+import { canOpenAdmin } from '@/utils/adminAccess'
+import { LOGIN_PATH } from './auth'
 
-// ===== 静态导入世界观相关组件（避免动态导入问题） =====
-import WorldIndex from '@/views/世界观管理/index.vue'
-import ProjectCreate from '@/views/世界观管理/ProjectCreate.vue'
-import ProjectDetail from '@/views/世界观管理/ProjectDetail.vue'
-
-// ===== 活动中心相关导入 =====
-import ActivityLayout from '@/views/活动中心/index.vue'
-import ActivityHome from '@/views/活动中心/ActivityHome.vue'
-
-// ---- 打卡专区 ----
-import CheckinSquare from '@/views/活动中心/打卡中心/Square.vue'
-import CheckinDetail from '@/views/活动中心/打卡中心/ActivityDetail.vue'
-import CreateCheckin from '@/views/活动中心/打卡中心/CreateActivity.vue'
-import MyCheckins from '@/views/活动中心/打卡中心/MyActivities.vue'
-
-
-// ===== 问卷专区 =====
-import SurveyList from '@/views/活动中心/问卷中心/SurveyList.vue'
-import FillSurvey from '@/views/活动中心/问卷中心/FillSurvey.vue'
-import SurveyEditor from '@/views/活动中心/问卷中心/SurveyEditor.vue'
-import SurveyResult from '@/views/活动中心/问卷中心/SurveyResult.vue'
-import Manage from '@/views/活动中心/问卷中心/Manage.vue'
-
-
-
-
-// ===== 太初俱乐部相关导入 =====
-import TaichuHome       from '@/views/太初俱乐部/index.vue'
-import TaichuOperators  from '@/views/太初俱乐部/OperatorsView.vue'
-import TaichuPricing    from '@/views/太初俱乐部/PricingView.vue'
-import TaichuRules      from '@/views/太初俱乐部/RulesView.vue'
-import TaichuEvents     from '@/views/太初俱乐部/EventsView.vue'
-import TaichuProfile    from '@/views/太初俱乐部/MyProfile.vue'
-
-
-
-
-
-//获取工具箱里的模型路径
+// 工具箱页面沿用目录生成路由，所有页面均在访问时加载。
 const toolModules = import.meta.glob('../views/工具箱/*/index.vue')
-//console.log('router里 glob 找到的: ', toolModules)
 const toolsRoutes = Object.entries(toolModules).map(([path, component]) => {
   const name = path.split('/')[3]
-  return {path: name, name:name, component:component}
+  return { path: name, name, component }
 })
-
-console.log('自动生成的路由：', toolsRoutes)
-
 const router = createRouter({
   history: createWebHashHistory(),
   routes: [
+    { path: '/admin', name: '管理面板', component: () => import('@/views/管理面板/index.vue'), meta: { requiresAuth: true, requiresAdmin: true } },
+    { path: '/write/:type(blog|post)', name: 'Compose', component: () => import('@/views/太初随笔/ComposeView.vue'), meta: { requiresAuth: true } },
+    { path: '/', name: 'root', component: () => import('../views/推送首页/index.vue') },
+    { path: '/community', name: 'ChaiCommunity', component: () => import('../views/柴圈板块/index.vue') },
+    { path: '/honor', name: 'CommunityHonor', component: () => import('../views/荣誉墙/index.vue') },
+    { path: '/games', name: 'GameHub', component: () => import('../views/太虚游/index.vue') },
+    { path: '/gallery', name: 'GalleryHome', component: () => import('../views/画廊展厅/index.vue') },
+    { path: '/stream', alias: '/posts', name: 'CommunityStream', component: () => import('../views/太初随笔/index.vue') },
+    { path: '/posts/:id', redirect: to => ({ name: 'CommunityStream', query: { ...to.query, post: String(to.params.id) } }) },
+    { path: '/knowledge', name: 'KnowledgeHome', component: () => import('../views/知识库/index.vue') },
+    { path: '/codex', redirect: to => ({ name: 'KnowledgeHome', query: { ...to.query, type: 'wiki' } }) },
+
     {
-      path: '/',
-      name: 'root',
-      component: () => import('../views/推送首页/index.vue')
-    },
-
-
-    {
-
-
       path: '/toolBox',
       component: () => import('@/views/工具箱/index.vue'),
       children: [
@@ -69,107 +33,39 @@ const router = createRouter({
       ]
     },
 
-
-        // ==========================================
     // ===== 太初俱乐部 =====
-    // ==========================================
-    {
-      path: '/Club',
-      name: 'TaichuHome',
-      component: TaichuHome
-    },
-    {
-      path: '/taichu/operators',
-      name: 'TaichuOperators',
-      component: TaichuOperators
-    },
-    {
-      path: '/taichu/pricing',
-      name: 'TaichuPricing',
-      component: TaichuPricing
-    },
-    {
-      path: '/taichu/rules',
-      name: 'TaichuRules',
-      component: TaichuRules
-    },
-    {
-      path: '/taichu/events',
-      name: 'TaichuEvents',
-      component: TaichuEvents
-    },
-    {
-      path: '/taichu/profile',
-      name: 'TaichuProfile',
-      component: TaichuProfile
-    },
-        {
-      path: '/taichu/cs/register',
-      name: 'CsRegister',
-      component: () => import('@/views/太初俱乐部/CsRegister.vue')
-    },
-    {
-  path: '/taichu/cs/wallet',
-  name: 'CsWallet',
-  component: () => import('@/views/太初俱乐部/CsWallet.vue')
-},
-    {
-      path: '/taichu/cs/dashboard',
-      name: 'CsDashboard',
-      component: () => import('@/views/太初俱乐部/CsDashboard.vue')
-    },
-      {
-  path: '/taichu/my-complaints',
-  name: 'MyComplaints',
-  component: () => import('@/views/太初俱乐部/MyComplaints.vue')
-},
-    {
-      path: '/taichu/orders',
-      name: 'TaichuOrders',
-      component: () => import('@/views/太初俱乐部/MyOrders.vue')
-    },
-    {
-  path: '/taichu/operator/orders',
-  name: 'TaichuOperatorOrders',
-  component: () => import('@/views/太初俱乐部/OperatorOrders.vue')
-},
+    { path: '/Club', name: 'TaichuHome', component: () => import('@/views/太初俱乐部/index.vue') },
+    { path: '/taichu/operators', name: 'TaichuOperators', component: () => import('@/views/太初俱乐部/OperatorsView.vue') },
+    { path: '/taichu/pricing', name: 'TaichuPricing', component: () => import('@/views/太初俱乐部/PricingView.vue') },
+    { path: '/taichu/rules', name: 'TaichuRules', component: () => import('@/views/太初俱乐部/RulesView.vue') },
+    { path: '/taichu/events', name: 'TaichuEvents', component: () => import('@/views/太初俱乐部/EventsView.vue') },
+    { path: '/taichu/profile', name: 'TaichuProfile', component: () => import('@/views/太初俱乐部/MyProfile.vue') },
+    { path: '/taichu/cs/register', name: 'CsRegister', component: () => import('@/views/太初俱乐部/CsRegister.vue') },
+    { path: '/taichu/cs/wallet', name: 'CsWallet', component: () => import('@/views/太初俱乐部/CsWallet.vue') },
+    { path: '/taichu/cs/dashboard', name: 'CsDashboard', component: () => import('@/views/太初俱乐部/CsDashboard.vue') },
+    { path: '/taichu/my-complaints', name: 'MyComplaints', component: () => import('@/views/太初俱乐部/MyComplaints.vue') },
+    { path: '/taichu/orders', name: 'TaichuOrders', component: () => import('@/views/太初俱乐部/MyOrders.vue') },
+    { path: '/taichu/operator/orders', name: 'TaichuOperatorOrders', component: () => import('@/views/太初俱乐部/OperatorOrders.vue') },
+    { path: '/taichu/operator/wallet', name: 'TaichuOperatorWallet', component: () => import('@/views/太初俱乐部/OperatorWallet.vue') },
+    { path: '/taichu/operator/reviews', name: 'TaichuOperatorReviews', component: () => import('@/views/太初俱乐部/OperatorReviews.vue') },
 
-    {
-  path: '/taichu/operator/orders',
-  name: 'TaichuOperatorOrders',
-  component: () => import('@/views/太初俱乐部/OperatorOrders.vue')
-},
-{
-  path: '/taichu/operator/wallet',
-  name: 'TaichuOperatorWallet',
-  component: () => import('@/views/太初俱乐部/OperatorWallet.vue')
-},
-{
-  path: '/taichu/operator/reviews',
-  name: 'TaichuOperatorReviews',
-  component: () => import('@/views/太初俱乐部/OperatorReviews.vue')
-},
-
-
-
-    
     // ===== 世界观模块 =====
     {
       path: '/world',
       name: 'WorldHome',
-      component: WorldIndex,
+      component: () => import('@/views/世界观管理/index.vue'),
       meta: { requiresAuth: true },
       children: [
         {
           path: 'create',
           name: 'ProjectCreate',
-          component: ProjectCreate,
+          component: () => import('@/views/世界观管理/ProjectCreate.vue'),
           meta: { requiresAuth: true }
         },
         {
           path: 'project/:id',
           name: 'ProjectDetail',
-          component: ProjectDetail,
+          component: () => import('@/views/世界观管理/ProjectDetail.vue'),
           meta: { requiresAuth: true }
         },
         {
@@ -196,17 +92,14 @@ const router = createRouter({
     },
 
     // ===== 身份认证 =====
-    {
-      path: '/LoginRegister',
-      name: '身份认证',
-      component: () => import('../views/身份认证/index.vue')
-    },
+    { path: LOGIN_PATH, name: '身份认证', component: () => import('../views/身份认证/index.vue') },
 
     // ===== 个人中心 =====
     {
       path: '/user/:id',
       name: 'UserCenter',
       component: () => import('../views/个人中心/index.vue'),
+      meta: { requiresAuth: true },
       props: true
     },
 
@@ -226,9 +119,9 @@ const router = createRouter({
       props: true
     },
     {
-      path: '/ocs',   // 路由路径不变（用户访问的URL）
+      path: '/ocs',
       children: [
-        // ✅ 导入路径改为大写 S
+
         { path: '', component: () => import('@/views/柴圈板块/OCs/index.vue') },
         { path: ':id', component: () => import('@/views/柴圈板块/OCs/components/detail.vue') },
         { path: 'create', component: () => import('@/views/柴圈板块/OCs/components/create.vue') },
@@ -253,55 +146,48 @@ const router = createRouter({
       children: [
         { path: '', component: () => import('@/views/柴圈板块/Battle/index.vue') },
         { path: 'create', component: () => import('@/views/柴圈板块/Battle/components/CreateBattle.vue') },
-        // ⭐ 新增：约战详情页
+
         { path: ':id', component: () => import('@/views/柴圈板块/Battle/components/BattleDetail.vue') },
-        // ⭐ 新增：我的约战
+
         { path: 'my', component: () => import('@/views/柴圈板块/Battle/components/MyBattles.vue') },
       ]
     },
-    // ==========================================
+
     // ===== 活动中心（多分区架构） =====
-    // ==========================================
+
     {
       path: '/activity',
-      component: ActivityLayout,
+      component: () => import('@/views/活动中心/index.vue'),
       meta: { requiresAuth: true },
       children: [
         // ---- 分区入口页 ----
-        { path: '', name: 'ActivityHome', component: ActivityHome },
+        { path: '', name: 'ActivityHome', component: () => import('@/views/活动中心/ActivityHome.vue') },
 
         // ---- 打卡专区 ----
-        { path: 'checkin', name: 'CheckinSquare', component: CheckinSquare },
-        { path: 'checkin/detail/:id', name: 'CheckinDetail', component: CheckinDetail },
-        { path: 'checkin/create', name: 'CreateCheckin', component: CreateCheckin },
-        { path: 'checkin/my', name: 'MyCheckins', component: MyCheckins },
-        // 如果有排行榜，取消注释
-        // ---- 问卷专区 (新增) ----
-        { path: 'survey', name: 'SurveyList', component: SurveyList },
-        { path: 'survey/manage', name: 'SurveyManage', component: Manage },
-        { path: 'survey/:id', name: 'FillSurvey', component: FillSurvey },
-        { path: 'survey/:id/result', name: 'SurveyResult', component: SurveyResult },
-        { path: 'survey/create', name: 'CreateSurvey', component: SurveyEditor },
-        { path: 'survey/edit/:id', name: 'EditSurvey', component: SurveyEditor },
-        
+        { path: 'checkin', name: 'CheckinSquare', component: () => import('@/views/活动中心/打卡中心/Square.vue') },
+        { path: 'checkin/detail/:id', name: 'CheckinDetail', component: () => import('@/views/活动中心/打卡中心/ActivityDetail.vue') },
+        { path: 'checkin/create', name: 'CreateCheckin', component: () => import('@/views/活动中心/打卡中心/CreateActivity.vue') },
+        { path: 'checkin/my', name: 'MyCheckins', component: () => import('@/views/活动中心/打卡中心/MyActivities.vue') },
 
-        // ---- 预留扩展 ----
-        // { path: 'quiz', name: 'QuizZone', component: QuizZone },
+        // ---- 问卷专区 (新增) ----
+        { path: 'survey', name: 'SurveyList', component: () => import('@/views/活动中心/问卷中心/SurveyList.vue') },
+        { path: 'survey/manage', name: 'SurveyManage', component: () => import('@/views/活动中心/问卷中心/Manage.vue') },
+        { path: 'survey/:id', name: 'FillSurvey', component: () => import('@/views/活动中心/问卷中心/FillSurvey.vue') },
+        { path: 'survey/:id/result', name: 'SurveyResult', component: () => import('@/views/活动中心/问卷中心/SurveyResult.vue') },
+        { path: 'survey/create', name: 'CreateSurvey', component: () => import('@/views/活动中心/问卷中心/SurveyEditor.vue') },
+        { path: 'survey/edit/:id', name: 'EditSurvey', component: () => import('@/views/活动中心/问卷中心/SurveyEditor.vue') },
+
       ]
     }
   ]
 })
-
-// ===== 打印所有注册的路由（用于调试） =====
-console.log('✅ 已注册的路由路径：', router.getRoutes().map(r => r.path))
-
 // ===== 路由守卫 =====
-router.beforeEach((to, from, next) => {
-  const hasToken = !!localStorage.getItem('token')
-  if (to.meta.requiresAuth && !hasToken) {
-    next('/LoginRegister')
-  } else {
-    next()
+router.beforeEach(async (to) => {
+  const user = useUserStore()
+  if (to.meta.requiresAuth && !user.isLoggedIn) return { path: LOGIN_PATH, query: { redirect: to.fullPath } }
+  if (to.meta.requiresAdmin || to.name === '管理面板' || to.name === '用户治理中枢') {
+    const profile = await user.fetchUserInfo(true)
+    if (!profile || !canOpenAdmin(user.permissions)) return { path: '/', query: { access: 'denied' } }
   }
 })
 

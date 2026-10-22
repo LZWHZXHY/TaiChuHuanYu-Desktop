@@ -243,7 +243,7 @@ export default {
   padding: 16px 20px;
   border: 1px solid var(--line);
   border-left: 3px solid var(--cyan);
-  background: rgba(16, 25, 35, 0.55);
+  background: var(--panel);
   border-radius: 4px;
 }
 .gcr-head {
@@ -255,14 +255,14 @@ export default {
 .gcr-title {
   flex: 1;
   font-family: monospace;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 1.5px;
   color: var(--cyan);
   font-weight: 600;
 }
 .gcr-toggle {
   padding: 4px 12px;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 1px;
   color: var(--text-muted);
   background: transparent;
@@ -296,7 +296,7 @@ export default {
   overflow-x: auto;
   padding: 10px 0;
   margin-bottom: 22px;
-  background: var(--bg, #0e1620);
+  background: var(--bg, var(--paper-card));
   border-bottom: 1px solid var(--line);
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
@@ -323,13 +323,13 @@ export default {
   border-color: var(--line-bright);
 }
 .pg-tab.active {
-  color: #fff;
+  color: var(--on-accent);
   background: var(--orange);
   border-color: var(--orange);
 }
 .tab-count {
   font-family: monospace;
-  font-size: 9px;
+  font-size: 12px;
   opacity: 0.75;
 }
 
@@ -346,13 +346,13 @@ export default {
 .pg-head h3 { margin: 0 0 5px; font-size: 17px; letter-spacing: 1.5px; }
 .pg-code {
   font-family: monospace;
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 2px;
   color: var(--text-muted);
 }
 .pg-count {
   font-family: monospace;
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 1px;
   color: var(--text-muted);
 }
@@ -376,7 +376,7 @@ export default {
 .rules-title {
   margin-bottom: 8px;
   font-family: monospace;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 1.5px;
   color: var(--orange);
   font-weight: 600;
@@ -401,7 +401,7 @@ export default {
 .price-table th {
   padding: 12px 14px;
   font-family: monospace;
-  font-size: 9px;
+  font-size: 12px;
   font-weight: 400;
   letter-spacing: 1px;
   text-align: left;
@@ -428,7 +428,7 @@ export default {
 
 .pi-order {
   padding: 6px 16px;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 1px;
   color: var(--text-soft);
   background: transparent;
@@ -437,7 +437,7 @@ export default {
   transition: all 0.2s ease;
 }
 .pi-order:hover {
-  color: #fff;
+  color: var(--on-accent);
   background: var(--orange);
   border-color: var(--orange);
 }
@@ -445,10 +445,10 @@ export default {
 /* ══ 移动端 ══ */
 @media (max-width: 640px) {
   .game-common-rules { padding: 14px 16px; }
-  .pg-tab { padding: 7px 13px; font-size: 11px; }
+  .pg-tab { padding: 7px 13px; font-size: 12px; }
 
   .price-table thead { display: none; }
-  .price-table tr { 
+  .price-table tr {
     display: flex;
     flex-wrap: wrap;
     align-items: center;

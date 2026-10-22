@@ -1,11 +1,16 @@
-﻿namespace TaiChuWeb_V2.Dtos.World
+using System.ComponentModel.DataAnnotations;
+
+namespace TaiChuWeb_V2.Dtos.World
 {
     public class UpdateCardDto
     {
+        [MaxLength(200)]
         public string? Title { get; set; }
 
+        [MaxLength(50)]
         public string? Type { get; set; }
 
+        [MaxLength(50)]
         public string? SubType { get; set; }
 
         public List<string>? Aliases { get; set; }

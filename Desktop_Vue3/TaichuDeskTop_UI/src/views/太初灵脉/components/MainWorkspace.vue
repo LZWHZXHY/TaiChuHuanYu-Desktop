@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { defineAsyncComponent, computed } from 'vue';
+import { defineAsyncComponent, computed, ref } from 'vue';
 import SpiritEditor from '@/components/SpiritText.vue'; 
 
 // 1. 定义从 index.vue 接收的数据 (Props)
@@ -37,6 +37,8 @@ const workspaceMap: Record<string, any> = {
 const CurrentWorkspaceComponent = computed(() => {
   return workspaceMap[props.displayNote?.type || 'note'] || WorkspaceNote;
 });
+const editorRef = ref<any>();
+defineExpose({ getDocument: () => editorRef.value?.getSnapshot() });
 </script>
 
 <template>
@@ -61,7 +63,8 @@ const CurrentWorkspaceComponent = computed(() => {
       >
         <template #editor>
           <SpiritEditor 
-             :key="props.isWikiMode ? props.displayNote.id : props.displayNote.id" 
+             ref="editorRef"
+             :key="props.displayNote.id" 
              @change="emit('editor-auto-sync', $event)"
           />
         </template>

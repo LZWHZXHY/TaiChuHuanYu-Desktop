@@ -171,6 +171,7 @@
 </template>
 
 <script lang="ts">
+import { useUserStore } from '@/stores/user'
 import { defineComponent } from 'vue'
 import {
   fetchGames,
@@ -220,7 +221,7 @@ export default defineComponent({
 
   computed: {
     isLoggedIn(): boolean {
-      return !!localStorage.getItem('token')
+      return useUserStore().isLoggedIn
     },
 
     currentFields(): GameDef['fields'] {
@@ -404,7 +405,7 @@ export default defineComponent({
 .reg-field { display: flex; flex-direction: column; gap: 9px; }
 .reg-field.full { grid-column: 1 / -1; }
 .reg-field label {
-  font-family: monospace; font-size: 9px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 1.5px; color: var(--text-soft);
 }
 .reg-field label em { font-style: normal; color: var(--orange); margin-left: 3px; }
@@ -412,7 +413,7 @@ export default defineComponent({
 .reg-field select,
 .reg-field textarea {
   padding: 12px 14px; font-size: 13px; font-family: inherit;
-  color: var(--text); background: rgba(0, 0, 0, 0.32);
+  color: var(--text); background: var(--panel);
   border: 1px solid var(--line-bright); outline: none;
   resize: vertical;
   transition: border-color 0.2s ease, background 0.2s ease;
@@ -423,7 +424,7 @@ export default defineComponent({
 .reg-field select:focus,
 .reg-field textarea:focus {
   border-color: rgba(255, 107, 26, 0.5);
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--panel);
 }
 
 /* ===== 分区 ===== */
@@ -433,7 +434,7 @@ export default defineComponent({
 }
 .fs-head {
   margin-bottom: 18px;
-  font-family: monospace; font-size: 10px;
+  font-family: monospace; font-size: 12px;
   letter-spacing: 2px; color: var(--orange);
 }
 
@@ -459,14 +460,14 @@ export default defineComponent({
   border-top: 1px solid var(--line);
 }
 .reg-hint {
-  flex: 1; font-family: monospace; font-size: 9px;
+  flex: 1; font-family: monospace; font-size: 12px;
   line-height: 1.7; letter-spacing: 0.5px; color: var(--text-muted);
 }
 .reg-submit {
   flex-shrink: 0;
   display: flex; align-items: center; gap: 24px;
   height: 46px; padding: 0 26px;
-  font-size: 12px; letter-spacing: 1px; color: #fff;
+  font-size: 12px; letter-spacing: 1px; color: var(--on-accent);
   background: var(--orange); border: 1px solid var(--orange);
   cursor: pointer; transition: all 0.25s ease;
 }
@@ -481,7 +482,7 @@ export default defineComponent({
 .reg-state {
   padding: 48px 32px; text-align: center;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.4);
+  background: var(--panel);
   color: var(--text-soft);
 }
 .reg-state p { margin: 0 0 10px; }
@@ -490,7 +491,7 @@ export default defineComponent({
   color: var(--text); letter-spacing: 1px;
 }
 .state-desc {
-  font-family: monospace; font-size: 11px;
+  font-family: monospace; font-size: 12px;
   color: var(--text-muted); line-height: 1.8;
 }
 .reg-link {
@@ -510,7 +511,7 @@ export default defineComponent({
   gap: 24px;
   padding: 22px 28px;
   border: 1px solid var(--line);
-  background: rgba(16, 25, 35, 0.4);
+  background: var(--panel);
 }
 .applied-bar.approved   { border-color: rgba(120, 215, 206, 0.35); }
 .applied-bar.reviewing  { border-color: rgba(255, 107, 26, 0.35); }
@@ -523,13 +524,13 @@ export default defineComponent({
   flex-shrink: 0;
   width: 10px; height: 10px; border-radius: 50%;
   background: var(--text-soft);
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.03);
+  box-shadow: 0 0 0 4px var(--bg-soft);
 }
 .applied-bar.approved  .ab-dot { background: var(--cyan); box-shadow: 0 0 0 4px rgba(120, 215, 206, 0.12); }
 .applied-bar.reviewing .ab-dot { background: var(--orange); box-shadow: 0 0 0 4px rgba(255, 107, 26, 0.12); }
 .applied-bar.pending   .ab-dot { background: var(--text-soft); }
-.applied-bar.rejected  .ab-dot { background: #ff5050; box-shadow: 0 0 0 4px rgba(255, 80, 80, 0.12); }
-.applied-bar.banned    .ab-dot { background: #ff5050; }
+.applied-bar.rejected  .ab-dot { background: var(--danger); box-shadow: 0 0 0 4px rgba(255, 80, 80, 0.12); }
+.applied-bar.banned    .ab-dot { background: var(--danger); }
 
 .ab-text { min-width: 0; }
 .ab-title {
@@ -542,7 +543,7 @@ export default defineComponent({
 .ab-sub {
   margin: 0;
   font-family: monospace;
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.5px;
   color: var(--text-muted);
   line-height: 1.6;
@@ -566,20 +567,20 @@ export default defineComponent({
   border-color: rgba(255, 107, 26, 0.45);
   background: rgba(255, 107, 26, 0.06);
 }
-.ab-btn.primary:hover { color: #fff; background: var(--orange); border-color: var(--orange); }
+.ab-btn.primary:hover { color: var(--on-accent); background: var(--orange); border-color: var(--orange); }
 
 /* ===== 追加游戏弹窗 ===== */
 .apply-modal {
   position: fixed; inset: 0; z-index: 500;
   display: grid; place-items: center;
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--overlay);
   backdrop-filter: blur(6px);
 }
 .am-inner {
   width: min(520px, calc(100% - 40px));
   max-height: 85vh; overflow-y: auto;
   border: 1px solid var(--line);
-  background: var(--panel, #0c131b);
+  background: var(--panel);
 }
 .am-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -613,7 +614,7 @@ export default defineComponent({
 }
 .am-cancel:hover { color: var(--text); }
 .am-submit {
-  color: #fff; background: var(--orange);
+  color: var(--on-accent); background: var(--orange);
   border: 1px solid var(--orange);
 }
 .am-submit:hover:not(:disabled) { background: var(--orange-bright); }

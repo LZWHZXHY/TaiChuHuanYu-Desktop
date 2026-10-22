@@ -5,6 +5,7 @@
       <i class="fas fa-spinner fa-spin"></i> 加载中...
     </div>
 
+    <div v-else-if="loadError" class="empty-state" role="alert">{{ loadError }} <button class="btn-primary" @click="loadActivities">重新加载</button></div>
     <!-- 正常内容 -->
     <template v-else>
       <div class="square-header">
@@ -12,7 +13,7 @@
         <div class="square-actions">
           <div class="search-box">
             <i class="fas fa-search"></i>
-            <input type="text" placeholder="搜索活动..." v-model="searchKeyword" @input="filterActivities" />
+            <input type="text" placeholder="搜索活动..." v-model="searchKeyword" />
           </div>
           <button class="btn-primary" @click="$router.push('/activity/checkin/create')">
             <i class="fas fa-plus"></i> 发起活动
@@ -70,6 +71,7 @@ const router = useRouter();
 // ===== 状态 =====
 const activities = ref<Activity[]>([]);
 const loading = ref(true);
+const loadError = ref('');
 const searchKeyword = ref('');
 const currentFilter = ref('全部');
 
@@ -86,13 +88,13 @@ const filterOptions = [
 
 // ===== 从后端加载数据 =====
 const loadActivities = async () => {
-  loading.value = true;
+  loading.value = true; loadError.value = '';
   try {
     const data = await getActivities();
     activities.value = data;
   } catch (error) {
     console.error('加载活动失败:', error);
-    activities.value = [];
+    loadError.value = '活动读取失败，请重试。';
   } finally {
     loading.value = false;
   }
@@ -101,12 +103,12 @@ const loadActivities = async () => {
 // ===== 计算属性：筛选后的活动列表 =====
 const filteredActivities = computed(() => {
   let list = activities.value;
-  
+
   // 按状态筛选
   if (currentFilter.value !== '全部') {
     list = list.filter(item => item.status === currentFilter.value);
   }
-  
+
   // 按关键词搜索
   if (searchKeyword.value.trim()) {
     const keyword = searchKeyword.value.trim().toLowerCase();
@@ -115,7 +117,7 @@ const filteredActivities = computed(() => {
       (item.desc && item.desc.toLowerCase().includes(keyword))
     );
   }
-  
+
   return list;
 });
 
@@ -124,9 +126,6 @@ const setFilter = (value: string) => {
   currentFilter.value = value;
 };
 
-const filterActivities = () => {
-  // 搜索逻辑在 computed 中自动执行
-};
 
 const goToDetail = (id: number) => {
   router.push(`/activity/checkin/detail/${id}`);
@@ -151,7 +150,7 @@ onMounted(() => {
 .loading-state {
   text-align: center;
   padding: 80px 20px;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .loading-state i {
@@ -176,7 +175,7 @@ onMounted(() => {
 }
 
 .square-header h2 i {
-  color: #6366f1;
+  color: var(--info);
   margin-right: 10px;
 }
 
@@ -190,20 +189,20 @@ onMounted(() => {
 .search-box {
   display: flex;
   align-items: center;
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   border-radius: 40px;
   padding: 0 16px;
   transition: border 0.2s;
 }
 
 .search-box:focus-within {
-  border-color: #6366f1;
+  border-color: var(--info);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
 }
 
 .search-box i {
-  color: #8e99ab;
+  color: var(--text-secondary);
   font-size: 0.9rem;
 }
 
@@ -214,16 +213,16 @@ onMounted(() => {
   font-size: 0.9rem;
   background: transparent;
   min-width: 180px;
-  color: #18181b;
+  color: var(--text-primary);
 }
 
 .search-box input::placeholder {
-  color: #b0bac9;
+  color: var(--text-secondary);
 }
 
 .btn-primary {
-  background: #18181b;
-  color: #fff;
+  background: var(--bg-sub);
+  color: var(--text-primary);
   border: none;
   padding: 10px 22px;
   border-radius: 40px;
@@ -238,7 +237,7 @@ onMounted(() => {
 }
 
 .btn-primary:hover {
-  background: #2d2d32;
+  background: var(--bg-sub);
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(24, 24, 27, 0.15);
 }
@@ -249,7 +248,7 @@ onMounted(() => {
   flex-wrap: wrap;
   margin-bottom: 28px;
   padding-bottom: 4px;
-  border-bottom: 1px solid #eef2f6;
+  border-bottom: 1px solid var(--border-line);
 }
 
 .filter-tab {
@@ -259,19 +258,19 @@ onMounted(() => {
   background: transparent;
   font-size: 0.85rem;
   font-weight: 500;
-  color: #6b7a8e;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .filter-tab:hover {
-  background: #f1f4f9;
-  color: #18181b;
+  background: var(--bg-main);
+  color: var(--text-primary);
 }
 
 .filter-tab.active {
-  background: #18181b;
-  color: #fff;
+  background: var(--bg-sub);
+  color: var(--text-primary);
   box-shadow: 0 2px 8px rgba(24, 24, 27, 0.10);
 }
 
@@ -282,10 +281,10 @@ onMounted(() => {
 }
 
 .card {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 20px;
   overflow: hidden;
-  border: 1px solid #eef2f6;
+  border: 1px solid var(--border-line);
   transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
   cursor: pointer;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
@@ -294,7 +293,7 @@ onMounted(() => {
 .card:hover {
   transform: translateY(-6px);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06), 0 6px 14px rgba(0, 0, 0, 0.02);
-  border-color: #d0d9e6;
+  border-color: var(--border-line);
 }
 
 .card-cover {
@@ -309,9 +308,9 @@ onMounted(() => {
 }
 
 .type-tag {
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--overlay);
   backdrop-filter: blur(4px);
-  color: #fff;
+  color: var(--on-overlay);
   padding: 4px 14px;
   border-radius: 30px;
   font-size: 0.7rem;
@@ -324,20 +323,20 @@ onMounted(() => {
   border-radius: 30px;
   font-size: 0.7rem;
   font-weight: 500;
-  color: #fff;
+  color: var(--text-primary);
   border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
 .status-badge.recruiting {
-  background: #10b981;
+  background: var(--success);
 }
 
 .status-badge.ongoing {
-  background: #6366f1;
+  background: var(--info);
 }
 
 .status-badge.ended {
-  background: #8e99ab;
+  background: var(--bg-sub);
 }
 
 .card-body {
@@ -348,7 +347,7 @@ onMounted(() => {
   display: flex;
   gap: 18px;
   font-size: 0.75rem;
-  color: #8e99ab;
+  color: var(--text-secondary);
   margin-bottom: 10px;
 }
 
@@ -363,12 +362,12 @@ onMounted(() => {
   font-weight: 700;
   margin: 0 0 6px 0;
   letter-spacing: -0.2px;
-  color: #18181b;
+  color: var(--text-primary);
 }
 
 .card-body .desc {
   font-size: 0.85rem;
-  color: #6b7a8e;
+  color: var(--text-secondary);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -379,7 +378,7 @@ onMounted(() => {
 
 .card-body .author {
   font-size: 0.8rem;
-  color: #8e99ab;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 6px;
@@ -387,7 +386,7 @@ onMounted(() => {
 
 .card-footer {
   padding: 12px 22px 20px;
-  border-top: 1px solid #f1f4f9;
+  border-top: 1px solid var(--border-line);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -397,10 +396,10 @@ onMounted(() => {
   padding: 8px 20px;
   border-radius: 30px;
   border: none;
-  background: #f1f4f9;
+  background: var(--bg-main);
   font-weight: 500;
   font-size: 0.8rem;
-  color: #3d4a5c;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.2s;
   display: inline-flex;
@@ -409,25 +408,25 @@ onMounted(() => {
 }
 
 .card-footer .action-btn:hover {
-  background: #18181b;
-  color: #fff;
+  background: var(--bg-sub);
+  color: var(--text-primary);
 }
 
 .card-footer .participant-count {
   font-size: 0.75rem;
-  color: #8e99ab;
+  color: var(--text-secondary);
 }
 
 .empty-state {
   grid-column: 1 / -1;
   text-align: center;
   padding: 80px 20px;
-  color: #8e99ab;
+  color: var(--text-secondary);
 }
 
 .empty-state i {
   font-size: 3rem;
-  color: #d5dde8;
+  color: var(--text-secondary);
   margin-bottom: 16px;
   display: block;
 }

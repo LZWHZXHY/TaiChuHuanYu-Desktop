@@ -485,6 +485,8 @@ export const spiritExtensions = [
 
   SpiritNode,
   StarterKit.configure({
+    link: false,
+    underline: false,
     heading: { levels: [1, 2, 3] },
     codeBlock: { HTMLAttributes: { class: 'spirit-code-block' } },
   }),

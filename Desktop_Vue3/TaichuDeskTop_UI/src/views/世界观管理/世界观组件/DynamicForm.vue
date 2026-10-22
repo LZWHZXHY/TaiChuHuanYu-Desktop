@@ -228,8 +228,8 @@ watch(
   flex-direction: column;
   gap: 14px;
   padding: 16px 0;
-  border-top: 1px solid #eef2f6;
-  border-bottom: 1px solid #eef2f6;
+  border-top: 1px solid var(--border-line);
+  border-bottom: 1px solid var(--border-line);
 }
 
 .df-field {
@@ -241,29 +241,29 @@ watch(
 .df-label {
   font-size: 13px;
   font-weight: 500;
-  color: #334155;
+  color: var(--text-primary);
 }
 .df-required {
-  color: #ef4444;
+  color: var(--danger);
   margin-left: 2px;
 }
 
 .df-input,
 .df-textarea {
   width: 100%;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   padding: 6px 10px;
   font-size: 13px;
   font-family: inherit;
-  background: #fafbfc;
+  background: var(--paper-card);
   transition: border-color 0.2s, background 0.2s;
 }
 .df-input:focus,
 .df-textarea:focus {
   outline: none;
-  border-color: #4f46e5;
-  background: white;
+  border-color: var(--accent-color);
+  background: var(--paper-card);
 }
 .df-textarea {
   resize: vertical;
@@ -278,20 +278,20 @@ watch(
 }
 .df-button {
   padding: 4px 14px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
-  background: white;
+  background: var(--paper-card);
   cursor: pointer;
   font-size: 13px;
   transition: all 0.15s;
 }
 .df-button:hover {
-  background: #f1f5f9;
+  background: var(--bg-sub);
 }
 .df-button.active {
-  background: #4f46e5;
-  color: white;
-  border-color: #4f46e5;
+  background: var(--accent-color);
+  color: var(--on-accent);
+  border-color: var(--accent-color);
 }
 
 /* 标签 */
@@ -306,27 +306,27 @@ watch(
 }
 .df-tags-input input {
   flex: 1;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 13px;
-  background: #fafbfc;
+  background: var(--paper-card);
 }
 .df-tags-input input:focus {
   outline: none;
-  border-color: #4f46e5;
-  background: white;
+  border-color: var(--accent-color);
+  background: var(--paper-card);
 }
 .df-tags-input button {
   padding: 4px 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
-  background: white;
+  background: var(--paper-card);
   cursor: pointer;
   font-size: 13px;
 }
 .df-tags-input button:hover {
-  background: #f1f5f9;
+  background: var(--bg-sub);
 }
 .df-tags-list {
   display: flex;
@@ -339,47 +339,47 @@ watch(
   align-items: center;
   gap: 4px;
   padding: 2px 8px 2px 10px;
-  background: #eef2ff;
-  color: #4f46e5;
+  background: var(--accent-soft);
+  color: var(--accent-color);
   border-radius: 12px;
   font-size: 12px;
 }
 .df-tag-remove {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 14px;
   padding: 0 2px;
 }
 .df-tag-remove:hover {
-  color: #ef4444;
+  color: var(--danger);
 }
 .df-tag-empty {
   font-size: 12px;
-  color: #c0c4cc;
+  color: var(--text-secondary);
 }
 
 .df-hint {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   margin: 2px 0 0;
   font-style: italic;
 }
 
 .df-custom-placeholder {
   padding: 12px;
-  border: 1px dashed #e2e8f0;
+  border: 1px dashed var(--border-line);
   border-radius: 6px;
   text-align: center;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
 .df-empty {
   padding: 20px;
   text-align: center;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 </style>

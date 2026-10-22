@@ -1,0 +1,93 @@
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using TaiChuWeb_V2.DbContext;
+
+namespace TaiChuWeb_V2.Controllers.knowledgeBase;
+
+public sealed class CatalogItem
+{
+    public string Id { get; set; } = "";
+    public string Type { get; set; } = "";
+    public string Title { get; set; } = "";
+    public string Summary { get; set; } = "";
+    public string Author { get; set; } = "";
+    public string Tags { get; set; } = "";
+    public string? CoverUrl { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+// 仅聚合公开来源，不建立副本或另一套发布状态。
+[ApiController]
+[Route("api/knowledge-base/catalog")]
+public class CatalogController(AppDbContext db) : ControllerBase
+{
+    public static IQueryable<CatalogItem> Query(AppDbContext db, string type)
+    {
+        var sources = new Dictionary<string, IQueryable<CatalogItem>>
+        {
+            ["blog"] = db.PublishedNotes.Where(n => (n.Type == "blog" || n.Type == "note") &&
+                (n.OriginalNoteId == null || !db.Notes.Any(s => s.Id.ToString() == EF.Functions.Collate(n.OriginalNoteId.ToString(), "utf8mb4_general_ci")) || db.Notes.Any(s => s.Id.ToString() == EF.Functions.Collate(n.OriginalNoteId.ToString(), "utf8mb4_general_ci") && s.IsPublic && s.Status != 2)))
+                .Select(n => new CatalogItem { Id = n.Id.ToString(), Type = "blog", Title = n.Title ?? "无标题文章", Summary = n.Excerpt ?? "",
+                    Author = n.AuthorName ?? "", Tags = n.Tags ?? "", CoverUrl = null, UpdatedAt = n.PublishedAt }),
+            ["post"] = db.PublishedNotes.Where(n => n.Type == "post" &&
+                (n.OriginalNoteId == null || !db.Notes.Any(s => s.Id.ToString() == EF.Functions.Collate(n.OriginalNoteId.ToString(), "utf8mb4_general_ci")) || db.Notes.Any(s => s.Id.ToString() == EF.Functions.Collate(n.OriginalNoteId.ToString(), "utf8mb4_general_ci") && s.IsPublic && s.Status != 2)))
+                .Select(n => new CatalogItem { Id = n.Id.ToString(), Type = "post", Title = n.Title ?? "短帖", Summary = n.Excerpt ?? "",
+                    Author = n.AuthorName ?? "", Tags = n.Tags ?? "", CoverUrl = null, UpdatedAt = n.PublishedAt }),
+            ["artwork"] = db.Artworks.Where(a => a.IsApproved && (a.Status == "published" || a.Status == "" || a.Status == null))
+                .Select(a => new CatalogItem { Id = a.Id.ToString(), Type = "artwork", Title = a.Title, Summary = a.Description ?? "",
+                    Author = a.Uploader.Username ?? "", Tags = "", CoverUrl = a.Images.OrderByDescending(i => i.IsCover).ThenBy(i => i.Id).Select(i => i.ImageUrl).FirstOrDefault(), UpdatedAt = a.UploadAt }),
+            ["world"] = db.WorldProjects.Where(p => p.IsPublic)
+                .Select(p => new CatalogItem { Id = p.Id.ToString(), Type = "world", Title = p.Name, Summary = p.Description ?? "",
+                    Author = p.Owner != null ? p.Owner.Username ?? "" : "", Tags = "", CoverUrl = null, UpdatedAt = p.UpdatedAt }),
+            ["character"] = db.StickmanCharacters.Where(c => c.Status == "published")
+                .Select(c => new CatalogItem { Id = c.Id.ToString(), Type = "character", Title = c.Title, Summary = c.Description ?? "",
+                    Author = c.AuthorName, Tags = "", CoverUrl = c.CoverUrl, UpdatedAt = c.UpdatedAt ?? c.CreatedAt }),
+            ["wiki"] = db.WikiArticles.Where(a => !a.IsDeleted && a.CurrentRevisionId != null)
+                .Select(a => new CatalogItem { Id = a.Id, Type = "wiki", Title = a.Title, Summary = a.Excerpt ?? "", Author = "",
+                    Tags = a.Tags ?? "", CoverUrl = null, UpdatedAt = a.UpdatedAt }),
+            ["document"] = db.FinalNodes.Where(n => n.Status == 0)
+                .Select(n => new CatalogItem { Id = n.Id, Type = "document", Title = n.Title, Summary = n.Excerpt ?? "",
+                    Author = n.CreatorName, Tags = n.Tags, CoverUrl = n.CoverImage, UpdatedAt = n.UpdatedAt })
+        };
+        return type == "all" ? sources.Values.Aggregate((left, right) => left.Concat(right)) : sources[type];
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> Get([FromQuery] string type = "all", [FromQuery] string? search = null,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 24, [FromQuery] int? categoryId = null)
+    {
+        if (type is not ("all" or "blog" or "post" or "artwork" or "world" or "character" or "wiki" or "document"))
+            return BadRequest(new { message = "不支持的资料类型" });
+        if (search?.Length > 100) return BadRequest(new { message = "搜索词不能超过 100 字" });
+        pageSize = Math.Clamp(pageSize, 1, 50);
+        page = Math.Clamp(page, 1, int.MaxValue / pageSize);
+        var query = Query(db, type).AsNoTracking();
+        // 保留原百科选择父分类时包含直属子分类的浏览范围。
+        if (categoryId.HasValue) query = query.Where(i => i.Type == "wiki" && db.WikiArticles.Any(a => a.Id == i.Id &&
+            (a.CategoryId == categoryId || db.WikiCategories.Any(c => c.Id == a.CategoryId && c.ParentId == categoryId))));
+        foreach (var term in (search ?? "").Trim().ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(10))
+        {
+            // 旧博客摘要将中文保存为 JSON 的 Unicode 转义，同时兼容原文与转义检索。
+            var encoded = JsonSerializer.Serialize(term)[1..^1].ToLowerInvariant();
+            query = query.Where(i => i.Title.ToLower().Contains(term) || i.Summary.ToLower().Contains(term) || i.Summary.ToLower().Contains(encoded) || i.Tags.ToLower().Contains(term) || i.Author.ToLower().Contains(term) || (i.Type == "artwork" && db.TagAssignments.Any(t => t.EntityType == "Artwork" && t.EntityId == i.Id && t.Tag != null && t.Tag.Name.ToLower().Contains(term))));
+        }
+        var total = await query.CountAsync();
+        var items = await query.OrderByDescending(i => i.UpdatedAt).ThenBy(i => i.Type).ThenBy(i => i.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        var artworkIds = items.Where(i => i.Type == "artwork").Select(i => i.Id).ToArray();
+        var tags = await db.TagAssignments.Where(t => t.EntityType == "Artwork" && Enumerable.Contains(artworkIds, t.EntityId) && t.Tag != null).Select(t => new { t.EntityId, t.Tag!.Name }).ToListAsync();
+        foreach (var item in items.Where(i => i.Type == "artwork")) item.Tags = string.Join(",", tags.Where(t => t.EntityId == item.Id).Select(t => t.Name));
+        foreach (var item in items.Where(i => i.Type == "blog" && i.Summary.TrimStart().StartsWith('{')))
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(item.Summary);
+                if (document.RootElement.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String) item.Summary = text.GetString() ?? "";
+                if (document.RootElement.TryGetProperty("coverUrl", out var cover) && cover.ValueKind == JsonValueKind.String) item.CoverUrl = cover.GetString();
+            }
+            catch (JsonException) { /* 历史纯文本保留原值。 */ }
+        }
+        return Ok(new { items, total, page, pageSize });
+    }
+}

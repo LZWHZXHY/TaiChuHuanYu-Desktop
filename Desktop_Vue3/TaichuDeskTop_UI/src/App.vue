@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useRouter} from 'vue-router' // 🌟 引入 useRoute
 import request from './utils/request' 
 import OperationTerminal from './components/OperationTerminal.vue'
@@ -15,18 +15,36 @@ interface Plugin {
 }
 const userStore = useUserStore()
 const router = useRouter()
+const viewportElement = ref<HTMLElement>()
+watch(() => router.currentRoute.value.path, async () => {
+  await nextTick()
+  viewportElement.value?.scrollTo({ top: 0 })
+})
 // const route = useRoute() // 🌟 获取当前路由状态
+const navigationPending = ref(''), navigationError = ref('')
+let lastNavigation: Pick<Plugin, 'name' | 'url'> | null = null
+let navigationVersion = 0
 const allPlugins = ref<Plugin[]>([]) 
-const activeMenu = ref('推送首页')
+const activeMenu = computed(() => String(router.currentRoute.value.name || ''))
+const corePlugins: Plugin[] = [
+  { name: '太初灵脉', url: '/lingmai/note', icon: '·', requiresAuth: true },
+  { name: '推送首页', url: '/', icon: '⌂', requiresAuth: false },
+  { name: '画廊展厅', url: '/gallery', icon: '▧', requiresAuth: false },
+  { name: '太初随笔', url: '/stream', icon: '≡', requiresAuth: false },
+  { name: '知识库', url: '/knowledge', icon: '▤', requiresAuth: false },
+  { name: '太初俱乐部', url: '/Club', icon: '◇', requiresAuth: false },
+  { name: '柴圈板块', url: '/community', icon: '◎', requiresAuth: false },
+  { name: '荣誉墙', url: '/honor', icon: '☆', requiresAuth: false },
+  { name: '太虚游', url: '/games', icon: '⊞', requiresAuth: false },
+]
 
 const visiblePlugins = computed(() => {
-  const hasToken = !!localStorage.getItem('token');
   
-  return allPlugins.value.filter(item => {
-    const hiddenItems = ['身份认证', '个人中心'];
+  return [...new Map([...corePlugins, ...allPlugins.value].map(item => [item.name, item])).values()].filter(item => {
+    const hiddenItems = ['身份认证', '个人中心', '灵脉百科'];
     if (hiddenItems.includes(item.name)) return false;
-    return !item.requiresAuth || hasToken;
-  });
+    return !item.requiresAuth || userStore.isLoggedIn;
+  }).map(item => item.name === '知识库' ? { ...item, url: '/knowledge' } : item.name === '太初灵脉' ? { ...item, url: '/lingmai/note' } : item.name === '管理面板' ? { ...item, url: '/admin' } : item);
 })
 
 
@@ -42,13 +60,16 @@ const fetchPlugins = async () => {
     
     // 注册路由逻辑保持不变
     pluginList.forEach((item: Plugin) => {
+      if (item.name === '管理面板' && item.url.startsWith('/') && !router.getRoutes().some(route => route.path.toLowerCase() === item.url.toLowerCase())) {
+        router.addRoute({ path: item.url, redirect: '/admin', meta: { requiresAuth: true, requiresAdmin: true } })
+      }
       if (item.url !== '/' && !item.url.startsWith('http')) {
-        if (!router.hasRoute(item.name)) {
+        if (!router.hasRoute(item.name) && !router.getRoutes().some(route => route.path === item.url)) {
           router.addRoute({
             path: item.url,
             name: item.name,
             component: () => import(`./views/${item.name}/index.vue`),
-            meta: { requiresAuth: item.requiresAuth } 
+            meta: { requiresAuth: item.requiresAuth, requiresAdmin: ['管理面板', '用户治理中枢'].includes(item.name) } 
           });
         }
       }
@@ -67,24 +88,30 @@ const fetchPlugins = async () => {
 }
 
 // 处理从“操作终端”组件传回的导航指令
-const handleNavigation = (item: Plugin) => {
-  activeMenu.value = item.name
-  if (item.url.startsWith('http')) {
-    (window as any).chrome?.webview?.postMessage({ 
-      cmd: 'load_external_url', 
-      url: item.url 
-    });
-  } else {
-    router.push(item.url)
-  }
+const handleNavigation = async (item: Pick<Plugin, 'name' | 'url'>) => {
+  lastNavigation = item
+  const version = ++navigationVersion
+  navigationPending.value = item.name
+  navigationError.value = ''
+  try {
+    if (item.url.startsWith('http')) {
+      const host = (window as any).chrome?.webview
+      if (host) host.postMessage({ cmd: 'load_external_url', url: item.url })
+      else window.open(item.url, '_blank', 'noopener,noreferrer')
+    } else await router.push(item.url)
+  } catch {
+    if (version === navigationVersion) navigationError.value = '页面加载失败，请重试。若刚更新过网站，请刷新后再打开。'
+  } finally { if (version === navigationVersion) navigationPending.value = '' }
 }
 
 onMounted(async ()=> {
+  // 初次懒加载完成前 currentRoute 还是起始占位，不能据此重新导航到首页。
+  await router.isReady();
   // 🌟 【关键修复点 2】使用 await 确保插件加载（addRoute）完成后再往后走
   await fetchPlugins();
 
-  if (localStorage.getItem('token')) {
-    await userStore.fetchUserInfo();
+  if (userStore.isLoggedIn) {
+    await userStore.fetchUserInfo(true);
     console.log('灵脉数据已同步');
   }
   
@@ -104,9 +131,12 @@ onMounted(async ()=> {
     />
 
     <main class="container">
+      <div v-if="navigationPending" class="navigation-state" role="status">正在打开 {{ navigationPending }}…</div>
+      <div v-if="navigationError" class="navigation-state" role="alert">{{ navigationError }} <button @click="lastNavigation && handleNavigation(lastNavigation)">重试</button></div>
+      <p v-if="router.currentRoute.value.query.access === 'denied'" class="navigation-state" role="alert">当前账号没有管理权限。</p>
       
       
-      <section class="viewport">
+      <section ref="viewportElement" class="viewport">
         <div class="viewport-content">
           <RouterView /> 
           <GlobalNotify/>
@@ -117,127 +147,14 @@ onMounted(async ()=> {
 </template>
 
 <style scoped>
-.app-shell { 
-  display: flex; 
-  width: 100vw;
-  height: 100vh; 
-  background: var(--paper-bg);   /* ← 改为使用宣纸白变量 */
-  color: #24292f;
-  overflow: hidden;
-}
-
-.container { 
-  flex: 1; 
-  display: flex; 
-  flex-direction: column;
-  min-width: 0; /* 关键：允许容器在 flex 布局中缩小，防止挤出屏幕 */
-}
-
-
-
-/* App.vue 中的样式修改 */
-
-.header-content, .viewport-content {
-
-  width: 100%;
-  /* 极致阅读体验：限制最大宽度防止行太长，但不强制居中 */
-
-  margin: 0; 
-  transition: all 0.3s ease;
-}
-
-.header { 
-  height: 80px; 
-  padding: 0 5%; 
-  display: flex; 
-  align-items: flex-end; 
-  padding-bottom: 24px;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.viewport { 
-  flex: 1; 
-  /* 同步左侧留白 */
-  padding: 40px 5%; 
-  overflow-y: auto;
-}
-
-/* 移动端适配：回归紧凑 */
-@media (max-width: 768px) {
-  .header {
-    height: 70px;
-    padding: 0 20px;
-  }
-  .viewport {
-    padding: 20px;
-  }
-  .header-content, .viewport-content {
-    max-width: 100%; /* 手机端必须占满 */
-  }
-}
-
-
-</style>
-
-
-<!-- App.vue -->
-<style>
-/* ===== 全局设计系统变量 ===== */
-:root {
-  /* 宣纸白、沉底灰、徽墨、烟灰、远山灰线、朱砂红 */
-  --bg-main: #F4F1EA;
-  --bg-sub: #ECE8E0;
-  --text-primary: #2C2A29;
-  --text-secondary: #7A7571;
-  --border-line: #D8D2C7;
-  --accent-color: #9E2A2B;
-  --font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif;
-
-  --paper-bg: var(--bg-main);
-  --paper-card: #FCFAF7;
-  --paper-sub: var(--bg-sub);
-  --ink-black: var(--text-primary);
-  --ink-gray: var(--text-secondary);
-  --line-raw: var(--border-line);
-  --cinnabar: var(--accent-color);
-}
-
-/* ===== 全局墨划风格按钮 ===== */
-.btn-line {
-  display: inline-block;
-  background: none;
-  border: 1px solid var(--line-raw);
-  color: var(--ink-black);
-  padding: 6px 18px;
-  font-family: var(--font-family);
-  font-size: 13px;
-  letter-spacing: 0.15em;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all 0.3s ease;
-  line-height: 1.5;
-}
-
-.btn-line:hover {
-  border-color: var(--cinnabar);
-  color: var(--cinnabar);
-}
-
-.btn-line.active {
-  border-color: var(--cinnabar);
-  background: rgba(158, 42, 43, 0.05);
-  color: var(--cinnabar);
-}
-
-/* 主要按钮（深色边框） */
-.btn-line.btn-primary {
-  border-color: var(--ink-black);
-  padding: 8px 24px;
-}
-
-.btn-line.btn-primary:hover {
-  border-color: var(--cinnabar);
-  color: var(--cinnabar);
-  background: rgba(158, 42, 43, 0.03);
+.navigation-state { margin: 0; padding: 12px 20px; color: var(--text-primary); background: var(--accent-soft); font-size: 14px; }
+.app-shell { display: flex; width: 100%; height: 100dvh; background: var(--bg-main); color: var(--text-primary); overflow: hidden; }
+.container { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.viewport { flex: 1; min-height: 0; padding: 32px clamp(20px, 3vw, 48px); overflow: auto; scrollbar-gutter: stable; }
+.viewport-content { width: 100%; max-width: 1440px; margin-inline: auto; }
+@media(max-width: 900px) {
+  .app-shell { flex-direction: column; }
+  .container { min-height: 0; }
+  .viewport { padding: 20px 16px; }
 }
 </style>

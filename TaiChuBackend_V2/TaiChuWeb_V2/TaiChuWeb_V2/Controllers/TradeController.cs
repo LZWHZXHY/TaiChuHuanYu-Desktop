@@ -139,7 +139,9 @@ namespace TaiChuWeb_V2.Controllers
                     // --- 核心逻辑执行 ---
 
                     // A. 扣费与购买次数累加
+                    if (currentCost > int.MaxValue) return BadRequest(TradeResult.Fail("单次兑换经验超出流水支持范围"));
                     user.Stats.Experience -= currentCost;
+                    _context.UserExpLogs.Add(new TaiChuWeb_V2.Models.User.UserExpLog { UserId = user.Id, Change = checked((int)-currentCost), Reason = "经验兑换：" + item.Name });
                     progress.PurchaseCount++;
 
                     if (_context.Entry(progress).State == EntityState.Detached)

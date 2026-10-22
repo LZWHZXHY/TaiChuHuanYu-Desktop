@@ -55,20 +55,20 @@ const currentComponent = computed(() => {
 <style scoped>
 .works-layout { display: flex; flex-direction: column; animation: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
 .module-header { margin-bottom: 30px; }
-.page-title { font-size: 1.6rem; font-weight: 700; color: #111; margin: 0; }
-.md-subtitle { font-size: 0.85rem; color: #888; margin: 6px 0 0; }
+.page-title { font-size: 1.6rem; font-weight: 700; color: var(--text-primary); margin: 0; }
+.md-subtitle { font-size: 0.85rem; color: var(--text-secondary); margin: 6px 0 0; }
 
 /* 极其优雅的墨水风 Tabs 设计 (复刻你的维基组件) */
 .md-tabs { 
   display: flex; 
   gap: 32px; 
-  border-bottom: 1px solid #f2f2f7; 
+  border-bottom: 1px solid var(--border-line); 
   margin-bottom: 24px; 
 }
 
 .tab-item { 
   cursor: pointer; 
-  color: #86868b; 
+  color: var(--text-secondary); 
   padding-bottom: 12px; 
   font-size: 0.95rem; 
   font-weight: 600;
@@ -77,8 +77,8 @@ const currentComponent = computed(() => {
   letter-spacing: 0.5px;
 }
 
-.tab-item:hover { color: #333; }
-.tab-item.active { color: #111; }
+.tab-item:hover { color: var(--text-primary); }
+.tab-item.active { color: var(--text-primary); }
 .tab-item.active::after {
   content: '';
   position: absolute;
@@ -86,13 +86,13 @@ const currentComponent = computed(() => {
   right: 0;
   bottom: -1px;
   height: 2px;
-  background: #111;
+  background: var(--text-primary);
 }
 
 /* 统一卡片底色 */
 .table-card { 
-  background: #fff; 
-  border: 1px solid #f0f0f0; 
+  background: var(--paper-card); 
+  border: 1px solid var(--border-line); 
   border-radius: 8px; 
   padding: 24px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.01); 

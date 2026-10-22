@@ -3,8 +3,8 @@
     <div class="sec-left">
       <span class="sec-index">{{ index }} /</span>
       <div>
-        <h2>{{ title }}</h2>
-        <span v-if="subtitle">{{ subtitle }}</span>
+        <h2>{{ subtitle ? subtitle.split('/')[0].trim() : title }}</h2>
+        <span v-if="subtitle">{{ title }}</span>
       </div>
     </div>
     <slot name="action" />
@@ -28,7 +28,8 @@ export default {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  margin-bottom: 40px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 .sec-left {
   display: flex;
@@ -38,13 +39,13 @@ export default {
 .sec-index {
   color: var(--orange);
   font-family: monospace;
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 1px;
 }
 .sec-left h2 {
   margin: 0;
-  font-size: 21px;
-  letter-spacing: 2px;
+  font-size: clamp(24px, 3vw, 32px);
+  letter-spacing: normal;
   font-weight: 700;
 }
 .sec-left > div > span {
@@ -52,7 +53,7 @@ export default {
   margin-top: 5px;
   color: var(--text-muted);
   font-family: monospace;
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 1px;
 }
 @media (max-width: 520px) {

@@ -1,5 +1,5 @@
 <template>
-  <div class="detail-page">
+  <div class="community-detail detail-page">
     <button class="back-btn" @click="goBack">← 返回</button>
 
     <div v-if="loading" class="loading-state">
@@ -50,6 +50,10 @@
 
       <!-- ===== 右侧：长文本属性 + 图库 ===== -->
       <div class="detail-right">
+        <section v-if="character.description" class="desc-section">
+          <h3 class="desc-title">角色简介</h3>
+          <p class="desc-text">{{ character.description }}</p>
+        </section>
         <!-- 长文本属性区块 -->
         <div v-if="longAttributes.length">
           <div v-for="attr in longAttributes" :key="attr.id" class="desc-section">
@@ -79,7 +83,6 @@
                 lazy
                 :preview-src-list="previewList"
                 :initial-index="idx"
-                @click="openPreview(idx)"
               />
               <p v-if="img.alt" class="gallery-alt">{{ img.alt }}</p>
             </div>
@@ -132,7 +135,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useStickmanStore } from '../stickman_store'
 import { useUserStore } from '@/stores/user'
@@ -172,13 +175,6 @@ const previewList = computed(() => {
   return character.value?.images?.map(img => img.url) || []
 })
 
-// ===== 🆕 打开预览（点击图片触发） =====
-const openPreview = (index: number) => {
-  // 由于 el-image 的 preview-src-list 已经绑定，点击会触发预览
-  // 但我们通过设置 initial-index 来控制从哪张开始
-  // 这里可以不做额外操作
-}
-
 // ===== 返回 OC 画阁列表页 =====
 function goBack() {
   router.push('/ocs')
@@ -191,27 +187,11 @@ function getAttr(key: string): string | null {
   return attr?.value ?? null
 }
 
-const shortAttributes = computed(() => {
-  if (!character.value?.attributes) return []
-  const hiddenKeys = ['昵称', '绰号', '标签']
-  return character.value.attributes
-    .filter(a => !hiddenKeys.includes(a.key) && a.type === 'short')
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-})
-
-const longAttributes = computed(() => {
-  if (!character.value?.attributes) return []
-  const hiddenKeys = ['昵称', '绰号', '标签']
-  return character.value.attributes
-    .filter(a => !hiddenKeys.includes(a.key) && a.type === 'long')
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-})
-
-const tags = computed(() => {
-  const tagStr = getAttr('标签')
-  if (!tagStr) return []
-  return tagStr.split(/[,，、\s]+/).filter(t => t.trim())
-})
+const visibleAttributes = computed(() => (character.value?.attributes || [])
+  .filter(attr => !['昵称', '绰号', '标签'].includes(attr.key))
+  .sort((a, b) => a.sortOrder - b.sortOrder));
+const shortAttributes = computed(() => visibleAttributes.value.filter(attr => attr.type === 'short'));
+const longAttributes = computed(() => visibleAttributes.value.filter(attr => attr.type === 'long'));
 
 onMounted(async () => {
   const id = route.params.id as string
@@ -230,16 +210,6 @@ function goBattle() {
   router.push(`/battles/create?ocId=${character.value.id}`)
 }
 
-// ===== 调试权限 =====
-watch(character, (val) => {
-  if (val) {
-    console.log('🔍 OC 权限检查:', {
-      authorId: val.authorId,
-      userId: userStore.userInfo?.id,
-      isOwner: String(val.authorId) === String(userStore.userInfo?.id),
-    })
-  }
-}, { immediate: true })
 </script>
 
 <style scoped>
@@ -261,9 +231,9 @@ watch(character, (val) => {
   gap: 16px;
   font-size: 14px;
 }
-.stat-win { color: #4CAF50; font-weight: 500; }
-.stat-lose { color: #F44336; font-weight: 500; }
-.stat-draw { color: #FF9800; font-weight: 500; }
+.stat-win { color: var(--success); font-weight: 500; }
+.stat-lose { color: var(--danger); font-weight: 500; }
+.stat-draw { color: var(--warning); font-weight: 500; }
 
 .detail-page {
   max-width: 1100px;
@@ -340,8 +310,9 @@ watch(character, (val) => {
   right: 10px;
   padding: 3px 14px;
   font-size: 12px;
-  color: #fff;
-  background: rgba(44, 42, 41, 0.75);
+  color: var(--text-primary);
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   letter-spacing: 0.15em;
 }
 .info-section {

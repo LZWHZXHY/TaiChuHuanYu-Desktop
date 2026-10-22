@@ -5,31 +5,28 @@
         <div 
           v-for="art in column" 
           :key="art.id" 
-          class="masonry-item group"
-          @click="$emit('on-click', art.id)"
+          class="masonry-item"
         >
-          <div class="item-visual">
-            <img :src="getFullImageUrl(art.coverImageUrl) || '/default-cover.jpg'" class="item-image" loading="lazy" />
+          <button class="item-visual" :aria-label="'查看作品：' + art.title" @click="$emit('on-click', art.id)">
+            <img v-if="art.coverImageUrl && !failedImages.has(art.id)" :src="getFullImageUrl(art.coverImageUrl)" class="item-image" :alt="art.title" loading="lazy" @error="failedImages.add(art.id)" /><span v-else class="image-fallback">图片暂不可用 · 打开作品查看</span>
             <div class="item-overlay">
-              <span class="badge">{{ art.imageCount }}P</span>
+              <span class="badge">{{ art.imageCount }} 张</span>
             </div>
-          </div>
+          </button>
           
           <div class="item-details">
-            <h4 class="item-title">{{ art.title }}</h4>
+            <h2 class="item-title"><button @click="$emit('on-click', art.id)">{{ art.title }}</button></h2>
 
             <div class="item-footer">
               <div class="author-info">
-                <img :src="getFullImageUrl(art.authorAvatar) || '/default-avatar.png'" class="avatar" />
+                <img v-if="art.authorAvatar" :src="getFullImageUrl(art.authorAvatar)" class="avatar" alt="作者头像" />
                 <span>{{ art.authorName }}</span>
               </div>
               
-              <InteractActions 
+              <InteractActions show-count 
                 :target-id="art.id" 
                 target-type="Artwork" 
-                :initial-stats="{ 
-                  likesCount: art.likesCount,
-                }" 
+                :initial-stats="art" 
               />
             </div>
           </div>
@@ -39,15 +36,24 @@
 
     <div ref="loadMoreRef" class="status-bar">
       <div v-if="loading" class="loading-text">加载中...</div>
-      <div v-else-if="noMore" class="end-text">已抵达尽头</div>
+      <div v-else-if="error" role="alert">{{ error }} <button @click="loadData">重新加载</button></div>
+      <div v-else-if="noMore" class="end-text">{{ artworks.length ? '已显示全部作品' : '没有找到匹配的作品' }}</div>
+      <button v-if="!loading && !error && !noMore" @click="loadData">加载更多</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'; // 🌟 修改：引入 computed
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'; // 🌟 修改：引入 computed
 import { artworkApi, type ArtworkItemDto } from '../../api/artwork'; 
 import InteractActions from '../../components/InteractActions.vue';
+import { useArtworkStore } from '../../stores/artwork';
+import { useUserStore } from '../../stores/user';
+const props = defineProps<{ search?: string }>();
+const store = useArtworkStore(), user = useUserStore();
+const error = ref('');
+const failedImages = ref(new Set<number>());
+let generation = 0;
 
 // 使用后端返回的 DTO 类型
 const artworks = ref<ArtworkItemDto[]>([]);
@@ -77,13 +83,12 @@ const getFullImageUrl = (url: string | null | undefined): string => {
 
 
 // 响应式列数控制
-const columnCount = ref(5);
+const columnCount = ref(3);
 const updateColumnCount = () => {
   const width = window.innerWidth;
-  if (width < 640) columnCount.value = 2;
-  else if (width < 1024) columnCount.value = 3;
-  else if (width < 1440) columnCount.value = 4;
-  else columnCount.value = 5;
+  if (width < 600) columnCount.value = 1;
+  else if (width < 1000) columnCount.value = 2;
+  else columnCount.value = 3;
 };
 
 // 🌟 修改：将原有的 getColumnItems 方法重构为高效的计算属性
@@ -105,10 +110,13 @@ const computedColumns = computed(() => {
 const loadData = async () => {
   if (loading.value || noMore.value) return;
   loading.value = true;
-  
+  error.value = '';
+  const current = generation, snapshot = store.capture();
   try {
-    const res = await artworkApi.getGallery(offset.value, pageSize);
+    const res = await artworkApi.getGallery(offset.value, pageSize, props.search);
     
+    if (current !== generation || snapshot.session !== store.capture().session) return;
+    store.seed(res.data, snapshot);
     // 追加数据
     artworks.value.push(...res.data);
     
@@ -120,11 +128,16 @@ const loadData = async () => {
       noMore.value = true;
     }
   } catch (error) {
-    console.error('灵脉阻塞，获取作品失败:', error);
+    if (current === generation) loadError(error);
   } finally {
-    loading.value = false;
+    if (current === generation) loading.value = false;
   }
 };
+const loadError = (cause: any) => { error.value = cause.friendlyMessage || '作品加载失败，请重试'; };
+watch(() => [user.token, props.search], () => {
+  generation++; failedImages.value.clear(); artworks.value = []; offset.value = 0; noMore.value = false; loading.value = false;
+  void loadData();
+}, { immediate: true });
 
 let observer: IntersectionObserver | null = null;
 
@@ -140,161 +153,30 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  generation++;
   window.removeEventListener('resize', updateColumnCount);
   if (observer) observer.disconnect();
 });
 </script>
 
 <style scoped>
-.artwork-masonry-wrapper {
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 0 20px;
-  box-sizing: border-box; /* 确保 padding 不会额外增加宽度 */
-  width: 100%;           /* 必须显式声明宽度 */
-  overflow-x: hidden;    /* 防止意外的横向滚动条 */
-}
-
-.masonry-grid {
-  display: flex;
-  gap: 24px;
-  align-items: flex-start;
-  width: 100%;           /* 撑满父容器 */
-  box-sizing: border-box;
-}
-
-.masonry-column {
-  flex: 1;
-  min-width: 0;          /* 关键！防止 Flex 子元素被内部长内容撑开 */
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-}
-
-/* 沉浸式卡片 */
-.masonry-item {
-  background: #fff;
-  border-radius: 8px;
-  transition: transform 0.4s ease;
-  will-change: transform; /* 🌟 修改：提前告知浏览器此元素有动画，做好层合成准备 */
-}
-
-.item-visual {
-  position: relative;
-  border-radius: 8px;
-  overflow: hidden;
-  background: #f9f9f9;
-}
-
-.item-image {
-  width: 100%;
-  height: auto;
-  display: block;
-  transition: transform 0.8s cubic-bezier(0.2, 0, 0.2, 1);
-  transform: translateZ(0); /* 🌟 修改：强制触发 GPU 硬件加速，大幅减少滚动和悬停动画掉帧 */
-}
-
-.masonry-item:hover .item-image {
-  transform: scale(1.04) translateZ(0);
-}
-
-.item-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0,0,0,0.02);
-  opacity: 0;
-  transition: opacity 0.3s;
-  padding: 12px;
-  display: flex;
-  justify-content: flex-end;
-}
-
-.masonry-item:hover .item-overlay {
-  opacity: 1;
-}
-
-.badge {
-  background: rgba(0,0,0,0.7);
-  color: #fff;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-  align-self: flex-start;
-}
-
-.item-details {
-  padding: 12px 4px;
-}
-
-.item-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #1a1a1a;
-  margin-bottom: 8px;
-}
-
-.item-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.author-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.75rem;
-  color: #86868b;
-}
-
-.avatar {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  filter: grayscale(100%);
-}
-
-.love-btn {
-  background: none;
-  border: none;
-  font-size: 0.8rem;
-  opacity: 0.3;
-  cursor: pointer;
-}
-
-/* 状态栏 */
-.status-bar {
-  padding: 80px 0;
-  text-align: center;
-  font-size: 0.85rem;
-  color: #c7c7c7;
-  letter-spacing: 0.2em;
-}
-
-.loading-text { animation: breathe 1.5s infinite; }
-
-@keyframes breathe {
-  0%, 100% { opacity: 0.3; }
-  50% { opacity: 1; }
-}
-
-@media (max-width: 640px) {
-  .artwork-masonry-wrapper {
-    padding: 0 10px; /* 手机端边距减小，留给内容更多空间 */
-  }
-  .masonry-grid { 
-    gap: 10px;    /* 列间距减小 */
-  }
-  .masonry-column { 
-    gap: 10px;    /* 行间距减小 */
-  }
-  
-  /* 调整标题字号，防止长标题撑开卡片 */
-  .item-title {
-    font-size: 0.8rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-}
+.artwork-masonry-wrapper { width: 100%; }
+.masonry-grid { display: flex; gap: 24px; align-items: flex-start; }
+.masonry-column { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+.masonry-item { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 12px; overflow: hidden; transition: border-color .2s; }
+.masonry-item:hover, .masonry-item:focus-within { border-color: var(--accent-color); }
+.item-visual { position: relative; display: block; width: 100%; padding: 0; border: 0; background: var(--paper-sub); cursor: pointer; }
+.item-image { display: block; width: 100%; height: auto; }
+.image-fallback { display: grid; place-items: center; min-height: 200px; padding: 20px; color: var(--text-secondary); font-size: .85rem; }
+.item-overlay { position: absolute; right: 12px; bottom: 12px; pointer-events: none; }
+.badge { background: #0009; color: #fff; font-size: .75rem; border-radius: 6px; padding: 4px 8px; }
+.item-details { padding: 16px 18px; }
+.item-title { margin: 0 0 12px; font-size: 1.1rem; line-height: 1.5; }
+.item-title button { background: none; color: var(--text-primary); border: 0; padding: 0; text-align: left; font: inherit; font-weight: 600; overflow-wrap: anywhere; }
+.item-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.author-info { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text-secondary); font-size: .82rem; overflow-wrap: anywhere; }
+.avatar { width: 24px; height: 24px; object-fit: cover; border-radius: 50%; }
+.status-bar { text-align: center; color: var(--text-secondary); padding: 32px 0; }
+.status-bar button { color: var(--text-primary); background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 8px 16px; }
+@media(max-width: 720px) { .masonry-grid, .masonry-column { gap: 16px; } }
 </style>

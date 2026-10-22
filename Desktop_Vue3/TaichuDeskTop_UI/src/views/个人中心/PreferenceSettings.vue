@@ -107,8 +107,8 @@ onMounted(() => {
 
 <style scoped>
 .preference-panel {
-  background: #fff;
-  border: 1px solid #f0f0f0;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   border-radius: 12px;
   padding: 24px;
   animation: fadeIn 0.4s ease;
@@ -119,7 +119,7 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 0;
-  border-bottom: 1px dashed #eaeef2;
+  border-bottom: 1px dashed var(--border-line);
 }
 .setting-item:last-child {
   border-bottom: none;
@@ -134,13 +134,13 @@ onMounted(() => {
 
 .item-name {
   font-size: 0.95rem;
-  color: #24292f;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .item-desc {
   font-size: 0.8rem;
-  color: #57606a;
+  color: var(--text-secondary);
 }
 
 .actions {
@@ -149,8 +149,8 @@ onMounted(() => {
 }
 
 .save-btn {
-  background: #24292f;
-  color: #fff;
+  background: var(--accent-color);
+  color: var(--on-accent);
   border: none;
   padding: 8px 24px;
   border-radius: 6px;
@@ -177,7 +177,7 @@ onMounted(() => {
   position: absolute;
   cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #eaeef2;
+  background-color: var(--bg-sub);
   transition: .4s;
   border-radius: 24px;
 }
@@ -186,7 +186,7 @@ onMounted(() => {
   content: "";
   height: 18px; width: 18px;
   left: 3px; bottom: 3px;
-  background-color: #fff;
+  background-color: var(--paper-card);
   transition: .4s;
   border-radius: 50%;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -194,7 +194,7 @@ onMounted(() => {
 
 /* 选中状态 (使用你全局偏好的深色/红色系，这里用深黑契合徽墨) */
 .ink-toggle input:checked + .toggle-slider {
-  background-color: #24292f;
+  background-color: var(--text-primary);
 }
 .ink-toggle input:checked + .toggle-slider:before {
   transform: translateX(20px);

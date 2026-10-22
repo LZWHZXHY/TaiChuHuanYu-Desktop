@@ -6,10 +6,11 @@
 </template>
 
 <script setup lang="ts">
+import DOMPurify from 'dompurify';
 import { computed } from 'vue';
 import { generateHTML } from '@tiptap/html';
+import type { Node } from '@tiptap/core';
 import { spiritExtensions } from '../../utils/editorConfig'; // 复用您的扩展蓝图
-import StarterKit from '@tiptap/starter-kit';
 
 interface Props {
   modelValue: any; // 接收后端的 JSON 对象或字符串
@@ -17,7 +18,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const renderedHtml = computed(() => {
+const rawHtml = computed(() => {
   if (!props.modelValue) return '';
   
   let json = props.modelValue;
@@ -52,7 +53,7 @@ const renderedHtml = computed(() => {
         // 🛡️ 核心修复点 1：精准过滤 marks 数组，只保留系统支持的样式（防止颜色丢失，同时防御未知样色崩溃）
         if (node.marks && Array.isArray(node.marks)) {
           // 这里是您当前系统（StarterKit + 独立扩展）注册的所有合法 Mark
-          const allowedMarkTypes = ['bold', 'italic', 'underline', 'strike', 'code', 'textStyle', 'highlight'];
+          const allowedMarkTypes = ['bold', 'italic', 'underline', 'strike', 'code', 'textStyle', 'highlight', 'link'];
           
           node.marks = node.marks.filter((mark: any) => {
             if (!mark || typeof mark !== 'object') return false;
@@ -72,7 +73,7 @@ const renderedHtml = computed(() => {
           'doc', 'paragraph', 'text', 'heading', 'blockquote', 
           'bulletList', 'orderedList', 'listItem', 'codeBlock', 
           'image', 'spirit-link', 'details', 'summary', 
-          'taskList', 'taskItem', 'mention', 'horizontalRule', 'hardBreak'
+          'taskList', 'taskItem', 'mention', 'horizontalRule', 'hardBreak', 'pdfEmbed'
         ];
         
         if (node.type && !allowedNodeTypes.includes(node.type)) {
@@ -90,22 +91,19 @@ const renderedHtml = computed(() => {
       stripAndCleanEngine(finalJson.content);
     }
 
-    // 3. 显式引入纯净的 StarterKit 依赖包并结合您的业务扩展进行纯静态 HTML 转换
-    return generateHTML(finalJson, [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-        codeBlock: { HTMLAttributes: { class: 'spirit-code-block' } },
-      }),
-      ...spiritExtensions.filter(ext => ext && ext.name !== 'starter-kit' && ext.name !== 'starterKit')
-    ]);
+    // 复用编辑器配置，避免重复注册 Link/Underline；静态预览中的 PDF 保留文件入口。
+    return generateHTML(finalJson, spiritExtensions.map(extension => extension.name === 'pdfEmbed'
+      ? (extension as Node).extend({ renderHTML({ node }) { return ['p', ['a', { href: node.attrs.url, target: '_blank', rel: 'noopener noreferrer' }, `PDF：${node.attrs.fileName || '打开文档'}`]]; } })
+      : extension));
 
   } catch (e: any) {
     console.error('【灵脉高级清洗失败】:', e);
     return `<div style="color: #ff3b30; font-size: 13px; padding: 10px; border: 1px dashed #ff3b30; border-radius: 4px;">
-              ⚠️ 百科词条局部发生极强磁场干扰 (${e.message})
+              ⚠️ 百科词条局部发生极强磁场干扰 ，请尝试重新加载
             </div>`;
   }
 });
+const renderedHtml = computed(() => DOMPurify.sanitize(rawHtml.value));
 </script>
 
 <style>

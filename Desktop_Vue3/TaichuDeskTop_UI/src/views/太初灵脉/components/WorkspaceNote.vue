@@ -1,8 +1,8 @@
 <template>
   <div class="workspace-note">
-    <input 
+    <textarea rows="2" aria-label="文档标题"
       :value="title" 
-      @input="$emit('update:title', ($event.target as HTMLInputElement).value)"
+      @input="$emit('update:title', ($event.target as HTMLTextAreaElement).value)"
       class="title-input" 
       placeholder="无标题随笔..." 
       spellcheck="false"
@@ -33,8 +33,9 @@ defineEmits(['update:title']);
   width: 100%;
   max-width: 900px; 
   margin: 0 auto;
-  background: #ffffff;
-  padding: 60px;
+  background: var(--paper-card);
+  padding: clamp(20px, 3vw, 36px);
+  container-type: inline-size;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.02);
 }
@@ -42,17 +43,18 @@ defineEmits(['update:title']);
 .title-input {
   width: 100%; 
   border: none; 
-  font-size: 3rem; 
-  font-weight: 800;
-  margin-bottom: 40px; 
+  font-size: clamp(24px, 5cqi, 36px);
+  line-height: 1.4;
+  resize: vertical;
+  font-weight: 700;
+  margin-bottom: 24px;
   outline: none; 
   background: transparent;
   letter-spacing: -0.04em; 
-  color: #1d1d1f;
+  color: var(--text-primary);
 }
 
 @media (max-width: 1024px) {
   .workspace-note { padding: 20px; }
-  .title-input { font-size: 2.2rem; }
 }
 </style>

@@ -1,282 +1,109 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.World;
 using TaiChuWeb_V2.Models.World;
 
-namespace TaiChuWeb_V2.Services.World
+namespace TaiChuWeb_V2.Services.World;
+
+public class WorldProjectService(AppDbContext context, IMemoryCache cache, IWorldQuotaService quotaService) : IWorldProjectService
 {
-    public class WorldProjectService : IWorldProjectService
+    public async Task<IEnumerable<ProjectResponseDto>> GetUserProjectsAsync(Guid userId)
     {
-        private readonly AppDbContext _context;
-        private readonly IMemoryCache _cache;
-
-        public WorldProjectService(AppDbContext context, IMemoryCache cache)
-        {
-            _context = context;
-            _cache = cache;
-        }
-
-        // ============================================================
-        //  1. 获取用户的所有项目（带缓存）
-        // ============================================================
-        public async Task<IEnumerable<ProjectResponseDto>> GetUserProjectsAsync(Guid userId)
-        {
-            var cacheKey = $"user_projects_{userId}";
-
-            if (_cache.TryGetValue(cacheKey, out IEnumerable<ProjectResponseDto>? cached))
-                return cached ?? new List<ProjectResponseDto>();
-
-            var projects = await _context.WorldProjects
-                .AsNoTracking()
-                .Where(p => p.OwnerId == userId)
-                .Select(p => new ProjectResponseDto
-                {
-                    Id = p.Id,
-                    Name = p.Name,
-                    Description = p.Description,
-                    IsPublic = p.IsPublic,
-                    CreatedAt = p.CreatedAt,
-                    UpdatedAt = p.UpdatedAt,
-                    CardCount = p.Cards.Count,
-                    OwnerName = p.Owner != null ? p.Owner.Username : null,
-                    OwnerId = p.OwnerId
-                })
-                .ToListAsync();
-
-            _cache.Set(cacheKey, projects, TimeSpan.FromMinutes(5));
-            return projects;
-        }
-
-        // ============================================================
-        //  2. 获取公开项目列表（带缓存）
-        // ============================================================
-        public async Task<IEnumerable<ProjectResponseDto>> GetPublicProjectsAsync()
-        {
-            const string cacheKey = "public_projects";
-
-            if (_cache.TryGetValue(cacheKey, out IEnumerable<ProjectResponseDto>? cached))
-                return cached ?? new List<ProjectResponseDto>();
-
-            var projects = await _context.WorldProjects
-                .AsNoTracking()
-                .Where(p => p.IsPublic)
-                .OrderByDescending(p => p.UpdatedAt)
-                .Select(p => new ProjectResponseDto
-                {
-                    Id = p.Id,
-                    Name = p.Name,
-                    Description = p.Description,
-                    IsPublic = p.IsPublic,
-                    CreatedAt = p.CreatedAt,
-                    UpdatedAt = p.UpdatedAt,
-                    CardCount = p.Cards.Count,
-                    OwnerName = p.Owner != null ? p.Owner.Username : null,
-                    OwnerId = p.OwnerId
-                })
-                .ToListAsync();
-
-            _cache.Set(cacheKey, projects, TimeSpan.FromMinutes(5));
-            return projects;
-        }
-
-        // ============================================================
-        //  3. 获取项目详情（轻量级，不含卡片列表）
-        // ============================================================
-        public async Task<ProjectResponseDto> GetProjectByIdAsync(Guid projectId, Guid userId)
-        {
-            var project = await _context.WorldProjects
-                .AsNoTracking()
-                .Where(p => p.Id == projectId)
-                .Select(p => new
-                {
-                    p.Id,
-                    p.Name,
-                    p.Description,
-                    p.IsPublic,
-                    p.OwnerId,
-                    p.CreatedAt,
-                    p.UpdatedAt,
-                    OwnerName = p.Owner != null ? p.Owner.Username : null,
-                    CardCount = p.Cards.Count
-                })
-                .FirstOrDefaultAsync();
-
-            if (project == null)
-                return null;
-
-            // 权限检查：公开或属于当前用户
-            if (!project.IsPublic && project.OwnerId != userId)
-                return null;
-
-            return new ProjectResponseDto
-            {
-                Id = project.Id,
-                Name = project.Name,
-                Description = project.Description,
-                IsPublic = project.IsPublic,
-                CreatedAt = project.CreatedAt,
-                UpdatedAt = project.UpdatedAt,
-                CardCount = project.CardCount,
-                OwnerName = project.OwnerName,
-                OwnerId = project.OwnerId
-            };
-        }
-
-        // ============================================================
-        //  4. 获取项目详情（包含卡片列表）- 用于管理页面
-        // ============================================================
-        public async Task<ProjectResponseDto> GetProjectWithCardsAsync(Guid projectId, Guid userId)
-        {
-            var project = await _context.WorldProjects
-                .AsNoTracking()
-                .Include(p => p.Owner)
-                .Include(p => p.Cards)
-                .FirstOrDefaultAsync(p => p.Id == projectId);
-
-            if (project == null)
-                return null;
-
-            if (!project.IsPublic && project.OwnerId != userId)
-                return null;
-
-            return new ProjectResponseDto
-            {
-                Id = project.Id,
-                Name = project.Name,
-                Description = project.Description,
-                IsPublic = project.IsPublic,
-                CreatedAt = project.CreatedAt,
-                UpdatedAt = project.UpdatedAt,
-                CardCount = project.Cards.Count,
-                OwnerName = project.Owner?.Username,
-                OwnerId = project.OwnerId
-            };
-        }
-
-        // ============================================================
-        //  5. 创建项目
-        // ============================================================
-        public async Task<ProjectResponseDto> CreateProjectAsync(Guid userId, CreateProjectDto dto)
-        {
-            var project = new WorldProject
-            {
-                Id = Guid.NewGuid(),
-                Name = dto.Name,
-                Description = dto.Description,
-                IsPublic = dto.IsPublic,
-                OwnerId = userId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            await _context.WorldProjects.AddAsync(project);
-            await _context.SaveChangesAsync();
-
-            ClearProjectCache(userId);
-            return new ProjectResponseDto
-            {
-                Id = project.Id,
-                Name = project.Name,
-                Description = project.Description,
-                IsPublic = project.IsPublic,
-                CreatedAt = project.CreatedAt,
-                UpdatedAt = project.UpdatedAt,
-                CardCount = 0,
-                OwnerName = null,
-                OwnerId = userId
-            };
-        }
-
-        // ============================================================
-        //  6. 更新项目
-        // ============================================================
-        public async Task<ProjectResponseDto> UpdateProjectAsync(Guid projectId, Guid userId, UpdateProjectDto dto)
-        {
-            var project = await _context.WorldProjects
-                .FirstOrDefaultAsync(p => p.Id == projectId && p.OwnerId == userId);
-
-            if (project == null)
-                return null;
-
-            if (!string.IsNullOrEmpty(dto.Name))
-                project.Name = dto.Name;
-
-            if (dto.Description != null)
-                project.Description = dto.Description;
-
-            if (dto.IsPublic.HasValue)
-                project.IsPublic = dto.IsPublic.Value;
-
-            project.UpdatedAt = DateTime.UtcNow;
-
-            _context.WorldProjects.Update(project);
-            await _context.SaveChangesAsync();
-
-            ClearProjectCache(userId);
-            return new ProjectResponseDto
-            {
-                Id = project.Id,
-                Name = project.Name,
-                Description = project.Description,
-                IsPublic = project.IsPublic,
-                CreatedAt = project.CreatedAt,
-                UpdatedAt = project.UpdatedAt,
-                CardCount = await _context.WorldCards.CountAsync(c => c.ProjectId == projectId),
-                OwnerName = null,
-                OwnerId = userId
-            };
-        }
-
-        // ============================================================
-        //  7. 删除项目
-        // ============================================================
-        public async Task<bool> DeleteProjectAsync(Guid projectId, Guid userId)
-        {
-            var project = await _context.WorldProjects
-                .FirstOrDefaultAsync(p => p.Id == projectId && p.OwnerId == userId);
-
-            if (project == null)
-                return false;
-
-            _context.WorldProjects.Remove(project);
-            await _context.SaveChangesAsync();
-
-            ClearProjectCache(userId);
-            return true;
-        }
-
-        // ============================================================
-        //  8. 权限验证（是否为项目所有者）
-        // ============================================================
-        public async Task<bool> IsProjectOwnerAsync(Guid projectId, Guid userId)
-        {
-            return await _context.WorldProjects
-                .AsNoTracking()
-                .AnyAsync(p => p.Id == projectId && p.OwnerId == userId);
-        }
-
-        // ============================================================
-        //  9. 权限验证（是否有权访问 - 公开或所有者）
-        // ============================================================
-        public async Task<bool> IsProjectAccessibleAsync(Guid projectId, Guid userId)
-        {
-            return await _context.WorldProjects
-                .AsNoTracking()
-                .AnyAsync(p => p.Id == projectId && (p.IsPublic || p.OwnerId == userId));
-        }
-
-        // ============================================================
-        //  10. 清除缓存
-        // ============================================================
-        private void ClearProjectCache(Guid userId)
-        {
-            _cache.Remove($"user_projects_{userId}");
-            _cache.Remove("public_projects");
-        }
+        var key = $"user_projects_{userId}";
+        if (cache.TryGetValue(key, out IEnumerable<ProjectResponseDto>? cached)) return cached ?? [];
+        var projects = await context.WorldProjects.AsNoTracking().OwnedBy(userId)
+            .Select(WorldProjectMapper.Projection).ToListAsync();
+        cache.Set(key, projects, TimeSpan.FromMinutes(5));
+        return projects;
     }
+
+    public async Task<IEnumerable<ProjectResponseDto>> GetPublicProjectsAsync()
+    {
+        const string key = "public_projects";
+        if (cache.TryGetValue(key, out IEnumerable<ProjectResponseDto>? cached)) return cached ?? [];
+        var projects = await context.WorldProjects.AsNoTracking().Where(p => p.IsPublic)
+            .OrderByDescending(p => p.UpdatedAt).Select(WorldProjectMapper.Projection).ToListAsync();
+        cache.Set(key, projects, TimeSpan.FromMinutes(5));
+        return projects;
+    }
+
+    public Task<ProjectResponseDto?> GetProjectByIdAsync(Guid projectId, Guid userId) =>
+        context.WorldProjects.AsNoTracking().ReadableBy(userId).Where(p => p.Id == projectId)
+            .Select(WorldProjectMapper.Projection).FirstOrDefaultAsync();
+
+    // 此 DTO 只有 CardCount，不需要加载完整卡片集合。
+    public Task<ProjectResponseDto?> GetProjectWithCardsAsync(Guid projectId, Guid userId) =>
+        GetProjectByIdAsync(projectId, userId);
+
+    public async Task<ProjectResponseDto> CreateProjectAsync(Guid userId, CreateProjectDto dto)
+    {
+        WorldValidation.Validate(dto);
+        var quota = await quotaService.CanCreateProjectAsync(userId);
+        if (!quota.CanCreate)
+            throw new WorldOperationException(WorldErrorKind.Invalid, quota.Message, new Dictionary<string, object?>
+            {
+                ["success"] = false, ["code"] = "QUOTA_EXCEEDED", ["used"] = quota.Used, ["max"] = quota.Max
+            });
+
+        var project = new WorldProject
+        {
+            Id = Guid.NewGuid(), Name = dto.Name, Description = dto.Description, IsPublic = dto.IsPublic,
+            OwnerId = userId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
+        };
+        context.WorldProjects.Add(project);
+        await context.SaveChangesAsync();
+        WorldCache.InvalidateProject(cache, project.Id, userId);
+        await quotaService.IncrementUsedWorldCountAsync(userId);
+        var result = WorldProjectMapper.FromEntity(project);
+        result.OwnerName = null;
+        return result;
+    }
+
+    public async Task<ProjectResponseDto?> UpdateProjectAsync(Guid projectId, Guid userId, UpdateProjectDto dto)
+    {
+        WorldValidation.Validate(dto);
+        var project = await context.WorldProjects.FirstOrDefaultAsync(p => p.Id == projectId);
+        WorldAccess.RequireReadable(project, userId);
+        if (!WorldAccess.IsOwner(project!.OwnerId, userId)) return null;
+
+        if (!string.IsNullOrEmpty(dto.Name)) project.Name = dto.Name;
+        if (dto.Description != null) project.Description = dto.Description;
+        if (dto.IsPublic.HasValue) project.IsPublic = dto.IsPublic.Value;
+        project.UpdatedAt = DateTime.UtcNow;
+        await context.SaveChangesAsync();
+        WorldCache.InvalidateProject(cache, projectId, userId);
+
+        // 写接口沿用 OwnerName=null，CardCount 从数据库计数，不依赖导航实体是否被加载。
+        var result = WorldProjectMapper.FromEntity(project);
+        result.OwnerName = null;
+        result.CardCount = await context.WorldCards.CountAsync(c => c.ProjectId == projectId);
+        return result;
+    }
+
+    public async Task<bool> DeleteProjectAsync(Guid projectId, Guid userId)
+    {
+        var project = await context.WorldProjects.FirstOrDefaultAsync(p => p.Id == projectId);
+        WorldAccess.RequireReadable(project, userId);
+        if (!WorldAccess.IsOwner(project!.OwnerId, userId)) return false;
+
+        // 关系的外键为 Restrict，先删除项目内卡片的双向关系，再删除项目。
+        var cardIds = await context.WorldCards.Where(c => c.ProjectId == projectId).Select(c => c.Id).ToArrayAsync();
+        var relations = await context.WorldRelations
+            .Where(r => cardIds.Contains(r.SourceCardId) || cardIds.Contains(r.TargetCardId)).ToListAsync();
+        var affectedIds = relations.SelectMany(r => new[] { r.SourceCardId, r.TargetCardId }).Concat(cardIds).ToArray();
+        context.WorldRelations.RemoveRange(relations);
+        context.WorldProjects.Remove(project);
+        await context.SaveChangesAsync();
+        WorldCache.InvalidateCards(cache, affectedIds);
+        WorldCache.InvalidateProject(cache, projectId, userId);
+        await quotaService.DecrementUsedWorldCountAsync(userId);
+        return true;
+    }
+
+    public Task<bool> IsProjectOwnerAsync(Guid projectId, Guid userId) =>
+        context.WorldProjects.AsNoTracking().OwnedBy(userId).AnyAsync(p => p.Id == projectId);
+
+    public Task<bool> IsProjectAccessibleAsync(Guid projectId, Guid userId) =>
+        context.WorldProjects.AsNoTracking().ReadableBy(userId).AnyAsync(p => p.Id == projectId);
 }

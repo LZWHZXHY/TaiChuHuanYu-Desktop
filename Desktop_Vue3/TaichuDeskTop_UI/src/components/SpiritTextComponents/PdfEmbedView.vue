@@ -34,25 +34,25 @@ const deleteSelf = () => {
 <style scoped>
 .pdf-embed-wrapper {
   margin: 16px 0;
-  border: 1px solid #e5e5ea;
+  border: 1px solid var(--border-line);
   border-radius: 12px;
   overflow: hidden;
-  background: #ffffff;
+  background: var(--paper-card);
 }
 .pdf-header {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 16px;
-  background: #fbfbfd;
-  border-bottom: 1px solid #e5e5ea;
+  background: var(--paper-card);
+  border-bottom: 1px solid var(--border-line);
   font-size: 13px;
 }
 .pdf-icon { font-size: 16px; }
 .pdf-name {
   flex: 1;
   font-weight: 600;
-  color: #1d1d1f;
+  color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -64,18 +64,18 @@ const deleteSelf = () => {
   font-size: 12px;
   font-weight: 500;
   text-decoration: none;
-  color: #0066cc;
+  color: var(--accent-color);
   background: rgba(0, 102, 204, 0.08);
   border: none;
   cursor: pointer;
   transition: all 0.15s;
 }
 .pdf-btn:hover { background: rgba(0, 102, 204, 0.15); }
-.pdf-btn.danger { color: #ff3b30; background: rgba(255, 59, 48, 0.08); }
+.pdf-btn.danger { color: var(--danger); background: rgba(255, 59, 48, 0.08); }
 .pdf-btn.danger:hover { background: rgba(255, 59, 48, 0.15); }
 .pdf-body {
   width: 100%;
-  background: #f5f5f7;
+  background: var(--bg-sub);
   position: relative;
 }
 .pdf-empty {
@@ -83,7 +83,7 @@ const deleteSelf = () => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  color: #c7c7cc;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 </style>

@@ -1,147 +1,46 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.Security.Claims;
-using System.Threading.Tasks;
 using TaiChuWeb_V2.Dtos.World;
 using TaiChuWeb_V2.Services.World;
 
-namespace TaiChuWeb_V2.Controllers.World
+namespace TaiChuWeb_V2.Controllers.World;
+
+[Route("api/world/projects")]
+[Authorize]
+public class WorldProjectsController(IWorldProjectService projectService) : WorldControllerBase
 {
-    [Route("api/world/projects")]
-    [ApiController]
-    [Authorize]
-    public class WorldProjectsController : ControllerBase
+    [HttpGet]
+    public async Task<IActionResult> GetMyProjects() => Ok(await projectService.GetUserProjectsAsync(CurrentUserId));
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetProject(Guid id)
     {
-        private readonly IWorldProjectService _projectService;
-        private readonly IWorldQuotaService _quotaService;  // 🆕 新增
+        var project = await projectService.GetProjectByIdAsync(id, CurrentUserId);
+        return project == null ? NotFound(new { message = "项目不存在或无权访问" }) : Ok(project);
+    }
 
-        public WorldProjectsController(IWorldProjectService projectService, IWorldQuotaService quotaService)  // 🆕 新增参数
-        {
-            _projectService = projectService;
-            _quotaService = quotaService;  // 🆕
-        }
+    [HttpGet("public")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GetPublicProjects() => Ok(await projectService.GetPublicProjectsAsync());
 
-        /// <summary>
-        /// 获取当前用户的所有项目
-        /// </summary>
-        [HttpGet]
-        public async Task<IActionResult> GetMyProjects()
-        {
-            var userId = GetCurrentUserId();
-            var projects = await _projectService.GetUserProjectsAsync(userId);
-            return Ok(projects);
-        }
+    [HttpPost]
+    public async Task<IActionResult> CreateProject([FromBody] CreateProjectDto dto)
+    {
+        var project = await projectService.CreateProjectAsync(CurrentUserId, dto);
+        return CreatedAtAction(nameof(GetProject), new { id = project.Id }, project);
+    }
 
-        /// <summary>
-        /// 获取单个项目详情
-        /// </summary>
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetProject(Guid id)
-        {
-            var userId = GetCurrentUserId();
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateProject(Guid id, [FromBody] UpdateProjectDto dto)
+    {
+        var project = await projectService.UpdateProjectAsync(id, CurrentUserId, dto);
+        return project == null ? NotFound(new { message = "项目不存在或无权修改" }) : Ok(project);
+    }
 
-            // ✅ 优化：使用轻量级权限验证
-            if (!await _projectService.IsProjectAccessibleAsync(id, userId))
-                return NotFound(new { message = "项目不存在或无权访问" });
-
-            var project = await _projectService.GetProjectByIdAsync(id, userId);
-            return Ok(project);
-        }
-
-        /// <summary>
-        /// 获取所有公开项目（无需登录）
-        /// </summary>
-        [HttpGet("public")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetPublicProjects()
-        {
-            var projects = await _projectService.GetPublicProjectsAsync();
-            return Ok(projects);
-        }
-
-        /// <summary>
-        /// 创建新项目
-        /// </summary>
-        [HttpPost]
-        public async Task<IActionResult> CreateProject([FromBody] CreateProjectDto dto)
-        {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var userId = GetCurrentUserId();
-
-            // ✅ 检查世界观配额
-            var quotaCheck = await _quotaService.CanCreateProjectAsync(userId);
-            if (!quotaCheck.CanCreate)
-            {
-                return BadRequest(new
-                {
-                    success = false,
-                    code = "QUOTA_EXCEEDED",
-                    message = quotaCheck.Message,
-                    used = quotaCheck.Used,
-                    max = quotaCheck.Max
-                });
-            }
-
-            var project = await _projectService.CreateProjectAsync(userId, dto);
-
-            // ✅ 增加已使用数量
-            await _quotaService.IncrementUsedWorldCountAsync(userId);
-
-            return CreatedAtAction(nameof(GetProject), new { id = project.Id }, project);
-        }
-
-        /// <summary>
-        /// 更新项目
-        /// </summary>
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateProject(Guid id, [FromBody] UpdateProjectDto dto)
-        {
-            var userId = GetCurrentUserId();
-
-            if (!await _projectService.IsProjectAccessibleAsync(id, userId))
-                return NotFound(new { message = "项目不存在或无权访问" });
-
-            var project = await _projectService.UpdateProjectAsync(id, userId, dto);
-            if (project == null)
-                return NotFound(new { message = "项目不存在或无权修改" });
-
-            return Ok(project);
-        }
-
-        /// <summary>
-        /// 删除项目
-        /// </summary>
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteProject(Guid id)
-        {
-            var userId = GetCurrentUserId();
-
-            if (!await _projectService.IsProjectAccessibleAsync(id, userId))
-                return NotFound(new { message = "项目不存在或无权访问" });
-
-            var result = await _projectService.DeleteProjectAsync(id, userId);
-            if (!result)
-                return NotFound(new { message = "项目不存在或无权删除" });
-
-            // ✅ 减少已使用数量
-            await _quotaService.DecrementUsedWorldCountAsync(userId);
-
-            return NoContent();
-        }
-
-        /// <summary>
-        /// 从 JWT 中获取当前用户 ID
-        /// </summary>
-        private Guid GetCurrentUserId()
-        {
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim))
-                throw new UnauthorizedAccessException("用户未认证");
-
-            return Guid.Parse(userIdClaim);
-        }
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteProject(Guid id)
+    {
+        var deleted = await projectService.DeleteProjectAsync(id, CurrentUserId);
+        return deleted ? NoContent() : NotFound(new { message = "项目不存在或无权删除" });
     }
 }

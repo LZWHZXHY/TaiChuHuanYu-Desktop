@@ -97,20 +97,22 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             if (string.IsNullOrEmpty(battle.OpponentOcIds))
                 return BadRequest(new { message = "此约战为公开约战，无需拒绝" });
 
+            if (battle.Participants.Any(p => p.UserId == userId))
+                return BadRequest(new { message = "已报名，请使用取消报名" });
+
             try
             {
-                var opponentDict = JsonSerializer.Deserialize<Dictionary<string, List<Guid>>>(battle.OpponentOcIds);
-                if (opponentDict == null || !opponentDict.ContainsKey(userId.ToString()))
+                var opponentDict = JsonSerializer.Deserialize<Dictionary<Guid, List<Guid>>>(battle.OpponentOcIds);
+                if (opponentDict == null || !opponentDict.ContainsKey(userId))
                     return BadRequest(new { message = "你并非此约战的指定对手" });
+                opponentDict.Remove(userId);
+                battle.IsPublic = opponentDict.Count == 0;
+                battle.OpponentOcIds = battle.IsPublic ? null : JsonSerializer.Serialize(opponentDict);
             }
             catch
             {
                 return BadRequest(new { message = "约战配置异常，请联系管理员" });
             }
-
-            // ⭐ 清除指定对手信息 → 变为公开约战
-            battle.OpponentOcIds = null;
-            battle.IsPublic = true;
 
             await _context.SaveChangesAsync();
 
@@ -188,13 +190,12 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             }
 
             // ===== 2. 验证对手OC（但不要添加为参与者） =====
-            List<Guid>? opponentOcIds = null;
-            Guid? opponentUserId = null;
-            if (request.OpponentOcIds != null && request.OpponentOcIds.Any())
+            foreach (var invitation in request.OpponentOcIds ?? new())
             {
-                var first = request.OpponentOcIds.First();
-                opponentUserId = first.Key;
-                opponentOcIds = first.Value;
+                var opponentUserId = invitation.Key;
+                var opponentOcIds = invitation.Value?.Distinct().ToList();
+                if (opponentUserId == userId)
+                    return BadRequest(new { message = "不能邀请自己，请在发起者栏选择自己的OC" });
 
                 if (opponentOcIds == null || !opponentOcIds.Any())
                     return BadRequest(new { message = "对手OC列表不能为空" });
@@ -221,6 +222,25 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 }
             }
 
+            Dictionary<Guid, int> teams;
+            System.Text.Json.Nodes.JsonObject configuration;
+            try
+            {
+                using var config = JsonDocument.Parse(request.BattleConfigJson ?? "{}");
+                teams = config.RootElement.TryGetProperty("teams", out var value)
+                    ? value.Deserialize<Dictionary<Guid, int>>() ?? new() : new();
+                if (teams.Any(t => t.Value is not (1 or 2) ||
+                    (t.Key != userId && !(request.OpponentOcIds?.ContainsKey(t.Key) ?? false))))
+                    return BadRequest(new { message = "队伍配置无效" });
+                teams[userId] = 1;
+                configuration = System.Text.Json.Nodes.JsonNode.Parse(request.BattleConfigJson ?? "{}")!.AsObject();
+                configuration["teams"] = JsonSerializer.SerializeToNode(teams);
+            }
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+            {
+                return BadRequest(new { message = "队伍配置无效" });
+            }
+
             // ===== 3. 创建约战 =====
             var battle = new Battle
             {
@@ -231,7 +251,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 BattleType = request.BattleType,
                 Rules = request.Rules,
                 JudgmentType = request.JudgmentType ?? "vote",
-                BattleConfigJson = "{}",
+                BattleConfigJson = configuration.ToJsonString(),
                 IsPublic = request.OpponentOcIds == null || !request.OpponentOcIds.Any(),
                 OpponentOcIds = request.OpponentOcIds != null && request.OpponentOcIds.Any()
                     ? JsonSerializer.Serialize(request.OpponentOcIds)
@@ -263,6 +283,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 BattleId = battle.Id,
                 UserId = userId,
                 UserName = username,
+                TeamNumber = 1,
                 OcIdsJson = SafeSerialize(ocIds),
                 OcNamesJson = SafeSerialize(ocNames),
                 Status = "registered",
@@ -314,12 +335,12 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 return BadRequest(new { message = "你已经报名了此约战" });
 
             // ⭐ 新增：指定对手校验
-            if (!battle.IsPublic && !string.IsNullOrEmpty(battle.OpponentOcIds))
+            if (!battle.IsPublic)
             {
                 try
                 {
-                    var opponentOcIdsDict = JsonSerializer.Deserialize<Dictionary<string, List<Guid>>>(battle.OpponentOcIds);
-                    if (opponentOcIdsDict != null && !opponentOcIdsDict.ContainsKey(userId.ToString()))
+                    var opponentOcIdsDict = JsonSerializer.Deserialize<Dictionary<Guid, List<Guid>>>(battle.OpponentOcIds ?? "null");
+                    if (opponentOcIdsDict == null || !opponentOcIdsDict.ContainsKey(userId))
                     {
                         return BadRequest(new { message = "此约战已指定对手，你无权应战" });
                     }
@@ -346,11 +367,32 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                     return BadRequest(new { message = $"OC「{oc.Title}」不允许参与约战" });
             }
 
+            var activeBattles = await _context.Battles
+                .Where(b => b.Id != id && b.Status != "finished" && b.Status != "cancelled")
+                .Include(b => b.Participants).ToListAsync();
+            if (ocIds.Any(oc => activeBattles.Any(b => b.Participants.Any(p =>
+                p.OcIdsJson.Contains($"\"{oc}\"", StringComparison.OrdinalIgnoreCase)))))
+                return BadRequest(new { message = "所选OC已在其他进行中的约战中" });
+
+            var teamNumber = 2;
+            try
+            {
+                using var config = JsonDocument.Parse(battle.BattleConfigJson ?? "{}");
+                if (config.RootElement.TryGetProperty("teams", out var value))
+                {
+                    var teams = value.Deserialize<Dictionary<Guid, int>>();
+                    if (teams?.TryGetValue(userId, out var team) == true && team is 1 or 2) teamNumber = team;
+                }
+            }
+            catch (Exception ex) when (ex is JsonException or InvalidOperationException)
+            { return BadRequest(new { message = "队伍配置异常，请联系发起者" }); }
+
             var participant = new BattleParticipant
             {
                 Id = Guid.NewGuid().ToString(),
                 BattleId = battle.Id,
                 UserId = userId,
+                TeamNumber = teamNumber,
                 UserName = username,
                 OcIdsJson = JsonSerializer.Serialize(ocIds),
                 OcNamesJson = JsonSerializer.Serialize(ocs.Select(o => o.Title).ToList()),
@@ -393,6 +435,9 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             var participant = battle.Participants.FirstOrDefault(p => p.UserId == userId);
             if (participant == null)
                 return BadRequest(new { message = "你尚未报名此约战" });
+
+            if (battle.Participants.OrderBy(p => p.JoinedAt).FirstOrDefault()?.UserId == userId)
+                return BadRequest(new { message = "发起者不能退出报名，请使用取消约战" });
 
             battle.Participants.Remove(participant);
             await _context.SaveChangesAsync();

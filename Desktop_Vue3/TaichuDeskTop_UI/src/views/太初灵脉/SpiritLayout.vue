@@ -35,7 +35,9 @@
           @open-graph="isGraphViewOpen = true"
           @open-settings="isSettingsOpen = true"
         />
-        <router-view />
+        <router-view v-slot="{ Component }">
+          <component :is="Component" ref="noteEditorRef" />
+        </router-view>
       </main>
 
       <!-- ✨ 保留的右侧面板 -->
@@ -54,36 +56,47 @@
     </transition>
 
     <NoteSettingsPanel
+      v-if="isSettingsOpen"
       v-model="isSettingsOpen"
       :note="activeNote"
       :spaces="spaces"
       :current-space-id="currentSpaceId"
       :filters="displayFilters"
       :can-publish="canPublishDynamic"
+      :publishing="publicationBusy"
       @update-note-meta="handleUpdateNoteMeta"
       @update-space-meta="handleUpdateSpaceMeta"
       @update-filters="handleUpdateFilters"
       @delete="handleDeleteNote"
       @open-history="isHistoryOpen = true"
       @publish-click="handlePublishClick"
+      @unshare="handlePublishClick(true)"
+      @refresh-publish="showPublishModal = true"
+      @save="saveCurrentNote"
     />
 
-    <HistoryPanel 
+    <HistoryPanel
+      v-if="isHistoryOpen"
+      ref="historyPanelRef"
+      :busy="historyBusy || isContentLoading"
       v-model="isHistoryOpen" 
       :note-id="currentNoteId" 
-      @rollback="onRollback" 
-      @manual-save="handleManualSave" 
+      @rollback="handleHistoryAction" 
+      @manual-save="handleHistoryAction()" 
     />
 
     <PublishModal
+      v-if="showPublishModal"
       v-model="showPublishModal"
       :note-id="currentNoteId"
       :note-type="activeNote?.type || 'note'"
       :space-name="activeSpaceName"
+      :before-publish="preparePublish"
       @success="onPublishSuccess"
     />
 
     <QuickEditorDrawer
+      v-if="isQuickEditorOpen"
       v-model="isQuickEditorOpen"
       :note-id="quickEditorNoteId"
       :note-meta="quickEditorNoteMeta"
@@ -95,19 +108,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, provide } from 'vue';
+import { defineAsyncComponent, ref, computed, onMounted, onUnmounted, watch, provide, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import SidebarIndex from './components/SidebarIndex.vue';
 import RightSidePanel from './components/RightSidePanel.vue';
-import HistoryPanel from './components/HistoryPanel.vue';
-import GraphView from './components/GraphView.vue';
-import PublishModal from './components/PublishModal.vue';
-import NoteSettingsPanel from './components/NoteSettingsPanel.vue';
+const HistoryPanel = defineAsyncComponent(() => import('./components/HistoryPanel.vue'));
+const GraphView = defineAsyncComponent(() => import('./components/GraphView.vue'));
+const PublishModal = defineAsyncComponent(() => import('./components/PublishModal.vue'));
+const NoteSettingsPanel = defineAsyncComponent(() => import('./components/NoteSettingsPanel.vue'));
 import TopBar from './components/TopBar.vue';
-import QuickEditorDrawer from './components/QuickEditorDrawer.vue';
+const QuickEditorDrawer = defineAsyncComponent(() => import('./components/QuickEditorDrawer.vue'));
 import SpiritToast from '@/components/SpiritToast.vue';
 import { useSpiritData } from '../../composables/useSpiritData';
 import { lingmaiApi } from '../../api/lingmai';
+import { createNoteSyncPayload } from '@/utils/editorHelpers';
 import { useAutoSave } from '@/composables/useAutoSave'; // 🌟 引入全局单例保存引擎
 
 type NoteType = 'note' | 'blog' | 'post' | 'folder' | 'wiki' | 'canvas' | 'schedule';
@@ -116,10 +130,10 @@ const route = useRoute();
 const router = useRouter();
 
 const {
-  notes, activeNote, isLoading, currentSpaceId, fetchAllNotes, selectNote, createNewNote, updateNoteTitle
+  notes, activeNote, isLoading, currentSpaceId, fetchAllNotes, selectNote, createNewNote
 } = useSpiritData();
 
-const { syncToCloud } = useAutoSave(); // 🌟 激活引擎
+const { syncToCloud, saveNow, pauseNote, resumeNote } = useAutoSave(); // 🌟 激活引擎
 
 const isMobile = ref(false);
 const isSidebarOpen = ref(false);
@@ -127,7 +141,11 @@ const isGraphViewOpen = ref(false);
 const isSettingsOpen = ref(false);
 const isHistoryOpen = ref(false);
 const showPublishModal = ref(false);
+const publicationBusy = ref(false);
 const toastRef = ref();
+const noteEditorRef = ref<any>();
+const historyPanelRef = ref<any>();
+const historyBusy = ref(false);
 
 const displayFilters = ref<Record<string, boolean>>({
   note: true, post: true, blog: true, wiki: true, canvas: true, folder: true, schedule: true,
@@ -197,17 +215,20 @@ provide('openQuickEditor', handleOpenQuickEditor);
 
 const handleUpdateNoteMeta = async (updates: any) => {
   if (!currentNoteId.value || !activeNote.value) return;
+  const note = activeNote.value, noteId = currentNoteId.value;
   try {
-    await lingmaiApi.updateNoteMeta(currentNoteId.value, updates);
-    Object.assign(activeNote.value, updates);
-  } catch (e) {}
+    await lingmaiApi.updateNoteMeta(noteId, updates);
+    Object.assign(note, updates);
+  } catch (e: any) { showToast(e.friendlyMessage || '设置保存失败，请重试'); }
 };
 
 const currentDisplayNote = ref<any>(null);
 const currentBlocks = ref<any[]>([]);
 const isContentLoading = ref(false);
 const pinnedNoteIds = ref<string[]>([]);   // 🌟 常驻预览（多槽位）
+let loadVersion = 0;
 const loadNote = async (id: string) => {
+  const version = ++loadVersion;
   if (!id) {
     currentDisplayNote.value = null;
     currentBlocks.value = [];
@@ -217,17 +238,18 @@ const loadNote = async (id: string) => {
   isContentLoading.value = true;
   try {
     const note = await selectNote(id, true);
-    if (note) {
-      currentDisplayNote.value = { ...note };
-      currentBlocks.value = note.blocks || [];
-      if (!currentDisplayNote.value.content) {
-        currentDisplayNote.value.content = { type: 'doc', content: [{ type: 'paragraph' }] };
-      }
+    if (version !== loadVersion) return;
+    if (!note) throw new Error('笔记不存在或加载失败');
+    currentDisplayNote.value = { ...note };
+    currentBlocks.value = note.blocks || [];
+    if (!currentDisplayNote.value.content) {
+      currentDisplayNote.value.content = { type: 'doc', content: [{ type: 'paragraph' }] };
     }
   } catch (e) {
     console.error('加载笔记失败', e);
+    throw e;
   } finally {
-    isContentLoading.value = false;
+    if (version === loadVersion) isContentLoading.value = false;
   }
 };
 
@@ -254,46 +276,75 @@ const handleDeleteNote = async (id: string) => {
   }
 };
 
-const handlePublishClick = () => {
-  if (!activeNote.value) return;
-  if (activeNote.value.isPublic) {
-    lingmaiApi.unpublishNote(currentNoteId.value).then(() => {
-      if (activeNote.value) activeNote.value.isPublic = false;
-    });
-  } else {
-    showPublishModal.value = true;
-  }
-};
-
-const onPublishSuccess = (newType: string) => {
-  if (activeNote.value) {
-    activeNote.value.isPublic = true;
-    activeNote.value.type = newType as any;
-  }
-};
-
-const onRollback = async (revision: any) => {
+async function preparePublish(noteId: string) {
+  if (noteId !== currentNoteId.value || isContentLoading.value || historyBusy.value || currentDisplayNote.value?.id !== noteId)
+    throw new Error('当前内容尚未准备好，请稍后重试');
+  const snapshot = noteEditorRef.value?.getSnapshot();
+  if (!snapshot) throw new Error('编辑器尚未就绪，请稍后重试');
+  await saveNow(noteId, createNoteSyncPayload(noteId, activeNote.value, { blocks: snapshot.blocks }));
+}
+async function saveCurrentNote() {
+  try { await preparePublish(currentNoteId.value); showToast('当前内容已保存'); }
+  catch (e: any) { showToast(e.friendlyMessage || e.message || '保存失败，请重试'); }
+}
+async function handlePublishClick(unshare = false) {
+  if (!activeNote.value || publicationBusy.value) return;
+  if (!unshare && (activeNote.value.type === 'doc' || !activeNote.value.isPublic)) { showPublishModal.value = true; return; }
+  const noteId = currentNoteId.value;
+  publicationBusy.value = true;
   try {
-    await lingmaiApi.rollbackTo(currentNoteId.value, revision.id);
-    await selectNote(currentNoteId.value, true);
-    isHistoryOpen.value = false;
-  } catch (e) {}
+    await lingmaiApi.unpublishNote(noteId);
+    const note = notes.value.find(n => n.id === noteId);
+    if (note && note.type !== 'doc') note.isPublic = false;
+    showToast(note?.type === 'doc' ? '已取消所有项目分享' : '已取消发布');
+  } catch (e: any) { showToast(e.friendlyMessage || '取消发布失败，请重试'); }
+  finally { publicationBusy.value = false; }
+}
+const onPublishSuccess = (result: { noteId: string; message?: string }) => {
+  const note = notes.value.find(n => n.id === result.noteId);
+  if (note && note.type !== 'doc') note.isPublic = true;
+  showToast(result.message || '发布成功');
 };
 
-const handleManualSave = async () => {
-  showToast('手动保存功能已移交给编辑器');
+// 创建和恢复共用互斥状态；操作开始时固定笔记 ID，避免切换笔记后写错目标。
+const handleHistoryAction = async (revision?: { id: string }, sourceNoteId = currentNoteId.value) => {
+  const noteId = sourceNoteId;
+  if (!noteId || noteId !== currentNoteId.value || historyBusy.value || isContentLoading.value || currentDisplayNote.value?.id !== noteId) return;
+  let restored = false;
+  historyBusy.value = true;
+  try {
+    const snapshot = noteEditorRef.value?.getSnapshot();
+    if (!snapshot) throw new Error('编辑器尚未就绪，请稍后重试');
+    if (revision) {
+      isContentLoading.value = true;
+      if (quickEditorNoteId.value === noteId) isQuickEditorOpen.value = false;
+      await nextTick();
+      await pauseNote(noteId);
+      await lingmaiApi.rollbackTo(noteId, revision.id);
+      restored = true;
+      if (currentNoteId.value === noteId) {
+        await loadNote(noteId);
+        isHistoryOpen.value = false;
+      }
+    } else {
+      await saveNow(noteId, createNoteSyncPayload(noteId, activeNote.value, { blocks: snapshot.blocks }));
+      await lingmaiApi.createSnapshot(noteId, snapshot);
+      if (currentNoteId.value === noteId) await historyPanelRef.value?.refresh();
+    }
+    if (currentNoteId.value === noteId) showToast(revision ? '已恢复所选版本' : '当前版本已保存');
+  } catch (e: any) {
+    showToast(restored ? '版本已恢复，但重新加载失败，请刷新页面' : (e.friendlyMessage || e.message || '版本操作失败，请重试'));
+  } finally {
+    if (revision) resumeNote(noteId, restored);
+    if (currentNoteId.value === noteId) isContentLoading.value = false;
+    historyBusy.value = false;
+  }
 };
 
 // 🌟 统一触发单例保存
 const triggerDebouncedSync = () => {
   if (currentNoteId.value && activeNote.value) {
-    const payload = {
-      noteId: currentNoteId.value,
-      title: activeNote.value.title || '',
-      extraData: activeNote.value.extraData || '[]',
-      tags: activeNote.value.tags || [],
-      blocks: activeNote.value.blocks || [],
-    };
+    const payload = createNoteSyncPayload(currentNoteId.value, activeNote.value, { blocks: activeNote.value.blocks || [] });
     syncToCloud(currentNoteId.value, payload, showToast); 
   }
 };
@@ -304,7 +355,7 @@ const initSpaces = async () => {
 
 const checkScreen = () => { isMobile.value = window.innerWidth <= 1024; };
 
-watch(() => route.params.id, async (newId) => { await loadNote(newId as string); }, { immediate: true });
+watch(() => route.params.id, async (newId) => { showPublishModal.value = false; await loadNote(newId as string).catch(() => {}); }, { immediate: true });
 
 provide('currentDisplayNote', currentDisplayNote);
 provide('currentBlocks', currentBlocks);
@@ -344,12 +395,12 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.spirit-link-app { display: flex; width: 100%; height: 94vh; background: #ffffff; overflow: hidden; position: relative; }
+.spirit-link-app { display: flex; width: 100%; height: 94vh; background: var(--paper-card); overflow: hidden; position: relative; }
 .editor-workspace-layout { display: flex; flex: 1; width: 100%; height: 100%; overflow: hidden; position: relative; }
-.spirit-main-editor { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #fafafa; }
-.loading-overlay { position: fixed; inset: 0; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); z-index: 9999; display: flex; align-items: center; justify-content: center; }
-.spirit-loading-content { text-align: center; color: #86868b; }
-.spirit-spinner { width: 32px; height: 32px; border: 2px solid #f3f3f3; border-top: 2px solid #0066cc; border-radius: 50%; margin: 0 auto 16px; animation: spin 1s linear infinite; }
+.spirit-main-editor { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg-main); }
+.loading-overlay { position: absolute; inset: 0; background: var(--paper-card); backdrop-filter: blur(10px); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+.spirit-loading-content { text-align: center; color: var(--text-secondary); }
+.spirit-spinner { width: 32px; height: 32px; border: 2px solid var(--border-line); border-top: 2px solid var(--accent-color); border-radius: 50%; margin: 0 auto 16px; animation: spin 1s linear infinite; }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

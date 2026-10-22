@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using TaiChuWeb_V2.Models.Activity;
 using TaiChuWeb_V2.Models.Admin;
 using TaiChuWeb_V2.Models.Artwork;
@@ -675,7 +675,7 @@ namespace TaiChuWeb_V2.DbContext
             // 4. Record 级联删除 (成员删除时自动删除记录)
             modelBuilder.Entity<Record>()
                 .HasOne(r => r.Member)
-                .WithMany()
+                .WithMany(m => m.Records)
                 .HasForeignKey(r => r.MemberId)
                 .OnDelete(DeleteBehavior.Cascade);
 

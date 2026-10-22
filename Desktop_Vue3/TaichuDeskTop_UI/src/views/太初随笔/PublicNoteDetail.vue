@@ -1,18 +1,20 @@
 <template>
-  <div class="md-detail-mask" @click.self="$emit('close')">
+  <div class="md-detail-mask" role="dialog" aria-modal="true" aria-label="文章详情" @click.self="$emit('close')">
     <div v-if="loading" class="md-loading-bar"></div>
 
-    <div class="md-viewport animate-fade-up">
-      <nav class="md-controls">
+    <div class="md-viewport animate-fade-up content-page">
+      <nav class="md-controls content-actions">
         <button class="back-btn" @click="$emit('close')">
-          <span class="arrow">←</span> INDEX
+          <span class="arrow">←</span> 返回
         </button>
         <div class="doc-type">
-          {{ post?.type === 'post' ? 'FRAGMENT / THOUGHT' : 'ESSAY / NOTE' }}
+          {{ post?.type === 'post' ? '帖子' : '博客与文章' }}
         </div>
-      </nav>
+        <RouterLink v-if="post?.canEdit && post.originalNoteId && (post.type === 'blog' || post.type === 'post')" :to="{ name: 'Compose', params: { type: post.type }, query: { draft: post.originalNoteId } }">编辑内容</RouterLink>
+        <button class="back-btn" @click="copyReference">复制引用链接</button>
+      </nav><p v-if="referenceMessage" role="status">{{ referenceMessage }}</p>
 
-      <div class="md-wrapper" v-if="post">
+      <div class="md-wrapper content-panel" v-if="post">
         <div v-if="post.type === 'blog' && extractedCoverUrl" class="blog-detail-cover-wrapper">
           <img :src="extractedCoverUrl" class="blog-detail-cover-img" alt="文章封面" />
         </div>
@@ -46,23 +48,22 @@
 
           <footer class="article-footer">
             <div class="footer-divider"></div>
-            <p class="end-mark">EOF / THE END</p>
-            <p class="footer-sign">落笔于太初之境 · 视界广场</p>
+            <p class="end-mark">阅读完毕</p>
+            <p class="footer-sign">喜欢这篇内容？可以复制引用链接分享给社区。</p>
           </footer>
         </article>
       </div>
 
       <div class="md-wrapper empty-state" v-else-if="!loading">
-        <p>此思维碎片似乎已沉入虚无...</p>
+<p role="alert">{{ error || '内容不存在或已下架' }}</p><button @click="fetchDetail">重新加载</button>
       </div>
     </div>
 
-    <button class="floating-close" @click="$emit('close')">✕</button>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useEditor, EditorContent } from '@tiptap/vue-3';
 import { spiritExtensions } from '../../utils/editorConfig'; // 🌟 引入编辑器扩展
 import { notePublishApi } from '../../api/NotePublish';
@@ -72,8 +73,12 @@ const props = defineProps<{
   id: string | number;
 }>();
 
-defineEmits(['close']);
+const emit = defineEmits(['close']);
+const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') emit('close'); };
 
+let generation = 0;
+const error = ref(''), referenceMessage = ref('');
+async function copyReference() { try { const url = new URL(window.location.href); url.hash = '/knowledge?detailType=' + (post.value?.type === 'post' ? 'post' : 'blog') + '&detail=' + encodeURIComponent(String(props.id)); await navigator.clipboard.writeText(url.href); referenceMessage.value = '引用链接已复制'; } catch { referenceMessage.value = '复制失败，请复制浏览器地址栏中的链接'; } }
 const post = ref<PublishedNoteDetail | null>(null);
 const loading = ref(true);
 const extractedCoverUrl = ref(''); // 🌟 用于捕获博客封面链接
@@ -134,10 +139,10 @@ const fetchDetail = async () => {
     loading.value = false;
     return;
   }
-  loading.value = true;
+  const current = ++generation; loading.value = true; error.value = ''; post.value = null; extractedCoverUrl.value = '';
   try {
     const res = await notePublishApi.getPublicBlog(String(props.id));
-    if (res && editor.value) {
+    if (current === generation && res && editor.value && !editor.value.isDestroyed) {
       post.value = res;
       
       // 🌟 调用升级后的清洗器，还原 Tiptap 文档树
@@ -145,9 +150,9 @@ const fetchDetail = async () => {
       editor.value.commands.setContent(tiptapJson, { emitUpdate: false });
     }
   } catch (err) {
-    console.error('获取灵脉详情失败:', err);
+    if (current === generation) error.value = '内容读取失败，请重试。';
   } finally {
-    loading.value = false;
+    if (current === generation) loading.value = false;
   }
 };
 
@@ -158,12 +163,16 @@ const formatTime = (timeStr: string | undefined) => {
 };
 
 onMounted(async () => {
+  window.addEventListener('keydown', closeOnEscape);
   // 阻止底层列表背景滚动
   document.body.style.overflow = 'hidden';
   await fetchDetail();
 });
 
+watch(() => props.id, fetchDetail);
 onUnmounted(() => {
+  window.removeEventListener('keydown', closeOnEscape);
+  generation++;
   // 组件卸载时还原滚动条
   document.body.style.overflow = '';
   if (editor.value) {
@@ -175,35 +184,36 @@ onUnmounted(() => {
 <style scoped>
 .md-detail-mask {
   position: fixed; inset: 0; z-index: 2000;
-  background: #ffffff; overflow-y: auto; scrollbar-width: none;
+  background: var(--paper-bg); overflow-y: auto;
   cursor: zoom-out;
 }
-.md-detail-mask::-webkit-scrollbar { display: none; }
+
 
 .md-viewport {
-  width: 100%; max-width: 800px; margin: 0 auto;
-  padding: 0 24px; position: relative; cursor: default;
+  width: 100%; max-width: 940px; margin: 0 auto;
+  padding: 0 24px 40px; box-sizing: border-box; position: relative; cursor: default;
 }
 
 .md-controls {
-  display: flex; justify-content: space-between; align-items: center;
-  height: 80px; border-bottom: 1px solid #f2f2f2;
+  position: sticky; top: 0; z-index: 10; background: var(--paper-bg);
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+  min-height: 72px; padding: 16px 0; border-bottom: 1px solid var(--border-line);
 }
 .back-btn {
   background: none; border: none; font-size: 11px; font-weight: 700;
-  letter-spacing: 0.15em; color: #1d1d1f; cursor: pointer;
+  letter-spacing: 0.15em; color: var(--text-primary); cursor: pointer;
   display: flex; align-items: center; gap: 8px; transition: opacity 0.3s;
 }
 .back-btn:hover { opacity: 0.6; }
-.doc-type { font-size: 10px; font-weight: 700; color: #86868b; letter-spacing: 0.2em; }
+.doc-type { font-size: 10px; font-weight: 700; color: var(--text-secondary); letter-spacing: 0.2em; }
 
 /* 🌟 新增：详情页大面积铺开的长文博客视觉封面样式 */
 .blog-detail-cover-wrapper {
   width: 100%;
   aspect-ratio: 21 / 9;
-  border-radius: 24px;
+  border-radius: 12px;
   overflow: hidden;
-  margin-top: 40px;
+  margin-top: 0;
   border: 1px solid rgba(0,0,0,0.03);
   box-shadow: 0 10px 30px rgba(0,0,0,0.02);
 }
@@ -213,13 +223,13 @@ onUnmounted(() => {
   object-fit: cover;
 }
 
-.md-wrapper { padding: 40px 0 120px; }
-.article-header { margin-bottom: 60px; margin-top: 20px; }
+.md-wrapper { padding: 32px 40px; margin-top: 24px; }
+.article-header { margin-bottom: 28px; margin-top: 24px; }
 .title {
-  font-size: 2.5rem; font-weight: 700; color: #1d1d1f;
+  font-size: 2.5rem; font-weight: 700; color: var(--text-primary);
   letter-spacing: -0.03em; line-height: 1.2; margin: 0 0 24px 0;
 }
-.metadata { display: flex; align-items: center; gap: 16px; color: #86868b; font-size: 14px; }
+.metadata { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: var(--text-secondary); font-size: 14px; }
 .author-block { display: flex; align-items: center; gap: 8px; }
 .mini-avatar-placeholder { width: 20px; height: 20px; border-radius: 50%; background: #e5e5ea; }
 .divider { color: #d2d2d7; }
@@ -228,18 +238,18 @@ onUnmounted(() => {
 /* Tiptap 容器松紧度样式 */
 .article-body { margin-bottom: 60px; }
 :deep(.spirit-typography-engine .tiptap) {
-  outline: none; font-size: 1.25rem; line-height: 2.2;
-  color: #333333; text-align: justify;
+  outline: none; font-size: 1.05rem; line-height: 1.9;
+  color: var(--text-primary); text-align: justify;
 }
 :deep(.spirit-link-node) {
-  color: #0066cc; background: rgba(0, 102, 204, 0.05);
+  color: var(--accent-color); background: var(--paper-sub);
   padding: 0 4px; border-radius: 4px; font-weight: 500;
 }
 :deep(.spirit-image-node) {
   display: block; height: auto; border-radius: 12px; margin: 32px 0;
 }
 
-.article-footer { margin-top: 100px; padding-top: 60px; text-align: center; }
+.article-footer { margin-top: 0; padding-top: 24px; text-align: center; }
 .footer-divider { height: 1px; background: #f2f2f2; margin-bottom: 40px; }
 .end-mark { font-size: 10px; letter-spacing: 0.4em; color: #d2d2d7; margin-top: 20px; }
 .footer-sign { font-size: 12px; color: #86868b; margin-top: 8px; }
@@ -254,13 +264,6 @@ onUnmounted(() => {
   100% { transform: translateX(100%); }
 }
 
-.floating-close {
-  position: fixed; top: 32px; right: 32px;
-  width: 40px; height: 40px; border: none; background: none;
-  font-size: 20px; cursor: pointer; opacity: 0.2; transition: opacity 0.3s;
-}
-.floating-close:hover { opacity: 1; }
-
 .empty-state { text-align: center; color: #86868b; font-size: 14px; }
 
 .animate-fade-up { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
@@ -268,4 +271,5 @@ onUnmounted(() => {
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
+@media(max-width: 720px) { .md-viewport { padding: 0 16px 60px; } .md-wrapper { padding: 20px; } .metadata { font-size: .8rem; gap: 8px; } }
 </style>

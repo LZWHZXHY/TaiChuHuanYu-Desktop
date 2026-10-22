@@ -373,7 +373,7 @@ const submitSurvey = async () => {
 
 
 
-   
+
   } catch (error: any) {
     alert(error.response?.data?.message || '提交失败，请重试')
   } finally {
@@ -396,25 +396,25 @@ onMounted(fetchSurvey)
 .submitted-state {
   text-align: center;
   padding: 60px 20px;
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
 }
 
 .submitted-state i {
   font-size: 4rem;
-  color: #10b981;
+  color: var(--success);
   display: block;
   margin-bottom: 16px;
 }
 
 .submitted-state h2 {
   font-size: 1.5rem;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .submitted-state p {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 20px;
 }
 
@@ -422,29 +422,29 @@ onMounted(fetchSurvey)
   padding: 10px 28px;
   border: none;
   border-radius: 8px;
-  background: #6366f1;
-  color: #fff;
+  background: var(--info);
+  color: var(--on-accent);
   font-weight: 500;
   cursor: pointer;
 }
 
 .survey-header {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 12px;
   padding: 28px 32px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-line);
   margin-bottom: 24px;
 }
 
 .survey-header h1 {
   font-size: 1.5rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
   margin: 0 0 8px;
 }
 
 .survey-header .desc {
-  color: #6b7280;
+  color: var(--text-secondary);
   margin: 0 0 16px;
 }
 
@@ -453,20 +453,20 @@ onMounted(fetchSurvey)
   align-items: center;
   gap: 14px;
   font-size: 0.85rem;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .progress-bar {
   flex: 1;
   height: 6px;
-  background: #f0f0f0;
+  background: var(--bg-sub);
   border-radius: 3px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: #6366f1;
+  background: var(--info);
   border-radius: 3px;
   transition: width 0.3s;
 }
@@ -478,14 +478,14 @@ onMounted(fetchSurvey)
 }
 
 .question-item {
-  background: #fff;
+  background: var(--paper-card);
   border-radius: 12px;
   padding: 20px 24px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-line);
 }
 
 .question-item.required {
-  border-left: 3px solid #ef4444;
+  border-left: 3px solid var(--danger);
 }
 
 .question-header {
@@ -497,25 +497,25 @@ onMounted(fetchSurvey)
 
 .q-number {
   font-weight: 600;
-  color: #6366f1;
+  color: var(--info);
 }
 
 .q-title {
   font-weight: 500;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .required-badge {
   font-size: 0.65rem;
-  color: #ef4444;
-  background: #fef2f2;
+  color: var(--danger);
+  background: var(--bg-main);
   padding: 2px 10px;
   border-radius: 12px;
 }
 
 .q-desc {
   font-size: 0.85rem;
-  color: #9ca3af;
+  color: var(--text-secondary);
   margin: 0 0 12px;
 }
 
@@ -538,13 +538,13 @@ onMounted(fetchSurvey)
 .option-checkbox input {
   width: 18px;
   height: 18px;
-  accent-color: #6366f1;
+  accent-color: var(--info);
 }
 
 .text-area textarea {
   width: 100%;
   padding: 10px 14px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   border-radius: 8px;
   font-size: 0.95rem;
   font-family: inherit;
@@ -553,7 +553,7 @@ onMounted(fetchSurvey)
 
 .text-area textarea:focus {
   outline: none;
-  border-color: #6366f1;
+  border-color: var(--info);
 }
 
 .rating-group {
@@ -567,18 +567,18 @@ onMounted(fetchSurvey)
   border: none;
   font-size: 1.8rem;
   cursor: pointer;
-  color: #d1d5db;
+  color: var(--text-secondary);
   transition: color 0.2s;
 }
 
 .star-btn i.active {
-  color: #f59e0b;
+  color: var(--warning);
 }
 
 .rating-label {
   margin-left: 12px;
   font-size: 0.9rem;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 .sort-group {
@@ -592,29 +592,29 @@ onMounted(fetchSurvey)
   align-items: center;
   gap: 12px;
   padding: 10px 14px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
   border-radius: 8px;
   cursor: grab;
   transition: all 0.2s;
 }
 
 .sort-item:hover {
-  background: #f3f4f6;
+  background: var(--bg-sub);
 }
 
 .sort-item i {
-  color: #9ca3af;
+  color: var(--text-secondary);
   cursor: grab;
 }
 
 .sort-rank {
   margin-left: auto;
-  background: #e5e7eb;
+  background: var(--bg-sub);
   padding: 2px 10px;
   border-radius: 12px;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--text-secondary);
 }
 
 /* ===== 新增：矩阵题样式 ===== */
@@ -635,26 +635,26 @@ onMounted(fetchSurvey)
 .matrix-table th,
 .matrix-table td {
   padding: 8px 12px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-line);
   text-align: center;
 }
 
 .matrix-table thead th {
-  background: #f9fafb;
+  background: var(--paper-card);
   font-weight: 600;
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .matrix-row-label {
   font-weight: 500;
-  color: #374151;
+  color: var(--text-primary);
   text-align: left !important;
 }
 
 .matrix-table input[type="radio"] {
   width: 16px;
   height: 16px;
-  accent-color: #6366f1;
+  accent-color: var(--info);
   cursor: pointer;
 }
 
@@ -667,8 +667,8 @@ onMounted(fetchSurvey)
   padding: 12px 48px;
   border: none;
   border-radius: 8px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
-  color: #fff;
+  background: linear-gradient(135deg, var(--info), var(--accent-color));
+  color: var(--on-accent);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -688,7 +688,7 @@ onMounted(fetchSurvey)
 .loading-state {
   text-align: center;
   padding: 60px;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .loading-state i {
@@ -700,12 +700,12 @@ onMounted(fetchSurvey)
 .error-state {
   text-align: center;
   padding: 60px 20px;
-  color: #9ca3af;
+  color: var(--text-secondary);
 }
 
 .error-state i {
   font-size: 3rem;
-  color: #ef4444;
+  color: var(--danger);
   display: block;
   margin-bottom: 16px;
 }

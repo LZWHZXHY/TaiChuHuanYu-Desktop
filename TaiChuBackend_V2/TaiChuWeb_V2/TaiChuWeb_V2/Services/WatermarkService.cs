@@ -14,7 +14,7 @@ namespace TaiChuWeb_V2.Services
             _httpClientFactory = httpClientFactory;
         }
 
-        public async Task<byte[]> ApplyWatermarkAsync(
+        public virtual async Task<byte[]> ApplyWatermarkAsync(
             string imageUrl,
             string? watermarkText,
             string? watermarkImageUrl,
@@ -31,8 +31,18 @@ namespace TaiChuWeb_V2.Services
             httpClient.Timeout = TimeSpan.FromSeconds(30);
             var imageBytes = await httpClient.GetByteArrayAsync(imageUrl);
 
+            return await ApplyWatermarkAsync(imageBytes, watermarkText, watermarkImageUrl, watermarkType, position, fontSize, opacity, color, rotation, imageScale, imageOpacity);
+        }
+
+        public virtual async Task<byte[]> ApplyWatermarkAsync(byte[] imageBytes, string? watermarkText,
+            string? watermarkImageUrl, string watermarkType, string position, int fontSize,
+            double opacity, string color, int rotation, double imageScale, double imageOpacity)
+        {
+            using var httpClient = _httpClientFactory.CreateClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(30);
             using var ms = new MemoryStream(imageBytes);
-            using var image = Image.FromStream(ms);
+            using var source = Image.FromStream(ms);
+            using var image = new Bitmap(source);
 
             var (x, y) = GetPosition(image.Width, image.Height, position);
 
@@ -47,37 +57,30 @@ namespace TaiChuWeb_V2.Services
             // ---- 图片水印 ----
             if ((watermarkType == "image" || watermarkType == "both") && !string.IsNullOrEmpty(watermarkImageUrl))
             {
-                try
-                {
-                    var wmBytes = await httpClient.GetByteArrayAsync(watermarkImageUrl);
-                    using var wmMs = new MemoryStream(wmBytes);
-                    using var wmImage = Image.FromStream(wmMs);
+                var wmBytes = await httpClient.GetByteArrayAsync(watermarkImageUrl);
+                using var wmMs = new MemoryStream(wmBytes);
+                using var wmImage = Image.FromStream(wmMs);
 
-                    int targetWidth = (int)(wmImage.Width * imageScale);
-                    int targetHeight = (int)(wmImage.Height * imageScale);
+                int targetWidth = Math.Max(1, (int)(wmImage.Width * imageScale));
+                int targetHeight = Math.Max(1, (int)(wmImage.Height * imageScale));
 
-                    // 🔑 高质量缩放水印图片
-                    using var resizedWm = new Bitmap(targetWidth, targetHeight);
-                    using var wmGraphics = Graphics.FromImage(resizedWm);
-                    wmGraphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                    wmGraphics.SmoothingMode = SmoothingMode.AntiAlias;
-                    wmGraphics.DrawImage(wmImage, 0, 0, targetWidth, targetHeight);
+                // 🔑 高质量缩放水印图片
+                using var resizedWm = new Bitmap(targetWidth, targetHeight);
+                using var wmGraphics = Graphics.FromImage(resizedWm);
+                wmGraphics.InterpolationMode = InterpolationMode.HighQualityBicubic;
+                wmGraphics.SmoothingMode = SmoothingMode.AntiAlias;
+                wmGraphics.DrawImage(wmImage, 0, 0, targetWidth, targetHeight);
 
-                    var colorMatrix = new ColorMatrix { Matrix33 = (float)imageOpacity };
-                    using var imageAttributes = new ImageAttributes();
-                    imageAttributes.SetColorMatrix(colorMatrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
+                var colorMatrix = new ColorMatrix { Matrix33 = (float)imageOpacity };
+                using var imageAttributes = new ImageAttributes();
+                imageAttributes.SetColorMatrix(colorMatrix, ColorMatrixFlag.Default, ColorAdjustType.Bitmap);
 
-                    graphics.DrawImage(
-                        resizedWm,
-                        new Rectangle(x - targetWidth / 2, y - targetHeight / 2, targetWidth, targetHeight),
-                        0, 0, targetWidth, targetHeight,
-                        GraphicsUnit.Pixel,
-                        imageAttributes);
-                }
-                catch
-                {
-                    // 图片水印加载失败，静默跳过
-                }
+                graphics.DrawImage(
+                    resizedWm,
+                    new Rectangle(x - targetWidth / 2, y - targetHeight / 2, targetWidth, targetHeight),
+                    0, 0, targetWidth, targetHeight,
+                    GraphicsUnit.Pixel,
+                    imageAttributes);
             }
 
             // ---- 文字水印 ----

@@ -1,3 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Filters;
+using System.Security.Claims;
+using TaiChuWeb_V2.Services.Artworks;
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -10,14 +14,21 @@ namespace TaiChuWeb_V2.Controllers.Admin
 {
     [ApiController]
     [Route("api/admin/product")]
-    // [Authorize(Roles = "SuperAdmin,Trade_Manage")] // 记得解除注释，启用太初权限屏障
-    public class AdminProductController : ControllerBase
+    [Authorize]
+    public class AdminProductController : Controller
     {
         private readonly AppDbContext _context;
 
         public AdminProductController(AppDbContext context)
         {
             _context = context;
+        }
+
+        public override async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
+        {
+            if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) { context.Result = Unauthorized(); return; }
+            if (!await ArtworkPublicationService.CanManageAsync(_context, userId)) { context.Result = Forbid(); return; }
+            await next();
         }
 
         /// <summary>
@@ -30,6 +41,7 @@ namespace TaiChuWeb_V2.Controllers.Admin
             [FromQuery] string? search = null,
             [FromQuery] string? status = null)
         {
+            page = Math.Max(1, page); pageSize = Math.Clamp(pageSize, 1, 50);
             // 1. 构造基础查询，Include 关联的用户和图片表
             var query = _context.Artworks
                 .Include(a => a.Uploader)
@@ -60,7 +72,11 @@ namespace TaiChuWeb_V2.Controllers.Admin
                 .Take(pageSize)
                 .ToListAsync();
 
-            // 5. 映射到前端 GalleryDto 所需的数据结构
+            var ids = artworks.Select(a => a.Id).ToArray();
+            var stats = await new ArtworkEngagementService(_context).Stats(null)
+                .Where(s => ids.Contains(s.Id)).ToDictionaryAsync(s => s.Id);
+
+            // 与公开列表、详情复用真实互动统计，旧计数列仅作为缓存。
             var items = artworks.Select(a => new
             {
                 id = $"GAL-{a.Id.ToString().PadLeft(6, '0')}", // 伪装成带前缀的追踪码，契合太初 UI
@@ -70,8 +86,8 @@ namespace TaiChuWeb_V2.Controllers.Admin
                 coverUrl = a.Images.FirstOrDefault(i => i.IsCover)?.ImageUrl
                            ?? a.Images.FirstOrDefault()?.ImageUrl, // 提取封面图
                 views = a.ViewCount,
-                likes = a.LikesCount,
-                favorites = a.FavoritesCount,
+                likes = stats[a.Id].LikesCount,
+                favorites = stats[a.Id].FavoritesCount,
                 status = a.Status,            // 依赖新增的 Status 字段
                 isFeatured = a.IsFeatured,    // 依赖新增的 IsFeatured 字段
                 createdAt = a.UploadAt
@@ -167,14 +183,16 @@ namespace TaiChuWeb_V2.Controllers.Admin
                 return NotFound(new { message = "未捕捉到该画廊实体" });
             }
 
+            if (dto.Status is not ("published" or "reviewing" or "rejected" or "hidden") || dto.Views < 0)
+                return BadRequest(new { message = "状态无效或统计值为负数" });
             // 覆写流量特征与状态
             artwork.ViewCount = dto.Views;
-            artwork.LikesCount = dto.Likes;
             artwork.Status = dto.Status;
             artwork.IsFeatured = dto.IsFeatured;
 
             // 联动：如果状态为驳回，你可以选择同步修改 IsApproved 为 false
-            artwork.IsApproved = dto.Status == "published";
+            artwork.IsApproved = dto.Status == "published" && (artwork.OriginalNoteId == null ||
+                await _context.Notes.AnyAsync(n => n.Id == artwork.OriginalNoteId && n.IsPublic));
 
             try
             {
@@ -239,7 +257,8 @@ namespace TaiChuWeb_V2.Controllers.Admin
     public class GalleryGovernanceDto
     {
         public int Views { get; set; }
-        public int Likes { get; set; }
+        // 兼容旧客户端载荷；点赞由真实互动决定，此字段不再写入。
+        public int? Likes { get; set; }
         public bool IsFeatured { get; set; }
         public string Status { get; set; } = string.Empty;
     }

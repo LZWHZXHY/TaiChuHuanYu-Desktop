@@ -1,0 +1,240 @@
+{
+  "files": [
+    {
+      "path": "src\\utils\\NoteType.ts",
+      "kind": "source",
+      "added": 2,
+      "removed": 0,
+      "net": 2
+    },
+    {
+      "path": "src\\views\\太初俱乐部\\CsDashboard.vue",
+      "kind": "source",
+      "added": 51,
+      "removed": 18,
+      "net": 33
+    },
+    {
+      "path": "src\\views\\太初俱乐部\\OrderModal.vue",
+      "kind": "source",
+      "added": 17,
+      "removed": 14,
+      "net": 3
+    },
+    {
+      "path": "src\\views\\太初协作\\index.vue",
+      "kind": "source",
+      "added": 12,
+      "removed": 12,
+      "net": 0
+    },
+    {
+      "path": "src\\views\\太初灵脉\\SpiritLayout.vue",
+      "kind": "source",
+      "added": 6,
+      "removed": 5,
+      "net": 1
+    },
+    {
+      "path": "src\\views\\柴圈板块\\Battle\\battle_api.ts",
+      "kind": "source",
+      "added": 9,
+      "removed": 9,
+      "net": 0
+    },
+    {
+      "path": "src\\views\\柴圈板块\\Battle\\battle_Store.ts",
+      "kind": "source",
+      "added": 10,
+      "removed": 2,
+      "net": 8
+    },
+    {
+      "path": "src\\views\\柴圈板块\\Joint\\joint.ts",
+      "kind": "source",
+      "added": 2,
+      "removed": 2,
+      "net": 0
+    },
+    {
+      "path": "src\\views\\柴圈板块\\Joint\\joint_store.ts",
+      "kind": "source",
+      "added": 9,
+      "removed": 2,
+      "net": 7
+    },
+    {
+      "path": "src\\views\\柴圈板块\\Joint\\components\\JointCreate.vue",
+      "kind": "source",
+      "added": 2,
+      "removed": 1,
+      "net": 1
+    },
+    {
+      "path": "src\\views\\柴圈板块\\Joint\\components\\JointDetail.vue",
+      "kind": "source",
+      "added": 41,
+      "removed": 26,
+      "net": 15
+    },
+    {
+      "path": "src\\views\\柴圈板块\\Joint\\components\\JointEdit.vue",
+      "kind": "source",
+      "added": 13,
+      "removed": 8,
+      "net": 5
+    },
+    {
+      "path": "src\\views\\柴圈板块\\Joint\\components\\JointForm.vue",
+      "kind": "source",
+      "added": 12,
+      "removed": 6,
+      "net": 6
+    },
+    {
+      "path": "src\\views\\柴圈板块\\Battle\\components\\BattleDetail.vue",
+      "kind": "source",
+      "added": 102,
+      "removed": 75,
+      "net": 27
+    },
+    {
+      "path": "src\\views\\柴圈板块\\Battle\\components\\CreateBattle.vue",
+      "kind": "source",
+      "added": 39,
+      "removed": 38,
+      "net": 1
+    },
+    {
+      "path": "src\\views\\太初灵脉\\components\\NoteSettingsPanel.vue",
+      "kind": "source",
+      "added": 5,
+      "removed": 3,
+      "net": 2
+    },
+    {
+      "path": "src\\views\\太初灵脉\\components\\PublishModal.vue",
+      "kind": "source",
+      "added": 3,
+      "removed": 2,
+      "net": 1
+    },
+    {
+      "path": "src\\views\\太初灵脉\\components\\SidebarIndex.vue",
+      "kind": "source",
+      "added": 1,
+      "removed": 0,
+      "net": 1
+    },
+    {
+      "path": "src\\views\\太初灵脉\\components\\WorkspaceNote.vue",
+      "kind": "source",
+      "added": 9,
+      "removed": 7,
+      "net": 2
+    },
+    {
+      "path": "src\\views\\太初协作\\协作组件\\ProjectDocument.vue",
+      "kind": "source",
+      "added": 64,
+      "removed": 350,
+      "net": -286
+    },
+    {
+      "path": "src\\views\\太初协作\\协作组件\\ProjectKanban.vue",
+      "kind": "source",
+      "added": 8,
+      "removed": 8,
+      "net": 0
+    },
+    {
+      "path": "src\\views\\太初协作\\协作组件\\ProjectTaskDetail.vue",
+      "kind": "source",
+      "added": 42,
+      "removed": 31,
+      "net": 11
+    },
+    {
+      "path": "tests\\cleanup.test.mjs",
+      "kind": "tests",
+      "added": 87,
+      "removed": 0,
+      "net": 87
+    },
+    {
+      "path": "tests\\content-flows.test.mjs",
+      "kind": "tests",
+      "added": 37,
+      "removed": 0,
+      "net": 37
+    },
+    {
+      "path": "backend/tests\\LingMai.Regression\\JointBattleChecks.cs",
+      "kind": "tests",
+      "added": 123,
+      "removed": 0,
+      "net": 123
+    },
+    {
+      "path": "backend/tests\\LingMai.Regression\\Program.cs",
+      "kind": "tests",
+      "added": 1,
+      "removed": 0,
+      "net": 1
+    },
+    {
+      "path": "backend/TaiChuWeb_V2\\TaiChuWeb_V2\\Services\\Publish\\DocPublishHandler.cs",
+      "kind": "source",
+      "added": 4,
+      "removed": 2,
+      "net": 2
+    },
+    {
+      "path": "backend/TaiChuWeb_V2\\TaiChuWeb_V2\\Dtos\\Chai\\Joint\\JointDtos.cs",
+      "kind": "source",
+      "added": 9,
+      "removed": 1,
+      "net": 8
+    },
+    {
+      "path": "backend/TaiChuWeb_V2\\TaiChuWeb_V2\\Controllers\\ChaiCommunity\\BattleController.cs",
+      "kind": "source",
+      "added": 61,
+      "removed": 16,
+      "net": 45
+    },
+    {
+      "path": "backend/TaiChuWeb_V2\\TaiChuWeb_V2\\Controllers\\ChaiCommunity\\JointController.cs",
+      "kind": "source",
+      "added": 7,
+      "removed": 21,
+      "net": -14
+    },
+    {
+      "path": "backend/TaiChuWeb_V2\\TaiChuWeb_V2\\Controllers\\LingMai\\LingMaiPublishController.cs",
+      "kind": "source",
+      "added": 11,
+      "removed": 0,
+      "net": 11
+    },
+    {
+      "path": "backend/TaiChuWeb_V2\\TaiChuWeb_V2\\Controllers\\Projects\\ProjectController.cs",
+      "kind": "source",
+      "added": 21,
+      "removed": 3,
+      "net": 18
+    }
+  ],
+  "totals": {
+    "source": {
+      "added": 572,
+      "removed": 662,
+      "net": -90
+    },
+    "tests": {
+      "added": 248,
+      "removed": 0,
+      "net": 248
+    }
+  }
+}

@@ -1,5 +1,5 @@
 <template>
-  <div class="edit-joint">
+  <div class="community-detail edit-joint">
     <div class="page-header">
       <div class="header-left">
         <button class="back-btn" @click="goBack">← 返回</button>
@@ -16,13 +16,14 @@
     </div>
 
     <div v-else-if="!activity" class="empty-state">
-      <p>联合活动不存在</p>
+      <p>{{ error || '联合活动不存在' }}</p>
       <router-link to="/joint" class="empty-link">返回联合列表</router-link>
     </div>
 
     <div v-else class="form-wrapper">
       <JointForm
         :initial-data="activity"
+        :submitting="store.loading"
         submit-label="保存修改"
         @submit="handleUpdate"
         @cancel="goBack"
@@ -32,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useJointStore } from '../joint_store'
 import JointForm from '../components/JointForm.vue'
@@ -42,19 +43,23 @@ const route = useRoute()
 const store = useJointStore()
 
 const activity = computed(() => store.currentActivity)
-const loading = computed(() => store.loading)
+const loading = ref(true)
+const error = ref('')
 
 function goBack() {
   router.push('/joint')
 }
 
-onMounted(async () => {
-  const id = route.params.id as string
-  await store.fetchDetail(id)
-})
+watch(() => route.params.id, async id => {
+  loading.value = true
+  error.value = ''
+  try { await store.fetchDetail(id as string) }
+  catch { error.value = '联合活动读取失败，请返回后重试。' }
+  finally { loading.value = false }
+}, { immediate: true })
 
 async function handleUpdate(data: any) {
-  if (!activity.value) return
+  if (!activity.value || store.loading) return
   try {
     await store.update(activity.value.id, data)
     router.push(`/joint/${activity.value.id}`)

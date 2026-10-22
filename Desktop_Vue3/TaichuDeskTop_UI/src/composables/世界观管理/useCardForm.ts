@@ -3,9 +3,8 @@ import { ref } from 'vue'
 import { type CardType } from '@/views/世界观管理/card_type'
 import type { AttributeItem } from '@/views/世界观管理/card_type'
 
-export function useCardForm() {
-  // 表单数据
-  const form = ref({
+function createEmptyCardForm() {
+  return {
     title: '',
     type: 'character' as CardType,
     coverImage: '',
@@ -26,23 +25,14 @@ export function useCardForm() {
       cardAttributes?: { key: string; value: string }[];
       contextLabel?: string;
     }[],
-  })
-
-  // 重置表单
-  const resetForm = () => {
-    form.value = {
-      title: '',
-      type: 'character',
-      coverImage: '',
-      galleryImages: [],
-      attributes: [],
-      description: '',
-      content: {},          // ✅ 对象
-      tags: [],
-      relations: [],
-      contentBlocks: [],
-    }
   }
+}
+
+export type CardForm = ReturnType<typeof createEmptyCardForm>
+
+export function useCardForm() {
+  const form = ref(createEmptyCardForm())
+  const resetForm = () => { form.value = createEmptyCardForm() }
 
   // 批量设置表单数据（用于加载已有卡片）
   const setFormData = (data: Partial<typeof form.value>) => {

@@ -1,5 +1,5 @@
 <template>
-  <div class="my-ocs">
+  <div class="community-detail my-ocs">
     <div class="page-header">
       <div>
         <h1 class="page-title">📂 我的 OC</h1>

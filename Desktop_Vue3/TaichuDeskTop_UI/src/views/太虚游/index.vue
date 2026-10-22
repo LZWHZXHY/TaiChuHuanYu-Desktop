@@ -1,27 +1,14 @@
 <template>
-  <div class="game-hub" :class="{ 'theme-aged': isAged }">
-    <!-- 顶部品牌栏 -->
-    <header class="hub-header">
-      <div class="brand">
-        <span class="brand-icon">⚡</span>
-        <span class="brand-name">太虚游 · 游戏集所</span>
-      </div>
-      <div class="header-controls">
-        <button class="btn-line" @click="togglePaper">
-          {{ isAged ? '新纸' : '旧纸' }}
-        </button>
-        <span v-if="isConnected" class="connection-status online">● 已连接</span>
-        <span v-else class="connection-status offline">○ 离线</span>
-      </div>
-    </header>
-
+  <div class="game-hub content-page">
+    <header class="content-header"><div><h1>太虚游</h1><p class="intro">玩游戏，也分享游戏里的故事。</p></div><RouterLink v-if="currentGameKey !== 'MinecraftServer'" class="game-discussion" to="/stream?tag=我的世界">我的世界讨论 →</RouterLink><span v-if="currentGameKey === 'Gobang'" class="connection-status" :class="isConnected ? 'online' : 'offline'">{{ isConnected ? '● 联机服务已连接' : '○ 联机服务未连接' }}</span></header>
     <div class="hub-body">
       <!-- 左侧导航 – 分类分组 -->
-      <aside class="hub-sidebar">
-        <nav class="game-nav">
+      <aside v-if="currentGameKey" class="hub-sidebar">
+        <nav class="game-nav" aria-label="游戏分类">
+          <button class="nav-item" :class="{ active: !currentGameKey }" @click="loadGame(null)">全部游戏</button>
           <div v-for="(group, groupKey) in groupedModules" :key="groupKey" class="nav-group">
             <div class="nav-group-title">{{ group.label }}</div>
-            <div
+            <button type="button"
               v-for="item in group.items"
               :key="item.key"
               class="nav-item"
@@ -31,7 +18,7 @@
               <span class="nav-icon">{{ item.icon }}</span>
               <span class="nav-label">{{ item.label }}</span>
               <span v-if="item.isNew" class="badge-new">新</span>
-            </div>
+            </button>
           </div>
         </nav>
 
@@ -41,20 +28,15 @@
             <span class="stat-value">{{ gameCount }}</span>
             <span class="stat-label">游戏总数</span>
           </div>
-          <div class="stat-item">
-            <span class="stat-value">{{ onlineCount }}</span>
-            <span class="stat-label">在线道友</span>
-          </div>
+
         </div>
       </aside>
 
       <!-- 主内容区 -->
       <main class="hub-main">
         <div v-if="!currentGameComponent" class="welcome-placeholder">
-          <div class="welcome-icon">🎮</div>
-          <h2>欢迎来到太虚游</h2>
-          <p>请从左侧选择一款游戏，开启你的修行之旅</p>
-          <div class="welcome-hint">—— 线条无界 · 呼吸自然 ——</div>
+          <h2>选择你的下一场冒险</h2><p>按兴趣挑选游戏；联机功能需要连接服务器。</p>
+          <div class="game-cards"><button v-for="(game, key) in gameModules" :key="key" class="game-card" @click="loadGame(key)"><span class="game-card-icon" aria-hidden="true">{{ game.icon }}</span><strong>{{ game.label }}</strong><small>{{ game.description }}</small><span class="game-status">{{ game.status }}</span></button></div>
         </div>
 
         <Suspense v-else>
@@ -75,24 +57,26 @@
 
     <!-- 页脚 -->
     <footer class="hub-footer">
-      <span>太虚游 · 墨划风格设计</span>
+      <span>太虚游 · 社区游乐场</span>
       <span class="footer-sub">v2.0 · 自在随心</span>
     </footer>
   </div>
 </template>
 
 <script setup>
-import { ref, shallowRef, defineAsyncComponent, onMounted, onUnmounted, provide, computed } from 'vue'
+import { useUserStore } from '@/stores/user'
+import { ref, shallowRef, defineAsyncComponent, onMounted, onUnmounted, provide, computed, watch } from 'vue'
+import { useRoute, useRouter, onBeforeRouteUpdate, onBeforeRouteLeave } from 'vue-router'
 import * as signalR from '@microsoft/signalr'
 
 // ===== 游戏模块注册 =====
 const gameModules = {
   // ----- 联机服务器专区 ✅ 新增 -----
   MinecraftServer: {
-    label: '太虚方块服',
+    label: '我的世界',
     category: 'server',
     icon: '⛏️',
-    description: 'Fabric 1.21.1 纯净生存服务器，御剑修仙，方块无界',
+    description: '社区服务器、客户端与模组下载',
     status: '已上线',
     isNew: true,
     component: defineAsyncComponent(() => import('./games/Minecraft/index.vue'))
@@ -180,28 +164,6 @@ const currentGameKey = ref(null)
 const currentGameComponent = shallowRef(null)
 const currentGameRef = shallowRef(null)
 
-// ===== 纸色切换 =====
-const isAged = ref(false)
-function togglePaper() {
-  isAged.value = !isAged.value
-  const root = document.documentElement
-  if (isAged.value) {
-    root.style.setProperty('--paper-bg', '#EAE4D6')
-    root.style.setProperty('--paper-card', '#F0EBDF')
-    root.style.setProperty('--paper-sub', '#E5DFD0')
-    root.style.setProperty('--ink-black', '#2A2826')
-    root.style.setProperty('--ink-gray', '#7A7570')
-    root.style.setProperty('--line-raw', '#C8BFB3')
-  } else {
-    root.style.setProperty('--paper-bg', '#F7F4EE')
-    root.style.setProperty('--paper-card', '#FCFAF7')
-    root.style.setProperty('--paper-sub', '#F0EBE1')
-    root.style.setProperty('--ink-black', '#2A2826')
-    root.style.setProperty('--ink-gray', '#7A7570')
-    root.style.setProperty('--line-raw', '#D5CEC5')
-  }
-}
-
 // ===== SignalR 连接（五子棋联机） =====
 const connection = ref(null)
 const isConnected = ref(false)
@@ -259,10 +221,10 @@ const makeMove = async (roomId, row, col) => {
 }
 
 const initSignalR = async () => {
-  const hubUrl = 'https://bianyuzhou.com/signalr/game'
+  const hubUrl = new URL('/signalr/game', new URL(import.meta.env.VITE_API_BASE_URL || '/api', window.location.origin)).href
   connection.value = new signalR.HubConnectionBuilder()
     .withUrl(hubUrl, {
-      accessTokenFactory: () => localStorage.getItem('token') || ''
+      accessTokenFactory: () => useUserStore().token || ''
     })
     .withAutomaticReconnect()
     .build()
@@ -314,28 +276,30 @@ provide('signalR', {
 })
 
 // ===== 游戏切换逻辑 =====
-const loadGame = async (key) => {
+const route = useRoute(), router = useRouter()
+const canLeaveGame = async () => {
   const instance = currentGameRef.value
   if (instance && typeof instance.handleBeforeLeave === 'function') {
-    const canLeave = await instance.handleBeforeLeave()
-    if (canLeave === false) return
+    return await instance.handleBeforeLeave() !== false
   }
-
-  const mod = gameModules[key]
-  if (mod) {
-    currentGameKey.value = key
-    currentGameComponent.value = mod.component
-  }
+  return true
 }
+const loadGame = key => router.push({ query: { ...route.query, game: key || undefined } })
+onBeforeRouteUpdate((to, from) => to.query.game === from.query.game || canLeaveGame())
+onBeforeRouteLeave(canLeaveGame)
+watch(() => route.query.game, key => {
+  const mod = typeof key === 'string' && Object.hasOwn(gameModules, key) ? gameModules[key] : null
+  currentGameKey.value = mod ? key : null
+  currentGameComponent.value = mod?.component || null
+}, { immediate: true })
 
 // ===== 统计信息 =====
 const gameCount = computed(() => Object.keys(gameModules).length)
-const onlineCount = ref(1280)
+
 
 // ===== 生命周期 =====
 onMounted(() => {
   initSignalR()
-  togglePaper()
 })
 
 onUnmounted(() => {
@@ -347,321 +311,43 @@ onUnmounted(() => {
 
 
 <style scoped>
-/* ===== 全局 CSS 变量（墨划风格） ===== */
-.game-hub {
-  --paper-bg: #F7F4EE;
-  --paper-card: #FCFAF7;
-  --paper-sub: #F0EBE1;
-  --ink-black: #2A2826;
-  --ink-gray: #7A7570;
-  --line-raw: #D5CEC5;
-  --cinnabar: #9E2A2B;
-  --font-family: 'Noto Serif SC', 'Source Han Serif SC', 'Songti SC', 'SimSun', serif;
-
-  background-color: var(--paper-bg);
-  color: var(--ink-black);
-  font-family: var(--font-family);
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  transition: background-color 0.5s ease, color 0.5s ease;
+.game-hub { font-family: var(--font-sans); }
+.game-discussion { color: var(--accent-color); text-decoration: none; padding: 10px 14px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); }
+.connection-status { font-size: 12px; color: var(--text-secondary); }
+.connection-status.online { color: var(--success); }
+.hub-body { display: flex; gap: 24px; align-items: flex-start; }
+.hub-sidebar { width: 190px; flex-shrink: 0; padding: 16px 10px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 12px; }
+.nav-group { margin-bottom: 18px; }
+.nav-group-title { font-size: 11px; color: var(--text-secondary); padding: 6px 10px; margin-bottom: 6px; }
+.nav-item { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; border: 0; padding: 10px; border-radius: 8px; font-size: 13px; background: transparent; color: var(--text-primary); }
+.nav-item:hover { background: var(--bg-sub); }
+.nav-item.active { background: var(--accent-soft); color: var(--accent-color); }
+.nav-icon { width: 20px; text-align: center; }
+.badge-new { margin-left: auto; background: var(--accent-soft); color: var(--accent-color); padding: 1px 5px; border-radius: 5px; font-size: 10px; }
+.sidebar-stats { border-top: 1px solid var(--border-line); padding: 14px 10px 0; }
+.stat-value { font-size: 22px; margin-right: 8px; }
+.stat-label { font-size: 11px; color: var(--text-secondary); }
+.hub-main { flex: 1; min-width: 0; }
+.welcome-placeholder h2 { font-size: 22px; margin: 0 0 10px; }
+.welcome-placeholder p { font-size: 14px; color: var(--text-secondary); }
+.game-cards { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin-top: 24px; }
+.game-card { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 10px; padding: 24px; border: 1px solid var(--border-line); border-radius: 12px; color: var(--text-primary); background: var(--paper-card); }
+.game-card:hover { border-color: var(--accent-color); }
+.game-card-icon { font-size: 28px; }
+.game-card small { color: var(--text-secondary); line-height: 1.7; flex: 1; }
+.game-status { color: var(--accent-color); background: var(--accent-soft); border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+.loading-state { display: grid; place-content: center; gap: 16px; padding: 64px; color: var(--text-secondary); }
+.loading-spinner { width: 30px; height: 30px; border: 2px solid var(--border-line); border-top-color: var(--accent-color); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.hub-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 32px; padding: 20px 0; border-top: 1px solid var(--border-line); color: var(--text-secondary); font-size: 11px; }
+@media(max-width: 1100px) {
+ .hub-body { flex-direction: column; }
+ .hub-sidebar, .hub-main { width: 100%; }
+ .hub-sidebar { padding: 10px; }
+ .game-nav { display: flex; flex-wrap: wrap; gap: 6px; }
+ .nav-group { display: contents; }
+ .nav-group-title, .sidebar-stats, .badge-new { display: none; }
+ .nav-item { width: auto; padding: 8px 10px; background: var(--bg-sub); }
 }
-
-/* ===== 顶部品牌栏 ===== */
-.hub-header {
-  height: 64px;
-  border-bottom: 1px solid var(--line-raw);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 40px;
-  background: var(--paper-bg);
-  flex-shrink: 0;
-  transition: background 0.5s ease;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 20px;
-  letter-spacing: 0.3em;
-  font-weight: 400;
-  color: var(--ink-black);
-}
-.brand-icon {
-  font-size: 24px;
-}
-.brand-name {
-  letter-spacing: 0.15em;
-}
-
-.header-controls {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-.btn-line {
-  background: none;
-  border: 1px solid var(--line-raw);
-  color: var(--ink-black);
-  padding: 4px 16px;
-  font-family: inherit;
-  font-size: 13px;
-  letter-spacing: 0.15em;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-.btn-line:hover {
-  border-color: var(--cinnabar);
-  color: var(--cinnabar);
-}
-.connection-status {
-  font-size: 13px;
-  letter-spacing: 0.1em;
-}
-.connection-status.online {
-  color: var(--cinnabar);
-}
-.connection-status.offline {
-  color: var(--ink-gray);
-}
-
-/* ===== 主体布局 ===== */
-.hub-body {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-/* ===== 左侧导航 ===== */
-.hub-sidebar {
-  width: 220px;
-  background: var(--paper-sub);
-  border-right: 1px solid var(--line-raw);
-  padding: 20px 0;
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
-  transition: background 0.5s ease;
-}
-
-.game-nav {
-  flex: 1;
-  overflow-y: auto;
-  padding: 0 12px;
-}
-.nav-group {
-  margin-bottom: 20px;
-}
-.nav-group-title {
-  font-size: 12px;
-  letter-spacing: 0.2em;
-  color: var(--ink-gray);
-  padding: 8px 16px 4px 16px;
-  border-bottom: 1px dashed var(--line-raw);
-  margin-bottom: 6px;
-  text-transform: uppercase;
-}
-.nav-item {
-  display: flex;
-  align-items: center;
-  padding: 10px 16px;
-  margin: 2px 0;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 14px;
-  color: var(--ink-gray);
-  letter-spacing: 0.1em;
-  gap: 10px;
-  position: relative;
-}
-.nav-item:hover {
-  background: var(--paper-card);
-  color: var(--ink-black);
-}
-.nav-item.active {
-  background: var(--paper-card);
-  color: var(--ink-black);
-  box-shadow: inset 3px 0 0 var(--cinnabar);
-  font-weight: 500;
-}
-.nav-icon {
-  font-size: 18px;
-  width: 24px;
-  text-align: center;
-}
-.nav-label {
-  flex: 1;
-}
-.badge-new {
-  background: var(--cinnabar);
-  color: #fff;
-  font-size: 10px;
-  padding: 0 8px;
-  border-radius: 10px;
-  line-height: 18px;
-  letter-spacing: 0.05em;
-}
-
-/* 侧边统计 */
-.sidebar-stats {
-  border-top: 1px solid var(--line-raw);
-  padding: 16px 20px;
-  display: flex;
-  justify-content: space-around;
-  background: var(--paper-sub);
-}
-.stat-item {
-  text-align: center;
-}
-.stat-value {
-  display: block;
-  font-size: 20px;
-  font-weight: 400;
-  color: var(--ink-black);
-  letter-spacing: 0.1em;
-}
-.stat-label {
-  font-size: 11px;
-  color: var(--ink-gray);
-  letter-spacing: 0.15em;
-  margin-top: 4px;
-}
-
-/* ===== 主内容区 ===== */
-.hub-main {
-  flex: 1;
-  padding: 30px 40px;
-  background: var(--paper-bg);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-  transition: background 0.5s ease;
-  overflow-y: auto;
-}
-
-/* 欢迎占位 */
-.welcome-placeholder {
-  text-align: center;
-  color: var(--ink-gray);
-}
-.welcome-icon {
-  font-size: 64px;
-  margin-bottom: 20px;
-}
-.welcome-placeholder h2 {
-  font-size: 28px;
-  font-weight: 400;
-  letter-spacing: 0.3em;
-  color: var(--ink-black);
-  margin: 0 0 8px;
-}
-.welcome-placeholder p {
-  font-size: 16px;
-  letter-spacing: 0.15em;
-  margin-bottom: 16px;
-}
-.welcome-hint {
-  font-size: 13px;
-  opacity: 0.6;
-  letter-spacing: 0.2em;
-}
-
-/* 加载状态 */
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  color: var(--ink-gray);
-  font-size: 16px;
-  letter-spacing: 0.15em;
-}
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 2px solid var(--line-raw);
-  border-top-color: var(--cinnabar);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ===== 页脚 ===== */
-.hub-footer {
-  border-top: 1px solid var(--line-raw);
-  padding: 16px 40px;
-  text-align: center;
-  font-size: 12px;
-  color: var(--ink-gray);
-  letter-spacing: 0.2em;
-  background: var(--paper-bg);
-  flex-shrink: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-.footer-sub {
-  opacity: 0.6;
-}
-
-/* ===== 响应式 ===== */
-@media (max-width: 768px) {
-  .hub-header {
-    padding: 0 16px;
-    flex-wrap: wrap;
-    height: auto;
-    padding: 12px 16px;
-    gap: 8px;
-  }
-  .brand {
-    font-size: 16px;
-  }
-  .hub-body {
-    flex-direction: column;
-  }
-  .hub-sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--line-raw);
-    padding: 12px 0;
-    max-height: 200px;
-    overflow-y: auto;
-  }
-  .game-nav {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 8px;
-    padding: 0 12px;
-  }
-  .nav-group {
-    width: 100%;
-    margin-bottom: 8px;
-  }
-  .nav-group-title {
-    padding: 4px 8px;
-    font-size: 11px;
-  }
-  .nav-item {
-    padding: 6px 12px;
-    font-size: 13px;
-    flex: 0 0 auto;
-  }
-  .sidebar-stats {
-    display: none;
-  }
-  .hub-main {
-    padding: 20px 16px;
-  }
-  .hub-footer {
-    padding: 12px 16px;
-    flex-direction: column;
-    gap: 4px;
-  }
-}
+@media(max-width: 560px) { .game-cards { grid-template-columns: minmax(0,1fr); } }
 </style>

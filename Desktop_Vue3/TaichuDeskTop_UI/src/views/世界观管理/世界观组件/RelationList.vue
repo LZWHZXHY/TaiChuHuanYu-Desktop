@@ -107,13 +107,13 @@ const direction = computed(() => {
 .relation-label {
   font-weight: 500;
   font-size: 14px;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .relation-count {
   font-size: 12px;
-  color: #94a3b8;
-  background: #f1f5f9;
+  color: var(--text-secondary);
+  background: var(--bg-sub);
   padding: 0 10px;
   border-radius: 12px;
 }
@@ -129,37 +129,37 @@ const direction = computed(() => {
   align-items: center;
   gap: 8px;
   padding: 8px 14px;
-  background: #f8fafc;
+  background: var(--bg-main);
   border-radius: 8px;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
-  border-left: 3px solid #e2e8f0;
+  border-left: 3px solid var(--border-line);
 }
 
 .relation-item:hover {
-  background: #f1f5f9;
+  background: var(--bg-sub);
   transform: translateX(2px);
 }
 
 /* 入度样式（被关联） */
 .relation-item.incoming {
-  border-left-color: #f59e0b;
+  border-left-color: var(--warning);
 }
 
 /* 出度样式（我关联的） */
 .relation-item.outgoing {
-  border-left-color: #4f46e5;
+  border-left-color: var(--accent-color);
 }
 
 .relation-item .rel-title {
   font-weight: 500;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .relation-item .rel-type {
-  color: #4f46e5;
-  background: #eef2ff;
+  color: var(--accent-color);
+  background: var(--accent-soft);
   padding: 0 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -167,7 +167,7 @@ const direction = computed(() => {
 
 .relation-item .rel-direction {
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   margin-left: auto;
   opacity: 0.7;
 }

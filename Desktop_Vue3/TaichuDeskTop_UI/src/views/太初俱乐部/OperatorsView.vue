@@ -24,6 +24,7 @@
 </template>
 
 <script>
+import { useUserStore } from '@/stores/user'
 import Navbar            from './Navbar.vue'
 import Footer            from './Footer.vue'
 import SectionHeading    from './SectionHeading.vue'
@@ -41,7 +42,7 @@ export default {
 
     /** ⭐ 指定下单：跳到定价页，带上打手 ID */
     handleOrder(uid) {
-      if (!localStorage.getItem('token')) {
+      if (!useUserStore().token) {
         alert('请先登录')
         return
       }

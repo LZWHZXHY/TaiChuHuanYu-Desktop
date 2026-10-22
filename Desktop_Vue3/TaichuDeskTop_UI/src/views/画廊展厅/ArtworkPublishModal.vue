@@ -1,24 +1,25 @@
 <template>
-  <div v-if="modelValue" class="publish-mask" @click.self="close">
-    <div class="publish-modal">
+  <div v-if="modelValue" class="publish-mask" role="dialog" aria-modal="true" aria-label="作品编辑与发布" @click.self="close">
+    <div class="publish-modal content-form">
       <header class="modal-header">
         <div>
-          <h2 class="modal-title">灵脉聚形 / 展布画卷</h2>
-          <p class="modal-subtitle">无需撰写长卷笔记，直接铺陈图幅入馆</p>
+          <h2 class="modal-title">{{ artwork ? '编辑作品' : '发布作品' }}</h2>
+          <p class="modal-subtitle">{{ artwork ? '修改标题、简介、题注和封面；已发布图片及水印保持原样' : '选择图片、填写作品信息后发布到画廊' }}</p>
         </div>
-        <button class="close-btn" @click="close">✕</button>
+        <button class="close-btn" aria-label="关闭作品编辑与发布" @click="close">✕</button>
       </header>
 
-      <div class="modal-body">
+      <fieldset class="modal-body" :disabled="submitting">
         <!-- 左侧：图像管理与上传 -->
         <div class="media-section">
-          <label class="section-label">画卷素材 ({{ imageList.length }}P)</label>
+          <label class="section-label">作品图片 ({{ imageList.length }}P)</label>
           <div 
-            class="dropzone"
+            v-if="!artwork" class="dropzone" :class="{ dragging: isDragging }"
             @dragover.prevent="isDragging = true"
             @dragleave.prevent="isDragging = false"
             @drop.prevent="handleDrop"
             @click="triggerFileInput"
+            role="button" tabindex="0" aria-label="选择作品图片" @keydown.enter.prevent="triggerFileInput" @keydown.space.prevent="triggerFileInput"
           >
             <input 
               type="file" 
@@ -31,7 +32,7 @@
             <div class="drop-hint">
               <span class="upload-icon">✦</span>
               <p>点击或拖拽图像至此处</p>
-              <span class="sub-hint">支持多图上传，支持 JPG / PNG / WEBP</span>
+              <span class="sub-hint">最多 20 张，单张 10 MB，总计 25 MB；水印建议使用 JPG / PNG</span>
             </div>
           </div>
 
@@ -52,14 +53,14 @@
                   >
                     {{ item.isCover ? '★ 封面' : '设为封面' }}
                   </button>
-                  <button type="button" class="del-btn" @click="removeImage(idx)">✕</button>
+                  <button type="button" v-if="!artwork" class="del-btn" @click="removeImage(idx)">✕</button>
                 </div>
               </div>
               <input 
                 v-model="item.caption" 
-                class="caption-input" 
+                class="caption-input" :aria-label="`第 ${idx + 1} 张图片题注`" 
                 placeholder="为本画幅题注 (可选)" 
-                maxlength="100"
+                maxlength="500"
               />
             </div>
           </div>
@@ -68,37 +69,38 @@
         <!-- 右侧：作品元数据与水印 -->
         <div class="meta-section">
           <div class="form-group">
-            <label>画作标题 <span class="required">*</span></label>
+            <label for="artwork-title">画作标题 <span class="required">*</span></label>
             <input 
-              v-model="form.title" 
+              id="artwork-title" v-model="form.title" 
               type="text" 
-              placeholder="题写画作之名..." 
-              maxlength="80" 
+              placeholder="填写作品标题" 
+              maxlength="100" 
               class="text-input"
             />
           </div>
 
           <div class="form-group">
-            <label>作意陈述</label>
+            <label for="artwork-description">作品说明</label>
             <textarea 
-              v-model="form.description" 
+              id="artwork-description" v-model="form.description" 
               rows="4" 
-              placeholder="概述灵感、画法或心境..." 
-              maxlength="800"
+              placeholder="介绍作品、练习目的或参考来源（可选）" 
+              maxlength="1000"
               class="text-textarea"
             ></textarea>
           </div>
 
-          <div class="form-group">
+          <div class="form-group"><label for="artwork-tags">标签（可选）</label><input id="artwork-tags" v-model="form.tags" class="text-input" placeholder="例如：风景，原创，练习；用逗号分隔" maxlength="510" /><p class="sub-hint">标签用于分类与搜索，不要求关联人设、世界观或笔记。</p></div>
+          <div v-if="!artwork" class="form-group">
             <label class="toggle-label">
               <input type="checkbox" v-model="form.watermarkEnabled" />
-              <span>开启灵印防护 (水印)</span>
+              <span>添加文字水印</span>
             </label>
             <div v-if="form.watermarkEnabled" class="watermark-subform">
               <input 
                 v-model="form.watermarkText" 
                 type="text" 
-                placeholder="水印文字内容（默认为太初寰宇）" 
+                maxlength="100" placeholder="水印文字内容（默认为太初寰宇）" 
                 class="text-input"
               />
               <div class="watermark-options">
@@ -117,12 +119,14 @@
             </div>
           </div>
         </div>
-      </div>
+      </fieldset>
+      <p v-if="submitting && !artwork" class="form-error" role="status">{{ progress < 100 ? `上传中 ${progress}%` : '图片已上传，正在处理并保存，请稍候…' }}</p>
+      <p v-if="error" class="form-error" role="alert">{{ error }}</p>
 
       <footer class="modal-footer">
         <button class="btn-cancel" @click="close" :disabled="submitting">取消</button>
         <button class="btn-submit" @click="handleSubmit" :disabled="submitting">
-          {{ submitting ? '画卷凝炼中...' : '即刻布展' }}
+          {{ submitting ? '正在保存…' : artwork ? '保存修改' : '发布作品' }}
         </button>
       </footer>
     </div>
@@ -130,155 +134,96 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue';
-// 导入项目通用的请求封装（包含自动挂载 Token / 拦截器）
-import request from '../../utils/request'; 
+import { ref, reactive, watch, onUnmounted } from 'vue'
+import { artworkApi, type ArtworkDetail } from '../../api/artwork'
+import { wikiTags } from '@/utils/wikiContent'
+import { useUserStore } from '../../stores/user'
 
-interface ImageItem {
-  localId: string;
-  file: File;
-  previewUrl: string;
-  caption: string;
-  isCover: boolean;
+interface ImageItem { localId: string; file?: File; previewUrl: string; caption: string; isCover: boolean }
+const props = defineProps<{ modelValue: boolean; artwork?: ArtworkDetail }>()
+const emit = defineEmits(['update:modelValue', 'published'])
+const user = useUserStore()
+const fileInputRef = ref<HTMLInputElement | null>(null)
+const isDragging = ref(false), submitting = ref(false), error = ref(''), progress = ref(0)
+const imageList = ref<ImageItem[]>([])
+const defaults = () => ({ title: '', description: '', tags: '', watermarkEnabled: true, watermarkText: '', watermarkPosition: 'bottom-right', watermarkColor: '#ffffff' })
+const form = reactive(defaults())
+let generation = 0
+const releaseImages = () => imageList.value.forEach(item => { if (item.file) URL.revokeObjectURL(item.previewUrl) })
+function reset() {
+  releaseImages(); imageList.value = []; Object.assign(form, defaults()); error.value = ''; isDragging.value = false
 }
-
-const props = defineProps<{ modelValue: boolean }>();
-const emit = defineEmits(['update:modelValue', 'published']);
-
-const fileInputRef = ref<HTMLInputElement | null>(null);
-const isDragging = ref(false);
-const submitting = ref(false);
-const imageList = ref<ImageItem[]>([]);
-
-const form = reactive({
-  title: '',
-  description: '',
-  watermarkEnabled: true,
-  watermarkText: '',
-  watermarkPosition: 'bottom-right',
-  watermarkColor: '#ffffff'
-});
-
-const triggerFileInput = () => fileInputRef.value?.click();
-
-const processFiles = (files: FileList | null) => {
-  if (!files) return;
-  Array.from(files).forEach((file) => {
-    if (!file.type.startsWith('image/')) return;
-    const isFirst = imageList.value.length === 0;
-    imageList.value.push({
-      localId: `${Date.now()}-${Math.random()}`,
-      file,
-      previewUrl: URL.createObjectURL(file),
-      caption: '',
-      isCover: isFirst
-    });
-  });
-};
-
-const handleFileSelect = (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  processFiles(target.files);
-  target.value = '';
-};
-
-const handleDrop = (e: DragEvent) => {
-  isDragging.value = false;
-  processFiles(e.dataTransfer?.files || null);
-};
-
-const setCover = (index: number) => {
-  imageList.value.forEach((item, idx) => {
-    item.isCover = idx === index;
-  });
-};
-
-const removeImage = (index: number) => {
-  const [removed] = imageList.value.splice(index, 1);
-  URL.revokeObjectURL(removed.previewUrl);
-  if (removed.isCover && imageList.value.length > 0) {
-    imageList.value[0].isCover = true;
+watch(() => [props.modelValue, props.artwork], () => {
+  generation++; reset()
+  if (props.modelValue && props.artwork) {
+    Object.assign(form, { title: props.artwork.title, description: props.artwork.description || '', tags: (props.artwork.tags || []).join(', ') })
+    imageList.value = props.artwork.images.map((image, index) => ({ localId: String(index), previewUrl: image.url, caption: image.caption || '', isCover: !!image.isCover }))
+    if (!imageList.value.some(item => item.isCover) && imageList.value[0]) imageList.value[0].isCover = true
   }
-};
-
-const resetForm = () => {
-  imageList.value.forEach(img => URL.revokeObjectURL(img.previewUrl));
-  imageList.value = [];
-  form.title = '';
-  form.description = '';
-  form.watermarkText = '';
-};
-
-const close = () => {
-  emit('update:modelValue', false);
-};
-
-// 🌟 API 请求直接内聚在组件内部
-const handleSubmit = async () => {
-  if (!form.title.trim()) {
-    alert('请为画作题写标题');
-    return;
+}, { immediate: true })
+watch(() => user.token, () => { generation++; reset(); emit('update:modelValue', false) }, { flush: 'sync' })
+onUnmounted(() => { generation++; releaseImages() })
+const close = () => { if (!submitting.value) emit('update:modelValue', false) }
+const triggerFileInput = () => { if (!submitting.value) fileInputRef.value?.click() }
+function processFiles(files: FileList | null) {
+  if (!files || submitting.value || props.artwork) return
+  const selected = Array.from(files)
+  if (imageList.value.length + selected.length > 20 || selected.some(f => !f.type.startsWith('image/') || !f.size || f.size > 10 * 1024 * 1024) ||
+      [...imageList.value.map(i => i.file!), ...selected].reduce((sum, f) => sum + f.size, 0) > 25 * 1024 * 1024) {
+    error.value = '请选择有效图片：最多 20 张，单张 10 MB，总计 25 MB'; return
   }
-  if (imageList.value.length === 0) {
-    alert('请至少上传一张画作');
-    return;
-  }
-
-  submitting.value = true;
-
+  error.value = ''
+  selected.forEach(file => imageList.value.push({ localId: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file), caption: '', isCover: imageList.value.length === 0 }))
+}
+const handleFileSelect = (event: Event) => { const input = event.target as HTMLInputElement; processFiles(input.files); input.value = '' }
+const handleDrop = (event: DragEvent) => { isDragging.value = false; processFiles(event.dataTransfer?.files || null) }
+const setCover = (index: number) => { if (!submitting.value) imageList.value.forEach((item, i) => { item.isCover = i === index }) }
+function removeImage(index: number) {
+  if (submitting.value || props.artwork) return
+  const [item] = imageList.value.splice(index, 1)
+  if (!item) return
+  URL.revokeObjectURL(item.previewUrl)
+  if (item.isCover && imageList.value[0]) imageList.value[0].isCover = true
+}
+async function handleSubmit() {
+  if (submitting.value) return
+  if (!user.isLoggedIn) { error.value = '请先登录后再发布或编辑作品'; return }
+  if (!form.title.trim() || !imageList.value.length) { error.value = '请填写标题并选择至少一张图片'; return }
+  const tags = wikiTags(form.tags);
+  if (tags.length > 10 || tags.some(t => t.length > 50)) { error.value = '最多 10 个标签，每个不超过 50 字'; return }
+  const scope = generation
+  submitting.value = true; error.value = ''; progress.value = 0
   try {
-    const formData = new FormData();
-    formData.append('title', form.title.trim());
-    if (form.description.trim()) {
-      formData.append('description', form.description.trim());
+    const data = { tags, title: form.title.trim(), description: form.description.trim(), captions: imageList.value.map(i => i.caption.trim()), coverIndex: Math.max(0, imageList.value.findIndex(i => i.isCover)) }
+    let response
+    if (props.artwork) response = await artworkApi.edit(props.artwork.id, data)
+    else {
+      const body = new FormData()
+      Object.entries({ ...form, tags: undefined, title: data.title, description: data.description, coverIndex: data.coverIndex }).forEach(([key, value]) => value !== undefined && body.append(key, String(value)))
+      imageList.value.forEach((item, i) => { body.append('images', item.file!); body.append(`captions[${i}]`, data.captions[i]) })
+      tags.forEach(tag => body.append('tags', tag));
+      response = await artworkApi.publish(body, value => progress.value = value)
     }
-
-    formData.append('watermarkEnabled', String(form.watermarkEnabled));
-    if (form.watermarkText.trim()) {
-      formData.append('watermarkText', form.watermarkText.trim());
-    }
-    formData.append('watermarkPosition', form.watermarkPosition);
-    formData.append('watermarkColor', form.watermarkColor);
-
-    // 确定封面索引 CoverIndex
-    const coverIdx = imageList.value.findIndex(item => item.isCover);
-    formData.append('coverIndex', String(coverIdx >= 0 ? coverIdx : 0));
-
-    // 追加图片文件与对应单图注记
-    imageList.value.forEach((item, index) => {
-      formData.append('images', item.file);
-      if (item.caption.trim()) {
-        formData.append(`captions[${index}]`, item.caption.trim());
-      }
-    });
-
-    // ✅ 正确写法：调用对象的 post 方法
-const response: any = await request.post(
-  '/NewArtwork/direct-upload',
-  formData,
-  {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  }
-);
-
-    emit('published', response);
-    resetForm();
-    close();
-  } catch (err: any) {
-    alert(err?.response?.data?.message || err?.message || '画布布展异常');
-  } finally {
-    submitting.value = false;
-  }
-};
+    if (scope !== generation) return
+    emit('published', response); emit('update:modelValue', false)
+  } catch (cause: any) {
+    if (scope === generation) error.value = cause.friendlyMessage || '保存失败，输入内容已保留，请重试'
+  } finally { submitting.value = false }
+}
 </script>
 
 <style scoped>
+.modal-body { margin: 0; border: 0; min-width: 0; min-height: 0; flex: 1; }
+.form-error { margin: 0; padding: 12px 32px; color: var(--accent-color); }
+input, textarea, select { color: var(--text-primary); background: var(--paper-card); }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-color); }
+.thumb-box:focus-within .item-mask, .dropzone.dragging { opacity: 1; border-color: var(--accent-color); }
+@media (hover: none) { .item-mask { opacity: 1; } }
 .publish-mask {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: 10001;
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(8px);
   display: flex;
@@ -288,7 +233,7 @@ const response: any = await request.post(
 }
 
 .publish-modal {
-  background: #ffffff;
+  background: var(--paper-bg);
   width: 920px;
   max-width: 100%;
   max-height: 90vh;
@@ -300,15 +245,17 @@ const response: any = await request.post(
 }
 
 .modal-header {
+  flex-shrink: 0;
+  gap: 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 24px 32px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-line);
 }
-.modal-title { margin: 0; font-size: 1.25rem; font-weight: 700; color: #1a1a1a; }
-.modal-subtitle { margin: 4px 0 0; font-size: 0.8rem; color: #86868b; }
-.close-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #999; }
+.modal-title { margin: 0; font-size: 1.25rem; font-weight: 700; color: var(--text-primary); }
+.modal-subtitle { margin: 4px 0 0; font-size: 0.8rem; color: var(--text-secondary); }
+.close-btn { flex-shrink: 0; align-self: flex-start; background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-secondary); }
 
 .modal-body {
   padding: 32px;
@@ -319,22 +266,22 @@ const response: any = await request.post(
 }
 
 .media-section { display: flex; flex-direction: column; gap: 16px; }
-.section-label { font-size: 0.85rem; font-weight: 600; color: #333; }
+.section-label { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
 
 .dropzone {
-  border: 1px dashed #d1d1d6;
+  border: 1px dashed var(--border-line);
   border-radius: 8px;
   padding: 28px 16px;
   text-align: center;
   cursor: pointer;
-  background: #fafafa;
+  background: var(--paper-card);
   transition: all 0.2s ease;
 }
-.dropzone:hover { border-color: #000; background: #f5f5f7; }
+.dropzone:hover { border-color: var(--accent-color); background: var(--paper-card); }
 .hidden-input { display: none; }
-.upload-icon { font-size: 1.5rem; color: #86868b; }
+.upload-icon { font-size: 1.5rem; color: var(--text-secondary); }
 .drop-hint p { margin: 8px 0 4px; font-weight: 500; font-size: 0.9rem; }
-.sub-hint { font-size: 0.75rem; color: #86868b; }
+.sub-hint { font-size: 0.75rem; color: var(--text-secondary); }
 
 .image-grid {
   display: grid;
@@ -346,15 +293,15 @@ const response: any = await request.post(
 }
 
 .grid-item {
-  border: 1px solid #eee;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   padding: 6px;
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: #fff;
+  background: var(--paper-bg);
 }
-.grid-item.is_cover { border-color: #000; }
+.grid-item.is_cover { border-color: var(--accent-color); }
 
 .thumb-box {
   position: relative;
@@ -362,7 +309,7 @@ const response: any = await request.post(
   aspect-ratio: 4/3;
   overflow: hidden;
   border-radius: 4px;
-  background: #f0f0f0;
+  background: var(--border-line);
 }
 .thumb-img { width: 100%; height: 100%; object-fit: cover; }
 .item-mask {
@@ -384,11 +331,11 @@ const response: any = await request.post(
   border-radius: 4px;
   cursor: pointer;
 }
-.cover-btn { background: #fff; color: #000; }
-.cover-btn.active { background: #000; color: #fff; }
-.del-btn { background: rgba(255, 60, 60, 0.85); color: #fff; }
+.cover-btn { background: var(--paper-bg); color: var(--accent-color); }
+.cover-btn.active { background: var(--accent-color); color: #fff; }
+.del-btn { background: rgba(255, 60, 60, 0.85); color: var(--paper-bg); }
 .caption-input {
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--border-line);
   border-radius: 4px;
   font-size: 0.75rem;
   padding: 4px 6px;
@@ -396,16 +343,16 @@ const response: any = await request.post(
 
 .meta-section { display: flex; flex-direction: column; gap: 20px; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-group label { font-size: 0.85rem; font-weight: 600; color: #333; }
+.form-group label { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
 .required { color: #eb4d4b; }
 .text-input, .text-textarea, .select-input {
-  border: 1px solid #e5e5ea;
+  border: 1px solid var(--border-line);
   border-radius: 6px;
   padding: 10px 12px;
   font-size: 0.85rem;
   outline: none;
 }
-.text-input:focus, .text-textarea:focus, .select-input:focus { border-color: #000; }
+.text-input:focus, .text-textarea:focus, .select-input:focus { border-color: var(--accent-color); }
 .text-textarea { resize: vertical; }
 
 .toggle-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; }
@@ -414,17 +361,21 @@ const response: any = await request.post(
 .color-picker { width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px; background: none; }
 
 .modal-footer {
+  flex-shrink: 0;
+  background: var(--paper-bg);
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   padding: 20px 32px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-line);
 }
-.btn-cancel { background: #f5f5f7; border: none; padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
-.btn-submit { background: #000; color: #fff; border: none; padding: 8px 22px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+.btn-cancel { color: var(--text-primary); background: var(--paper-card); border: 1px solid var(--border-line); padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+.btn-submit { background: var(--accent-color); color: #fff; border: none; padding: 8px 22px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
 .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
 @media (max-width: 768px) {
-  .modal-body { grid-template-columns: 1fr; }
+  .modal-body { grid-template-columns: 1fr; padding: 20px; gap: 24px; }
+  .modal-header, .modal-footer { padding: 20px; }
+  .item-mask { opacity: 1; }
 }
 </style>
