@@ -59,6 +59,7 @@ builder.Services.AddScoped<ILingMaiPublishHandler, ArtPublishHandler>();
 builder.Services.AddScoped<ILingMaiPublishHandler, WikiPublishHandler>();
 builder.Services.AddScoped<TradeService>();
 builder.Services.AddScoped<LingMaiService>();
+builder.Services.AddScoped<NoteCommentService>();
 builder.Services.AddScoped<TaiChuWeb_V2.Services.Artworks.ArtworkEngagementService>();
 builder.Services.AddScoped<TaiChuWeb_V2.Services.Artworks.ArtworkPublicationService>();
 builder.Services.AddScoped<IEmailService, EmailService>();

@@ -15,6 +15,7 @@ export interface PublishedNoteItem {
   resonance: number;
   excerpt?: string;
   authorName?: string; // 补齐广场所需的作者名字段
+  commentsCount?: number; // 评论数
 }
 
 export interface PublishedNoteDetail extends PublishedNoteItem {
@@ -29,10 +30,40 @@ export interface PublishedNoteDetail extends PublishedNoteItem {
   }[];
 }
 
+// 🌟 博客与帖子的评论区（与画廊评论同构）
+export interface NoteComment {
+  id: string;
+  userId: string;
+  authorName: string;
+  avatar?: string;
+  content: string;
+  parentId?: string;
+  replyToAuthor?: string;
+  createdAt: string;
+  isDeleted: boolean;
+  canDelete: boolean;
+}
+
+export interface NoteCommentPage {
+  items: NoteComment[];
+  total: number;
+  hasMore: boolean;
+}
+
 export const notePublishApi = {
   getPublicBlog(id: string) {
     return request.get(`/LingMaiPublish/blog/${id}`) as unknown as Promise<PublishedNoteDetail>;
   },
+
+  /**
+   * 🌟 博客与帖子评论区
+   */
+  getComments: (id: string, offset = 0) =>
+    request.get<NoteCommentPage>(`/LingMaiPublish/blog/${id}/comments`, { params: { offset, limit: 20 }, silentError: true }),
+  addComment: (id: string, content: string, parentId?: string) =>
+    request.post<{ id: string; commentsCount: number }>(`/LingMaiPublish/blog/${id}/comments`, { content, parentId }, { silentError: true }),
+  deleteComment: (id: string, commentId: string) =>
+    request.delete<{ commentsCount: number }>(`/LingMaiPublish/blog/${id}/comments/${commentId}`, { silentError: true }),
 
   /**
    * 🌟 广场公共信息流：获取已发布的公开帖子/简语

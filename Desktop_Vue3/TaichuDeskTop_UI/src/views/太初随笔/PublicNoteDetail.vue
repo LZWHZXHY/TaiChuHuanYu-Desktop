@@ -52,6 +52,8 @@
             <p class="footer-sign">喜欢这篇内容？可以复制引用链接分享给社区。</p>
           </footer>
         </article>
+
+        <NoteComments v-if="post" :key="post.id" :note-id="String(post.id)" />
       </div>
 
       <div class="md-wrapper empty-state" v-else-if="!loading">
@@ -68,6 +70,7 @@ import { useEditor, EditorContent } from '@tiptap/vue-3';
 import { spiritExtensions } from '../../utils/editorConfig'; // 🌟 引入编辑器扩展
 import { notePublishApi } from '../../api/NotePublish';
 import type { PublishedNoteDetail } from '../../api/NotePublish';
+import NoteComments from './NoteComments.vue';
 
 const props = defineProps<{
   id: string | number;

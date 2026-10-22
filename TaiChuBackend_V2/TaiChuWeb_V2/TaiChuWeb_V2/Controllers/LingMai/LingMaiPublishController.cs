@@ -1,10 +1,12 @@
 // TaiChuWeb_V2/Controllers/LingMai/LingMaiPublishController.cs
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.LingMai;
 using TaiChuWeb_V2.Models.LingMai;
+using TaiChuWeb_V2.Services.LingMai;
 using TaiChuWeb_V2.Services.Publish; // 引入策略命名空间
 
 namespace TaiChuWeb_V2.Controllers.LingMai
@@ -18,14 +20,18 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         // 🌟 多态分流策略处理器字典
         private readonly Dictionary<string, ILingMaiPublishHandler> _publishHandlers;
 
+        private readonly NoteCommentService _comments;
+
         // 获取当前登录用户 ID
         private string? CurrentUserId => User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        private Guid? CurrentUserIdGuid => Guid.TryParse(CurrentUserId, out var id) ? id : null;
 
         // 🌟 通过构造函数依赖注入所有的处理器，并自动编排为路由映射字典
-        public LingMaiPublishController(AppDbContext context, IEnumerable<ILingMaiPublishHandler> handlers)
+        public LingMaiPublishController(AppDbContext context, IEnumerable<ILingMaiPublishHandler> handlers, NoteCommentService comments)
         {
             _context = context;
             _publishHandlers = handlers.ToDictionary(h => h.SupportType, h => h);
+            _comments = comments;
         }
 
 
@@ -214,6 +220,12 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                     pn.Resonance,
                     pn.AuthorName,
                     pn.ExtraData,
+                    // 🌟 评论数：评论锚定在发布内容的源草稿 Note 上。
+                    //    comments.NoteId 与 PublishedNotes.OriginalNoteId 两列排序规则不同，
+                    //    必须用 Collate 显式对齐，否则 MySQL 会抛「Illegal mix of collations」。
+                    CommentsCount = _context.Comments.Count(c => c.NoteId != null
+                        && EF.Functions.Collate(c.NoteId.ToString(), "utf8mb4_general_ci") == EF.Functions.Collate(pn.OriginalNoteId.ToString(), "utf8mb4_general_ci")
+                        && c.Content != ""),
                     // ✨【核心兼性能修复点】：直接返回平铺好的本表 Excerpt，不要再去跨表查 PublishedBlocks！
                     Excerpt = pn.Excerpt ?? "灵脉深处暂无回响..."
                 })
@@ -307,6 +319,30 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 authorName = publishedNote.AuthorName, tags = publishedNote.Tags, canEdit, originalNoteId = canEdit ? publishedNote.OriginalNoteId : null,
                 blocks = blocksList
             });
+        }
+
+        #endregion
+
+        #region --- 3. 博客与帖子的评论区 ---
+
+        [HttpGet("blog/{id:guid}/comments")]
+        public Task<IActionResult> GetBlogComments(Guid id, [FromQuery] int offset = 0, [FromQuery] int limit = 20)
+            => CommentResult(() => _comments.GetCommentsAsync(id, CurrentUserIdGuid, offset, limit));
+
+        [Authorize, HttpPost("blog/{id:guid}/comments")]
+        public Task<IActionResult> AddBlogComment(Guid id, [FromBody] CreateNoteCommentDto dto)
+            => CurrentUserIdGuid is Guid userId ? CommentResult(() => _comments.AddCommentAsync(id, userId, dto))
+                : Task.FromResult<IActionResult>(Unauthorized());
+
+        [Authorize, HttpDelete("blog/{id:guid}/comments/{commentId:guid}")]
+        public Task<IActionResult> DeleteBlogComment(Guid id, Guid commentId)
+            => CurrentUserIdGuid is Guid userId ? CommentResult(() => _comments.DeleteCommentAsync(id, commentId, userId))
+                : Task.FromResult<IActionResult>(Unauthorized());
+
+        private async Task<IActionResult> CommentResult(Func<Task<object>> action)
+        {
+            try { return Ok(await action()); }
+            catch (NoteCommentRequestException ex) { return StatusCode(ex.Status, new { message = ex.Message }); }
         }
 
         #endregion

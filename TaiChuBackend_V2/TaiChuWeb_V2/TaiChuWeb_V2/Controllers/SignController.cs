@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -13,6 +13,11 @@ namespace TaiChuWeb_V2.Controllers
     public class SignController : ControllerBase
     {
         private readonly AppDbContext _context;
+
+        // 🌟 统一用中国标准时间判断“今天”，与前端日历（本地时间）保持一致，
+        //    避免 UTC 与 UTC+8 差 8 小时导致“今日已签到”误判、经验流水漏写。
+        private static readonly TimeZoneInfo ChinaTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Asia/Shanghai");
+        private static DateTime ChinaToday => TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, ChinaTimeZone).Date;
 
         public SignController(AppDbContext context)
         {
@@ -63,7 +68,7 @@ namespace TaiChuWeb_V2.Controllers
                         var stats = await _context.UserStats.FirstOrDefaultAsync(s => s.UserId == userId);
                         if (stats == null) return NotFound("未找到用户统计信息");
 
-                        var today = DateTime.UtcNow.Date;
+                        var today = ChinaToday;
                         var yesterday = today.AddDays(-1);
 
                         if (stats.LastSignDate.HasValue && stats.LastSignDate.Value.Date == today)

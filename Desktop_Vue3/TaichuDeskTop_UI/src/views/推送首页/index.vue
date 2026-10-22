@@ -10,17 +10,19 @@
         <feedback />
         <updateLog />
       </section>
-      <aside class="side-widgets" aria-label="签到与社区数据"><SignCard /><DataPanel /><FinancePanel /></aside>
+      <aside class="side-widgets" aria-label="签到与社区数据"><CommunityFeed /><SignCard /><DataPanel /><FinancePanel /><CommunityLinks /></aside>
     </div>
   </article>
 </template>
 <script setup lang="ts">
 import SignCard from '../../components/SignCard.vue'
 import feedback from './components/feedback.vue'
+import CommunityFeed from './components/CommunityFeed.vue'
 import LatestNews from './components/LatestNews.vue'
 import updateLog from './components/updateLog.vue'
 import DataPanel from './components/DataPanel.vue'
 import FinancePanel from './components/FinancePanel.vue'
+import CommunityLinks from './components/CommunityLinks.vue'
 </script>
 <style scoped>
 .home-welcome { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 28px 0 32px; }

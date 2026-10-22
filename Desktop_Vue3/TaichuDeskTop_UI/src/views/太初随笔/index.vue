@@ -20,7 +20,7 @@
           <div class="card-meta"><span class="content-badge">{{ item.type === 'post' ? '帖子' : '博客' }}</span><span>{{ item.authorName || '太初隐者' }}</span></div>
           <h2><RouterLink :to="detailRoute(item.id)">{{ item.title || (item.type === 'post' ? '社区动态' : '无标题随笔') }}</RouterLink></h2>
           <p class="card-excerpt">{{ wikiText(item.content) || '打开内容继续阅读。' }}</p>
-          <footer><time>{{ formatTime(item.publishedAt || item.createdAt) }}</time><span>{{ item.resonance || 0 }} 灵动</span></footer>
+          <footer><time>{{ formatTime(item.publishedAt || item.createdAt) }}</time><span>{{ item.resonance || 0 }} 灵动</span><span>{{ item.commentsCount || 0 }} 评论</span></footer>
         </div>
       </article>
     </div>
