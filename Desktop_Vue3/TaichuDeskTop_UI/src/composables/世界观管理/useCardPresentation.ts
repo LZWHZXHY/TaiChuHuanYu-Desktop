@@ -3,6 +3,7 @@ import type { CardDetail } from '@/api/types/world'
 import { useWorldStore } from '@/stores/world'
 import { createCardPreview } from '@/utils/worldCards'
 import { getEmbeddedCardIds, parseCoverImage, parseStringArray, renderCardDescription } from '@/utils/worldPresentation'
+import { withThumbnail } from '@/utils/imageThumb'
 
 export function useCardPresentation(card: MaybeRefOrGetter<CardDetail | null | undefined>,
   projectId: MaybeRefOrGetter<string>, variant: 'document' | 'detail') {
@@ -17,8 +18,8 @@ export function useCardPresentation(card: MaybeRefOrGetter<CardDetail | null | u
   return {
     embeddedIds, embeddedCards,
     cardTags: computed(() => parseStringArray(toValue(card)?.tags)),
-    galleryImages: computed(() => parseStringArray(toValue(card)?.galleryImages)),
-    coverUrl: computed(() => parseCoverImage(toValue(card)?.coverImage)),
+    galleryImages: computed(() => parseStringArray(toValue(card)?.galleryImages).map(url => withThumbnail(url, 800))),
+    coverUrl: computed(() => withThumbnail(parseCoverImage(toValue(card)?.coverImage), 800)),
     renderedDescription: computed(() => renderCardDescription(toValue(card)?.description ?? '',
       id => store.getCardById(id, toValue(projectId)), variant)),
   }

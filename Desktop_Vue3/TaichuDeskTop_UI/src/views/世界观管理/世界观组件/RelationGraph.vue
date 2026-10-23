@@ -18,12 +18,39 @@
             <span class="legend-line dashed"></span>
             <span>嵌入引用</span>
           </span>
+          <span
+            v-for="rt in relationTypes"
+            :key="rt.label"
+            class="legend-item relation-item"
+            :title="rt.label"
+          >
+            <span class="legend-dot" :style="{ background: rt.color }"></span>
+            <span>{{ rt.label }}</span>
+          </span>
         </div>
         <button class="toolbar-btn" @click="toggleRotate">
           {{ autoRotate ? '暂停旋转' : '自动旋转' }}
         </button>
         <button class="toolbar-btn" @click="resetCamera">重置视角</button>
       </div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="graph-filter-bar">
+      <input v-model="searchQuery" class="graph-search" type="search" placeholder="搜索卡片…" />
+      <button
+        v-for="type in availableTypes"
+        :key="type"
+        class="type-chip"
+        :class="{ active: typeFilter === type }"
+        :style="{ color: getTypeColor(type), borderColor: typeFilter === type ? getTypeColor(type) : 'transparent' }"
+        @click="toggleTypeFilter(type)"
+      >
+        {{ getTypeLabel(type) }}
+      </button>
+      <button v-if="focusNodeId" class="focus-badge" @click="exitFocus">
+        🎯 聚焦中：{{ focusNodeTitle }} ✕
+      </button>
     </div>
 
     <!-- 3D 容器 -->
@@ -74,7 +101,7 @@ import { useRouter } from 'vue-router'
 import { useWorldStore } from '@/stores/world'
 import type { CardSummary } from '@/api/types/world'
 import { getCardTypeLabel as getTypeLabel, parseStringArray } from '@/utils/worldPresentation'
-import { buildWorldGraph, getGraphTypeColor as getTypeColor } from '@/utils/worldGraph'
+import { buildWorldGraph, getGraphTypeColor as getTypeColor, getRelationTypeColor } from '@/utils/worldGraph'
 import { useCardPreload } from '@/composables/世界观管理/useCardPreload'
 import { useWorldGraph } from '@/composables/世界观管理/useWorldGraph'
 
@@ -86,10 +113,65 @@ const graphContainer = ref<HTMLElement | null>(null)
 const selectedNode = ref<CardSummary | null>(null)
 const { getDetail } = useCardPreload(() => props.projectId, () => store.cards.map(card => card.id))
 const graphData = computed(() => buildWorldGraph(store.cards, store.allRelations, getDetail))
-const displayedNodes = computed(() => graphData.value.nodes)
-const displayedEdges = computed(() => graphData.value.links)
-const { loading: graphLoading, autoRotate, toggleRotate, resetCamera, refresh } = useWorldGraph(graphContainer, graphData,
-  id => { selectedNode.value = store.getCardById(id, props.projectId) ?? null })
+
+// ===== 类型筛选 + 搜索 + 聚焦探索 =====
+const typeFilter = ref<string>('')
+const searchQuery = ref('')
+const focusNodeId = ref<string>('')
+const availableTypes = computed(() => [...new Set(graphData.value.nodes.map(n => n.type))])
+const filteredData = computed(() => {
+  let nodes = graphData.value.nodes
+  if (typeFilter.value) nodes = nodes.filter(n => n.type === typeFilter.value)
+  const q = searchQuery.value.trim().toLowerCase()
+  if (q) nodes = nodes.filter(n => n.title.toLowerCase().includes(q))
+
+  let allowed = new Set(nodes.map(n => n.id))
+  if (focusNodeId.value) {
+    // 聚焦模式：只显示焦点节点 + 其直接邻居
+    const neighborIds = new Set<string>()
+    for (const l of graphData.value.links) {
+      if (l.source === focusNodeId.value) neighborIds.add(l.target)
+      if (l.target === focusNodeId.value) neighborIds.add(l.source)
+    }
+    allowed = new Set([focusNodeId.value, ...neighborIds])
+    nodes = graphData.value.nodes.filter(n => allowed.has(n.id))
+  }
+  return {
+    nodes,
+    links: graphData.value.links.filter(l => allowed.has(l.source) && allowed.has(l.target))
+  }
+})
+function toggleTypeFilter(type: string) {
+  typeFilter.value = typeFilter.value === type ? '' : type
+  focusNodeId.value = ''
+}
+function exitFocus() {
+  focusNodeId.value = ''
+}
+
+const focusNodeTitle = computed(() => {
+  if (!focusNodeId.value) return ''
+  return graphData.value.nodes.find(n => n.id === focusNodeId.value)?.title ?? ''
+})
+
+const displayedNodes = computed(() => filteredData.value.nodes)
+const displayedEdges = computed(() => filteredData.value.links)
+
+// 关系类型图例（去重 + 稳定配色）
+const relationTypes = computed(() => {
+  const map = new Map<string, string>()
+  for (const l of graphData.value.links) {
+    if (l.isEmbed || !l.label) continue
+    if (!map.has(l.label)) map.set(l.label, getRelationTypeColor(l.label))
+  }
+  return [...map.entries()].map(([label, color]) => ({ label, color }))
+})
+const { loading: graphLoading, autoRotate, toggleRotate, resetCamera, refresh } = useWorldGraph(graphContainer, filteredData,
+  id => {
+    selectedNode.value = store.getCardById(id, props.projectId) ?? null
+    // 点击节点进入聚焦探索，点空白处退出聚焦
+    focusNodeId.value = id || ''
+  })
 const getNodePreview = (id: string) => getDetail(id)?.description ?? ''
 const getNodeTags = (id: string) => parseStringArray(getDetail(id)?.tags)
 function openCardDetail(id: string) {
@@ -180,6 +262,12 @@ defineExpose({ refresh })
 .legend-line.dashed {
   border-top: 2px dashed var(--border-line);
 }
+.legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
 
 .toolbar-btn {
   padding: 6px 14px;
@@ -199,6 +287,65 @@ defineExpose({ refresh })
   border-color: var(--border-line);
   color: var(--text-primary);
 }
+
+/* ============================================================
+   筛选栏（搜索 + 类型筛选）
+   ============================================================ */
+.graph-filter-bar {
+  position: absolute;
+  top: 60px;
+  left: 16px;
+  right: 16px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  pointer-events: none;
+}
+.graph-search {
+  pointer-events: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--border-line);
+  border-radius: 6px;
+  background: var(--paper-card);
+  backdrop-filter: blur(8px);
+  color: var(--text-primary);
+  font-size: 12px;
+  width: 160px;
+}
+.graph-search:focus { outline: none; border-color: var(--accent-color); }
+.type-chip {
+  pointer-events: auto;
+  padding: 5px 12px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: var(--paper-card);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+.type-chip:hover { opacity: 0.85; }
+.type-chip.active { background: var(--bg-sub); font-weight: 600; }
+.focus-badge {
+  pointer-events: auto;
+  padding: 5px 12px;
+  border: 1px solid var(--accent-color);
+  border-radius: 14px;
+  background: var(--paper-card);
+  backdrop-filter: blur(8px);
+  color: var(--accent-color);
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.focus-badge:hover { background: var(--accent-soft); }
 
 /* ============================================================
    3D 容器

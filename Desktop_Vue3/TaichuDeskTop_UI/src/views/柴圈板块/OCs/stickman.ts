@@ -37,6 +37,28 @@ export interface StickmanCharacter {
   battleWins: number
   battleLosses: number
   battleDraws: number
+  battlePoints: number
+  battleTier: string
+  // ⭐ 社交互动（详情返回）
+  likeCount?: number
+  favoriteCount?: number
+}
+
+// ========== 排行榜简略类型 ==========
+export interface StickmanBrief {
+  id: string
+  title: string
+  coverUrl?: string
+  authorId: string
+  authorName: string
+  status: string
+  isBattleEnabled?: boolean
+  createdAt: string
+  battleWins: number
+  battleLosses: number
+  battleDraws: number
+  battlePoints: number
+  battleTier: string
 }
 
 // ========== 创建 DTO ==========
@@ -97,4 +119,10 @@ export const stickmanApi = {
 
   getMyCharacters: (params?: { status?: string }) =>
     request.get<StickmanCharacter[]>('/StickMan/my', { params }),
+
+  getLeaderboard: (top = 20) =>
+    request.get<StickmanBrief[]>('/StickMan/leaderboard', { params: { top } }),
+
+  toggle: (id: string, action: 'like' | 'favorite') =>
+    request.post<{ active: boolean; count: number }>(`/StickMan/${id}/${action}`, undefined, { silentError: true }),
 }

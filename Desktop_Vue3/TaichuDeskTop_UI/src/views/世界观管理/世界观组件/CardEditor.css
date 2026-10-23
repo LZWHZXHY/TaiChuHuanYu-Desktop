@@ -462,8 +462,41 @@
   .cover-preview {
     max-width: 100%;
   }
+  .timeline-event-row {
+    grid-template-columns: 1fr 32px;
+  }
+  .ev-date, .ev-era, .ev-title { grid-column: 1; }
+  .ev-desc { grid-column: 1 / -1; }
+  .ev-remove { grid-column: 2; grid-row: 1; }
 }
 .optional-section { border: 1px solid var(--border-line); border-radius: var(--radius-md); padding: 16px; margin-bottom: 16px; }
 .optional-section summary { cursor: pointer; font-size: 15px; font-weight: 600; color: var(--text-primary); }
 .optional-section summary small { margin-left: 10px; font-weight: 400; color: var(--text-secondary); }
 .optional-section[open] summary { margin-bottom: 16px; }
+
+/* ===== 时间线事件编辑 ===== */
+.timeline-events { display: flex; flex-direction: column; gap: 10px; }
+.timeline-event-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr 28px;
+  gap: 8px;
+  align-items: start;
+}
+.ev-date, .ev-era, .ev-title, .ev-desc {
+  border: 1px solid var(--border-line);
+  border-radius: 6px;
+  background: var(--paper-card);
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 7px 10px;
+}
+.ev-desc { grid-column: 1 / -1; resize: vertical; }
+.ev-remove {
+  width: 28px; height: 28px;
+  border: 1px solid var(--border-line);
+  background: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.ev-remove:hover { color: var(--danger); border-color: var(--danger); }

@@ -32,6 +32,8 @@
 
 <script setup>
 import { ref, nextTick, watch, onMounted, onUnmounted, inject, computed } from 'vue'
+import { useUserStore } from '@/stores/user'
+import { gameRecordApi } from '@/api/gameRecord'
 
 const props = defineProps({
   boardSize: { type: Number, default: 15 },
@@ -60,6 +62,8 @@ const isGameOver = ref(false)
 const gameWinner = ref(null)
 const remainingTime = ref(30)
 let countdownInterval = null
+let recorded = false
+const userStore = useUserStore()
 
 // 存储 playerId -> color 映射
 const playerMap = ref({})
@@ -189,6 +193,21 @@ const checkWin = (row, col, color) => {
   return false
 }
 
+// 记录对局（防重复：本地判定与服务器事件都会触发，只记一次）
+const saveGobangRecord = async (winnerColor) => {
+  if (recorded) return
+  recorded = true
+  const winner = winnerColor === 'black' ? 'player1' : winnerColor === 'white' ? 'player2' : 'draw'
+  await gameRecordApi.save({
+    gameType: 'gobang',
+    player1Name: '黑棋',
+    player2Name: '白棋',
+    winner,
+    movesCount: boardData.value.flat().filter(s => s).length,
+    movesJson: JSON.stringify(boardData.value)
+  })
+}
+
 // 落子（仅更新棋盘，不改变回合）
 const placeStone = (row, col, color) => {
   if (isGameOver.value || boardData.value[row][col]) return
@@ -199,6 +218,7 @@ const placeStone = (row, col, color) => {
     isGameOver.value = true
     gameWinner.value = color
     clearInterval(countdownInterval)
+    saveGobangRecord(color)
     alert(`🎉 ${color === 'black' ? '黑棋' : '白棋'} 获胜！`)
     return
   }
@@ -206,6 +226,7 @@ const placeStone = (row, col, color) => {
   if (total === props.boardSize * props.boardSize) {
     isGameOver.value = true
     clearInterval(countdownInterval)
+    saveGobangRecord('draw')
     alert('🤝 平局！')
   }
 }
@@ -355,6 +376,7 @@ const onGameOver = (event) => {
   isGameOver.value = true
   gameWinner.value = data.winner
   clearInterval(countdownInterval)
+  saveGobangRecord(data.winnerColor || 'draw')
   alert(`🎉 ${data.winnerColor === 'black' ? '黑棋' : '白棋'} 获胜！`)
 }
 

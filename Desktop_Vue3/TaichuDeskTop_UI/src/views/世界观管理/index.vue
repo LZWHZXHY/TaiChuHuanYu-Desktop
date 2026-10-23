@@ -38,9 +38,31 @@
             <h1>{{ pageTitle }}</h1>
             <p>{{ pageSubtitle }}</p>
           </div>
-          <button v-if="activeMenu === 'projects'" class="btn-primary" @click="goToCreate">
-            <span>+</span> 新建项目
-          </button>
+          <div class="header-right">
+            <div class="global-search">
+              <input
+                v-model="searchQuery"
+                type="search"
+                placeholder="全局搜索设定…"
+                @input="onSearchInput"
+              />
+              <div v-if="searchResults.length" class="search-dropdown">
+                <button
+                  v-for="r in searchResults"
+                  :key="r.cardId"
+                  class="search-result"
+                  @click="goToCard(r)"
+                >
+                  <span class="sr-type">{{ r.cardType }}</span>
+                  <span class="sr-title">{{ r.cardTitle }}</span>
+                  <span class="sr-project">{{ r.projectName }}</span>
+                </button>
+              </div>
+            </div>
+            <button v-if="activeMenu === 'projects'" class="btn-primary" @click="goToCreate">
+              <span>+</span> 新建项目
+            </button>
+          </div>
         </header>
 
         <!-- 统计 -->
@@ -69,8 +91,20 @@
             >
               <span class="col-name">{{ p.name }}</span>
               <span class="col-status">
-                <span class="dot" :class="p.isPublic ? 'public' : 'private'"></span>
-                {{ p.isPublic ? '公开' : '私有' }}
+                <button
+                  v-if="activeMenu === 'projects'"
+                  class="status-toggle"
+                  :class="p.isPublic ? 'is-public' : 'is-private'"
+                  :title="p.isPublic ? '点击切换为私有' : '点击切换为公开'"
+                  @click.stop="togglePublic(p)"
+                >
+                  <span class="dot" :class="p.isPublic ? 'public' : 'private'"></span>
+                  {{ p.isPublic ? '公开' : '私有' }}
+                </button>
+                <template v-else>
+                  <span class="dot" :class="p.isPublic ? 'public' : 'private'"></span>
+                  {{ p.isPublic ? '公开' : '私有' }}
+                </template>
               </span>
               <span class="col-entries">{{ p.cardCount || 0 }}</span>
               <span class="col-time">{{ formatTime(p.updatedAt) }}</span>
@@ -97,6 +131,7 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useWorldStore } from '../../stores/world';
+import { worldApi, type WorldSearchResult } from '@/api/worldApi';
 
 const router = useRouter();
 const route = useRoute();
@@ -136,6 +171,30 @@ const switchMenu = (menu: string) => {
   loadData();
 };
 
+// ===== 全局搜索 =====
+const searchQuery = ref('')
+const searchResults = ref<WorldSearchResult[]>([])
+let searchTimer: ReturnType<typeof setTimeout> | null = null
+
+function onSearchInput() {
+  if (searchTimer) clearTimeout(searchTimer)
+  const q = searchQuery.value.trim()
+  if (!q) { searchResults.value = []; return }
+  searchTimer = setTimeout(async () => {
+    try {
+      searchResults.value = await worldApi.searchCards(q, 10)
+    } catch {
+      searchResults.value = []
+    }
+  }, 300)
+}
+
+function goToCard(r: WorldSearchResult) {
+  searchResults.value = []
+  searchQuery.value = ''
+  router.push(`/world/project/${r.projectId}/card/${r.cardId}`)
+}
+
 const loadData = async () => {
   try {
     if (activeMenu.value === 'projects') await store.fetchProjects();
@@ -147,6 +206,17 @@ const loadData = async () => {
 
 const goToProject = (id: string) => router.push(`/world/project/${id}`);
 const goToCreate = () => router.push('/world/create');
+
+const togglingId = ref<string | null>(null);
+const togglePublic = async (p: any) => {
+  if (togglingId.value) return;
+  togglingId.value = p.id;
+  try {
+    await store.updateProject(p.id, { isPublic: !p.isPublic });
+  } finally {
+    togglingId.value = null;
+  }
+};
 
 watch(() => route.path, (newPath) => {
   if (newPath === '/world' || newPath === '/world/') loadData();
@@ -269,6 +339,56 @@ onMounted(loadData);
   color: var(--text-secondary);
   font-size: 14px;
 }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.global-search { position: relative; }
+.global-search input {
+  width: 240px;
+  padding: 7px 14px;
+  border: 1px solid var(--border-line);
+  border-radius: 8px;
+  background: var(--paper-card);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.global-search input:focus { outline: none; border-color: var(--accent-color); }
+.search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  max-height: 360px;
+  overflow-y: auto;
+}
+.search-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  border-bottom: 1px solid var(--border-line);
+}
+.search-result:last-child { border-bottom: none; }
+.search-result:hover { background: var(--bg-sub); }
+.sr-type {
+  font-size: 11px;
+  color: var(--accent-color);
+  background: var(--accent-soft);
+  padding: 1px 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.sr-title { flex: 1; min-width: 0; font-size: 13px; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-project { font-size: 11px; color: var(--text-secondary); flex-shrink: 0; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .btn-primary {
   display: flex;
@@ -389,6 +509,26 @@ onMounted(loadData);
 }
 .dot.private {
   background: var(--text-secondary);
+}
+.status-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.status-toggle:hover {
+  background: var(--bg-sub);
+  border-color: var(--border-line);
+}
+.status-toggle.is-public {
+  color: var(--success);
 }
 .col-entries {
   font-size: 13px;

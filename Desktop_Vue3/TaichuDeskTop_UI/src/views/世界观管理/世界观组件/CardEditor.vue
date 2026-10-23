@@ -41,12 +41,13 @@
 
     <!-- 描述 -->
     <div class="doc-section">
-      <textarea
+      <CardRefTextarea
         v-model="form.description"
-        class="doc-desc-input"
-        placeholder="描述这个卡片..."
-        rows="5"
-      ></textarea>
+        :project-id="routeProjectId"
+        :exclude-card-id="routeCardId"
+        placeholder="描述这个卡片...（输入 @ 或 [[ 引用其它设定）"
+        :rows="5"
+      />
     </div>
 
     <!-- 图库 -->
@@ -102,6 +103,21 @@
     <details class="doc-section optional-section" :open="Boolean(form.attributes?.length)">
       <summary>自定义属性<small>可选</small></summary>
       <AttributeList v-model="form.attributes" />
+    </details>
+
+    <!-- 时间线事件 -->
+    <details class="doc-section optional-section" :open="Boolean(form.timelineEvents?.length)">
+      <summary>时间线事件<small>可选</small></summary>
+      <div class="timeline-events">
+        <div v-for="(ev, idx) in form.timelineEvents" :key="idx" class="timeline-event-row">
+          <input v-model="ev.date" class="ev-date" placeholder="时间（如 100年）" />
+          <input v-model="ev.era" class="ev-era" placeholder="纪元（如 创世纪元）" />
+          <input v-model="ev.title" class="ev-title" placeholder="事件标题" />
+          <button type="button" class="ev-remove" @click="removeTimelineEvent(idx)">×</button>
+          <textarea v-model="ev.description" class="ev-desc" rows="2" placeholder="描述（可选）"></textarea>
+        </div>
+        <button class="add-btn-ghost" @click="addTimelineEvent">+ 添加事件</button>
+      </div>
     </details>
 
     <!-- 关联内容 -->
@@ -168,6 +184,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useWorldStore } from '@/stores/world'
 import { CardTypeMeta, type CardType } from '../card_type'
+import { templateAttributes } from '../card_templates'
 import type { CardSummary } from '@/api/worldApi'
 
 // ===== Composables =====
@@ -184,6 +201,7 @@ import RelationSelector from './RelationSelector.vue'
 import RelationList from './RelationList.vue'
 import ContentBlockManager from './ContentBlockManager.vue'
 import DynamicForm from './DynamicForm.vue'
+import CardRefTextarea from './CardRefTextarea.vue'
 
 // ===== Router & Route =====
 const route = useRoute()
@@ -247,7 +265,20 @@ const galleryInput = ref<HTMLInputElement | null>(null)
 // ============================================================
 const selectType = (type: any) => {
   form.value.type = type.value
+  applyTemplateIfEmpty(type.value)
 }
+
+// 新建卡片时，如果还没有自定义属性，套用该类型的预设模板
+const applyTemplateIfEmpty = (type: string) => {
+  if (!form.value.attributes?.length) {
+    form.value.attributes = templateAttributes(type as CardType)
+  }
+}
+
+// 进入新建态时套用当前类型模板
+watch(isCreating, (creating) => {
+  if (creating) applyTemplateIfEmpty(form.value.type)
+})
 
 const triggerFileInput = () => fileInput.value?.click()
 const triggerGalleryUpload = () => galleryInput.value?.click()
@@ -272,6 +303,13 @@ const handleGalleryUpload = async (e: Event) => {
 
 const removeGalleryImage = (idx: number) => {
   form.value.galleryImages.splice(idx, 1)
+}
+
+const addTimelineEvent = () => {
+  form.value.timelineEvents.push({ date: '', era: null, title: '', description: null })
+}
+const removeTimelineEvent = (idx: number) => {
+  form.value.timelineEvents.splice(idx, 1)
 }
 
 const handleCreateCardFromBlock = (type: string) => {
@@ -326,6 +364,7 @@ watch(
 const onOpenCreateCard = ((e: CustomEvent) => {
   startCreating()
   form.value.type = e.detail?.type || 'character'
+  applyTemplateIfEmpty(form.value.type)
 }) as EventListener
 onMounted(() => window.addEventListener('open-create-card', onOpenCreateCard))
 onUnmounted(() => window.removeEventListener('open-create-card', onOpenCreateCard))

@@ -91,6 +91,24 @@ const gameModules = {
     status: '已上线',
     component: defineAsyncComponent(() => import('./games/Gobang/index.vue'))
   },
+  Go: {
+    label: '围棋',
+    category: 'chess',
+    icon: '⚫',
+    description: '9 路围棋，提子、禁自杀，支持对局记录',
+    status: '已上线',
+    isNew: true,
+    component: defineAsyncComponent(() => import('./games/Go/index.vue'))
+  },
+  Xiangqi: {
+    label: '象棋',
+    category: 'chess',
+    icon: '♟️',
+    description: '中国象棋，完整走法，支持对局记录',
+    status: '已上线',
+    isNew: true,
+    component: defineAsyncComponent(() => import('./games/Xiangqi/index.vue'))
+  },
   // ----- 经典小游戏 -----
   Tetris: {
     label: '俄罗斯方块',

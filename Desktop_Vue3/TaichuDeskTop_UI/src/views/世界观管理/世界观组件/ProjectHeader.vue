@@ -25,17 +25,39 @@
       <button class="btn-ghost" @click="$emit('create')">
         <span class="btn-icon">+</span> 新建
       </button>
+      <button
+        class="visibility-btn"
+        :class="{ 'is-public': project?.isPublic }"
+        :disabled="toggling"
+        :title="project?.isPublic ? '切换为私有' : '切换为公开'"
+        @click="togglePublic"
+      >
+        {{ toggling ? '…' : project?.isPublic ? '🔓 公开' : '🔒 私有' }}
+      </button>
     </div>
   </header>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { WorldProject } from '@/api/types/world'
+import { useWorldStore } from '@/stores/world'
 import { formatWorldUpdatedAt as formatTime } from '@/utils/worldPresentation'
 const props = defineProps<{ project: WorldProject | null; cardCount: number; isOwner: boolean }>()
 defineEmits<{ back: []; create: [] }>()
+const store = useWorldStore()
+const toggling = ref(false)
 const isPublicView = computed(() => Boolean(props.project?.isPublic))
+
+async function togglePublic() {
+  if (!props.project || toggling.value) return
+  toggling.value = true
+  try {
+    await store.updateProject(props.project.id, { isPublic: !props.project.isPublic })
+  } finally {
+    toggling.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -116,6 +138,29 @@ const isPublicView = computed(() => Boolean(props.project?.isPublic))
 .btn-icon {
   font-size: 16px;
   line-height: 1;
+}
+.visibility-btn {
+  background: none;
+  border: 1px solid var(--border-line);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 5px 12px;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.visibility-btn:hover:not(:disabled) {
+  background: var(--bg-sub);
+  color: var(--text-primary);
+}
+.visibility-btn.is-public {
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 40%, transparent);
+}
+.visibility-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 @media (max-width: 820px) {
   .page-header {

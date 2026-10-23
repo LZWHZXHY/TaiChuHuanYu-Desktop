@@ -3,7 +3,7 @@
     <div class="oc-canvas-box">
       <img
         v-if="character.coverUrl"
-        :src="character.coverUrl"
+        :src="withThumbnail(character.coverUrl, 400)"
         :alt="character.title"
         class="oc-avatar"
       />
@@ -47,6 +47,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { StickmanCharacter } from '../OCs/stickman'
+import { withThumbnail } from '@/utils/imageThumb'
 
 const props = defineProps<{
   character: StickmanCharacter

@@ -8,7 +8,7 @@
           class="masonry-item"
         >
           <button class="item-visual" :aria-label="'查看作品：' + art.title" @click="$emit('on-click', art.id)">
-            <img v-if="art.coverImageUrl && !failedImages.has(art.id)" :src="getFullImageUrl(art.coverImageUrl)" class="item-image" :alt="art.title" loading="lazy" @error="failedImages.add(art.id)" /><span v-else class="image-fallback">图片暂不可用 · 打开作品查看</span>
+            <img v-if="art.coverImageUrl && !failedImages.has(art.id)" :src="coverSrc(art)" class="item-image" :alt="art.title" loading="lazy" @error="onImageError(art)" /><span v-else class="image-fallback">图片暂不可用 · 打开作品查看</span>
             <div class="item-overlay">
               <span class="badge">{{ art.imageCount }} 张</span>
             </div>
@@ -19,7 +19,7 @@
 
             <div class="item-footer">
               <div class="author-info">
-                <img v-if="art.authorAvatar" :src="getFullImageUrl(art.authorAvatar)" class="avatar" alt="作者头像" />
+                <img v-if="art.authorAvatar" :src="getFullImageUrl(art.authorAvatar, 100)" class="avatar" alt="作者头像" />
                 <span>{{ art.authorName }}</span>
               </div>
               
@@ -49,10 +49,12 @@ import { artworkApi, type ArtworkItemDto } from '../../api/artwork';
 import InteractActions from '../../components/InteractActions.vue';
 import { useArtworkStore } from '../../stores/artwork';
 import { useUserStore } from '../../stores/user';
+import { withThumbnail, toCdnUrl } from '../../utils/imageThumb';
 const props = defineProps<{ search?: string }>();
 const store = useArtworkStore(), user = useUserStore();
 const error = ref('');
 const failedImages = ref(new Set<number>());
+const retriedImages = ref(new Set<number>());
 let generation = 0;
 
 // 使用后端返回的 DTO 类型
@@ -69,16 +71,29 @@ defineEmits(['on-click']);
 
 
 // 明确 url 的类型为 string，或者是可能为空的 null/undefined
-const getFullImageUrl = (url: string | null | undefined): string => {
-  // 1. 如果 url 为空，返回默认路径或空字符串
-  if (!url) return '/default-cover.jpg'; 
-  
-  // 2. 如果已经包含 http，说明已经是完整路径，直接返回
-  if (url.startsWith('http')) return url;
-  
-  // 3. 否则，拼接基础域名
-  return `https://img.bianyuzhou.com/uploads/${url}`;
+const originalUrl = (url: string | null | undefined): string => {
+  if (!url) return '/default-cover.jpg';
+  const full = url.startsWith('http') ? url : `https://img.bianyuzhou.com/uploads/${url}`;
+  return toCdnUrl(full);
 };
+const getFullImageUrl = (url: string | null | undefined, width = 400): string => {
+  const full = originalUrl(url);
+  // 追加数据万象缩略参数（COS/CDN 域名才生效）
+  return withThumbnail(full, width);
+};
+
+// 图片加载失败处理：缩略图失败 → 回退原图；原图也失败 → 才显示「暂不可用」
+function onImageError(art: ArtworkItemDto) {
+  if (!retriedImages.value.has(art.id)) {
+    retriedImages.value.add(art.id)
+    return
+  }
+  failedImages.value.add(art.id)
+}
+function coverSrc(art: ArtworkItemDto): string {
+  const full = originalUrl(art.coverImageUrl)
+  return retriedImages.value.has(art.id) ? full : withThumbnail(full, 400)
+}
 
 
 

@@ -119,6 +119,7 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElImageViewer } from 'element-plus';
 import { getCardTypeLabel, parseStringArray, parseCoverImage, getNestedBlocks } from '@/utils/worldPresentation';
+import { withThumbnail } from '@/utils/imageThumb';
 import { useImagePreview } from '@/composables/世界观管理/useImagePreview';
 import { useCardPreload } from '@/composables/世界观管理/useCardPreload';
 import { useExpandedItems } from '@/composables/世界观管理/useExpandedItems';
@@ -165,14 +166,14 @@ const typeLabel = computed(() => {
 });
 
 const coverUrl = computed(() => {
-  if (props.card?.coverImage) return parseCoverImage(props.card.coverImage);
-  if (props.fallbackCover) return parseCoverImage(props.fallbackCover);
+  if (props.card?.coverImage) return withThumbnail(parseCoverImage(props.card.coverImage), 400);
+  if (props.fallbackCover) return withThumbnail(parseCoverImage(props.fallbackCover), 400);
   return '';
 });
 
 const galleryImages = computed(() => {
   if (!props.card) return [];
-  return parseStringArray(props.card.galleryImages);
+  return parseStringArray(props.card.galleryImages).map(url => withThumbnail(url, 400));
 });
 
 const displayAttributes = computed(() => {

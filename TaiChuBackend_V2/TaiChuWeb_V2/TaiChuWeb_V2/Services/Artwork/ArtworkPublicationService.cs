@@ -56,7 +56,7 @@ public class ArtworkPublicationService(AppDbContext context, CosService cos, Wat
         if (source != null && await context.Artworks.AnyAsync(a => a.OriginalNoteId == source.Id))
             throw new ArtworkRequestException(409, "该原稿已有作品，请从灵脉更新发布");
         var art = new Artwork { Title = dto.Title?.Trim() ?? "", Description = dto.Description?.Trim(), UploaderId = userId,
-            OriginalNoteId = dto.OriginalNoteId, WatermarkEnabled = dto.WatermarkEnabled,
+            OriginalNoteId = dto.OriginalNoteId, WatermarkEnabled = false, // 暂时禁用水印（System.Drawing 在 Linux 不可用）
             WatermarkText = string.IsNullOrWhiteSpace(dto.WatermarkText) ? "太初寰宇" : dto.WatermarkText.Trim(),
             WatermarkColor = dto.WatermarkColor ?? "#ffffff", WatermarkPosition = dto.WatermarkPosition ?? "bottom-right" };
         var files = dto.Images ?? new();
@@ -95,6 +95,7 @@ public class ArtworkPublicationService(AppDbContext context, CosService cos, Wat
             art = new Artwork { Title = note.Title.Trim(), UploaderId = userId, OriginalNoteId = noteId };
             config.WatermarkEnabled = meta != null && JsonSerializer.Deserialize<JsonElement>(meta.Data).TryGetProperty("watermarkEnabled", out var enabled) && enabled.ValueKind == JsonValueKind.True;
             CopyWatermark(config, art);
+            art.WatermarkEnabled = false; // 暂时禁用水印（System.Drawing 在 Linux 不可用）
             art.WatermarkText = string.IsNullOrWhiteSpace(config.WatermarkText) ? note.Title : config.WatermarkText;
             var summary = blocks.FirstOrDefault(b => b.Type == "art-summary");
             art.Description = summary == null ? "" : JsonSerializer.Deserialize<JsonElement>(summary.Data).GetProperty("text").GetString();

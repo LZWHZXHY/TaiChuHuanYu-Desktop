@@ -20,7 +20,23 @@ export type UpdateProjectPayload = Partial<CreateProjectPayload>
 
 export interface CardAttribute { key: string; value: string; type: string }
 export interface ContentBlock { id: string; cardId: string; cardType: string; order: number }
-export interface TimelineEvent { date: string; title: string; description: string | null }
+export interface TimelineEvent { date: string; era?: string | null; title: string; description: string | null }
+export interface TimelineItem {
+  cardId: string
+  cardTitle: string
+  cardType: string
+  date: string
+  era?: string | null
+  title: string
+  description: string | null
+}
+export interface WorldSearchResult {
+  cardId: string
+  cardTitle: string
+  cardType: string
+  projectId: string
+  projectName: string
+}
 export interface RelationInput { targetCardId: string; relationType: string }
 export interface Relation extends RelationInput {
   id: string

@@ -28,6 +28,7 @@
           v-if="card.description"
           class="prose"
           v-html="renderedDescription"
+          @click="onProseClick"
         ></div>
         <p v-else class="empty-note">暂无描述</p>
       </section>
@@ -87,6 +88,26 @@
         <p v-else class="empty-note">暂无关联内容</p>
       </section>
 
+      <!-- 被引用 -->
+      <section v-if="backlinks.length" class="doc-section">
+        <h2 class="section-title">
+          被引用
+          <span class="section-count">{{ backlinks.length }}</span>
+        </h2>
+        <div class="backlink-list">
+          <button
+            v-for="bk in backlinks"
+            :key="bk.id"
+            class="backlink-item"
+            @click="$emit('select', bk.id)"
+          >
+            <span class="backlink-type">{{ getTypeLabel(bk.type) }}</span>
+            <span class="backlink-title">{{ bk.title }}</span>
+            <span class="backlink-arrow">→</span>
+          </button>
+        </div>
+      </section>
+
       <!-- 标签 -->
       <section v-if="cardTags.length" class="doc-section">
         <h2 class="section-title">标签</h2>
@@ -108,14 +129,22 @@ import EmbeddedCard from './EmbeddedCard.vue'
 import { getCardTypeLabel as getTypeLabel } from '@/utils/worldPresentation'
 import { useCardPresentation } from '@/composables/世界观管理/useCardPresentation'
 import { useCardPreload } from '@/composables/世界观管理/useCardPreload'
+import { useCardBacklinks } from '@/composables/世界观管理/useCardBacklinks'
 import { useImagePreview } from '@/composables/世界观管理/useImagePreview'
 const props = defineProps<{ card: CardDetail; projectId: string }>()
-defineEmits<{ select: [id: string] }>()
+const emit = defineEmits<{ select: [id: string] }>()
 const { embeddedIds, embeddedCards, cardTags, galleryImages, coverUrl, renderedDescription } =
   useCardPresentation(() => props.card, () => props.projectId, 'document')
 useCardPreload(() => props.projectId, embeddedIds)
+const { backlinks } = useCardBacklinks(() => props.projectId, () => props.card.id)
 const { visible: previewVisible, images: previewImages, index: previewIndex, open: openPreview, close: closePreview } = useImagePreview()
 const formatDate = (value: string) => value ? new Date(value).toLocaleDateString('zh-CN') : ''
+
+function onProseClick(event: MouseEvent) {
+  const target = (event.target as HTMLElement).closest('[data-card-id]') as HTMLElement | null
+  const id = target?.getAttribute('data-card-id')
+  if (id) emit('select', id)
+}
 </script>
 
 <style scoped>
@@ -271,6 +300,47 @@ const formatDate = (value: string) => value ? new Date(value).toLocaleDateString
   transition: opacity 0.15s;
 }
 .tag:hover { opacity: 0.7; }
+
+.backlink-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.backlink-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-primary);
+  text-align: left;
+  transition: background 0.15s;
+}
+.backlink-item:hover {
+  background: var(--bg-sub);
+}
+.backlink-type {
+  font-size: 11px;
+  color: var(--accent-color);
+  background: var(--accent-soft);
+  padding: 0 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.backlink-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.backlink-arrow {
+  color: var(--text-secondary);
+}
 @media (max-width: 820px) {
   .doc-view { padding: 24px 20px 80px; }
   .doc-title { font-size: 24px; }

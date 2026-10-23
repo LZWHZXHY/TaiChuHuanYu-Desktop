@@ -29,6 +29,7 @@ export interface JointActivity {
   coverUrl?: string
   organizerId: string
   organizerName: string
+  projectId?: string | null
   participantCount: number
   createdAt: string
   updatedAt?: string
@@ -126,4 +127,11 @@ export const jointApi = {
   // ===== 审批用户自建联合（管理员） =====
   approve: (id: string, status: 'approved' | 'rejected') =>
     request.post<JointActivity>(`/Joint/${id}/approve`, { status }),
+
+  // ===== 关联协作项目 =====
+  linkProject: (id: string, projectId: string) =>
+    request.post<{ projectId: string }>(`/Joint/${id}/link-project`, { projectId }),
+
+  unlinkProject: (id: string) =>
+    request.delete<{ projectId: null }>(`/Joint/${id}/link-project`),
 }

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TaiChuWeb_V2.Models.ChaiCommunity.Joint
@@ -80,6 +80,9 @@ namespace TaiChuWeb_V2.Models.ChaiCommunity.Joint
         [Required]
         [MaxLength(100)]
         public string OrganizerName { get; set; } = string.Empty;
+
+        /// <summary>关联的太初协作项目 ID（可为空，表示尚未关联）。</summary>
+        public Guid? ProjectId { get; set; }
 
 
         /// <summary>

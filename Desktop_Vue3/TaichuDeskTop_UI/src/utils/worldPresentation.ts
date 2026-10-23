@@ -1,5 +1,6 @@
 import { CardTypeMeta, type CardType, type ContentBlock } from '@/views/世界观管理/card_type'
 import type { CardDetail, CardSummary } from '@/api/types/world'
+import { toCdnUrl } from '@/utils/imageThumb'
 
 export const cardTypeOrder = Object.keys(CardTypeMeta) as CardType[]
 export const getCardTypeLabel = (type: string) => CardTypeMeta[type as CardType]?.label || type
@@ -11,10 +12,11 @@ export function parseStringArray(value: unknown): string[] {
   } catch { return [] }
 }
 
-/** 封面兼容旧的 JSON 数组和直接存储的 URL。 */
+/** 封面兼容旧的 JSON 数组和直接存储的 URL，并统一走 CDN。 */
 export function parseCoverImage(value?: string | null): string {
   if (!value) return ''
-  try { return parseStringArray(JSON.parse(value))[0] ?? '' } catch { return value }
+  const url = (() => { try { return parseStringArray(JSON.parse(value))[0] ?? '' } catch { return value } })()
+  return toCdnUrl(url)
 }
 
 export function getEmbeddedCardIds(card?: Pick<CardDetail, 'contentBlocks' | 'description'> | null, includeDescription = false): string[] {
@@ -47,14 +49,15 @@ const escapeHtml = (text: string) => text.replace(/[&<>"']/g, char =>
 
 export function renderCardDescription(description: string, findCard: (id: string) => CardSummary | undefined,
   variant: 'document' | 'detail') {
-  return description.replace(/\{CARD:([^}]+)\}/g, (_, id: string) => {
+  // 先整体转义正文，防止描述中的 HTML 被 v-html 当作标签执行（XSS），
+  // 再替换 {CARD:id} token 为安全的可点击引用。token 不含 HTML 特殊字符，转义后仍可匹配。
+  return escapeHtml(description).replace(/\{CARD:([^}]+)\}/g, (_, id: string) => {
     const card = findCard(id)
     if (!card) return '<span class="inline-ref broken">⚠️ 已删除的卡片</span>'
     const label = escapeHtml(getCardTypeLabel(card.type))
     const title = escapeHtml(card.title)
-    return variant === 'document'
-      ? `<a class="inline-ref" data-card-id="${escapeHtml(id)}">@${label} ${title}</a>`
-      : `<span class="inline-ref">@${label}: ${title}</span>`
+    const sep = variant === 'document' ? ' ' : ': '
+    return `<a class="inline-ref" data-card-id="${escapeHtml(id)}">@${label}${sep}${title}</a>`
   })
 }
 

@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace TaiChuWeb_V2.Dtos.World
 {
@@ -57,7 +57,30 @@ namespace TaiChuWeb_V2.Dtos.World
     public class TimelineEventDto
     {
         public string Date { get; set; } = string.Empty;
+        public string? Era { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
+    }
+
+    /// <summary>项目级时间线条目（聚合所有卡片的时间线事件）。</summary>
+    public class TimelineItemDto
+    {
+        public Guid CardId { get; set; }
+        public string CardTitle { get; set; } = string.Empty;
+        public string CardType { get; set; } = string.Empty;
+        public string Date { get; set; } = string.Empty;
+        public string? Era { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? Description { get; set; }
+    }
+
+    /// <summary>全局搜索卡片结果。</summary>
+    public class WorldSearchResultDto
+    {
+        public Guid CardId { get; set; }
+        public string CardTitle { get; set; } = string.Empty;
+        public string CardType { get; set; } = string.Empty;
+        public Guid ProjectId { get; set; }
+        public string ProjectName { get; set; } = string.Empty;
     }
 }

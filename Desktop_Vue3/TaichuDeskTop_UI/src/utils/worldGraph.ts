@@ -4,6 +4,16 @@ import { CardTypeMeta, type CardType } from '@/views/世界观管理/card_type'
 // 保留图谱与编辑器原有的配色差异，其余类型使用共用元信息。
 const graphColors: Record<string, string> = { organization: '#7c3aed', creature: '#84cc16', concept: '#6366f1' }
 export const getGraphTypeColor = (type: string) => graphColors[type] || CardTypeMeta[type as CardType]?.color || '#64748b'
+
+// 关系类型配色（按字符串哈希取稳定色，保证同一种关系颜色一致）
+const relationPalette = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16']
+export function getRelationTypeColor(type: string) {
+  if (!type) return '#94a3b8'
+  let hash = 0
+  for (const ch of type) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0
+  return relationPalette[hash % relationPalette.length]
+}
+
 export interface WorldGraphNode { id: string; title: string; type: string; color: string; x?: number; y?: number; z?: number }
 export interface WorldGraphEdge { source: string; target: string; label: string; color: string; width: number; isEmbed: boolean }
 
@@ -16,7 +26,7 @@ export function buildWorldGraph(cards: CardSummary[], relations: Relation[], fin
     if (!ids.has(relation.sourceCardId) || !ids.has(relation.targetCardId)) continue
     relationKeys.add(`${relation.sourceCardId}__${relation.targetCardId}`)
     links.push({ source: relation.sourceCardId, target: relation.targetCardId, label: relation.relationType,
-      color: '#94a3b8', width: 1.5, isEmbed: false })
+      color: getRelationTypeColor(relation.relationType), width: 1.5, isEmbed: false })
   }
   for (const card of cards) {
     for (const block of findDetail(card.id)?.contentBlocks ?? []) {

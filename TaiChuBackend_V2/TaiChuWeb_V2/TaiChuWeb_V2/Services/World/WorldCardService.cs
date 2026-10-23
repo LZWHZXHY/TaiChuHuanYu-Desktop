@@ -335,6 +335,99 @@ namespace TaiChuWeb_V2.Services.World
         //  10. 私有辅助方法
         // ============================================================
 
+        // ============================================================
+        //  11. 反向引用：哪些卡片引用了当前卡片
+        // ============================================================
+        public async Task<IEnumerable<CardSummaryDto>> GetBacklinksAsync(Guid cardId, Guid userId)
+        {
+            // 无权限读取当前卡片时，同样不暴露反向引用。
+            if (!await WorldAccess.CanReadCardAsync(_context, cardId, userId))
+                return new List<CardSummaryDto>();
+
+            var target = await _context.WorldCards.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.Id == cardId);
+            if (target == null) return new List<CardSummaryDto>();
+
+            var idStr = cardId.ToString();
+            var inlineToken = "{CARD:" + idStr + "}";
+
+            // 关联内容（ContentBlocks JSON 子串）或 描述行内 {CARD:id} 引用，二者其一命中即算引用。
+            return await _context.WorldCards.AsNoTracking()
+                .Where(c => c.ProjectId == target.ProjectId && c.Id != cardId)
+                .Where(c => (c.Description != null && c.Description.Contains(inlineToken)) || c.ContentBlocks.Contains(idStr))
+                .OrderByDescending(c => c.UpdatedAt)
+                .Select(c => new CardSummaryDto
+                {
+                    Id = c.Id,
+                    ProjectId = c.ProjectId,
+                    Title = c.Title,
+                    Type = c.Type,
+                    CoverImage = c.CoverImage,
+                    UpdatedAt = c.UpdatedAt,
+                    OutRelationCount = 0,
+                    InRelationCount = 0
+                })
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<TimelineItemDto>> GetTimelineAsync(Guid projectId, Guid userId)
+        {
+            await WorldAccess.RequireReadableProjectAsync(_context, projectId, userId);
+
+            var cards = await _context.WorldCards.AsNoTracking()
+                .Where(c => c.ProjectId == projectId)
+                .Select(c => new { c.Id, c.Title, c.Type, c.TimelineEvents })
+                .ToListAsync();
+
+            var items = new List<TimelineItemDto>();
+            foreach (var card in cards)
+            {
+                var events = JsonSerializer.Deserialize<List<TimelineEventDto>>(card.TimelineEvents ?? "[]") ?? new();
+                foreach (var e in events)
+                {
+                    items.Add(new TimelineItemDto
+                    {
+                        CardId = card.Id,
+                        CardTitle = card.Title,
+                        CardType = card.Type,
+                        Date = e.Date,
+                        Era = e.Era,
+                        Title = e.Title,
+                        Description = e.Description
+                    });
+                }
+            }
+            return items;
+        }
+
+        public async Task<IEnumerable<WorldSearchResultDto>> SearchCardsAsync(Guid userId, string query, int limit)
+        {
+            if (string.IsNullOrWhiteSpace(query)) return new List<WorldSearchResultDto>();
+            if (limit < 1 || limit > 50) limit = 20;
+            var q = query.Trim().ToLower();
+
+            var accessibleProjectIds = await _context.WorldProjects
+                .Where(p => p.OwnerId == userId || p.IsPublic)
+                .Select(p => p.Id)
+                .ToListAsync();
+
+            return await (from c in _context.WorldCards
+                          join p in _context.WorldProjects on c.ProjectId equals p.Id
+                          where accessibleProjectIds.Contains(c.ProjectId)
+                            && (c.Title.ToLower().Contains(q) || (c.Description != null && c.Description.ToLower().Contains(q)))
+                          orderby c.UpdatedAt descending
+                          select new WorldSearchResultDto
+                          {
+                              CardId = c.Id,
+                              CardTitle = c.Title,
+                              CardType = c.Type,
+                              ProjectId = c.ProjectId,
+                              ProjectName = p.Name
+                          })
+                          .Take(limit)
+                          .ToListAsync();
+        }
+
         private static CardResponseDto? EnsureProject(CardResponseDto? card, Guid? projectId)
         {
             if (card != null && projectId.HasValue && card.ProjectId != projectId.Value)

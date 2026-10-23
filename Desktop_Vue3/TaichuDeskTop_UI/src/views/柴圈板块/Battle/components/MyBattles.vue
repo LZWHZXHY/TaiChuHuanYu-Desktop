@@ -65,7 +65,7 @@
         @click="goDetail(item.id)"
       >
         <div class="item-cover">
-          <img v-if="item.coverUrl" :src="item.coverUrl" alt="" />
+          <img v-if="item.coverUrl" :src="withThumbnail(item.coverUrl, 400)" alt="" />
           <span v-else class="placeholder">⚔</span>
         </div>
         <div class="item-info">
@@ -103,6 +103,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useBattleStore } from '../battle_Store'
 import type { Battle } from '../battle_api'
+import { withThumbnail } from '@/utils/imageThumb'
 
 const router = useRouter()
 const userStore = useUserStore()

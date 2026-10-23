@@ -91,33 +91,6 @@
           </div>
 
           <div class="form-group"><label for="artwork-tags">标签（可选）</label><input id="artwork-tags" v-model="form.tags" class="text-input" placeholder="例如：风景，原创，练习；用逗号分隔" maxlength="510" /><p class="sub-hint">标签用于分类与搜索，不要求关联人设、世界观或笔记。</p></div>
-          <div v-if="!artwork" class="form-group">
-            <label class="toggle-label">
-              <input type="checkbox" v-model="form.watermarkEnabled" />
-              <span>添加文字水印</span>
-            </label>
-            <div v-if="form.watermarkEnabled" class="watermark-subform">
-              <input 
-                v-model="form.watermarkText" 
-                type="text" 
-                maxlength="100" placeholder="水印文字内容（默认为太初寰宇）" 
-                class="text-input"
-              />
-              <div class="watermark-options">
-                <select v-model="form.watermarkPosition" class="select-input">
-                  <option value="bottom-right">右下角</option>
-                  <option value="center">画心正中</option>
-                  <option value="bottom-left">左下角</option>
-                </select>
-                <input 
-                  type="color" 
-                  v-model="form.watermarkColor" 
-                  title="水印颜色" 
-                  class="color-picker"
-                />
-              </div>
-            </div>
-          </div>
         </div>
       </fieldset>
       <p v-if="submitting && !artwork" class="form-error" role="status">{{ progress < 100 ? `上传中 ${progress}%` : '图片已上传，正在处理并保存，请稍候…' }}</p>
@@ -146,7 +119,7 @@ const user = useUserStore()
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const isDragging = ref(false), submitting = ref(false), error = ref(''), progress = ref(0)
 const imageList = ref<ImageItem[]>([])
-const defaults = () => ({ title: '', description: '', tags: '', watermarkEnabled: true, watermarkText: '', watermarkPosition: 'bottom-right', watermarkColor: '#ffffff' })
+const defaults = () => ({ title: '', description: '', tags: '', watermarkEnabled: false, watermarkText: '', watermarkPosition: 'bottom-right', watermarkColor: '#ffffff' })
 const form = reactive(defaults())
 let generation = 0
 const releaseImages = () => imageList.value.forEach(item => { if (item.file) URL.revokeObjectURL(item.previewUrl) })
@@ -263,6 +236,9 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
   grid-template-columns: 1.3fr 1fr;
   gap: 32px;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .media-section { display: flex; flex-direction: column; gap: 16px; }
@@ -287,8 +263,6 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
-  max-height: 320px;
-  overflow-y: auto;
   padding-right: 4px;
 }
 
@@ -377,5 +351,9 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
   .modal-body { grid-template-columns: 1fr; padding: 20px; gap: 24px; }
   .modal-header, .modal-footer { padding: 20px; }
   .item-mask { opacity: 1; }
+}
+/* 触屏设备（平板/手机）：去掉毛玻璃背景，避免遮挡触摸滚动 */
+@media (hover: none) {
+  .publish-mask { backdrop-filter: none; }
 }
 </style>

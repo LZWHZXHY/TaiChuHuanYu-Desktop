@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using TaiChuWeb_V2.DbContext;
@@ -23,8 +23,9 @@ namespace TaiChuWeb_V2.Services.Publish
                 var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == noteId);
                 if (note == null) return new NotFoundObjectResult(new { message = "未找到该短动态草稿" });
 
+                // 只按 OwnerId 取正文块，不按 OwnerType 过滤，避免类型迁移导致正文块漏取。
                 var postBlocks = await _context.Blocks
-                    .Where(b => b.OwnerId == noteId.ToString() && b.OwnerType == note.Type)
+                    .Where(b => b.OwnerId == noteId.ToString())
                     .OrderBy(b => b.SortOrder)
                     .ToListAsync();
 

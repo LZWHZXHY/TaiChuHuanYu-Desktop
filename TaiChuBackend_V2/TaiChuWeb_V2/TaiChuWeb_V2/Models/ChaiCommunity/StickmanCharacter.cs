@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using TaiChuWeb_V2.Models.User;  // ← User 在这个命名空间下
 
@@ -22,6 +22,22 @@ namespace TaiChuWeb_V2.Models.ChaiCommunity
         public int BattleWins { get; set; }
         public int BattleLosses { get; set; }
         public int BattleDraws { get; set; }
+
+        /// <summary>约战积分：胜 +3，平 +1，负 +0（由胜负推导，无需额外数据库列）。</summary>
+        [NotMapped]
+        public int BattlePoints => BattleWins * 3 + BattleDraws;
+
+        [NotMapped]
+        public string BattleTier => GetBattleTier(BattlePoints);
+
+        public static string GetBattleTier(int points) => points switch
+        {
+            >= 100 => "钻石",
+            >= 60 => "铂金",
+            >= 30 => "黄金",
+            >= 10 => "白银",
+            _ => "青铜"
+        };
 
 
 

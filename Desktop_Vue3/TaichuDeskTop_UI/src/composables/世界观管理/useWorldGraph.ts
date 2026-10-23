@@ -38,6 +38,7 @@ export function useWorldGraph(container: Ref<HTMLElement | null>,
         .linkColor(link => link.color).linkWidth(link => link.width).linkOpacity(0.6)
         .linkDirectionalArrowLength(link => link.isEmbed ? 0 : 3.5)
         .linkDirectionalArrowRelPos(1).linkDirectionalArrowColor(link => link.color)
+        .linkLabel(link => link.label || '')
         .onNodeClick(node => {
           onSelect(node.id)
           const { position, target } = getNodeCameraPosition(node)

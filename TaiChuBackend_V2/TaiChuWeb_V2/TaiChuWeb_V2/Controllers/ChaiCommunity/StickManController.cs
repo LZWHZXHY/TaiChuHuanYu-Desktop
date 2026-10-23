@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.Chai.stickman;
 using TaiChuWeb_V2.Models.ChaiCommunity;
+using TaiChuWeb_V2.Models.Interact;
 
 namespace TaiChuWeb_V2.Controllers.ChaiCommunity
 {
@@ -69,7 +70,9 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                     // ⭐ 新增
                     BattleWins = c.BattleWins,
                     BattleLosses = c.BattleLosses,
-                    BattleDraws = c.BattleDraws
+                    BattleDraws = c.BattleDraws,
+                    BattlePoints = c.BattleWins * 3 + c.BattleDraws,
+                    BattleTier = (c.BattleWins * 3 + c.BattleDraws) >= 100 ? "钻石" : (c.BattleWins * 3 + c.BattleDraws) >= 60 ? "铂金" : (c.BattleWins * 3 + c.BattleDraws) >= 30 ? "黄金" : (c.BattleWins * 3 + c.BattleDraws) >= 10 ? "白银" : "青铜"
                 })
                 .ToListAsync();
 
@@ -131,6 +134,10 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 BattleWins = character.BattleWins,
                 BattleLosses = character.BattleLosses,
                 BattleDraws = character.BattleDraws,
+                BattlePoints = character.BattlePoints,
+                BattleTier = character.BattleTier,
+                LikeCount = _context.UserInteractions.Count(i => i.TargetType == "StickmanCharacter" && i.TargetId == character.Id.ToString() && i.ActionType == "Like"),
+                FavoriteCount = _context.UserInteractions.Count(i => i.TargetType == "StickmanCharacter" && i.TargetId == character.Id.ToString() && i.ActionType == "Favorite"),
                 Attributes = character.Attributes?.Select(a => new StickmanAttributeDto
                 {
                     Id = a.Id,
@@ -149,6 +156,68 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             };
 
             return Ok(dto);
+        }
+
+        // ============================================================
+        // 2.5 约战排行榜（按积分 → 胜场排序）
+        // ============================================================
+        [HttpGet("leaderboard")]
+        [AllowAnonymous]
+        public async Task<ActionResult<List<StickmanBriefDto>>> GetLeaderboard([FromQuery] int top = 20)
+        {
+            if (top < 1 || top > 50) top = 20;
+            var items = await _context.StickmanCharacters
+                .Where(c => c.Status == "published")
+                .OrderByDescending(c => c.BattleWins * 3 + c.BattleDraws)
+                .ThenByDescending(c => c.BattleWins)
+                .ThenByDescending(c => c.Views)
+                .Take(top)
+                .Select(c => new StickmanBriefDto
+                {
+                    Id = c.Id,
+                    Title = c.Title,
+                    CoverUrl = c.CoverUrl,
+                    AuthorName = c.AuthorName,
+                    AuthorId = c.AuthorId,
+                    Status = c.Status,
+                    IsBattleEnabled = c.IsBattleEnabled,
+                    CreatedAt = c.CreatedAt,
+                    BattleWins = c.BattleWins,
+                    BattleLosses = c.BattleLosses,
+                    BattleDraws = c.BattleDraws,
+                    BattlePoints = c.BattleWins * 3 + c.BattleDraws,
+                    BattleTier = (c.BattleWins * 3 + c.BattleDraws) >= 100 ? "钻石" : (c.BattleWins * 3 + c.BattleDraws) >= 60 ? "铂金" : (c.BattleWins * 3 + c.BattleDraws) >= 30 ? "黄金" : (c.BattleWins * 3 + c.BattleDraws) >= 10 ? "白银" : "青铜"
+                })
+                .ToListAsync();
+            return Ok(items);
+        }
+
+        // ============================================================
+        // 2.6 点赞 / 收藏（复用 UserInteraction，可取消）
+        // ============================================================
+        [HttpPost("{id:guid}/{action}")]
+        public async Task<IActionResult> ToggleInteraction(Guid id, string action)
+        {
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdStr, out var userId)) return Unauthorized();
+            if (action is not ("like" or "favorite")) return BadRequest(new { message = "不支持的操作" });
+
+            var oc = await _context.StickmanCharacters.FirstOrDefaultAsync(c => c.Id == id && c.Status == "published");
+            if (oc == null) return NotFound(new { message = "角色不存在或未公开" });
+
+            var actionType = action == "like" ? "Like" : "Favorite";
+            var target = id.ToString();
+            var existing = await _context.UserInteractions
+                .Where(i => i.UserId == userId && i.TargetType == "StickmanCharacter" && i.TargetId == target && i.ActionType == actionType)
+                .FirstOrDefaultAsync();
+
+            bool active;
+            if (existing != null) { _context.UserInteractions.Remove(existing); active = false; }
+            else { _context.UserInteractions.Add(new UserInteraction { UserId = userId, TargetId = target, TargetType = "StickmanCharacter", ActionType = actionType }); active = true; }
+
+            await _context.SaveChangesAsync();
+            var count = await _context.UserInteractions.CountAsync(i => i.TargetType == "StickmanCharacter" && i.TargetId == target && i.ActionType == actionType);
+            return Ok(new { active, count });
         }
 
         // ============================================================

@@ -1,7 +1,7 @@
 <template>
   <div class="home content-page">
     <header class="content-header"><div><p class="eyebrow">创作与同好</p><h1>柴圈社区</h1><p class="intro">为角色留下故事，找到一起创作的伙伴。</p></div><div class="content-actions"><RouterLink to="/ocs/create" class="primary">创建角色</RouterLink><RouterLink to="/joint/create">发起联合</RouterLink></div></header>
-    <nav class="community-nav" aria-label="柴圈导航"><RouterLink to="/community" class="selected">社区总览</RouterLink><RouterLink to="/ocs">OC 角色</RouterLink><RouterLink to="/joint">联合创作</RouterLink><RouterLink to="/battles">约战广场</RouterLink></nav>
+    <nav class="community-nav" aria-label="柴圈导航"><RouterLink to="/community" class="selected">社区总览</RouterLink><RouterLink to="/ocs">OC 角色</RouterLink><RouterLink to="/works">动画作品</RouterLink><RouterLink to="/joint">联合创作</RouterLink><RouterLink to="/battles">约战广场</RouterLink><RouterLink to="/battles/leaderboard">🏆 排行榜</RouterLink></nav>
 
     <!-- 主内容 -->
     <div class="container">
@@ -125,7 +125,7 @@
               <div class="joint-home-cover">
                 <img
                   v-if="item.coverUrl"
-                  :src="item.coverUrl"
+                  :src="withThumbnail(item.coverUrl, 400)"
                   :alt="item.title"
                   loading="lazy"
                 />
@@ -159,6 +159,10 @@
 
       <!-- 侧栏 -->
       <aside class="sidebar">
+        <ChaiLeaderboardCard />
+        <ChaiFeed />
+        <ChaiAchievements />
+
         <div class="notice-board">
           <div class="section-header" style="margin-bottom: 12px;">
             <h3 class="section-title" style="font-size: 15px;">我的创作</h3>
@@ -198,6 +202,10 @@ import { useStickmanStore } from './OCs/stickman_store.ts'
 import { useJointStore } from './Joint/joint_store'
 import { useBattleStore } from './Battle/battle_Store'
 import CharacterCard from './components/CharacterCard.vue'
+import ChaiFeed from './components/ChaiFeed.vue'
+import ChaiAchievements from './components/ChaiAchievements.vue'
+import ChaiLeaderboardCard from './components/ChaiLeaderboardCard.vue'
+import { withThumbnail } from '@/utils/imageThumb'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -977,12 +985,12 @@ footer {
 
 @media (max-width: 480px) {
   .oc-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 12px;
   }
 
   .oc-canvas-box {
-    height: 100px;
+    height: 120px;
   }
 
   .section-title {

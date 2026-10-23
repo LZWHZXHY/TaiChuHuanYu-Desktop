@@ -74,5 +74,20 @@ namespace TaiChuWeb_V2.Services.World
         /// 批量获取卡片详情（用于关系图谱加载）
         /// </summary>
         Task<IEnumerable<CardResponseDto>> GetCardsByIdsAsync(Guid projectId, IEnumerable<Guid> cardIds, Guid userId);
+
+        /// <summary>
+        /// 反向引用：返回引用了当前卡片的其它卡片（关联内容 + 描述内的 {CARD:id} 行内引用）。
+        /// </summary>
+        Task<IEnumerable<CardSummaryDto>> GetBacklinksAsync(Guid cardId, Guid userId);
+
+        /// <summary>
+        /// 项目级时间线：聚合项目下所有卡片的时间线事件。
+        /// </summary>
+        Task<IEnumerable<TimelineItemDto>> GetTimelineAsync(Guid projectId, Guid userId);
+
+        /// <summary>
+        /// 全局搜索：跨用户可访问的所有世界观搜索卡片。
+        /// </summary>
+        Task<IEnumerable<WorldSearchResultDto>> SearchCardsAsync(Guid userId, string query, int limit);
     }
 }

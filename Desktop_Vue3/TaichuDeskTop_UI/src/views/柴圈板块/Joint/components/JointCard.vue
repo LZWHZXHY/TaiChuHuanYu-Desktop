@@ -4,7 +4,7 @@
     <div class="card-cover">
       <img
         v-if="activity.coverUrl"
-        :src="activity.coverUrl"
+        :src="withThumbnail(activity.coverUrl, 400)"
         :alt="activity.title"
         loading="lazy"
       />
@@ -67,6 +67,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { JointActivity, JointStatus } from '../joint'
+import { withThumbnail } from '@/utils/imageThumb'
 
 const props = defineProps<{
   activity: JointActivity

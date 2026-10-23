@@ -1,4 +1,4 @@
-﻿// TaiChuWeb_V2/Models/LingMai/Comment.cs
+// TaiChuWeb_V2/Models/LingMai/Comment.cs
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -13,6 +13,13 @@ namespace TaiChuWeb_V2.Models.LingMai
         // 🌟 多态关联：支持对博客、随笔、简语的评论，或对艺术作品的评论
         public Guid? NoteId { get; set; }
         public int? ArtworkId { get; set; }
+
+        // 🌟 通用多态目标（柴圈作品/OC 等）——与 NoteId/ArtworkId 互斥使用
+        [MaxLength(50)]
+        public string? TargetType { get; set; }
+
+        [MaxLength(64)]
+        public string? TargetId { get; set; }
 
         [Required]
         public string UserId { get; set; } = string.Empty; // 评论者 ID

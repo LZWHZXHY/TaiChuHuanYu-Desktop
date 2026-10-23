@@ -11,6 +11,7 @@
         <p class="subtitle">画师以创作为刃，一决高下</p>
       </div>
       <div class="header-actions">
+        <button class="btn-ghost" @click="goLeaderboard">🏆 排行榜</button>
         <button class="btn-ghost" @click="goMyBattles">我的约战</button>
         <button class="btn-primary" @click="goCreate">+ 发起约战</button>
       </div>
@@ -122,7 +123,7 @@
       >
         <!-- 封面 -->
         <div class="card-cover">
-          <img v-if="item.coverUrl" :src="item.coverUrl" alt="" />
+          <img v-if="item.coverUrl" :src="withThumbnail(item.coverUrl, 400)" alt="" />
           <span v-else class="cover-placeholder">⚔</span>
           <span class="card-status" :class="item.status">
             {{ statusMap[item.status] || item.status }}
@@ -172,6 +173,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { battleApi, type Battle } from './battle_api'
+import { withThumbnail } from '@/utils/imageThumb'
 
 const router = useRouter()
 
@@ -219,6 +221,7 @@ const fetchList = async () => {
 
 const goCreate = () => router.push('/battles/create')
 const goMyBattles = () => router.push('/battles/my')
+const goLeaderboard = () => router.push('/battles/leaderboard')
 const goDetail = (id: string) => router.push(`/battles/${id}`)
 
 onMounted(fetchList)

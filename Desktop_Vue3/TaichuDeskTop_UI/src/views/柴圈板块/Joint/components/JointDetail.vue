@@ -75,7 +75,7 @@
 
       <!-- 封面图 -->
       <div v-if="activity.coverUrl" class="cover-area">
-        <img :src="activity.coverUrl" :alt="activity.title" />
+        <img :src="withThumbnail(activity.coverUrl, 800)" :alt="activity.title" />
       </div>
 
       <!-- 详情网格 -->
@@ -134,6 +134,33 @@
             <p class="desc-text">{{ activity.requirements }}</p>
           </div>
         </div>
+      </div>
+
+      <!-- 协作项目 -->
+      <div class="project-link-section">
+        <h3 class="section-title">协作项目</h3>
+        <template v-if="activity.projectId">
+          <p class="project-linked">已关联「太初协作」项目，进度、分工、素材都在那边。</p>
+          <div class="project-actions">
+            <RouterLink :to="`/project/${activity.projectId}`" class="btn-line">进入协作项目 →</RouterLink>
+            <button v-if="canEdit" class="btn-line" @click="unlinkProject">解除关联</button>
+          </div>
+        </template>
+        <template v-else-if="canEdit">
+          <p class="project-empty">尚未关联协作项目。</p>
+          <div class="project-actions">
+            <button class="btn-line" :disabled="projectBusy" @click="createAndLinkProject">创建协作项目</button>
+            <button class="btn-line" :disabled="projectBusy" @click="openProjectPicker">关联已有项目</button>
+          </div>
+          <div v-if="showPicker" class="project-picker">
+            <p v-if="pickerLoading" class="project-empty">加载项目列表…</p>
+            <p v-else-if="!myProjects.length" class="project-empty">你还没有协作项目，先「创建协作项目」吧。</p>
+            <button v-for="p in myProjects" :key="p.id" class="project-option" @click="linkProject(p.id, p.name)">
+              {{ p.name }}
+            </button>
+          </div>
+        </template>
+        <p v-else class="project-empty">发起者尚未关联协作项目。</p>
       </div>
 
       <!-- 参与者列表 -->
@@ -221,7 +248,10 @@ import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useJointStore } from '../joint_store'
 import { useUserStore } from '@/stores/user'
+import { jointApi } from '../joint'
+import request from '@/utils/request'
 import type { JointActivity, ParticipantStatus, JointStatus } from '../joint'
+import { withThumbnail } from '@/utils/imageThumb'
 
 const router = useRouter()
 const route = useRoute()
@@ -232,6 +262,10 @@ const actionBusy = ref(false)
 const loadError = ref('')
 const joining = ref(false)
 const cancelling = ref(false)
+const projectBusy = ref(false)
+const showPicker = ref(false)
+const pickerLoading = ref(false)
+const myProjects = ref<{ id: string; name: string }[]>([])
 
 const activity = computed(() => store.currentActivity)
 const loading = computed(() => store.loading)
@@ -480,6 +514,67 @@ async function handleApprove(status: 'approved' | 'rejected') {
     alert('操作失败，请重试')
   } finally {
     actionBusy.value = false
+  }
+}
+
+// ===== 协作项目关联 =====
+async function createAndLinkProject() {
+  if (!activity.value || projectBusy.value) return
+  projectBusy.value = true
+  try {
+    const proj = await request.post<{ id: string }>('/Project/create', {
+      name: activity.value.title,
+      description: activity.value.description,
+      isPublic: true
+    })
+    await jointApi.linkProject(activity.value.id, proj.id)
+    await store.fetchDetail(activity.value.id)
+  } catch (e: any) {
+    alert(e.friendlyMessage || '创建协作项目失败，请重试')
+  } finally {
+    projectBusy.value = false
+  }
+}
+
+async function openProjectPicker() {
+  showPicker.value = !showPicker.value
+  if (!showPicker.value || myProjects.value.length) return
+  pickerLoading.value = true
+  try {
+    const res: any = await request.get('/Project/my')
+    myProjects.value = (res || []).map((p: any) => ({ id: p.id, name: p.name }))
+  } catch {
+    alert('加载项目列表失败')
+  } finally {
+    pickerLoading.value = false
+  }
+}
+
+async function linkProject(projectId: string, _name: string) {
+  if (!activity.value || projectBusy.value) return
+  projectBusy.value = true
+  try {
+    await jointApi.linkProject(activity.value.id, projectId)
+    showPicker.value = false
+    await store.fetchDetail(activity.value.id)
+  } catch (e: any) {
+    alert(e.friendlyMessage || '关联失败，请重试')
+  } finally {
+    projectBusy.value = false
+  }
+}
+
+async function unlinkProject() {
+  if (!activity.value || projectBusy.value) return
+  if (!confirm('确定解除与协作项目的关联吗？')) return
+  projectBusy.value = true
+  try {
+    await jointApi.unlinkProject(activity.value.id)
+    await store.fetchDetail(activity.value.id)
+  } catch (e: any) {
+    alert(e.friendlyMessage || '解除关联失败')
+  } finally {
+    projectBusy.value = false
   }
 }
 
@@ -849,6 +944,48 @@ watch(() => route.params.id, async id => {
 .participants-section {
   border-top: 1px solid var(--line-raw);
   padding-top: 28px;
+}
+
+.project-link-section {
+  border-top: 1px solid var(--line-raw);
+  padding-top: 28px;
+  margin-bottom: 8px;
+}
+.project-linked, .project-empty {
+  font-size: 13px;
+  color: var(--ink-gray);
+  margin: 8px 0 12px;
+}
+.project-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.project-picker {
+  margin-top: 12px;
+  border: 1px solid var(--line-raw);
+  border-radius: 8px;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.project-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  background: var(--paper-card);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--ink-black);
+  font-size: 13px;
+}
+.project-option:hover {
+  background: var(--bg-sub);
+  color: var(--accent-color);
 }
 
 .section-header {

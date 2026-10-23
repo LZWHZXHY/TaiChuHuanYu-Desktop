@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace TaiChuWeb_V2.Dtos.Chai.Joint
 {
@@ -35,6 +35,7 @@ namespace TaiChuWeb_V2.Dtos.Chai.Joint
         public string? CoverUrl { get; set; }
         public Guid OrganizerId { get; set; }
         public string OrganizerName { get; set; } = string.Empty;
+        public Guid? ProjectId { get; set; }
         public int ParticipantCount { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }

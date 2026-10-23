@@ -25,6 +25,7 @@ function createEmptyCardForm() {
       cardAttributes?: { key: string; value: string }[];
       contextLabel?: string;
     }[],
+    timelineEvents: [] as { date: string; era?: string | null; title: string; description: string | null }[],
   }
 }
 

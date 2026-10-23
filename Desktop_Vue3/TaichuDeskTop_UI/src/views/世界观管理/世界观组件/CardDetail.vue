@@ -52,7 +52,7 @@
 
       <!-- 描述 -->
       <div class="section">
-        <div class="description-body" v-html="renderedDescription"></div>
+        <div class="description-body" v-html="renderedDescription" @click="onDescriptionClick"></div>
       </div>
 
       <!-- ✅ 关联内容：使用 EmbeddedCard 组件渲染 -->
@@ -70,6 +70,21 @@
             clickable
             @click="goToCard(item.id)"
           />
+        </div>
+      </div>
+
+      <!-- 被引用（反向引用） -->
+      <div v-if="backlinks.length" class="section">
+        <div class="backlinks-header">
+          <span class="backlinks-label">被引用</span>
+          <span class="backlinks-count">{{ backlinks.length }}</span>
+        </div>
+        <div class="backlinks-list">
+          <button v-for="bk in backlinks" :key="bk.id" class="backlink-item" @click="goToCard(bk.id)">
+            <span class="backlink-type">{{ getTypeLabel(bk.type) }}</span>
+            <span class="backlink-title">{{ bk.title }}</span>
+            <span class="backlink-arrow">→</span>
+          </button>
         </div>
       </div>
 
@@ -97,6 +112,7 @@
 <script setup lang="ts">
 import { useCardPresentation } from '@/composables/世界观管理/useCardPresentation';
 import { useCardPreload } from '@/composables/世界观管理/useCardPreload';
+import { useCardBacklinks } from '@/composables/世界观管理/useCardBacklinks';
 import { useImagePreview } from '@/composables/世界观管理/useImagePreview';
 import { getCardTypeLabel as getTypeLabel } from '@/utils/worldPresentation';
 import { ref, computed, watch, onScopeDispose } from 'vue';
@@ -123,6 +139,7 @@ const card = ref<CardDetail | null>(null);
 const { visible: previewVisible, images: previewImages, index: previewIndex, open: openPreview, close: closePreview } = useImagePreview();
 const { embeddedIds, embeddedCards, cardTags, galleryImages, coverUrl, renderedDescription } = useCardPresentation(card, projectId, 'detail');
 const { load: preload } = useCardPreload(projectId);
+const { backlinks } = useCardBacklinks(() => projectId.value, () => cardId.value);
 
 // ===== 判断当前用户是否是项目所有者 =====
 const isOwner = computed(() => {
@@ -170,6 +187,12 @@ const goToCard = (targetId: string) => {
   if (targetId === cardId.value) return;
   router.push(`/world/project/${projectId.value}/card/${targetId}`);
 };
+
+function onDescriptionClick(event: MouseEvent) {
+  const target = (event.target as HTMLElement).closest('[data-card-id]') as HTMLElement | null
+  const id = target?.getAttribute('data-card-id')
+  if (id) goToCard(id)
+}
 
 const editCard = () => router.push(`/world/project/${projectId.value}?edit=${cardId.value}`);
 
@@ -417,6 +440,63 @@ onScopeDispose(() => { loadVersion++; });
   background: var(--accent-soft);
   padding: 2px 12px;
   border-radius: 4px;
+}
+
+.backlinks-header {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border-line);
+}
+.backlinks-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.backlinks-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.backlinks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.backlink-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+  text-align: left;
+  transition: background 0.15s;
+}
+.backlink-item:hover {
+  background: var(--bg-sub);
+}
+.backlink-type {
+  font-size: 11px;
+  color: var(--accent-color);
+  background: var(--accent-soft);
+  padding: 0 8px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.backlink-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.backlink-arrow {
+  color: var(--text-secondary);
 }
 
 .loading-state,

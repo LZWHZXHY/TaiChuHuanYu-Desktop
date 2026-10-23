@@ -146,10 +146,21 @@ const router = createRouter({
       children: [
         { path: '', component: () => import('@/views/柴圈板块/Battle/index.vue') },
         { path: 'create', component: () => import('@/views/柴圈板块/Battle/components/CreateBattle.vue') },
+        { path: 'leaderboard', component: () => import('@/views/柴圈板块/Battle/components/Leaderboard.vue') },
 
         { path: ':id', component: () => import('@/views/柴圈板块/Battle/components/BattleDetail.vue') },
 
         { path: 'my', component: () => import('@/views/柴圈板块/Battle/components/MyBattles.vue') },
+      ]
+    },
+
+    // ===== 柴圈作品（动画/图片） =====
+    {
+      path: '/works',
+      children: [
+        { path: '', component: () => import('@/views/柴圈板块/Works/index.vue') },
+        { path: 'create', component: () => import('@/views/柴圈板块/Works/Create.vue') },
+        { path: ':id', component: () => import('@/views/柴圈板块/Works/Detail.vue') },
       ]
     },
 

@@ -103,6 +103,7 @@ export function useCardEditor(
         tags: Array.isArray(fullCard.tags) ? fullCard.tags : [],
         relations,
         contentBlocks: fullCard.contentBlocks || [],
+        timelineEvents: fullCard.timelineEvents || [],
       })
 
       await nextTick()
@@ -147,6 +148,7 @@ export function useCardEditor(
         content: JSON.stringify(form.value.content || {}),   // ✅ 对象 → 字符串
         tags: form.value.tags,
         contentBlocks: form.value.contentBlocks,
+        timelineEvents: form.value.timelineEvents,
         relations: form.value.relations,
       }
 

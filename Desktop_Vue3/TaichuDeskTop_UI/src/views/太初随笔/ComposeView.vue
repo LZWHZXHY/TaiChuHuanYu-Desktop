@@ -184,8 +184,8 @@ async function save(publish: boolean) {
             noteId.value = note.id;
             await router.replace({ query: { ...route.query, draft: note.id } });
         }
-        // 后端按字符串排序；补零避免第 10 段被排到第 2 段前面。
-        const blocks = (content.value.content || []).map((node: any, index: number) => ({ id: node.attrs?.id || crypto.randomUUID(), type: node.type, data: JSON.stringify(node), sortOrder: String(index).padStart(8, '0') }));
+        // 后端 Block.SortOrder 是 int，这里发数字，不要用补零字符串（会导致 JSON 反序列化失败、正文块丢失）。
+        const blocks = (content.value.content || []).map((node: any, index: number) => ({ id: node.attrs?.id || crypto.randomUUID(), type: node.type, data: JSON.stringify(node), sortOrder: index }));
         const metadata = fixedBlocks.filter(b => b.type !== 'blog_fixed_excerpt');
         if (!isPost.value && summary.value.trim())
             metadata.push({ id: fixedBlocks.find(b => b.type === 'blog_fixed_excerpt')?.id || crypto.randomUUID(), type: 'blog_fixed_excerpt', data: JSON.stringify({ text: summary.value.trim() }), sortOrder: '-1' });

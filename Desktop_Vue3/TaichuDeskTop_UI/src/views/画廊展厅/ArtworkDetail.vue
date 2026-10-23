@@ -136,6 +136,7 @@ import ArtworkPublishModal from './ArtworkPublishModal.vue'
 import ArtworkComments from './ArtworkComments.vue'
 import { useArtworkStore } from '../../stores/artwork'
 import { useUserStore } from '../../stores/user'
+import { toCdnUrl } from '../../utils/imageThumb'
 
 const referenceMessage = ref('');
 async function copyReference() { try { const url = new URL(window.location.href); url.hash = '/knowledge?detailType=artwork&detail=' + encodeURIComponent(String(props.id)); await navigator.clipboard.writeText(url.href); referenceMessage.value = '引用链接已复制'; } catch { referenceMessage.value = '复制失败，请复制浏览器地址栏中的链接'; } }
@@ -162,9 +163,9 @@ const steps = computed<NormalizedStep[]>(() => {
   const images = artwork.value?.images || []
   return images.map((item: any, idx: number) => {
     if (typeof item === 'object' && item !== null) {
-      return { imageUrl: item.url || '', description: item.caption || '', title: '画幅' }
+      return { imageUrl: toCdnUrl(item.url), description: item.caption || '', title: '画幅' }
     }
-    return { imageUrl: String(item), description: '', title: `画幅 ${idx + 1}` }
+    return { imageUrl: toCdnUrl(String(item)), description: '', title: `画幅 ${idx + 1}` }
   })
 })
 

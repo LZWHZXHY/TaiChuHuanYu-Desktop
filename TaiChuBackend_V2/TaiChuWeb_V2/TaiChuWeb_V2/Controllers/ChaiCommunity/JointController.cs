@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -216,6 +216,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 CoverUrl = activity.CoverUrl,
                 OrganizerId = activity.OrganizerId,
                 OrganizerName = activity.OrganizerName,
+                ProjectId = activity.ProjectId,
                 ParticipantCount = activity.ParticipantCount,
                 CreatedAt = activity.CreatedAt,
                 UpdatedAt = activity.UpdatedAt,
@@ -299,6 +300,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 CoverUrl = activity.CoverUrl,
                 OrganizerId = activity.OrganizerId,
                 OrganizerName = activity.OrganizerName,
+                ProjectId = activity.ProjectId,
                 ParticipantCount = activity.ParticipantCount,
                 CreatedAt = activity.CreatedAt,
                 UpdatedAt = activity.UpdatedAt,
@@ -760,6 +762,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 CoverUrl = activity.CoverUrl,
                 OrganizerId = activity.OrganizerId,
                 OrganizerName = activity.OrganizerName,
+                ProjectId = activity.ProjectId,
                 ParticipantCount = activity.ParticipantCount,
                 CreatedAt = activity.CreatedAt,
                 UpdatedAt = activity.UpdatedAt,
@@ -779,5 +782,49 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 }).ToList()
             };
         }
+
+        // ============================================================
+        // 关联太初协作项目（仅发起者）
+        // ============================================================
+        [HttpPost("{id:guid}/link-project")]
+        public async Task<IActionResult> LinkProject(Guid id, [FromBody] LinkProjectRequest request)
+        {
+            var userId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var uid) ? uid : Guid.Empty;
+            if (userId == Guid.Empty) return Unauthorized();
+
+            var activity = await _context.JointActivities.FirstOrDefaultAsync(a => a.Id == id);
+            if (activity == null) return NotFound(new { message = "联合活动不存在" });
+            if (activity.OrganizerId != userId) return Forbid();
+
+            var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId.ToString());
+            if (project == null) return NotFound(new { message = "协作项目不存在" });
+            if (project.OwnerId != userId) return Forbid();
+
+            activity.ProjectId = request.ProjectId;
+            activity.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return Ok(new { projectId = activity.ProjectId });
+        }
+
+        [HttpDelete("{id:guid}/link-project")]
+        public async Task<IActionResult> UnlinkProject(Guid id)
+        {
+            var userId = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var uid) ? uid : Guid.Empty;
+            if (userId == Guid.Empty) return Unauthorized();
+
+            var activity = await _context.JointActivities.FirstOrDefaultAsync(a => a.Id == id);
+            if (activity == null) return NotFound(new { message = "联合活动不存在" });
+            if (activity.OrganizerId != userId) return Forbid();
+
+            activity.ProjectId = null;
+            activity.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+            return Ok(new { projectId = (Guid?)null });
+        }
+    }
+
+    public class LinkProjectRequest
+    {
+        public Guid ProjectId { get; set; }
     }
 }

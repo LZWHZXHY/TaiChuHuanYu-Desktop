@@ -102,6 +102,12 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<StickmanAttribute> StickmanAttributes { get; set; }
         public DbSet<StickmanImage> StickmanImages { get; set; }
 
+        // ===== 柴圈社区 - 作品（动画/图片） =====
+        public DbSet<ChaiWork> ChaiWorks { get; set; }
+
+        // ===== 社交 - 关注关系 =====
+        public DbSet<Follow> Follows { get; set; }
+
 
 
         public DbSet<UserExpLog> UserExpLogs { get; set; }
@@ -114,6 +120,7 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<GameOption> GameOptions { get; set; }
         public DbSet<GameResult> GameResults { get; set; }
         public DbSet<GameSession> GameSessions { get; set; }
+        public DbSet<BoardGameRecord> BoardGameRecords { get; set; }
 
 
 

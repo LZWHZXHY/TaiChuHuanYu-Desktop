@@ -13,6 +13,10 @@ public class WorldCardsController(IWorldCardService cardService) : WorldControll
     public async Task<IActionResult> GetCards(Guid projectId, [FromQuery] string? type = null) =>
         Ok(await cardService.GetCardSummariesByProjectAsync(projectId, CurrentUserId, type));
 
+    [HttpGet("timeline")]
+    public async Task<IActionResult> GetTimeline(Guid projectId) =>
+        Ok(await cardService.GetTimelineAsync(projectId, CurrentUserId));
+
     [HttpGet("{cardId}")]
     public async Task<IActionResult> GetCard(Guid projectId, Guid cardId)
     {
@@ -40,4 +44,8 @@ public class WorldCardsController(IWorldCardService cardService) : WorldControll
         var deleted = await cardService.DeleteCardAsync(cardId, CurrentUserId, projectId);
         return deleted ? NoContent() : NotFound(new { message = "卡片不存在或无权删除" });
     }
+
+    [HttpGet("{cardId}/backlinks")]
+    public async Task<IActionResult> GetBacklinks(Guid projectId, Guid cardId)
+        => Ok(await cardService.GetBacklinksAsync(cardId, CurrentUserId));
 }

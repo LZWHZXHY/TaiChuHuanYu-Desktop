@@ -3,6 +3,7 @@ import type {
   WorldProject, CreateProjectPayload, UpdateProjectPayload, CardSummary, CardDetail,
   CreateCardPayload, UpdateCardPayload, Relation, CardTypeDto, WorldQuota,
   ProjectQuotaCheck, CardQuotaCheck, QuotaUpgradeType, QuotaUpgradeResult, QuotaHistory,
+  TimelineItem, WorldSearchResult,
 } from './types/world'
 
 export type * from './types/world'
@@ -22,6 +23,14 @@ export const worldApi = {
     request.get<CardSummary[]>(`/world/projects/${projectId}/cards`, { params: { type } }),
   getCard: (projectId: string, cardId: string) =>
     request.get<CardDetail>(`/world/projects/${projectId}/cards/${cardId}`),
+  getCardBacklinks: (projectId: string, cardId: string) =>
+    request.get<CardSummary[]>(`/world/projects/${projectId}/cards/${cardId}/backlinks`),
+
+  getTimeline: (projectId: string) =>
+    request.get<TimelineItem[]>(`/world/projects/${projectId}/cards/timeline`),
+
+  searchCards: (q: string, limit = 20) =>
+    request.get<WorldSearchResult[]>(`/world/search`, { params: { q, limit }, silentError: true }),
   createCard: (projectId: string, payload: CreateCardPayload) =>
     request.post<CardDetail>(`/world/projects/${projectId}/cards`, payload),
   updateCard: (projectId: string, cardId: string, payload: UpdateCardPayload) =>

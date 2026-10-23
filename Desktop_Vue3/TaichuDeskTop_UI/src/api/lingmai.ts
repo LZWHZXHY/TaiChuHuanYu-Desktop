@@ -7,7 +7,7 @@ export interface FlatBlock {
   id: string;
   type: string;
   data: string;
-  sortOrder?: string;
+  sortOrder?: number;
 }
 
 // --- 2. 核心转换逻辑 ---
@@ -28,7 +28,7 @@ const flattenTiptapJson = (doc: any): FlatBlock[] => {
     return {
       id: blockId,
       type: node.type,
-      sortOrder: index.toString(), // 🌟 关键：按顺序生成 "0", "1", "2"...
+      sortOrder: index, // 数字，匹配后端 BlockSyncDto.SortOrder (int?)
       data: JSON.stringify({
         attrs: attrs,
         content: node.content

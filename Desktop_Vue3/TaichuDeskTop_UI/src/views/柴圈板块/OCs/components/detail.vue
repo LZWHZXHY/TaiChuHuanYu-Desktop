@@ -17,7 +17,7 @@
         <div class="avatar-container">
           <!-- ✅ 使用 el-image 支持懒加载和预览 -->
           <el-image
-            :src="character.coverUrl || defaultAvatar"
+            :src="withThumbnail(character.coverUrl, 800) || defaultAvatar"
             :alt="character.title"
             fit="cover"
             lazy
@@ -30,7 +30,10 @@
           <p v-if="getAttr('昵称') || getAttr('绰号')" class="char-nickname">
             “{{ getAttr('昵称') || getAttr('绰号') }}”
           </p>
-          <p class="char-author">作者：{{ character.authorName }}</p>
+          <p class="char-author">
+            作者：{{ character.authorName }}
+            <button v-if="!isOwner" class="follow-btn" :class="{ active: following }" @click="toggleFollow">{{ following ? '已关注' : '关注' }}</button>
+          </p>
 
           <!-- 短属性网格 -->
           <div v-if="shortAttributes.length" class="attr-grid">
@@ -120,15 +123,24 @@
             <span class="stat-lose">💔 负 {{ character.battleLosses || 0 }}</span>
             <span class="stat-draw">🤝 平 {{ character.battleDraws || 0 }}</span>
           </div>
+          <div class="battle-extra">
+            <span class="tier-badge">段位 · {{ character.battleTier || '青铜' }}</span>
+            <span class="points">积分 {{ character.battlePoints ?? 0 }}</span>
+            <span class="win-rate">胜率 {{ winRate }}%</span>
+          </div>
         </div>
 
         <!-- 底部操作 -->
         <div class="detail-actions">
           <div class="action-stats">
             <span class="stat">👁 {{ character.views }}</span>
+            <button class="stat action-btn" :class="{ active: liked }" @click="toggleLike">❤ {{ likeCount }}</button>
+            <button class="stat action-btn" :class="{ active: favorited }" @click="toggleFavorite">⭐ {{ favoriteCount }}</button>
           </div>
           <button class="btn-line" @click="goBattle">⚔ 发起约战</button>
         </div>
+
+        <ChaiComments v-if="character.id" :target-type="'character'" :target-id="character.id" />
       </div>
     </div>
   </div>
@@ -138,6 +150,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useStickmanStore } from '../stickman_store'
+import { stickmanApi } from '../stickman'
+import { followApi } from '@/api/follow'
+import ChaiComments from '../../components/ChaiComments.vue'
+import { withThumbnail } from '@/utils/imageThumb'
 import { useUserStore } from '@/stores/user'
 import { ElImage } from 'element-plus' // 可选，但已全局注册
 
@@ -157,6 +173,51 @@ const isOwner = computed(() => {
   if (!authorId || !userId) return false
   return String(authorId) === String(userId)
 })
+
+// 胜率 = 胜场 / 总场次（含平局）
+const winRate = computed(() => {
+  const w = character.value?.battleWins || 0
+  const l = character.value?.battleLosses || 0
+  const d = character.value?.battleDraws || 0
+  const total = w + l + d
+  if (!total) return 0
+  return Math.round((w / total) * 100)
+})
+
+// 点赞 / 收藏
+const liked = ref(false)
+const favorited = ref(false)
+const likeCount = ref(0)
+const favoriteCount = ref(0)
+function syncCounts() {
+  likeCount.value = character.value?.likeCount || 0
+  favoriteCount.value = character.value?.favoriteCount || 0
+}
+async function toggleLike() {
+  if (!character.value) return
+  const res = await stickmanApi.toggle(character.value.id, 'like')
+  liked.value = res.active; likeCount.value = res.count
+}
+async function toggleFavorite() {
+  if (!character.value) return
+  const res = await stickmanApi.toggle(character.value.id, 'favorite')
+  favorited.value = res.active; favoriteCount.value = res.count
+}
+
+// 关注作者
+const following = ref(false)
+async function syncFollow() {
+  if (!character.value?.authorId) return
+  try {
+    const st = await followApi.status(character.value.authorId)
+    following.value = st.following
+  } catch { /* 未登录时静默 */ }
+}
+async function toggleFollow() {
+  if (!character.value?.authorId) return
+  const res = await followApi.toggle(character.value.authorId)
+  following.value = res.following
+}
 
 // ===== 🆕 图库分批加载 =====
 const initialShowCount = 12 // 初始显示数量
@@ -196,6 +257,8 @@ const longAttributes = computed(() => visibleAttributes.value.filter(attr => att
 onMounted(async () => {
   const id = route.params.id as string
   await store.fetchDetail(id)
+  syncCounts()
+  syncFollow()
 })
 
 async function handleDelete() {
@@ -234,6 +297,9 @@ function goBattle() {
 .stat-win { color: var(--success); font-weight: 500; }
 .stat-lose { color: var(--danger); font-weight: 500; }
 .stat-draw { color: var(--warning); font-weight: 500; }
+.battle-extra { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 12px; color: var(--ink-gray); }
+.tier-badge { color: #d4af37; background: rgba(212,175,55,.12); padding: 2px 10px; border-radius: 10px; font-weight: 600; }
+.points, .win-rate { color: var(--ink-gray); }
 
 .detail-page {
   max-width: 1100px;
@@ -336,6 +402,23 @@ function goBattle() {
   color: var(--ink-gray);
   letter-spacing: 0.15em;
   margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.follow-btn {
+  border: 1px solid var(--accent-color);
+  background: none;
+  color: var(--accent-color);
+  padding: 2px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.follow-btn.active {
+  background: var(--bg-sub);
+  color: var(--ink-gray);
+  border-color: var(--border-line);
 }
 .attr-grid {
   display: flex;
@@ -502,6 +585,16 @@ function goBattle() {
   align-items: center;
   gap: 4px;
 }
+.action-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--ink-gray);
+  letter-spacing: 0.1em;
+}
+.action-btn.active { color: var(--accent-color); }
 
 /* ===== 响应式 ===== */
 @media (max-width: 860px) {

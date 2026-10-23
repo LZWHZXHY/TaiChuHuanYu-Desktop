@@ -1,4 +1,4 @@
-﻿namespace TaiChuWeb_V2.Dtos.Chai.stickman
+namespace TaiChuWeb_V2.Dtos.Chai.stickman
 {
     // ============================================================
     // 基础 DTO
@@ -64,6 +64,12 @@
         public int BattleWins { get; set; }
         public int BattleLosses { get; set; }
         public int BattleDraws { get; set; }
+        public int BattlePoints { get; set; }
+        public string BattleTier { get; set; } = "青铜";
+
+        // ⭐ 社交互动
+        public int LikeCount { get; set; }
+        public int FavoriteCount { get; set; }
 
         public List<StickmanAttributeDto>? Attributes { get; set; }
         public List<StickmanImageDto>? Images { get; set; }
@@ -106,6 +112,8 @@
         public int BattleWins { get; set; }
         public int BattleLosses { get; set; }
         public int BattleDraws { get; set; }
+        public int BattlePoints { get; set; }
+        public string BattleTier { get; set; } = "青铜";
     }
 
 
