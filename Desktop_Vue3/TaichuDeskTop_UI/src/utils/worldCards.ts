@@ -1,4 +1,4 @@
-import type { CardDetail, CardSummary, Relation, RelationInput } from '@/api/types/world'
+import type { CardDetail, CardSummary } from '@/api/types/world'
 
 export function toCardSummary(card: CardDetail): CardSummary {
   return {
@@ -17,11 +17,3 @@ export function createCardPreview(card: CardSummary): CardDetail {
   }
 }
 
-export function diffRelations(existing: Relation[], desired: RelationInput[]) {
-  const matches = (a: RelationInput, b: RelationInput) =>
-    a.targetCardId === b.targetCardId && a.relationType === b.relationType
-  return {
-    toRemove: existing.filter(old => !desired.some(next => matches(old, next))),
-    toAdd: desired.filter(next => !existing.some(old => matches(old, next))),
-  }
-}

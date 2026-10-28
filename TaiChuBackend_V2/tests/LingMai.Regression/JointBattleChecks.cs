@@ -112,7 +112,7 @@ static class JointBattleChecks
         projectDb.MemberRows.Rows.RemoveAll(m => m.UserId == guest.ToString());
         Check(await reader.GetProjectDocument(project.Id, note.Id) is ForbidResult, "revoked membership loses shared reading access");
         projectDb.SpaceRows.Rows.Add(new() { Id = note.SpaceId, UserId = owner.ToString() });
-        var publication = new TaiChuWeb_V2.Controllers.LingMai.LingMaiPublishController(projectDb, new[] { publisher }) { ControllerContext = Login(guest) };
+        var publication = new TaiChuWeb_V2.Controllers.LingMai.LingMaiPublishController(projectDb, new[] { publisher }, new TaiChuWeb_V2.Services.LingMai.NoteCommentService(projectDb)) { ControllerContext = Login(guest) };
         Check(await publication.UnpublishNote(note.Id) is ForbidResult && documents.Rows.Count == 1, "reader cannot withdraw author's shared document");
         publication.ControllerContext = Login(owner);
         Check(await publication.UnpublishNote(note.Id) is OkObjectResult && documents.Rows.Count == 0 && note.IsPublic, "unshare removes project links without changing public status");

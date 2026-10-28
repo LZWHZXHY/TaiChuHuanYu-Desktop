@@ -4,7 +4,11 @@ import { useRouter} from 'vue-router' // 🌟 引入 useRoute
 import request from './utils/request' 
 import OperationTerminal from './components/OperationTerminal.vue'
 import { useUserStore } from './stores/user'
+import { useVisibleMotion } from '@/composables/useVisibleMotion'
+const atmosphereElement = ref<SVGElement>()
+const atmosphereMotion = useVisibleMotion(atmosphereElement)
 import GlobalNotify from './components/GlobalNotify.vue'
+import NotificationBell from './components/NotificationBell.vue'
 
 // 插件接口定义
 interface Plugin {
@@ -32,6 +36,11 @@ const corePlugins: Plugin[] = [
   { name: '画廊展厅', url: '/gallery', icon: '▧', requiresAuth: false },
   { name: '太初随笔', url: '/stream', icon: '≡', requiresAuth: false },
   { name: '知识库', url: '/knowledge', icon: '▤', requiresAuth: false },
+  { name: '开发进度', url: '/dev-progress', icon: '▣', requiresAuth: false },
+  { name: '赞助墙', url: '/sponsors', icon: '♡', requiresAuth: false },
+  { name: '必吃榜', url: '/must-eat', icon: '🍽', requiresAuth: false },
+  { name: '版本更新', url: '/changelog', icon: '⏱', requiresAuth: false },
+  { name: '社区规则', url: '/rules', icon: '📜', requiresAuth: false },
   { name: '太初俱乐部', url: '/Club', icon: '◇', requiresAuth: false },
   { name: '柴圈板块', url: '/community', icon: '◎', requiresAuth: false },
   { name: '荣誉墙', url: '/honor', icon: '☆', requiresAuth: false },
@@ -129,8 +138,23 @@ onMounted(async ()=> {
       :activeName="activeMenu"
       @navigate="handleNavigation"
     />
-
     <main class="container">
+      <svg v-if="!/^\/(club|taichu)(\/|$)/i.test(router.currentRoute.value.path)" ref="atmosphereElement" class="app-atmosphere" :class="{ 'motion-paused': !atmosphereMotion }" viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+        <path class="ambient-plane" d="M880 -160H1220L780 280H440Z" fill="var(--accent-color)" opacity=".055" />
+        <path d="M-170 580 70 340 260 530 20 770Z" fill="var(--text-primary)" opacity=".035" />
+        <path d="M1040 380H1260V900H860L1080 680H1040Z" fill="var(--signal-color)" opacity=".045" />
+        <g class="ambient-orbit" fill="none" stroke="var(--accent-color)"><circle cx="1100" cy="660" r="280" opacity=".14" stroke-dasharray="340 100 80 50" /><circle cx="1100" cy="660" r="245" opacity=".07" /><circle cx="1100" cy="380" r="4" fill="var(--accent-color)" opacity=".4" /></g>
+        <path d="M0 190H340L520 10H1200M0 840H440L590 690H1200" fill="none" stroke="var(--accent-color)" opacity=".14" />
+        <path class="ambient-trace" d="M0 190H340L520 10H1200M0 840H440L590 690H1200" fill="none" stroke="var(--accent-color)" opacity=".3" pathLength="100" stroke-dasharray="4 96" />
+        <g class="ambient-particles" fill="var(--accent-color)" opacity=".28"><circle v-for="n in 12" :key="n" :cx="(n * 173) % 1200" :cy="(n * 137) % 900" :r="n % 3 === 0 ? 2 : 1" :style="{ '--drift-delay': `${n * -.8}s` }" /></g>
+      </svg>
+      <div class="site-toolbar">
+        <span class="site-wordmark">TAICHU HUANYU <span aria-hidden="true">/</span> COMMUNITY</span>
+        <div class="site-tools">
+          <RouterLink to="/knowledge" class="site-search"><svg aria-hidden="true" viewBox="0 0 20 20" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg>检索社区内容</RouterLink>
+          <NotificationBell />
+        </div>
+      </div>
       <div v-if="navigationPending" class="navigation-state" role="status">正在打开 {{ navigationPending }}…</div>
       <div v-if="navigationError" class="navigation-state" role="alert">{{ navigationError }} <button @click="lastNavigation && handleNavigation(lastNavigation)">重试</button></div>
       <p v-if="router.currentRoute.value.query.access === 'denied'" class="navigation-state" role="alert">当前账号没有管理权限。</p>
@@ -147,14 +171,44 @@ onMounted(async ()=> {
 </template>
 
 <style scoped>
-.navigation-state { margin: 0; padding: 12px 20px; color: var(--text-primary); background: var(--accent-soft); font-size: 14px; }
+.app-atmosphere { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; overflow: hidden; }
+.app-atmosphere.motion-paused * { animation-play-state: paused !important; }
+.ambient-orbit { transform-origin: 1100px 660px; }
+@media(prefers-reduced-motion: no-preference) {
+  .ambient-orbit { animation: atmosphere-orbit 80s linear infinite; }
+  .ambient-trace { animation: atmosphere-trace 24s linear infinite; }
+  .ambient-particles circle { animation: atmosphere-particle 9s ease-in-out var(--drift-delay) infinite alternate; }
+}
+@keyframes atmosphere-orbit { to { transform: rotate(360deg); } }
+@keyframes atmosphere-trace { to { stroke-dashoffset: -100; } }
+@keyframes atmosphere-particle { to { transform: translate(8px,-16px); opacity: .2; } }
+@media(max-width: 640px) { .ambient-particles { display: none; } }
+
+.navigation-state { position: relative; margin: 0; padding: 12px 20px; color: var(--text-primary); background: var(--accent-soft); font-size: 14px; }
 .app-shell { display: flex; width: 100%; height: 100dvh; background: var(--bg-main); color: var(--text-primary); overflow: hidden; }
-.container { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-.viewport { flex: 1; min-height: 0; padding: 32px clamp(20px, 3vw, 48px); overflow: auto; scrollbar-gutter: stable; }
+.container { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.site-toolbar { position: relative; background: var(--bg-main); display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-shrink: 0; min-height: 52px; padding: 8px clamp(20px, 3vw, 48px); border-bottom: 1px solid var(--border-line); }
+.site-wordmark { font-family: var(--font-mono); font-size: 10px; letter-spacing: .12em; color: var(--text-secondary); }
+.site-wordmark span { margin-inline: 12px; color: var(--accent-color); }
+.site-tools { display: flex; align-items: center; gap: 16px; }
+.site-search { display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 12px; text-decoration: none; }
+.site-search:hover { color: var(--accent-color); }
+.viewport { position: relative; flex: 1; min-height: 0; padding: 28px clamp(20px, 3vw, 48px); overflow: auto; scrollbar-gutter: stable; }
 .viewport-content { width: 100%; max-width: 1440px; margin-inline: auto; }
 @media(max-width: 900px) {
   .app-shell { flex-direction: column; }
   .container { min-height: 0; }
   .viewport { padding: 20px 16px; }
+  .site-toolbar { min-height: 40px; padding: 6px 16px; }
+  .site-wordmark { font-size: 9px; letter-spacing: .02em; }
+  .site-wordmark span { margin-inline: 4px; }
+}
+@media(max-width: 420px) { .site-wordmark { display: none; }.site-tools { width: 100%; justify-content: space-between; } }
+/* 编辑工作区占满剩余空间，滚动由内部文档承接。 */
+.viewport:has(:deep(.spirit-link-app)) { padding: 16px; overflow: hidden; }
+.viewport-content:has(:deep(.spirit-link-app)) { height: 100%; }
+@media (min-width: 821px) {
+  .viewport:has(:deep(.world-index.detail-mode)) { padding: 16px; overflow: hidden; }
+  .viewport-content:has(:deep(.world-index.detail-mode)), :deep(.world-index.detail-mode) { height: 100%; }
 }
 </style>

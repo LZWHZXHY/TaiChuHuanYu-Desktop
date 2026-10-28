@@ -1,0 +1,11 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>打印文档边界检查</title><main><h1>打印文档边界检查</h1><button id="run">运行检查</button><output></output><div id="frames"></div></main><script type="module">
+import {worldPrintHtml,prepareWorldPrint} from '/src/utils/worldPrint.ts';
+document.querySelector('#run').onclick=async()=>{
+ const html=worldPrintHtml('图片检查','# 图片检查\n\n## 条目\n\n![相对路径](/.tmp/world-transfer-check/landscape.png)\n\n![无效图片](/.tmp/world-transfer-check/missing.png)\n\n<script>alert(1)<\/script>');
+ const f=document.createElement('iframe');f.title='边界检查预览';f.sandbox='allow-same-origin';f.srcdoc=html;
+ const loaded=new Promise(r=>f.onload=r);document.querySelector('#frames').replaceChildren(f);await loaded;
+ const failed=await prepareWorldPrint(f.contentDocument,2000),d=f.contentDocument;
+ const checks={relativeImage:d.querySelector('img')?.naturalWidth===1200,absoluteImage:d.querySelector('img')?.src.startsWith(location.origin),failedImageCount:failed===1,visibleFailure:d.body.textContent.includes('图片未能加载：无效图片'),validFigures:!html.includes('<p><figure>'),scriptsRemoved:d.querySelectorAll('script').length===0};
+ document.querySelector('output').textContent=JSON.stringify(checks);
+};
+</script></html>

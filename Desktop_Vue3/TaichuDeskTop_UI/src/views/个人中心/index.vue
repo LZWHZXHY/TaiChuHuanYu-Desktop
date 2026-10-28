@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useUserStore } from '../../stores/user' 
 import { useCos } from '../../composables/useCos'
@@ -8,7 +9,9 @@ const router = useRouter()
 import ProfileCard from './ProfileCard.vue'
 import PreferenceSettings from './PreferenceSettings.vue' // 🌟 引入偏好设置组件
 import UserManualViewer from './UserManualViewer.vue' // 🌟 引入用户手册组件
+import AiSettings from './AiSettings.vue'
 import ClubCard from './ClubCard.vue'
+import ArtworkInfiniteGrid from '../画廊展厅/ArtworkInfiniteGrid.vue'
 const userStore = useUserStore()
 const { uploadFile, isUploading } = useCos()
 
@@ -33,7 +36,10 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const defaultAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
 
 // 🌟 新增 Tab 状态控制 (增加 'manual')
-const activeTab = ref('overview') // 'overview' | 'settings' | 'manual'
+const activeTab = ref('overview') // 'overview' | 'favorites' | 'settings' | 'manual'
+
+// 打开画廊作品详情
+const openArtwork = (id: number | string) => router.push({ path: '/gallery', query: { workId: String(id) } })
 
 // 经验条计算
 const expPercentage = computed(() => {
@@ -136,8 +142,9 @@ onUnmounted(() => loadVersion++)
 </script>
 
 <template>
-  <article class="user-center" v-if="userStore.userInfo">
+  <article class="user-center community-surface tone-profile" v-if="userStore.userInfo">
     <header class="user-header">
+      <SectionTrace />
       <button class="avatar-wrapper" type="button" aria-label="更换头像" :disabled="isUploading" @click="triggerUpload">
         <img :src="userStore.userInfo.avatar || defaultAvatar" alt="我的头像" class="avatar" />
         <span class="avatar-hint">{{ isUploading ? '上传中…' : '更换头像' }}</span>
@@ -165,7 +172,7 @@ onUnmounted(() => loadVersion++)
     <div class="content-layout">
       <section class="main-content">
         <nav class="content-tabs" aria-label="个人中心分区">
-          <button v-for="tab in [{id:'overview',name:'我的内容'}, {id:'community',name:'社区事务'}, {id:'settings',name:'偏好设置'}, {id:'manual',name:'操作手册'}]" :key="tab.id" :class="{active:activeTab===tab.id}" :aria-pressed="activeTab===tab.id" @click="activeTab=tab.id">{{ tab.name }}</button>
+          <button v-for="tab in [{id:'overview',name:'我的内容'}, {id:'favorites',name:'我的收藏'}, {id:'community',name:'社区事务'}, {id:'settings',name:'偏好设置'}, {id:'ai',name:'AI 助手'}, {id:'manual',name:'操作手册'}]" :key="tab.id" :class="{active:activeTab===tab.id}" :aria-pressed="activeTab===tab.id" @click="activeTab=tab.id">{{ tab.name }}</button>
         </nav>
         <section v-if="activeTab === 'overview'" class="content-panel library-panel">
           <div class="section-heading"><div><h2>我的创作</h2><p>查看已发布内容，或继续未完成的草稿。仅你自己可见。</p></div><RouterLink class="btn-line" :to="currentType.create">新建{{ currentType.label }}</RouterLink></div>
@@ -181,11 +188,16 @@ onUnmounted(() => loadVersion++)
             <footer v-if="total > 12" class="pagination"><button class="btn-line" :disabled="page===1" @click="page--">上一页</button><span>{{ page }} / {{ Math.ceil(total / 12) }}</span><button class="btn-line" :disabled="page * 12 >= total" @click="page++">下一页</button></footer>
           </template>
         </section>
+        <section v-else-if="activeTab === 'favorites'" class="content-panel library-panel">
+          <div class="section-heading"><div><h2>我的收藏</h2><p>你收藏过的画廊作品，按收藏时间倒序。</p></div></div>
+          <ArtworkInfiniteGrid favorites @on-click="openArtwork" />
+        </section>
         <section v-else-if="activeTab === 'community'" class="community-content">
           <div class="community-links"><RouterLink to="/Project">多人协作 <span>项目、任务与文档 →</span></RouterLink><RouterLink to="/joint/my">我的联合 <span>参与和管理活动 →</span></RouterLink><RouterLink to="/battles/my">我的约战 <span>查看约战进展 →</span></RouterLink><RouterLink to="/activity/checkin/my">我的打卡 <span>回顾参与记录 →</span></RouterLink></div>
           <ClubCard />
         </section>
         <PreferenceSettings v-else-if="activeTab === 'settings'" />
+        <AiSettings v-else-if="activeTab === 'ai'" />
         <UserManualViewer v-else-if="activeTab === 'manual'" />
       </section>
       <aside class="side-widgets"><ProfileCard :userInfo="userStore.userInfo" @update-success="fetchFullProfile" @logout="handleLogout" /></aside>
@@ -204,7 +216,7 @@ onUnmounted(() => loadVersion++)
 .experience-history li > span { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .experience-history .income { color: var(--accent-color); }
 .user-center { color: var(--text-primary); }
-.user-header { display: flex; align-items: center; gap: 24px; padding: 28px; border: 1px solid var(--border-line); border-radius: var(--radius-lg); background: var(--paper-card); }
+.user-header { display: flex; align-items: center; gap: 24px; }
 .avatar-wrapper { position: relative; flex: 0 0 88px; width: 88px; height: 88px; border: 0; border-radius: 20px; overflow: hidden; padding: 0; cursor: pointer; }
 .avatar { width: 100%; height: 100%; object-fit: cover; }
 .avatar-hint { position: absolute; inset: auto 0 0; font-size: 11px; padding: 3px; background: var(--overlay); color: var(--on-overlay); }
@@ -246,5 +258,5 @@ a { color: var(--accent-color); }
 .community-links a { display: grid; gap: 8px; padding: 20px; border: 1px solid var(--border-line); border-radius: var(--radius-md); background: var(--paper-card); text-decoration: none; }
 .community-links span { color: var(--text-secondary); font-size: 13px; }
 @media(max-width: 1100px) { .content-layout { grid-template-columns: minmax(0,1fr); } }
-@media(max-width: 600px) { .user-header { flex-wrap: wrap; padding: 20px; gap: 16px; } .stats-grid { gap: 8px; } .stat-item { padding: 12px; } .stat-item strong { font-size: 17px; } .library-panel { padding: 16px; } .section-heading { flex-direction: column; } .item-action { display: none; } .community-links { grid-template-columns: 1fr; } }
+@media(max-width: 600px) { .user-header { flex-wrap: wrap; padding: 20px; gap: 16px; } .stats-grid { gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); } .stat-item:first-child { grid-column: 1 / -1; } .stat-item { padding: 12px; } .stat-item strong { font-size: 17px; } .library-panel { padding: 16px; } .section-heading { flex-direction: column; } .item-action { display: none; } .community-links { grid-template-columns: 1fr; } }
 </style>

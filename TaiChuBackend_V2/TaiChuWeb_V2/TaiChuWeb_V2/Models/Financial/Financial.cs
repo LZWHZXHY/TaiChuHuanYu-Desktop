@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TaiChuWeb_V2.Models.Financial
@@ -25,5 +25,9 @@ namespace TaiChuWeb_V2.Models.Financial
         public double Amount { get; set; }
         [Required]
         public int PayReceive { get; set; } // 1 支出 0 收入
+
+        /// <summary>外部订单号（爱发电同步去重用，可空）</summary>
+        [MaxLength(100)]
+        public string? ExternalOrderId { get; set; }
     }
 }

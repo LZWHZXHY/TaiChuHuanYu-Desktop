@@ -368,7 +368,7 @@ const renderedContent = computed(() => {
   width: 100%;
   height: 100%;
   background: var(--paper-card);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-line);
   overflow: hidden;
 }
@@ -476,5 +476,5 @@ const renderedContent = computed(() => {
 :deep(.markdown-preview h2) { font-size: 1.3rem; margin: 16px 0 8px; }
 :deep(.markdown-preview h3) { font-size: 1.1rem; margin: 12px 0 6px; }
 :deep(.markdown-preview a) { color: var(--accent-color); text-decoration: underline; }
-:deep(.preview-img) { max-width: 100%; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin: 8px 0; }
+:deep(.preview-img) { max-width: 100%; border-radius: var(--radius-sm); box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin: 8px 0; }
 </style>

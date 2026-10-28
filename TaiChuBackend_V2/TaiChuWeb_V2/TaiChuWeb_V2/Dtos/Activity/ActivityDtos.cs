@@ -19,6 +19,17 @@ public class CreateActivityDto
 
     [Range(1, 365)]
     public int Days { get; set; } = 30;
+
+    /// <summary>活动形态：general / match（对战赛）/ contest（作品赛）</summary>
+    [MaxLength(20)]
+    public string? Kind { get; set; }
+
+    public DateTime? SignupDeadline { get; set; }
+    public DateTime? StartAt { get; set; }
+    public DateTime? EndAt { get; set; }
+
+    /// <summary>比赛规则 / 主题说明</summary>
+    public string? Rules { get; set; }
 }
 
 // 更新活动请求
@@ -41,6 +52,17 @@ public class UpdateActivityDto
 
     [Range(1, 365)]
     public int? Days { get; set; }
+
+    [MaxLength(20)]
+    public string? Kind { get; set; }
+
+    public DateTime? SignupDeadline { get; set; }
+    public DateTime? StartAt { get; set; }
+    public DateTime? EndAt { get; set; }
+    public string? Rules { get; set; }
+
+    /// <summary>是否清空时间字段</summary>
+    public bool ClearDates { get; set; }
 }
 
 // 活动响应
@@ -58,6 +80,12 @@ public class ActivityResponseDto
     public string Owner { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public string Cycle => $"{Days}天";
+
+    public string Kind { get; set; } = "general";
+    public DateTime? SignupDeadline { get; set; }
+    public DateTime? StartAt { get; set; }
+    public DateTime? EndAt { get; set; }
+    public string? Rules { get; set; }
 }
 
 // 活动列表查询参数

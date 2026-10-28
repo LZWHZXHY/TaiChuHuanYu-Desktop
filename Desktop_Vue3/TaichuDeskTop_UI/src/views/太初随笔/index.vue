@@ -1,6 +1,7 @@
 <template>
-  <main class="stream-page content-page">
+  <main class="stream-page content-page community-surface tone-stream">
     <header class="content-header">
+      <SectionTrace />
       <div><p class="eyebrow">社区创作 · 太初视界</p><h1>博客与帖子</h1><p class="intro">读一篇长文，分享一个想法，与社区一起交流。</p></div>
       <nav class="content-actions" aria-label="创作入口"><RouterLink class="primary" :to="composeRoute('blog')">写博客</RouterLink><RouterLink :to="composeRoute('post')">发帖子</RouterLink></nav>
     </header>
@@ -35,6 +36,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import PublicNoteDetail from './PublicNoteDetail.vue';
@@ -116,7 +118,7 @@ onUnmounted(() => { generation++; observer?.disconnect(); });
 
 <style scoped>
 .topic-filter, .topic-context { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: var(--text-secondary); font-size: 14px; }
-.topic-filter select, .topic-context button { padding: 8px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); }
+.topic-filter select, .topic-context button { padding: 8px 12px; border: 1px solid var(--border-line); border-radius: var(--radius-sm); background: var(--paper-card); color: var(--text-primary); }
 .topic-context { margin: 0 0 24px; }
 .topic-context a { color: var(--accent-color); }
 .stream-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }

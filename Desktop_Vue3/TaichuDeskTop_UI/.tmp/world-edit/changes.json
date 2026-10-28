@@ -1,0 +1,159 @@
+{
+  "source": {
+    "added": 204,
+    "removed": 338,
+    "net": -134
+  },
+  "tests": {
+    "added": 118,
+    "removed": 16,
+    "net": 102
+  },
+  "total": {
+    "added": 322,
+    "removed": 354,
+    "net": -32
+  },
+  "changes": [
+    {
+      "file": "src/stores/world.ts",
+      "added": 6,
+      "removed": 22,
+      "net": -16,
+      "test": false
+    },
+    {
+      "file": "src/api/types/world.ts",
+      "added": 2,
+      "removed": 2,
+      "net": 0,
+      "test": false
+    },
+    {
+      "file": "src/composables/世界观管理/useCardEditor.ts",
+      "added": 27,
+      "removed": 22,
+      "net": 5,
+      "test": false
+    },
+    {
+      "file": "src/views/世界观管理/世界观组件/CardEditor.vue",
+      "added": 18,
+      "removed": 25,
+      "net": -7,
+      "test": false
+    },
+    {
+      "file": "src/views/世界观管理/世界观组件/CardRefTextarea.vue",
+      "added": 11,
+      "removed": 7,
+      "net": 4,
+      "test": false
+    },
+    {
+      "file": "src/views/世界观管理/世界观组件/ContentBlockManager.vue",
+      "added": 52,
+      "removed": 38,
+      "net": 14,
+      "test": false
+    },
+    {
+      "file": "src/views/世界观管理/世界观组件/RelationSelector.vue",
+      "added": 29,
+      "removed": 186,
+      "net": -157,
+      "test": false
+    },
+    {
+      "file": "tests/world.test.mjs",
+      "added": 14,
+      "removed": 13,
+      "net": 1,
+      "test": true
+    },
+    {
+      "file": "tests/world-components.test.mjs",
+      "added": 75,
+      "removed": 3,
+      "net": 72,
+      "test": true
+    },
+    {
+      "file": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\TaiChuWeb_V2\\TaiChuWeb_V2\\Dtos\\World\\CreateCardDto.cs",
+      "added": 4,
+      "removed": 0,
+      "net": 4,
+      "test": false
+    },
+    {
+      "file": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\TaiChuWeb_V2\\TaiChuWeb_V2\\Dtos\\World\\UpdateCardDto.cs",
+      "added": 3,
+      "removed": 0,
+      "net": 3,
+      "test": false
+    },
+    {
+      "file": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\TaiChuWeb_V2\\TaiChuWeb_V2\\Services\\World\\WorldCardService.cs",
+      "added": 43,
+      "removed": 3,
+      "net": 40,
+      "test": false
+    },
+    {
+      "file": "src/views/世界观管理/世界观组件/ProjectCardDocument.vue",
+      "added": 2,
+      "removed": 1,
+      "net": 1,
+      "test": false
+    },
+    {
+      "file": "tests/backend-world/QueryChecks.cs",
+      "added": 23,
+      "removed": 0,
+      "net": 23,
+      "test": true
+    },
+    {
+      "file": "tests/backend-world/Program.cs",
+      "added": 6,
+      "removed": 0,
+      "net": 6,
+      "test": true
+    },
+    {
+      "file": "src/views/世界观管理/card_type.ts",
+      "added": 1,
+      "removed": 1,
+      "net": 0,
+      "test": false
+    },
+    {
+      "file": "src/views/世界观管理/世界观组件/EmbeddedCard.vue",
+      "added": 3,
+      "removed": 4,
+      "net": -1,
+      "test": false
+    },
+    {
+      "file": "src/composables/世界观管理/useCardForm.ts",
+      "added": 2,
+      "removed": 13,
+      "net": -11,
+      "test": false
+    },
+    {
+      "file": "src/utils/worldCards.ts",
+      "added": 1,
+      "removed": 9,
+      "net": -8,
+      "test": false
+    },
+    {
+      "file": "src/composables/世界观管理/useRelationDiff.ts",
+      "added": 0,
+      "removed": 5,
+      "net": -5,
+      "test": false
+    }
+  ]
+}

@@ -305,3 +305,21 @@ test('session expiration clears state and navigates to the real login route', as
     assert.equal(store.userInfo, null)
   } finally { dispose() }
 })
+
+test('session expiration keeps explicitly public reading routes open as a guest', async () => {
+  const pinia = createPinia()
+  const store = useUserStore(pinia)
+  store.setSession('session-a', user)
+  const router = createRouter({ history: createMemoryHistory(), routes: [
+    { path: '/world', component: {}, meta: { requiresAuth: false } },
+    { path: '/LoginRegister', component: {} },
+  ] })
+  await router.push('/world')
+  const dispose = setupAuthSession(pinia, router)
+  try {
+    bus.emit('auth-expired', 'session-a')
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(store.isLoggedIn, false)
+    assert.equal(router.currentRoute.value.path, '/world')
+  } finally { dispose() }
+})

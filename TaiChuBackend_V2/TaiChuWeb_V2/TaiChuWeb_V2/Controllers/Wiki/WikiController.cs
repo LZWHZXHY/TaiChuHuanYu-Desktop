@@ -116,7 +116,7 @@ public class WikiController(AppDbContext db) : ControllerBase
         var rows = await query.OrderByDescending(r => r.Id).Skip((page - 1) * 20).Take(20).Select(r => new { r.Id, r.PreviousRevisionId, r.ContributorId, r.CreatedAt, r.ReviewedAt, r.EditSummary }).ToListAsync();
         var ids = await query.Select(r => r.ContributorId).Distinct().ToListAsync();
         var userIds = ids.Select(id => Guid.TryParse(id, out var g) ? g : Guid.Empty).ToArray();
-        var users = await db.Users.Where(u => userIds.Contains(u.Id)).Select(u => new { u.Id, u.Username }).ToListAsync();
+        var users = await db.Users.AsNoTracking().Where(u => Enumerable.Contains(userIds, u.Id)).Select(u => new { u.Id, u.Username }).ToListAsync();
         string Name(string id) => users.FirstOrDefault(u => u.Id.ToString() == id)?.Username ?? "历史贡献者";
         return Ok(new { total, page, currentRevisionId = article.CurrentRevisionId, contributors = ids.Select(id => new { id, name = Name(id) }), items = rows.Select(r => new { r.Id, r.PreviousRevisionId, r.ContributorId, contributorName = Name(r.ContributorId), r.CreatedAt, r.ReviewedAt, r.EditSummary }) });
     }

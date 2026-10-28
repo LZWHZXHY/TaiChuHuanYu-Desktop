@@ -1,0 +1,31 @@
+{
+  "scope": "公开世界匿名浏览与统一阅读",
+  "frontend": "http://localhost:5195/#/world",
+  "backend": "https://localhost:5049",
+  "checks": {
+    "frontendTests": 172,
+    "backendWorldChecks": 100,
+    "realAnonymousHttpChecks": 20,
+    "typecheck": "passed",
+    "frontendBuild": "passed",
+    "backendBuild": "passed",
+    "diffCheck": "passed"
+  },
+  "browser": [
+    "访客公开列表与搜索",
+    "条目直接链接、刷新、关联跳转和后退",
+    "时间线和关系图谱",
+    "私密世界拒绝访问且无内容泄露或重复弹窗",
+    "创建入口保留登录跳转",
+    "作者私密世界和编辑表单",
+    "390px iframe 日夜模式和目录收起"
+  ],
+  "productionNet": -490,
+  "totalNet": -420,
+  "limits": [
+    "未部署生产",
+    "未执行 AI 请求",
+    "已有后端167警告及可选3D大包提示"
+  ],
+  "databaseMutations": false
+}

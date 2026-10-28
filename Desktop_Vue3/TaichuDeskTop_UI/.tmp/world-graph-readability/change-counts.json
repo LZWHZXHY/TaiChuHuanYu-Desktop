@@ -1,0 +1,27 @@
+[
+  {
+    "file": "src\\utils\\worldGraphSprite.ts",
+    "added": 54,
+    "removed": 69
+  },
+  {
+    "file": "src\\utils\\worldGraph.ts",
+    "added": 23,
+    "removed": 0
+  },
+  {
+    "file": "src\\composables\\世界观管理\\useWorldGraph.ts",
+    "added": 54,
+    "removed": 17
+  },
+  {
+    "file": "src\\views\\世界观管理\\世界观组件\\RelationGraph.vue",
+    "added": 15,
+    "removed": 3
+  },
+  {
+    "file": "tests\\world-components.test.mjs",
+    "added": 22,
+    "removed": 0
+  }
+]

@@ -1,0 +1,43 @@
+{
+  "checkedAt": "2026-10-25T19:21:55.9133508-04:00",
+  "scope": "frontend only; backend permissions and APIs unchanged",
+  "pdf": {
+    "file": "world-print-final.pdf",
+    "pages": 11,
+    "size": "A4",
+    "method": "Exact HTML from actual export component with representative Chinese/image/table fixtures; local images embedded for offline verification; Edge headless print engine",
+    "checks": [
+      "Chinese and rare CJK characters rendered and extractable",
+      "36 paragraphs present",
+      "landscape and portrait images embedded without cropping",
+      "45 table rows present with repeated headers",
+      "long code wraps",
+      "all page contact sheet reviewed; detailed image/text/table pages inspected"
+    ],
+    "nativePrintDialog": "NOT verified; current browser tooling cannot operate this dialog; user unavailable for browser preparation"
+  },
+  "browser": [
+    "MD import created two private entries; mutual references and back-links persisted",
+    "inline reference navigates both directions; reload retains content",
+    "imported gallery image and image viewer work",
+    "TXT import created one readable entry",
+    "day/night entry and export dialogs checked",
+    "relative image path resolves; broken image is visibly reported; script removed",
+    "public reader gets export only; guest private world denied"
+  ],
+  "fixtures": {
+    "newCards": [
+      "54fc00b0-8e69-458e-b60c-cb153aff1c89",
+      "12ea8d16-3d97-4806-bb6b-c4ba066e1da8",
+      "a0f33995-f0bd-417e-bfbb-d31644d66270"
+    ],
+    "world": "a550e279-fc4a-4954-b29b-3fc0b0aa0ea1"
+  },
+  "tests": 48,
+  "productionBuild": "passed; existing Three chunk warning",
+  "fixes": [
+    "Resolve print image URLs against site URL",
+    "Avoid invalid p/figure nesting",
+    "Completed import button correctly says 导入完成"
+  ]
+}

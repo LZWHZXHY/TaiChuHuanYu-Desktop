@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-25",
+  "frontend": "http://127.0.0.1:5195",
+  "backend": "https://localhost:5049",
+  "scope": "世界观编辑、引用和关系保存",
+  "privateTestProject": "a550e279-fc4a-4954-b29b-3fc0b0aa0ea1",
+  "createdPrivateFixtures": [
+    {"name": "验收 · 星桥港", "id": "32f98198-1365-4b1b-8f1d-53f0038f2721"},
+    {"name": "验收 · 巡灯员", "id": "036e52bd-23db-4104-be36-99c2e581b315"},
+    {"name": "验收 · 星桥会", "type": "organization"}
+  ],
+  "browserVerified": [
+    "从现有条目新建时显示空表单，旧条目保留",
+    "不关联其他条目也能独立保存地点",
+    "正文通过 @ 选择地点，插入后继续输入的位置正确",
+    "人物编辑时快速创建组织并引用，原稿和关系保持不变",
+    "人物正文、引用和关系同时保存成功",
+    "重新打开后引用说明和关系保持",
+    "将关系由居住于改为驻守于，阅读页及地点反向关系同步",
+    "从已有条目选择地点，加入驻守地引用说明并保存",
+    "访客不能查看私密测试世界；公开世界可匿名阅读，无编辑入口",
+    "桌面与390px真实页面，白天夜间引用弹窗均无横向溢出"
+  ],
+  "automated": {"frontendTests": 175, "backendWorldChecks": 107, "frontendBuild": "passed", "backendBuild": "passed"},
+  "knownBuildWarnings": ["现有 three 分包超过500kB", "后端167条既有编译警告"],
+  "notPerformed": ["正式环境部署", "第二个登录账号的现场权限验收", "付费AI、额度购买或上传外部文件"],
+  "databaseMigrationRequired": false,
+  "deploymentNote": "前后端需要同时更新；新增关系集合是兼容旧接口的可选字段。"
+}

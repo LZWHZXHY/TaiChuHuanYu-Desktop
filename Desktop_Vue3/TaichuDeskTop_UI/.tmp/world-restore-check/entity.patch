@@ -1,0 +1,49 @@
+*** Begin Patch
+*** Update File: E:\TaiChuHuanYu_DeskTop\TaiChuHuanYu-Desktop\TaiChuBackend_V2\TaiChuWeb_V2\TaiChuWeb_V2\Services\World\WorldCardService.cs
+@@ -164,9 +164,25 @@
+                 });
+             // CanAddCardAsync 已验证项目存在和所有者权限。
+ 
++            var card = CreateEntity(projectId, Guid.NewGuid(), dto);
++            await ApplyRelationsAsync(card, dto.Relations);
++            await _context.WorldCards.AddAsync(card);
++            await _context.SaveChangesAsync();
++
++            // ✅ 清除项目卡片列表缓存
++            WorldCache.InvalidateProject(_cache, projectId, userId);
++
++            WorldCache.InvalidateCards(_cache, card.OutRelations.Select(r => r.TargetCardId));
++
++            // 返回创建的卡片
++            return MapToResponseDto(card);
++        }
++
++        internal static WorldCard CreateEntity(Guid projectId, Guid id, CreateCardDto dto)
++        {
+             var card = new WorldCard
+             {
+-                Id = Guid.NewGuid(),
++                Id = id,
+                 ProjectId = projectId,
+                 Title = dto.Title,
+                 Type = dto.Type,
+@@ -187,17 +203,7 @@
+             };
+ 
+             card.AdvanceVersion();
+-            await ApplyRelationsAsync(card, dto.Relations);
+-            await _context.WorldCards.AddAsync(card);
+-            await _context.SaveChangesAsync();
+-
+-            // ✅ 清除项目卡片列表缓存
+-            WorldCache.InvalidateProject(_cache, projectId, userId);
+-
+-            WorldCache.InvalidateCards(_cache, card.OutRelations.Select(r => r.TargetCardId));
+-
+-            // 返回创建的卡片
+-            return MapToResponseDto(card);
++            return card;
+         }
+ 
+         public async Task<CardResponseDto?> UpdateCardAsync(Guid cardId, Guid userId, UpdateCardDto dto, Guid? projectId = null)
+*** End Patch

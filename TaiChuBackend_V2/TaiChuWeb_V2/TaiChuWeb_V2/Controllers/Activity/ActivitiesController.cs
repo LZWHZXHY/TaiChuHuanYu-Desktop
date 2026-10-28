@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -64,6 +64,11 @@ public class ActivitiesController : ControllerBase
             Status = a.Status,
             Cover = a.Cover,
             Days = a.Days,
+            Kind = a.Kind,
+            SignupDeadline = a.SignupDeadline,
+            StartAt = a.StartAt,
+            EndAt = a.EndAt,
+            Rules = a.Rules,
             Participants = a.Members.Count,
             CompletedRate = a.Members.Count > 0
                 ? a.Members.SelectMany(m => m.Records).Count(r => r.IsCompleted) * 100 / (a.Members.Count * a.Days)
@@ -99,6 +104,11 @@ public class ActivitiesController : ControllerBase
             Status = activity.Status,
             Cover = activity.Cover,
             Days = activity.Days,
+            Kind = activity.Kind,
+            SignupDeadline = activity.SignupDeadline,
+            StartAt = activity.StartAt,
+            EndAt = activity.EndAt,
+            Rules = activity.Rules,
             Participants = activity.Members.Count,
             CompletedRate = activity.Members.Count > 0
                 ? activity.Members.SelectMany(m => m.Records).Count(r => r.IsCompleted) * 100 / (activity.Members.Count * activity.Days)
@@ -216,6 +226,11 @@ public class ActivitiesController : ControllerBase
             TypeId = dto.TypeId,          // 使用 TypeId（int）
             Cover = dto.Cover,
             Days = dto.Days,
+            Kind = string.IsNullOrWhiteSpace(dto.Kind) ? "general" : dto.Kind,
+            SignupDeadline = dto.SignupDeadline,
+            StartAt = dto.StartAt,
+            EndAt = dto.EndAt,
+            Rules = dto.Rules,
             OwnerId = userId,
             Status = "招募中",
             CreatedAt = DateTime.UtcNow
@@ -274,6 +289,15 @@ public class ActivitiesController : ControllerBase
             activity.Cover = dto.Cover;
         if (dto.Days.HasValue)
             activity.Days = dto.Days.Value;
+            if (!string.IsNullOrWhiteSpace(dto.Kind)) activity.Kind = dto.Kind;
+            if (dto.Rules != null) activity.Rules = dto.Rules;
+            if (dto.ClearDates) { activity.SignupDeadline = null; activity.StartAt = null; activity.EndAt = null; }
+            else
+            {
+                if (dto.SignupDeadline.HasValue) activity.SignupDeadline = dto.SignupDeadline;
+                if (dto.StartAt.HasValue) activity.StartAt = dto.StartAt;
+                if (dto.EndAt.HasValue) activity.EndAt = dto.EndAt;
+            }
 
         await _context.SaveChangesAsync();
 

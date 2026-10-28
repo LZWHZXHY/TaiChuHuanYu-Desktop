@@ -23,6 +23,12 @@ const router = createRouter({
     { path: '/posts/:id', redirect: to => ({ name: 'CommunityStream', query: { ...to.query, post: String(to.params.id) } }) },
     { path: '/knowledge', name: 'KnowledgeHome', component: () => import('../views/知识库/index.vue') },
     { path: '/codex', redirect: to => ({ name: 'KnowledgeHome', query: { ...to.query, type: 'wiki' } }) },
+    { path: '/dev-progress', name: 'DevProgress', component: () => import('@/views/开发进度/index.vue') },
+    { path: '/dev-progress/:id', name: 'DevReportDetail', component: () => import('@/views/开发进度/ReportDetail.vue') },
+    { path: '/sponsors', name: 'Sponsors', component: () => import('@/views/赞助墙/index.vue') },
+    { path: '/must-eat', name: 'MustEat', component: () => import('@/views/必吃榜/index.vue') },
+    { path: '/changelog', name: 'Changelog', component: () => import('@/views/版本更新/index.vue') },
+    { path: '/rules', name: 'CommunityRules', component: () => import('@/views/社区规则/index.vue') },
 
     {
       path: '/toolBox',
@@ -54,7 +60,7 @@ const router = createRouter({
       path: '/world',
       name: 'WorldHome',
       component: () => import('@/views/世界观管理/index.vue'),
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: false },
       children: [
         {
           path: 'create',
@@ -66,15 +72,27 @@ const router = createRouter({
           path: 'project/:id',
           name: 'ProjectDetail',
           component: () => import('@/views/世界观管理/ProjectDetail.vue'),
-          meta: { requiresAuth: true }
         },
         {
           path: 'project/:projectId/card/:cardId',
           name: 'CardDetail',
-          component: () => import('@/views/世界观管理/世界观组件/CardDetail.vue'),
-          meta: { requiresAuth: true }
+          component: () => import('@/views/世界观管理/ProjectDetail.vue'),
         }
       ]
+    },
+
+    // ===== 世界观配套小说 =====
+    {
+      path: '/novels',
+      name: 'NovelShelf',
+      component: () => import('@/views/世界观管理/Novels/index.vue'),
+      meta: { requiresAuth: false }
+    },
+    {
+      path: '/novels/:id',
+      name: 'NovelDetail',
+      component: () => import('@/views/世界观管理/Novels/Detail.vue'),
+      meta: { requiresAuth: false }
     },
 
     // ===== 灵脉模块 =====

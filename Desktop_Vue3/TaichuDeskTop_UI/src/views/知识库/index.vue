@@ -1,6 +1,7 @@
 <template>
-  <section class="knowledge-home content-page">
+  <section class="knowledge-home content-page community-surface tone-library">
     <header class="knowledge-header content-header">
+      <SectionTrace />
       <div>
         <p class="eyebrow">社区资料 · 统一检索</p>
         <h1>{{ type === 'wiki' ? '公共 Wiki' : '知识库' }}</h1>
@@ -44,7 +45,7 @@
             <span v-if="search">“{{ search }}”</span>
             <button :disabled="loading" @click="refresh">刷新</button>
           </div>
-          <label v-if="type === 'wiki'">
+          <label v-if="type === 'wiki'" class="wiki-category">
             知识分类
             <select
               :value="categoryId || ''"
@@ -167,6 +168,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, watch, onUnmounted, defineAsyncComponent } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { knowledgeApi, knowledgeTypes, knowledgeRoute, type KnowledgeType, type KnowledgeItem, type PublicResource } from '@/api/knowledge';
@@ -347,7 +349,7 @@ button, .knowledge-actions a {
   border: 1px solid var(--border-line);
   background: var(--paper-card);
   color: var(--text-primary);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 9px 14px;
   font: inherit;
   font-size: .88rem;
@@ -364,7 +366,7 @@ button:hover:not(:disabled), a:hover {
 .search-form {
   padding: 20px;
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: var(--paper-card);
 }
 .search-form label {
@@ -378,7 +380,7 @@ button:hover:not(:disabled), a:hover {
   border: 1px solid var(--border-line);
   background: var(--paper-bg);
   color: var(--text-primary);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 12px;
   font: inherit;
 }
@@ -401,7 +403,9 @@ button:hover:not(:disabled), a:hover {
 }
 .mobile-type-filter { display: none; }
 .type-nav button { text-align: left; border-color: transparent; }
-.type-nav { padding: 12px; border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); }
+.type-nav { padding: 12px; border: 1px solid var(--surface-edge); border-radius: var(--radius-sm); background: linear-gradient(165deg, var(--surface-wash), var(--paper-card) 65%); }
+.wiki-category { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 16px 0; color: var(--text-secondary); font-size: 14px; }
+.wiki-category select { min-height: 40px; padding: 8px 28px 8px 12px; border: 1px solid var(--border-line); border-radius: var(--radius-sm); background: var(--paper-card); color: var(--text-primary); }
 .nav-caption { font-size: .78rem; color: var(--text-secondary); padding: 6px 12px; }
 .content-card:hover, .content-card:focus-within { border-color: var(--accent-color); }
 .result-header {
@@ -418,7 +422,7 @@ button:hover:not(:disabled), a:hover {
 .notice {
   padding: 14px;
   background: var(--paper-sub);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   line-height: 1.7;
   font-size: .9rem;
 }
@@ -434,14 +438,14 @@ button:hover:not(:disabled), a:hover {
   gap: 20px;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   padding: 20px;
 }
 .content-card > img {
   width: 144px;
   height: 112px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 .card-body {
   flex: 1;
@@ -505,7 +509,7 @@ button:hover:not(:disabled), a:hover {
 .graph-area {
   height: 72vh;
   min-height: 460px;
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 .document-mask {
@@ -521,7 +525,7 @@ button:hover:not(:disabled), a:hover {
   margin: auto;
   padding: 28px;
   background: var(--paper-bg);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
 }
 :is(button,a,input):focus-visible {
   outline: 2px solid var(--accent-color);
@@ -539,7 +543,7 @@ button:hover:not(:disabled), a:hover {
 .type-nav { flex-direction: row; flex-wrap: wrap; padding: 8px; gap: 4px; }
 .type-nav > .nav-caption, .type-nav > button { display: none; }
 .mobile-type-filter { display: flex; width: 100%; align-items: center; gap: 12px; padding: 4px; font-size: .9rem; }
-.mobile-type-filter select { min-width: 0; flex: 1; padding: 9px; background: var(--paper-card); color: var(--text-primary); border: 1px solid var(--border-line); border-radius: 8px; }
+.mobile-type-filter select { min-width: 0; flex: 1; padding: 9px; background: var(--paper-card); color: var(--text-primary); border: 1px solid var(--border-line); border-radius: var(--radius-sm); }
 .type-nav button {
   white-space: nowrap;
 }

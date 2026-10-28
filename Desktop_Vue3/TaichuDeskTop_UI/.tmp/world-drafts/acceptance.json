@@ -1,0 +1,28 @@
+{
+  "scope": "Frontend only; existing backend/API permissions unchanged; no database migration",
+  "automated": {
+    "passed": 183,
+    "failed": 0,
+    "build": "passed",
+    "existing_warning": "chunks over 500 kB"
+  },
+  "browser": [
+    "Existing entry: unsaved body and relation restored after reload",
+    "Restored existing entry saved to development backend; backup removed",
+    "New entry: close tab, reopen URL, restore title/type/body",
+    "Explicit discard cleared new-entry backup",
+    "Different entry opened without another entry draft",
+    "Guest cannot access private world editor",
+    "Day/night at desktop and 390px iframe width"
+  ],
+  "limits": [
+    "Only one real test account; cross-account and stale response isolation tested automatically",
+    "Local browser storage only, no cross-device sync; storage clearing removes backups",
+    "Full browser/OS crash not forcibly triggered; tab close/reopen verified"
+  ],
+  "cleanup": "Temporary text and relation edits reverted on existing fixture; new entry was never submitted; its local draft discarded",
+  "netLines": {
+    "application": 129,
+    "tests": 111
+  }
+}

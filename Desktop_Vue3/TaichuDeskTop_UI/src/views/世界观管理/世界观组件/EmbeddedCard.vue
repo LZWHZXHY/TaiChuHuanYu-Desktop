@@ -117,6 +117,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { useWorldStore } from '@/stores/world';
 import { ElImageViewer } from 'element-plus';
 import { getCardTypeLabel, parseStringArray, parseCoverImage, getNestedBlocks } from '@/utils/worldPresentation';
 import { withThumbnail } from '@/utils/imageThumb';
@@ -127,7 +128,7 @@ import type { CardDetail } from '@/api/worldApi';
 
 const props = defineProps<{
   card?: CardDetail | null;
-  contextLabel?: string;
+  contextLabel?: string | null;
   collapsible?: boolean;
   expanded?: boolean;
   clickable?: boolean;
@@ -151,6 +152,7 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
+const worldStore = useWorldStore();
 
 const { visible: coverPreviewVisible, images: previewImages, open: openPreview, close: closePreview } = useImagePreview();
 const previewCover = () => { if (coverUrl.value) openPreview([coverUrl.value]); };
@@ -177,12 +179,12 @@ const galleryImages = computed(() => {
 });
 
 const displayAttributes = computed(() => {
-  if (props.card?.attributes?.length) return props.card.attributes;
-  if (props.fallbackAttributes?.length) return props.fallbackAttributes;
-  return [];
+  return (props.card?.attributes ?? props.fallbackAttributes ?? [])
+    .filter(attr => String(attr.value ?? '').trim());
 });
 
-const description = computed(() => props.card?.description || '');
+const description = computed(() => (props.card?.description || '').replace(/\{CARD:([^}]+)\}/g,
+  (_, id: string) => `「${worldStore.getCardById(id, props.projectId)?.title || '不可用的条目'}」`));
 
 const allTags = computed(() => {
   if (!props.card) return [];

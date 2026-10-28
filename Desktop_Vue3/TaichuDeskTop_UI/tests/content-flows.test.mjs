@@ -149,6 +149,7 @@ test('cold entry waits for initial route resolution and does not overwrite built
   browser(t); const ready=deferred(), calls=[];
   const router={isReady:()=>ready.promise,hasRoute:()=>false,getRoutes:()=>[{path:'/knowledge'}],addRoute:route=>calls.push(['add',route]),currentRoute:{value:{matched:[],fullPath:'/'}},replace:path=>calls.push(['replace',path])};
   mount(t, 'App.vue', {
+    '@/composables/useVisibleMotion': { useVisibleMotion: () => vue.ref(false) },
     'vue-router': { useRouter: () => router },
     './stores/user': { useUserStore: () => ({ isLoggedIn: false }) },
     './utils/request': { __esModule: true, default: {
@@ -165,7 +166,7 @@ test('long independent articles retain paragraph ordering after backend string s
   s.editor.value={getSnapshot:()=>({type:'doc',content:Array.from({length:15},(_,i)=>paragraph('第'+i+'段','p'+i))})};
   await s.save(false);
   const blocks=calls.find(c=>c[0]==='save')[2].blocks;
-  assert.deepEqual([...blocks].sort((a,b)=>a.sortOrder.localeCompare(b.sortOrder)).map(b=>b.id),Array.from({length:15},(_,i)=>'p'+i));
+  assert.deepEqual([...blocks].sort((a,b)=>a.sortOrder - b.sortOrder).map(b=>b.id),Array.from({length:15},(_,i)=>'p'+i));
   assert.equal(calls.find(c=>c[0]==='save')[3],true);
 })
 

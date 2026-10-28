@@ -23,11 +23,14 @@
                 <span>{{ art.authorName }}</span>
               </div>
               
-              <InteractActions show-count 
-                :target-id="art.id" 
-                target-type="Artwork" 
-                :initial-stats="art" 
-              />
+              <div class="item-actions-wrap">
+                <button class="comment-badge" :title="'查看 ' + (art.commentsCount ?? 0) + ' 条评论'" @click="$emit('on-click', art.id)">💬 {{ art.commentsCount ?? 0 }}</button>
+                <InteractActions show-count 
+                  :target-id="art.id" 
+                  target-type="Artwork" 
+                  :initial-stats="art" 
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -50,7 +53,7 @@ import InteractActions from '../../components/InteractActions.vue';
 import { useArtworkStore } from '../../stores/artwork';
 import { useUserStore } from '../../stores/user';
 import { withThumbnail, toCdnUrl } from '../../utils/imageThumb';
-const props = defineProps<{ search?: string }>();
+const props = defineProps<{ search?: string; favorites?: boolean }>();
 const store = useArtworkStore(), user = useUserStore();
 const error = ref('');
 const failedImages = ref(new Set<number>());
@@ -128,7 +131,9 @@ const loadData = async () => {
   error.value = '';
   const current = generation, snapshot = store.capture();
   try {
-    const res = await artworkApi.getGallery(offset.value, pageSize, props.search);
+    const res = props.favorites
+      ? await artworkApi.getFavorites(offset.value, pageSize)
+      : await artworkApi.getGallery(offset.value, pageSize, props.search);
     
     if (current !== generation || snapshot.session !== store.capture().session) return;
     store.seed(res.data, snapshot);
@@ -178,20 +183,23 @@ onUnmounted(() => {
 .artwork-masonry-wrapper { width: 100%; }
 .masonry-grid { display: flex; gap: 24px; align-items: flex-start; }
 .masonry-column { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
-.masonry-item { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 12px; overflow: hidden; transition: border-color .2s; }
+.masonry-item { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); overflow: hidden; transition: border-color .2s; }
 .masonry-item:hover, .masonry-item:focus-within { border-color: var(--accent-color); }
 .item-visual { position: relative; display: block; width: 100%; padding: 0; border: 0; background: var(--paper-sub); cursor: pointer; }
 .item-image { display: block; width: 100%; height: auto; }
 .image-fallback { display: grid; place-items: center; min-height: 200px; padding: 20px; color: var(--text-secondary); font-size: .85rem; }
 .item-overlay { position: absolute; right: 12px; bottom: 12px; pointer-events: none; }
-.badge { background: #0009; color: #fff; font-size: .75rem; border-radius: 6px; padding: 4px 8px; }
+.badge { background: #0009; color: #fff; font-size: .75rem; border-radius: var(--radius-sm); padding: 4px 8px; }
 .item-details { padding: 16px 18px; }
 .item-title { margin: 0 0 12px; font-size: 1.1rem; line-height: 1.5; }
 .item-title button { background: none; color: var(--text-primary); border: 0; padding: 0; text-align: left; font: inherit; font-weight: 600; overflow-wrap: anywhere; }
 .item-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.item-actions-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.comment-badge { display: inline-flex; align-items: center; gap: 4px; font-size: .8rem; padding: 6px 10px; border: 1px solid var(--border-line); border-radius: 4px; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; }
+.comment-badge:hover { color: var(--accent-color); border-color: var(--accent-color); }
 .author-info { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--text-secondary); font-size: .82rem; overflow-wrap: anywhere; }
 .avatar { width: 24px; height: 24px; object-fit: cover; border-radius: 50%; }
 .status-bar { text-align: center; color: var(--text-secondary); padding: 32px 0; }
-.status-bar button { color: var(--text-primary); background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 8px 16px; }
+.status-bar button { color: var(--text-primary); background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); padding: 8px 16px; }
 @media(max-width: 720px) { .masonry-grid, .masonry-column { gap: 16px; } }
 </style>

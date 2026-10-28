@@ -3,6 +3,8 @@ export interface WorldProject {
   id: string
   name: string
   description: string | null
+  coverImage: string | null
+  graphPositions: string | null
   isPublic: boolean
   createdAt: string
   updatedAt: string
@@ -14,12 +16,34 @@ export interface WorldProject {
 export interface CreateProjectPayload {
   name: string
   description?: string | null
+  coverImage?: string | null
+  graphPositions?: string | null
   isPublic?: boolean
 }
 export type UpdateProjectPayload = Partial<CreateProjectPayload>
 
+export interface StartWorldRestore {
+  sourceProjectId: string
+  fingerprint: string
+  fileName: string
+  newProject: boolean
+  name: string
+  defaultType: string
+  plainText: boolean
+  cardCount: number
+  images: { name: string; size: number }[]
+}
+export interface WorldRestoreStatus {
+  id: string
+  state: 'pending' | 'committed' | 'cleaning' | 'cancelled'
+  targetProjectId: string
+  plan: { source: StartWorldRestore; cardIds: string[] }
+  images: Record<string, string>
+  updatedAt: string
+}
+
 export interface CardAttribute { key: string; value: string; type: string }
-export interface ContentBlock { id: string; cardId: string; cardType: string; order: number }
+export interface ContentBlock { id: string; cardId: string; cardType: string; order: number; contextLabel?: string | null }
 export interface TimelineEvent { date: string; era?: string | null; title: string; description: string | null }
 export interface TimelineItem {
   cardId: string
@@ -77,6 +101,7 @@ export interface CardDetail extends Omit<CardSummary, 'outRelationCount' | 'inRe
 }
 
 export interface CreateCardPayload {
+  relations?: RelationInput[]
   title: string
   type: string
   subType?: string | null
@@ -91,8 +116,7 @@ export interface CreateCardPayload {
   embeddedCards?: string[]
   galleryImages?: string[]
 }
-export type UpdateCardPayload = Partial<CreateCardPayload>
-export type CardSavePayload<T = CreateCardPayload> = T & { relations?: RelationInput[] }
+export type UpdateCardPayload = Partial<CreateCardPayload> & { expectedUpdatedAt?: string }
 
 export interface CardTypeDto {
   id: string

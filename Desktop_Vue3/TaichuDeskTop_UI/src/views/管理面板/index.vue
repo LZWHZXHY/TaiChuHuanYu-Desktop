@@ -1,41 +1,18 @@
 <template>
-  <div class="admin-layout">
-    <aside class="admin-sidebar">
-      <div class="sidebar-brand">
-        <span class="logo-text">管理中心</span>
-        
-      </div>
-      <nav class="nav-group">
-        <button type="button"
-          v-for="menu in menus" :key="menu.id"
-          class="nav-item" :class="{ 'is-active': activeTab === menu.id }"
-          @click="activeTab = menu.id"
-        >
-          <span class="nav-icon" v-if="menu.icon">{{ menu.icon }}</span>
-          <span class="nav-label">{{ menu.label }}</span>
-          </button>
-      </nav>
-      <div class="sidebar-footer">
-        <div class="admin-info">
-          <span class="name">管理员</span>
-          <span class="role">内容与社区治理</span>
-        </div>
-      </div>
-    </aside>
-
+  <div class="admin-layout" :class="{ 'workbench-skin': activeTab !== 'club' }">
+    <header class="admin-heading">
+      <div><p class="workbench-eyebrow">ADMINISTRATION / 社区治理</p><h1>管理中心</h1></div>
+      <p class="admin-identity">{{ user.userInfo?.username || '管理员' }}<span>仅显示当前账号有权限的模块</span></p>
+    </header>
+    <nav class="admin-modules" aria-label="管理模块">
+      <button v-for="menu in menus" :key="menu.id" type="button" class="nav-item" :class="{ 'is-active': activeTab === menu.id }" :aria-pressed="activeTab === menu.id" @click="activeTab = menu.id">
+        <span aria-hidden="true">{{ menu.icon }}</span>{{ menu.label }}
+      </button>
+    </nav>
     <main class="admin-main">
-      <header class="main-header">
-        <div class="breadcrumb">
-          <span class="root">管理后台</span>
-          <span class="separator">/</span>
-          <span class="current">{{ activeMenuLabel }}</span>
-        </div>
-      </header>
-
+      <div class="module-caption"><span>{{ activeMenuLabel }}</span><span aria-hidden="true">CONTROL / WORKSPACE</span></div>
       <section class="content-body">
-        <transition name="fade-transform" mode="out-in">
-          <component v-if="currentView" :is="currentView" />
-        </transition>
+        <transition name="fade-transform" mode="out-in"><component v-if="currentView" :is="currentView" /></transition>
       </section>
     </main>
   </div>
@@ -93,22 +70,18 @@ const activeMenuLabel = computed(() => {
 </script>
 
 <style scoped>
-.admin-layout { display: grid; grid-template-columns: 168px minmax(0, 1fr); gap: 24px; color: var(--text-primary); align-items: start; }
-.admin-sidebar { position: sticky; top: 0; padding: 16px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-md); }
-.sidebar-brand { font-size: 18px; font-weight: 700; padding: 8px 10px 20px; }
-.nav-group { display: grid; gap: 4px; }
-.nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 12px; width: 100%; background: transparent; color: var(--text-secondary); border: none; border-radius: var(--radius-sm); text-align: left; cursor: pointer; }
-.nav-item:hover { background: var(--bg-sub); }
-.nav-item.is-active { background: var(--accent-soft); color: var(--accent-color); font-weight: 600; }
-.sidebar-footer { margin-top: 20px; padding: 14px 10px 0; border-top: 1px solid var(--border-line); }
-.admin-info { display: grid; gap: 6px; font-size: 12px; color: var(--text-secondary); }
-.admin-main, .content-body { min-width: 0; }
-.main-header { padding: 12px 0 20px; border-bottom: 1px solid var(--border-line); margin-bottom: 24px; }
-.breadcrumb { display: flex; gap: 12px; font-size: 14px; }
-.breadcrumb .root, .separator { color: var(--text-secondary); }
-.content-body :deep(table) { width: 100%; }
-.content-body :deep(.table-container), .content-body :deep(.table-wrapper) { overflow-x: auto; }
-.fade-transform-enter-active, .fade-transform-leave-active { transition: opacity .15s; }
-.fade-transform-enter-from, .fade-transform-leave-to { opacity: 0; }
-@media (max-width: 1100px) { .admin-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; } .admin-sidebar { position: static; padding: 10px; } .sidebar-brand, .sidebar-footer { display: none; } .nav-group { display: flex; overflow-x: auto; } .nav-item { flex-shrink: 0; width: auto; white-space: nowrap; } }
+.admin-layout { max-width: 1440px; margin: auto; color: var(--text-primary); }
+.admin-heading { display: flex; justify-content: space-between; align-items: end; gap: 24px; padding: 24px 0; border-top: 2px solid var(--text-primary); }
+.workbench-eyebrow { font: 11px var(--font-mono); letter-spacing: .12em; color: var(--accent-color); margin-bottom: 12px; }
+h1 { font-size: clamp(28px, 3vw, 40px); letter-spacing: -.04em; line-height: 1.2; }
+.admin-identity { font-size: 13px; text-align: right; }.admin-identity span { display: block; margin-top: 7px; color: var(--text-secondary); font-size: 12px; }
+.admin-modules { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 0; border-block: 1px solid var(--border-line); margin-bottom: 24px; }
+.nav-item { position: relative; display: inline-flex; gap: 8px; align-items: center; padding: 12px 16px; border: 0; border-radius: 2px; background: transparent; color: var(--text-secondary); font-size: 13px; cursor: pointer; }
+.nav-item::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--signal-color); transform: scaleX(0); transform-origin: left; transition: transform .2s; }
+.nav-item:is(:hover,:focus-visible) { background: var(--bg-sub); color: var(--text-primary); }.nav-item:is(:hover,:focus-visible)::after, .nav-item.is-active::after { transform: scaleX(1); }
+.nav-item.is-active { background: var(--inverse-bg); color: var(--inverse-text); }
+.admin-main, .content-body { min-width: 0; }.module-caption { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; font-size: 13px; }.module-caption > :last-child { font: 10px var(--font-mono); letter-spacing: .12em; color: var(--text-secondary); }
+.content-body :deep(table) { width: 100%; }.content-body :deep(.table-container), .content-body :deep(.table-wrapper) { overflow-x: auto; }
+.fade-transform-enter-active, .fade-transform-leave-active { transition: opacity .15s; }.fade-transform-enter-from, .fade-transform-leave-to { opacity: 0; }
+@media(max-width: 700px) { .admin-heading { align-items: start; flex-direction: column; gap: 14px; }.admin-identity { text-align: left; }.admin-modules { flex-wrap: nowrap; overflow-x: auto; }.nav-item { white-space: nowrap; flex-shrink: 0; padding: 10px 14px; }.module-caption > :last-child { display: none; } }
 </style>

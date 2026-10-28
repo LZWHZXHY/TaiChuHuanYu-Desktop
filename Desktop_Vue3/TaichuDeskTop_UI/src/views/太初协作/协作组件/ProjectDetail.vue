@@ -1,7 +1,7 @@
 <template>
-  <div class="project-detail-wrapper" v-if="project">
+  <div class="project-detail-wrapper community-surface tone-collab" v-if="project">
     <p v-if="loadError" role="alert">{{ loadError }} <button @click="refreshProject">重试</button></p>
-    <header class="detail-header">
+    <header class="detail-header surface-heading"><SectionTrace />
       <div class="header-left">
         <router-link class="breadcrumb" to="/Project">
           <span class="back-icon">←</span>
@@ -69,6 +69,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, onUnmounted, watch, computed } from 'vue'; // 🌟 去掉了未使用的 shallowRef 导入
 import { useRoute } from 'vue-router';
 import projectService from '../../../api/projectService'; 
@@ -137,7 +138,7 @@ onUnmounted(() => loadVersion++);
 
 <style scoped>
 .project-detail-wrapper { color: var(--text-primary); display: grid; gap: 24px; min-width: 0; }
-.detail-header { display: flex; justify-content: space-between; gap: 24px; padding: 28px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-lg); }
+.detail-header { display: flex; justify-content: space-between; gap: 24px;  }
 .breadcrumb { display: inline-flex; gap: 8px; color: var(--accent-color); cursor: pointer; margin-bottom: 16px; }
 .project-name { font-size: clamp(24px, 3vw, 34px); margin: 0 0 12px; overflow-wrap: anywhere; }
 .project-description { max-width: 700px; color: var(--text-secondary); line-height: 1.7; white-space: pre-wrap; }

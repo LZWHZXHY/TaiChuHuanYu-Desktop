@@ -1,5 +1,5 @@
 <template>
-  <div class="community-detail detail-page">
+  <div class="community-detail detail-page community-surface tone-chai">
     <button class="back-btn" @click="goBack">← 返回</button>
 
     <div v-if="loading" class="loading-state">
@@ -25,7 +25,7 @@
           <span v-if="character.status === 'draft'" class="badge-draft">草稿</span>
         </div>
 
-        <div class="info-section">
+        <div class="info-section surface-heading"><SectionTrace />
           <h1 class="char-name">{{ character.title }}</h1>
           <p v-if="getAttr('昵称') || getAttr('绰号')" class="char-nickname">
             “{{ getAttr('昵称') || getAttr('绰号') }}”
@@ -147,6 +147,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useStickmanStore } from '../stickman_store'
@@ -189,9 +190,16 @@ const liked = ref(false)
 const favorited = ref(false)
 const likeCount = ref(0)
 const favoriteCount = ref(0)
-function syncCounts() {
+async function syncCounts() {
   likeCount.value = character.value?.likeCount || 0
   favoriteCount.value = character.value?.favoriteCount || 0
+  if (!character.value) return
+  // 刷新后恢复「我点过赞/收藏」的高亮
+  try {
+    const st = await stickmanApi.interaction(character.value.id)
+    liked.value = st.liked
+    favorited.value = st.favorited
+  } catch { /* 静默 */ }
 }
 async function toggleLike() {
   if (!character.value) return

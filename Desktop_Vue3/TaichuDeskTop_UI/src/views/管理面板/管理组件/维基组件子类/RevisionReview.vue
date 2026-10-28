@@ -55,7 +55,7 @@
 
     <Teleport to="body">
       <div v-if="showModal" class="modal-mask" @mousedown="showModal = false">
-        <div class="modal-container" @mousedown.stop>
+        <div class="modal-container workbench-skin" @mousedown.stop>
           <div class="modal-header">
             <h3>内容详情预览</h3>
             <button class="btn-close" @click="showModal = false">✕</button>
@@ -134,9 +134,9 @@ const getStatusClass = (status: number) => {
 
 .filter-bar { font-size: 0.85rem; color: var(--text-primary); cursor: pointer; }
 .modal-mask { position: fixed; inset: 0; background: var(--overlay); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-.modal-container { background: var(--paper-card); width: 600px; padding: 30px; border-radius: 12px; display: flex; flex-direction: column; max-height: 80vh; }
+.modal-container { background: var(--paper-card); width: 600px; padding: 30px; border-radius: var(--radius-sm); display: flex; flex-direction: column; max-height: 80vh; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.preview-scroll-area { flex: 1; overflow-y: auto; border: 1px solid var(--border-line); padding: 20px; border-radius: 8px; }
+.preview-scroll-area { flex: 1; overflow-y: auto; border: 1px solid var(--border-line); padding: 20px; border-radius: var(--radius-sm); }
 .btn-close { border: none; background: none; cursor: pointer; font-size: 1.2rem; }
-.btn-black { width: 100%; background: var(--accent-color); color: var(--on-accent); padding: 12px; border: none; cursor: pointer; border-radius: 6px; }
+.btn-black { width: 100%; background: var(--accent-color); color: var(--on-accent); padding: 12px; border: none; cursor: pointer; border-radius: var(--radius-sm); }
 </style>

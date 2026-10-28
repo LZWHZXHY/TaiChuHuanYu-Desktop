@@ -29,6 +29,9 @@ internal static class QueryChecks
         }
         check(!WorldAccess.IsOwner(owner, other) && !WorldAccess.IsOwner(Guid.Empty, Guid.Empty) &&
               WorldAccess.IsOwner(owner, owner), "只有有效的所有者身份可修改");
+        check(projects.AsQueryable().ReadableBy(Guid.Empty).Select(p => p.Id).SequenceEqual(new[] { projects[1].Id }),
+            "访客只看公开世界，不能读作者或其他人的私密世界");
+        check(!WorldAccess.CanRead(false, Guid.Empty, Guid.Empty), "空作者 ID 不会让匿名用户成为所有者");
         try { WorldAccess.RequireReadable(projects[0], other); check(false, "私有项目应拒绝访问"); }
         catch (WorldOperationException error) { check(error.Kind == WorldErrorKind.NotFound, "私有项目拒绝读取且不暴露存在性"); }
 
@@ -63,6 +66,11 @@ internal static class QueryChecks
         var relationSql = context.WorldRelations.Select(relationProjection).ToQueryString();
         check(relationSql.Contains("JOIN") && relationSql.Contains("RelationType"), "复用关系投影可翻译为 MySQL SQL");
 
+        var referencedId = Guid.NewGuid().ToString();
+        var backlinksSql = context.WorldCards.Where(card => EF.Functions.JsonSearchAny(card.ContentBlocks, referencedId)).ToQueryString();
+        check(backlinksSql.Contains("JSON_SEARCH") && !backlinksSql.Contains(" AS json", StringComparison.OrdinalIgnoreCase),
+            "反向引用的普通 ID 使用 JSON 字符串搜索，不转换成 JSON 文档");
+
         var project = projects[0];
         project.Cards.Add(new WorldCard());
         var projected = new[] { project }.AsQueryable().Select(projection).Single();
@@ -79,6 +87,29 @@ internal static class QueryChecks
         try { projectService.CreateProjectAsync(owner, new CreateProjectDto()).GetAwaiter().GetResult(); check(false, "无效项目不得持久化"); }
         catch (WorldValidationException) { check(true, "直接调用项目服务也执行参数校验"); }
         var cardService = new WorldCardService(context, projectService, cache, quota);
+        var applyRelations = typeof(WorldCardService).GetMethod("ApplyRelationsAsync",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var editingCard = new WorldCard { Id = Guid.NewGuid(), ProjectId = project.Id };
+        void Apply(List<CreateRelationDto>? inputs) =>
+            ((Task)applyRelations.Invoke(cardService, new object?[] { editingCard, inputs })!).GetAwaiter().GetResult();
+        Apply(null); Apply(new());
+        check(context.ChangeTracker.Entries().Count() == 0, "独立创建和未提交关系无需查询或改变关系数据");
+        foreach (var inputs in new[] {
+            new List<CreateRelationDto> { new() { TargetCardId = editingCard.Id } },
+            new List<CreateRelationDto> { new() { TargetCardId = other }, new() { TargetCardId = other } },
+        })
+        {
+            try { Apply(inputs); check(false, "无效关系应拒绝"); }
+            catch (WorldOperationException error) { check(error.Kind == WorldErrorKind.Invalid, "自关联或重复关系在数据库写入前拒绝"); }
+        }
+        var savedRelation = new WorldRelation { Id = Guid.NewGuid(), SourceCardId = editingCard.Id,
+            TargetCardId = other, RelationType = "旧关系" };
+        editingCard.OutRelations.Add(savedRelation); context.WorldRelations.Attach(savedRelation);
+        Apply(null);
+        check(context.Entry(savedRelation).State == EntityState.Unchanged, "旧客户端省略关系时不清空已有关系");
+        Apply(new());
+        check(editingCard.OutRelations.Count == 0 && context.Entry(savedRelation).State == EntityState.Deleted,
+            "显式空集合删除出向关系，等待正文一起提交");
         try { cardService.UpdateCardAsync(Guid.NewGuid(), owner, new UpdateCardDto { Type = new string('x', 51) }).GetAwaiter().GetResult(); check(false, "无效卡片不得持久化"); }
         catch (WorldValidationException) { check(true, "直接调用卡片服务也执行参数校验"); }
     }

@@ -52,11 +52,16 @@
       </section>
 
       <!-- 属性 -->
-      <section class="doc-section">
+      <section v-if="visibleAttributes.length || contentFields.length" class="doc-section">
         <h2 class="section-title">属性</h2>
-        <div v-if="card.attributes?.length" class="attr-list">
+        <div class="attr-list">
+          <div v-for="field in contentFields" :key="field.key" class="attr-item">
+            <span class="attr-key">{{ field.label }}</span>
+            <button v-if="field.cardId" class="content-ref" @click="$emit('select', field.cardId)">{{ field.value }}</button>
+            <span v-else class="attr-value">{{ field.value }}</span>
+          </div>
           <div
-            v-for="attr in card.attributes"
+            v-for="attr in visibleAttributes"
             :key="attr.key"
             class="attr-item"
           >
@@ -64,13 +69,12 @@
             <span class="attr-value">{{ attr.value }}</span>
           </div>
         </div>
-        <p v-else class="empty-note">暂无属性</p>
       </section>
 
       <!-- 关联内容（内联展开） -->
-      <section class="doc-section">
+      <section v-if="embeddedCards.length" class="doc-section">
         <h2 class="section-title">
-          关联内容
+          引用设定
           <span v-if="embeddedCards.length" class="section-count">
             {{ embeddedCards.length }}
           </span>
@@ -80,12 +84,12 @@
             v-for="item in embeddedCards"
             :key="item.id"
             :card="item"
+            :context-label="card.contentBlocks?.find(block => block.cardId === item.id)?.contextLabel"
             :project-id="projectId"
             clickable
             @click="$emit('select', item.id)"
           />
         </div>
-        <p v-else class="empty-note">暂无关联内容</p>
       </section>
 
       <!-- 被引用 -->
@@ -123,6 +127,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useWorldStore } from '@/stores/world'
+import { cardSchemas } from '../card-schemas'
+import type { CardType } from '../card_type'
 import { ElImageViewer } from 'element-plus'
 import type { CardDetail } from '@/api/types/world'
 import EmbeddedCard from './EmbeddedCard.vue'
@@ -132,6 +140,20 @@ import { useCardPreload } from '@/composables/世界观管理/useCardPreload'
 import { useCardBacklinks } from '@/composables/世界观管理/useCardBacklinks'
 import { useImagePreview } from '@/composables/世界观管理/useImagePreview'
 const props = defineProps<{ card: CardDetail; projectId: string }>()
+const store = useWorldStore()
+const visibleAttributes = computed(() => (props.card.attributes || []).filter(attr => String(attr.value ?? '').trim()))
+const contentFields = computed(() => {
+  let content: Record<string, unknown>
+  try { content = JSON.parse(props.card.content || '{}') } catch { return [] }
+  if (!content || typeof content !== 'object' || Array.isArray(content)) return []
+  return Object.entries(content).filter(([, value]) => value != null && String(value).trim() !== '').map(([key, value]) => {
+    const field = cardSchemas[props.card.type as CardType]?.find(field => field.key === key)
+    const cardId = field?.type === 'card-ref' && typeof value === 'string' ? value : null
+    const text = cardId ? store.getCardById(cardId, props.projectId)?.title || '查看关联条目'
+      : Array.isArray(value) ? value.join('、') : typeof value === 'object' ? JSON.stringify(value) : String(value)
+    return { key, label: field?.label || key, value: text, cardId }
+  })
+})
 const emit = defineEmits<{ select: [id: string] }>()
 const { embeddedIds, embeddedCards, cardTags, galleryImages, coverUrl, renderedDescription } =
   useCardPresentation(() => props.card, () => props.projectId, 'document')
@@ -148,9 +170,11 @@ function onProseClick(event: MouseEvent) {
 </script>
 
 <style scoped>
+.content-ref { border: 0; padding: 0; text-align: left; background: none; color: var(--accent-color); cursor: pointer; font: inherit; }
+.attr-value { white-space: pre-wrap; overflow-wrap: anywhere; }
 * { box-sizing: border-box; }
 .doc-view {
-  padding: 48px 40px 120px;
+  padding: clamp(24px, 4vw, 48px) clamp(20px, 4vw, 40px) 32px;
 }
 .doc {
   max-width: 720px;
@@ -160,12 +184,13 @@ function onProseClick(event: MouseEvent) {
   margin-bottom: 32px;
 }
 .doc-title {
-  font-size: 32px;
+  font-size: clamp(24px, 3vw, 32px);
   font-weight: 600;
   color: var(--text-primary);
   margin: 0 0 10px;
   letter-spacing: -0.5px;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 .doc-meta {
   display: flex;
@@ -189,6 +214,8 @@ function onProseClick(event: MouseEvent) {
 .doc-cover img {
   width: 100%;
   height: auto;
+  max-height: 320px;
+  object-fit: contain;
   display: block;
   transition: opacity 0.15s;
 }
@@ -217,8 +244,8 @@ function onProseClick(event: MouseEvent) {
   text-transform: none;
 }
 .prose {
-  font-size: 15px;
-  line-height: 1.85;
+  font-size: 16px;
+  line-height: 1.95;
   color: var(--text-primary);
   white-space: pre-wrap;
   word-break: break-word;

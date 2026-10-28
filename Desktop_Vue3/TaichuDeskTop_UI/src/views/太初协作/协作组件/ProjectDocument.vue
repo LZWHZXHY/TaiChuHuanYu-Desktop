@@ -1,5 +1,5 @@
 <template>
-  <div class="project-document-root">
+  <div class="project-document-root workbench-skin">
     <div class="doc-workspace-layout">
       
       <aside class="doc-sidebar">

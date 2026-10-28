@@ -48,7 +48,7 @@ public class WorldProjectService(AppDbContext context, IMemoryCache cache, IWorl
 
         var project = new WorldProject
         {
-            Id = Guid.NewGuid(), Name = dto.Name, Description = dto.Description, IsPublic = dto.IsPublic,
+            Id = Guid.NewGuid(), Name = dto.Name, Description = dto.Description, CoverImage = dto.CoverImage, IsPublic = dto.IsPublic,
             OwnerId = userId, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
         };
         context.WorldProjects.Add(project);
@@ -69,6 +69,8 @@ public class WorldProjectService(AppDbContext context, IMemoryCache cache, IWorl
 
         if (!string.IsNullOrEmpty(dto.Name)) project.Name = dto.Name;
         if (dto.Description != null) project.Description = dto.Description;
+        if (dto.CoverImage != null) project.CoverImage = dto.CoverImage;
+        if (dto.GraphPositions != null) project.GraphPositions = dto.GraphPositions;
         if (dto.IsPublic.HasValue) project.IsPublic = dto.IsPublic.Value;
         project.UpdatedAt = DateTime.UtcNow;
         await context.SaveChangesAsync();

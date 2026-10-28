@@ -30,6 +30,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 12,
             [FromQuery] string? keyword = null,
+            [FromQuery] string? tag = null,
             [FromQuery] string? sort = "latest")
         {
             if (page < 1) page = 1;
@@ -39,6 +40,9 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
 
             if (!string.IsNullOrWhiteSpace(keyword))
                 query = query.Where(w => w.Title.Contains(keyword) || (w.Description != null && w.Description.Contains(keyword)));
+
+            if (!string.IsNullOrWhiteSpace(tag))
+                query = query.Where(w => w.Tags.Contains(tag));
 
             query = sort switch
             {
@@ -62,9 +66,14 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                     Views = w.Views,
                     LikeCount = _context.UserInteractions.Count(i => i.TargetType == "ChaiWork" && i.TargetId == w.Id.ToString() && i.ActionType == "Like"),
                     FavoriteCount = _context.UserInteractions.Count(i => i.TargetType == "ChaiWork" && i.TargetId == w.Id.ToString() && i.ActionType == "Favorite"),
+                    CommentCount = _context.Comments.Count(c => c.TargetType == "work" && c.TargetId == w.Id.ToString() && c.Content != ""),
+                    TagsText = w.Tags,
                     CreatedAt = w.CreatedAt
                 })
                 .ToListAsync();
+
+            foreach (var item in items)
+                item.Tags = Deserialize<List<string>>(item.TagsText ?? "[]");
 
             return Ok(new ChaiWorkListResponse { Items = items, Total = total, Page = page, PageSize = pageSize });
         }
@@ -170,16 +179,16 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
         // ============================================================
         // 点赞 / 收藏（复用 UserInteraction，同一动作再点一次取消）
         // ============================================================
-        [HttpPost("{id:guid}/{action}")]
-        public async Task<IActionResult> ToggleInteraction(Guid id, string action)
+        [HttpPost("{id:guid}/{kind}")]
+        public async Task<IActionResult> ToggleInteraction(Guid id, string kind)
         {
             if (!CurrentUserId.HasValue) return Unauthorized();
-            if (action is not ("like" or "favorite")) return BadRequest(new { message = "不支持的操作" });
+            if (kind is not ("like" or "favorite")) return BadRequest(new { message = "不支持的操作" });
 
             var work = await _context.ChaiWorks.FirstOrDefaultAsync(w => w.Id == id && w.Status == "published");
             if (work == null) return NotFound(new { message = "作品不存在或未公开" });
 
-            var actionType = action == "like" ? "Like" : "Favorite";
+            var actionType = kind == "like" ? "Like" : "Favorite";
             var target = id.ToString();
             var existing = await _context.UserInteractions
                 .Where(i => i.UserId == CurrentUserId.Value && i.TargetType == "ChaiWork" && i.TargetId == target && i.ActionType == actionType)
@@ -219,6 +228,7 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 Views = w.Views,
                 LikeCount = includeCounts ? _context.UserInteractions.Count(i => i.TargetType == "ChaiWork" && i.TargetId == w.Id.ToString() && i.ActionType == "Like") : 0,
                 FavoriteCount = includeCounts ? _context.UserInteractions.Count(i => i.TargetType == "ChaiWork" && i.TargetId == w.Id.ToString() && i.ActionType == "Favorite") : 0,
+                CommentCount = _context.Comments.Count(c => c.TargetType == "work" && c.TargetId == w.Id.ToString() && c.Content != ""),
                 CreatedAt = w.CreatedAt,
                 Description = w.Description,
                 MediaUrl = w.MediaUrl,

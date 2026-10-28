@@ -1,0 +1,134 @@
+[
+  {
+    "file": "src/views/世界观管理/index.vue",
+    "before": 580,
+    "after": 157,
+    "net": -423
+  },
+  {
+    "file": "src/views/世界观管理/ProjectCreate.vue",
+    "before": 626,
+    "after": 232,
+    "net": -394
+  },
+  {
+    "file": "src/views/世界观管理/ProjectDetail.vue",
+    "before": 628,
+    "after": 678,
+    "net": 50
+  },
+  {
+    "file": "src/views/世界观管理/世界观组件/ProjectHeader.vue",
+    "before": 189,
+    "after": 76,
+    "net": -113
+  },
+  {
+    "file": "src/views/世界观管理/世界观组件/ProjectCardNavigation.vue",
+    "before": 238,
+    "after": 243,
+    "net": 5
+  },
+  {
+    "file": "src/views/世界观管理/世界观组件/CardEditor.vue",
+    "before": 375,
+    "after": 375,
+    "net": 0
+  },
+  {
+    "file": "src/views/世界观管理/世界观组件/CardEditor.css",
+    "before": 502,
+    "after": 468,
+    "net": -34
+  },
+  {
+    "file": "src/composables/世界观管理/useCardEditor.ts",
+    "before": 210,
+    "after": 211,
+    "net": 1
+  },
+  {
+    "file": "src/utils/worldPresentation.ts",
+    "before": 73,
+    "after": 75,
+    "net": 2
+  },
+  {
+    "file": "src/views/世界观管理/世界观组件/ProjectCreatePreview.vue",
+    "before": 97,
+    "after": 0,
+    "net": -97
+  },
+  {
+    "file": "tests/world-components.test.mjs",
+    "before": 288,
+    "after": 300,
+    "net": 12
+  },
+  {
+    "file": "src/views/世界观管理/世界观组件/ProjectCardDocument.vue",
+    "before": 356,
+    "after": 379,
+    "net": 23
+  },
+  {
+    "file": "src/composables/世界观管理/useCardQuota.ts",
+    "before": 76,
+    "after": 79,
+    "net": 3
+  },
+  {
+    "file": "tests/artwork.test.mjs",
+    "before": 184,
+    "after": 184,
+    "net": 0
+  },
+  {
+    "file": "tests/cleanup.test.mjs",
+    "before": 873,
+    "after": 876,
+    "net": 3
+  },
+  {
+    "file": "tests/content-flows.test.mjs",
+    "before": 220,
+    "after": 220,
+    "net": 0
+  },
+  {
+    "file": "tests/backend-world/QueryChecks.cs",
+    "before": 94,
+    "after": 99,
+    "net": 5
+  },
+  {
+    "file": "src/components/NotificationBell.vue",
+    "before": 141,
+    "after": 145,
+    "net": 4
+  },
+  {
+    "file": "TaiChuBackend_V2/TaiChuWeb_V2/TaiChuWeb_V2/Filters/AdminAccessFilter.cs",
+    "before": 43,
+    "after": 44,
+    "net": 1
+  },
+  {
+    "file": "TaiChuBackend_V2/tests/LingMai.Regression/RecoveryChecks.cs",
+    "before": 94,
+    "after": 96,
+    "net": 2
+  },
+  {
+    "file": "TaiChuBackend_V2/TaiChuWeb_V2/TaiChuWeb_V2/Services/World/WorldCardService.cs",
+    "before": 469,
+    "after": 470,
+    "net": 1
+  },
+  {
+    "file": "TaiChuBackend_V2/TaiChuWeb_V2/TaiChuWeb_V2/Program.cs",
+    "before": 178,
+    "after": 179,
+    "net": 1
+  }
+]

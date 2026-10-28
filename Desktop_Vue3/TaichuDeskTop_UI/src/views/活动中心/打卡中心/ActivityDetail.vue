@@ -29,6 +29,8 @@
       </div>
     </header>
 
+    <CompetitionPanel :activity-id="activityId" />
+
     <!-- 统计卡片 -->
     <div class="stats-row">
       <div class="stat-card"><div class="number purple">{{ stats.totalDays || 0 }}</div><div class="label">总天数</div></div>
@@ -124,6 +126,22 @@
             <label>规则说明 <span class="required">*</span></label>
             <textarea aria-label="规则说明" v-model="editForm.rule" rows="3" placeholder="详细描述打卡要求..."></textarea>
           </div>
+          <div class="form-group">
+            <label>活动形态</label>
+            <div class="type-tags">
+              <button type="button" :class="{ active: editForm.kind === 'general' }" @click="editForm.kind = 'general'" style="padding:7px 14px;border:1px solid var(--border-line);border-radius:8px;background:var(--paper-card);cursor:pointer">普通活动</button>
+              <button type="button" :class="{ active: editForm.kind === 'match' }" @click="editForm.kind = 'match'" style="padding:7px 14px;border:1px solid var(--border-line);border-radius:8px;background:var(--paper-card);cursor:pointer">对战赛</button>
+              <button type="button" :class="{ active: editForm.kind === 'contest' }" @click="editForm.kind = 'contest'" style="padding:7px 14px;border:1px solid var(--border-line);border-radius:8px;background:var(--paper-card);cursor:pointer">作品赛</button>
+            </div>
+          </div>
+          <div v-if="editForm.kind !== 'general'" class="form-group">
+            <label>比赛时间</label>
+            <div style="display:grid;gap:8px">
+              <input type="date" v-model="editForm.signupDeadline" aria-label="报名截止" />
+              <input type="date" v-model="editForm.startAt" aria-label="开始时间" />
+              <input type="date" v-model="editForm.endAt" aria-label="结束时间" />
+            </div>
+          </div>
           <div class="form-row">
             <div class="form-group">
               <label>活动类型 <span class="required">*</span></label>
@@ -212,6 +230,7 @@ const userStore = useUserStore();
 const currentUser = computed(() => userStore.userInfo);
 
 // ---- 活动 ID 计算 ----
+import CompetitionPanel from './CompetitionPanel.vue'
 const activityId = computed(() => {
   if (props.activity?.id) {
     return props.activity.id;
@@ -266,13 +285,19 @@ const modalDay = ref<number>(0);
 const showEditModal = ref(false);
 const submittingEdit = ref(false);
 const typeOptions = ref<{ id: number; name: string }[]>([]);
+const rawActivity = ref<any>(null);
 const editForm = ref({
   title: '',
   rule: '',
   typeId: 0,
   days: 30,
-  status: '招募中'
+  status: '招募中',
+  kind: 'general',
+  signupDeadline: '',
+  startAt: '',
+  endAt: ''
 });
+const toDateInput = (v: string | null | undefined) => v ? String(v).slice(0, 10) : '';
 
 // ---- 获取活动类型列表 ----
 const fetchTypes = async () => {
@@ -288,6 +313,7 @@ const fetchTypes = async () => {
 const fetchActivityDetail = async (id: number) => {
   try {
     const data = await request.get(`/activities/${id}`);
+    rawActivity.value = data;
     activityInfo.value = {
       id: data.id,
       title: data.title,
@@ -488,14 +514,18 @@ const openEditModal = () => {
     rule: activityInfo.value.rule,
     typeId: foundType?.id || 0,
     days: activityDays.value,
-    status: activityInfo.value.status || '招募中'
+    status: activityInfo.value.status || '招募中',
+    kind: rawActivity.value?.kind || 'general',
+    signupDeadline: toDateInput(rawActivity.value?.signupDeadline),
+    startAt: toDateInput(rawActivity.value?.startAt),
+    endAt: toDateInput(rawActivity.value?.endAt)
   };
   showEditModal.value = true;
 };
 
 const closeEditModal = () => {
   showEditModal.value = false;
-  editForm.value = { title: '', rule: '', typeId: 0, days: 30, status: '招募中' };
+  editForm.value = { title: '', rule: '', typeId: 0, days: 30, status: '招募中', kind: 'general', signupDeadline: '', startAt: '', endAt: '' };
 };
 
 const saveEdit = async () => {
@@ -514,7 +544,12 @@ const saveEdit = async () => {
       description: editForm.value.rule,
       typeId: editForm.value.typeId,
       days: editForm.value.days,
-      status: editForm.value.status
+      status: editForm.value.status,
+      kind: editForm.value.kind,
+      rules: editForm.value.rule,
+      signupDeadline: editForm.value.signupDeadline || null,
+      startAt: editForm.value.startAt || null,
+      endAt: editForm.value.endAt || null
     });
     alert('活动已更新！');
     closeEditModal();
@@ -638,8 +673,8 @@ watch(
   background: var(--paper-card);
   border-radius: 12px;
   padding: 28px 32px;
-  width: 480px;
-  max-width: 92%;
+  width: 660px;
+  max-width: 94%;
   max-height: 80vh;
   overflow-y: auto;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
@@ -704,7 +739,7 @@ watch(
 .form-group textarea { resize: vertical; min-height: 60px; }
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 14px;
 }
 .type-tags {
@@ -1038,4 +1073,10 @@ watch(
   .hero-content h1 { font-size: 1.3rem; }
   .stats-row { grid-template-columns: repeat(2, 1fr); }
 }
+/* 防止标题/正文被 flex 挤成竖排 */
+.activity-hero { flex-wrap: wrap; }
+.hero-content { min-width: 0; flex: 1 1 320px; }
+.hero-content h1 { overflow-wrap: anywhere; }
+.detail-page-container { width: 100%; min-width: 0; }
+.main-body, .grid-section { min-width: 0; }
 </style>

@@ -5,33 +5,28 @@
       <div class="md-pulse-loader" v-if="loading"></div>
     </header>
 
-    <div v-if="newsList.length === 0 && !loading" class="md-empty-state">
+    <div v-if="activeNews.length === 0 && !loading" class="md-empty-state">
       <p>暂无发布记录</p>
     </div>
 
-    <div v-else class="md-news-list">
-      <article 
-        v-for="item in newsList" 
-        :key="item.id" 
-        class="md-news-item" 
-        @click="openDetail(item)"
-      >
-        <div class="item-content">
-          <div class="item-meta">
-            <span class="item-tag">{{ item.type }}</span>
-            <span class="item-dot"></span>
-            <span class="item-date">{{ formatDisplayDate(item.createdAt) }}</span>
-          </div>
-          <h3 class="item-title">{{ item.title }}</h3>
+    <template v-else>
+      <!-- 🔥 所有生效中的公告都高亮展示（常驻优先，定时其次），不再只顶最新一条 -->
+      <article v-for="item in activeNews" :key="item.id" class="news-featured" :class="'imp-' + (item.importance || 'normal')" @click="openDetail(item)">
+        <span class="featured-badge">
+          <span class="pulse-dot"></span>
+          {{ impPrefix(item.importance) }} · {{ item.noticeKind === 'scheduled' ? '⏰ 定时公告' : '📌 常驻公告' }}
+        </span>
+        <h3 class="featured-title">{{ item.title }}</h3>
+        <div class="featured-foot">
+          <span class="featured-meta">
+            {{ item.type }} · {{ formatDisplayDate(item.createdAt) }}
+            <template v-if="item.noticeKind === 'scheduled' && item.expireAt"> · {{ remainingText(item.expireAt) }}</template>
+          </span>
+          <span class="featured-cta">查看详情 →</span>
         </div>
-
-        <div v-if="item.imageUrl" class="item-visual">
-          <div class="img-wrapper">
-            <img :src="item.imageUrl" :alt="item.title" class="md-cover-img" />
-          </div>
-        </div>
+        <img v-if="item.imageUrl" :src="item.imageUrl" class="featured-img" alt="" />
       </article>
-    </div>
+    </template>
 
     <Teleport to="body">
       <Transition name="fade">
@@ -57,7 +52,7 @@
               <img :src="selectedNews.imageUrl" class="detail-hero-img" />
             </div>
 
-            <div class="detail-content md-rich-text" v-html="selectedNews?.content"></div>
+            <div class="detail-content md-rich-text" v-html="renderContent(selectedNews?.content || '')"></div>
             
             <footer class="detail-footer">
               <div class="footer-line"></div>
@@ -71,13 +66,64 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import DOMPurify from 'dompurify';
 import { newsApi } from '@/api/news';
 
 const newsList = ref<any[]>([]);
 const loading = ref(false);
 const isDetailOpen = ref(false);
 const selectedNews = ref<any>(null);
+
+// 正文渲染：保留换行 + 自动识别链接（外部 URL / 站内路径）
+function renderContent(text: string): string {
+  if (!text) return '';
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+  // 外部链接
+  html = html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+  // 站内 hash 路由（#/games?game=...）
+  html = html.replace(/(^|[\s(])(#\/[^\s<]*)/g, '$1<a href="$2">$2</a>');
+  // 站内路径（/xxx，避免匹配到 https:// 里的斜杠）
+  html = html.replace(/(^|[\s(])(\/[A-Za-z0-9_\-][A-Za-z0-9_\-\/?=&%#.]*)/g, '$1<a href="$2">$2</a>');
+  // 换行
+  html = html.replace(/\n/g, '<br>');
+  return DOMPurify.sanitize(html, { ADD_ATTR: ['target', 'rel'] });
+}
+
+// 只展示仍有效的公告（定时公告到期后自动隐藏）
+function isActive(n: any): boolean {
+  if (!n) return false;
+  if (n.noticeKind === 'scheduled' && n.expireAt) return new Date(n.expireAt).getTime() > Date.now();
+  return true;
+}
+// 排序：重要等级（紧急 > 重要 > 普通）→ 常驻优先 → 发布时间倒序
+const impWeight = (v: string | undefined) => v === 'urgent' ? 2 : v === 'important' ? 1 : 0;
+const impPrefix = (v: string | undefined) => v === 'urgent' ? '🔴 紧急' : v === 'important' ? '🟠 重要' : '📢';
+const activeNews = computed(() => {
+  const list = newsList.value.filter(isActive);
+  return [...list].sort((a, b) => {
+    const ia = impWeight(a.importance), ib = impWeight(b.importance);
+    if (ia !== ib) return ib - ia;
+    const pa = a.noticeKind === 'scheduled' ? 1 : 0;
+    const pb = b.noticeKind === 'scheduled' ? 1 : 0;
+    if (pa !== pb) return pa - pb;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+});
+
+function remainingText(expireAt: string): string {
+  const ms = new Date(expireAt).getTime() - Date.now();
+  if (ms <= 0) return '已结束';
+  const days = Math.floor(ms / 86400000);
+  const hours = Math.floor((ms % 86400000) / 3600000);
+  if (days > 0) return `剩余 ${days} 天`;
+  if (hours > 0) return `剩余 ${hours} 小时`;
+  return `剩余 ${Math.max(1, Math.floor(ms / 60000))} 分钟`;
+}
 
 const fetchNews = async () => {
   loading.value = true;
@@ -139,6 +185,63 @@ const formatDisplayDate = (dateString: string) => {
   letter-spacing: -1px;
   margin: 0;
 }
+
+/* 🔥 置顶公告大卡片 */
+.news-featured {
+  position: relative;
+  display: block;
+  margin-bottom: 28px;
+  padding: 24px 26px;
+  border: 1px solid var(--accent-color);
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--paper-card) 70%);
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform .25s, box-shadow .25s, border-color .25s;
+}
+.news-featured:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .08);
+}
+/* 重要等级：重要（橙）/ 紧急（红） */
+.news-featured.imp-important {
+  border-color: #f59e0b;
+  background: linear-gradient(135deg, rgba(245, 158, 11, .12), var(--paper-card) 70%);
+}
+.news-featured.imp-urgent {
+  border-color: #ef4444;
+  background: linear-gradient(135deg, rgba(239, 68, 68, .14), var(--paper-card) 70%);
+}
+.featured-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .72rem; font-weight: 700; letter-spacing: 1px;
+  color: var(--accent-color);
+  background: var(--paper-card);
+  border: 1px solid var(--accent-color);
+  border-radius: 20px;
+  padding: 3px 12px;
+}
+.pulse-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: #e63946;
+  animation: pulse 1.6s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(230, 57, 70, .6); }
+  70% { box-shadow: 0 0 0 8px rgba(230, 57, 70, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(230, 57, 70, 0); }
+}
+.featured-title {
+  margin: 14px 0 12px;
+  font-size: 1.45rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+.featured-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.featured-meta { font-size: .8rem; color: var(--text-secondary); }
+.featured-cta { font-size: .85rem; font-weight: 600; color: var(--accent-color); white-space: nowrap; }
+.featured-img { width: 100%; max-height: 220px; object-fit: cover; border-radius: 8px; margin-top: 16px; display: block; }
 
 /* 列表项 */
 .md-news-item {
@@ -255,6 +358,8 @@ const formatDisplayDate = (dateString: string) => {
 /* 🌟 富文本正文 */
 .md-rich-text {
   font-size: 1.05rem; line-height: 2; color: var(--text-primary); font-weight: 400;
+  white-space: pre-wrap; /* 保留后台录入的换行 */
+  word-break: break-word;
 }
 .md-rich-text :deep(img) { max-width: 100%; height: auto; margin: 30px 0; border-radius: 6px; }
 .md-rich-text :deep(p) { margin-bottom: 24px; }

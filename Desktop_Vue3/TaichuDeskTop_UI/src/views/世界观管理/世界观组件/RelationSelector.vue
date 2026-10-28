@@ -1,201 +1,44 @@
-<!-- src/views/世界观管理/components/RelationSelector.vue -->
 <template>
   <div class="relation-selector">
-    <label>关联卡片</label>
-    <div class="relation-list">
-      <div v-for="(rel, idx) in localValue" :key="idx" class="relation-item">
-        <span class="rel-target">{{ getCardTitle(rel.targetCardId) }}</span>
-        <span class="rel-type">「{{ rel.relationType }}」</span>
-        <button class="remove-btn" @click="removeRelation(idx)">✕</button>
-      </div>
-      <div v-if="!localValue.length" class="relation-empty">暂无关联</div>
+    <p class="relation-hint">选择条目即可关联，关系说明可以稍后补充。随本条目一起保存。</p>
+    <div v-for="(relation, index) in modelValue" :key="relation.targetCardId" class="relation-item">
+      <span class="rel-target">{{ title(relation.targetCardId) }}</span>
+      <input :value="relation.relationType" maxlength="100" :aria-label="`${title(relation.targetCardId)}的关系说明`" placeholder="关系说明（可选，如居住于）" @input="updateType(index, ($event.target as HTMLInputElement).value)" />
+      <button type="button" :aria-label="`移除与${title(relation.targetCardId)}的关系`" @click="emit('update:modelValue', modelValue.filter((_, i) => i !== index))">移除</button>
     </div>
-    <div class="relation-add">
-      <el-select
-        v-model="newTargetId"
-        filterable
-        remote
-        :remote-method="searchCards"
-        placeholder="搜索并选择卡片"
-        size="small"
-      >
-        <el-option
-          v-for="card in searchResults"
-          :key="card.id"
-          :label="`${card.title} (${getTypeLabel(card.type)})`"
-          :value="card.id"
-        />
-      </el-select>
-      <input
-        v-model="newRelationType"
-        placeholder="关系描述"
-        class="relation-input"
-        @keydown.enter.prevent="addRelation"
-      />
-      <button class="add-btn" @click="addRelation">+</button>
-    </div>
+    <el-select v-model="selectedId" filterable placeholder="搜索并关联人物、地点或组织" aria-label="选择关联设定" @change="addRelation">
+      <el-option v-for="card in candidates" :key="card.id" :label="`${card.title} · ${getCardTypeLabel(card.type)}`" :value="card.id" />
+    </el-select>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import { computed, ref } from 'vue'
 import { useWorldStore } from '@/stores/world'
-import { CardTypeMeta } from '../card_type'
-
-const props = defineProps<{
-  modelValue: { targetCardId: string; relationType: string }[]
-  projectId: string
-}>()
-
-const emit = defineEmits<{
-  (e: 'update:modelValue', value: { targetCardId: string; relationType: string }[]): void
-}>()
-
+import { getCardTypeLabel } from '@/utils/worldPresentation'
+import type { RelationInput } from '@/api/types/world'
+const props = defineProps<{ modelValue: RelationInput[]; projectId: string; excludeCardId?: string }>()
+const emit = defineEmits<{ 'update:modelValue': [value: RelationInput[]] }>()
 const store = useWorldStore()
-
-const localValue = ref([...props.modelValue])
-const newTargetId = ref('')
-const newRelationType = ref('')
-const searchResults = ref<any[]>([])
-
-const getCardTitle = (cardId: string) => {
-  const card = store.cards.find(c => c.id === cardId)
-  return card?.title || '已删除'
+const selectedId = ref('')
+const candidates = computed(() => store.cards.filter(card => card.projectId === props.projectId && card.id !== props.excludeCardId && !props.modelValue.some(r => r.targetCardId === card.id)))
+const title = (id: string) => store.getCardById(id, props.projectId)?.title || '条目已删除'
+function addRelation(id: string) {
+  if (candidates.value.some(card => card.id === id)) emit('update:modelValue', [...props.modelValue, { targetCardId: id, relationType: '' }])
+  selectedId.value = ''
 }
-
-const getTypeLabel = (type: string) => {
-  return CardTypeMeta[type as keyof typeof CardTypeMeta]?.label || type
+function updateType(index: number, relationType: string) {
+  emit('update:modelValue', props.modelValue.map((relation, i) => i === index ? { ...relation, relationType } : relation))
 }
-
-const searchCards = (query: string) => {
-  const cards = store.cards
-  if (!query) {
-    searchResults.value = cards.slice(0, 10)
-    return
-  }
-  const lower = query.toLowerCase()
-  searchResults.value = cards.filter(c => c.title.toLowerCase().includes(lower)).slice(0, 10)
-}
-
-const addRelation = () => {
-  if (!newTargetId.value) {
-    ElMessage.warning('请选择卡片')
-    return
-  }
-  if (!newRelationType.value.trim()) {
-    ElMessage.warning('请输入关系描述')
-    return
-  }
-  if (localValue.value.some(r => r.targetCardId === newTargetId.value)) {
-    ElMessage.warning('已关联该卡片')
-    return
-  }
-  localValue.value.push({
-    targetCardId: newTargetId.value,
-    relationType: newRelationType.value.trim(),
-  })
-  newTargetId.value = ''
-  newRelationType.value = ''
-  // ✅ 手动触发更新
-  emit('update:modelValue', localValue.value)
-}
-
-const removeRelation = (idx: number) => {
-  localValue.value.splice(idx, 1)
-  // ✅ 手动触发更新
-  emit('update:modelValue', localValue.value)
-}
-
-// ✅ 监听父组件数据变化，同步到本地（不再触发 emit）
-watch(() => props.modelValue, (val) => {
-  localValue.value = [...val]
-}, { deep: true, immediate: true })
-
-// 初始加载卡片列表
-searchCards('')
 </script>
 
-
-
 <style scoped>
-.relation-selector {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.relation-selector label {
-  font-weight: 500;
-  font-size: 14px;
-  color: var(--text-primary);
-}
-.relation-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-height: 20px;
-}
-.relation-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  background: var(--bg-main);
-  border-radius: 4px;
-  font-size: 13px;
-}
-.relation-item .rel-target {
-  font-weight: 500;
-}
-.relation-item .rel-type {
-  color: var(--accent-color);
-}
-.remove-btn {
-  margin-left: auto;
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: 14px;
-}
-.remove-btn:hover {
-  color: var(--danger);
-}
-.relation-empty {
-  font-size: 13px;
-  color: var(--text-secondary);
-  padding: 2px 0;
-}
-.relation-add {
-  display: flex;
-  gap: 4px;
-  flex-wrap: wrap;
-}
-.relation-add :deep(.el-select) {
-  flex: 2;
-  min-width: 100px;
-}
-.relation-input {
-  flex: 3;
-  border: 1px solid var(--border-line);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 13px;
-}
-.relation-input:focus {
-  outline: none;
-  border-color: var(--accent-color);
-}
-.add-btn {
-  padding: 4px 12px;
-  border: none;
-  border-radius: 6px;
-  background: var(--accent-color);
-  color: var(--on-accent);
-  cursor: pointer;
-  font-size: 14px;
-}
-.add-btn:hover {
-  background: var(--accent-color);
-}
+.relation-selector { display: grid; gap: 12px; }
+.relation-hint { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
+.relation-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-main); border: 1px solid var(--border-line); border-radius: 8px; }
+.rel-target { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.relation-item input { flex: 2; min-width: 0; padding: 8px 10px; border: 1px solid var(--border-line); border-radius: 6px; background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: 13px; }
+.relation-item button { border: 0; background: none; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+.relation-item button:hover { color: var(--danger); }
+@media(max-width:600px) { .relation-item { flex-wrap: wrap; }.rel-target { flex-basis: 100%; } }
 </style>

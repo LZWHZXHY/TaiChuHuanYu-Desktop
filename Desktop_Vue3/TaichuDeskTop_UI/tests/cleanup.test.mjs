@@ -13,7 +13,7 @@ function loadScript(path, mocks = {}) {
   const content = path.endsWith('.vue') ? compileScript(parse(source).descriptor, { id: path }).content : source
   const js = ts.transpileModule(content, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
   const exports = {}
-  new Function('require', 'exports', js)(id => id in mocks ? mocks[id] : require(id), exports)
+  new Function('require', 'exports', js)(id => id in mocks ? mocks[id] : id === '@/components/SectionTrace.vue' ? {} : require(id), exports)
   return exports
 }
 function mountScript(path, mocks = {}, props = {}, emit = () => {}) {
@@ -56,15 +56,15 @@ function finance(t, request = async () => []) {
   return { ...mounted, charts, listeners, flush: () => frames.splice(0).forEach(fn => fn()) }
 }
 
-test('finance preserves grouping, truncation, rounding before top-three merging, totals and annual order', t => {
+test('finance preserves grouping, truncation, decimal precision before top-three merging, totals and annual order', t => {
   const { state: s } = finance(t)
   s.financeLogs.value = [row(0, 10.2, { zhiChuXiangMu: ' 123456789\n' }), row(0, 2.2, { zhiChuXiangMu: '123456789' }),
     row(0, 7, { date: new Date().toISOString() }), ...[10.4, 9.4, 8.4, 1.4, 1.4].map((amount, i) =>
       row(1, amount, { shouKuan: ` 商户${i}[说明] `, zhiChu: ' 行者 ', date: i < 2 ? '2024-06-01' : '2023-06-01' }))]
-  assert.deepEqual(s.incomeChartData.value, [{ name: '12345678...', value: 12 }, { name: '社区共建赞助', value: 7 }])
-  assert.deepEqual(s.shouKuanChartData.value, ['商户0', '商户1', '商户2', '其他开销'].map((name, i) => ({ name, value: [10, 9, 8, 2][i] })))
+  assert.deepEqual(s.incomeChartData.value, [{ name: '12345678...', value: 12.4 }, { name: '社区共建赞助', value: 7 }])
+  assert.deepEqual(s.shouKuanChartData.value, ['商户0', '商户1', '商户2', '其他开销'].map((name, i) => ({ name, value: [10.4, 9.4, 8.4, 2.8][i] })))
   assert.deepEqual(s.zhiChuChartData.value, [{ name: '行者', value: 31 }])
-  assert.deepEqual(s.trendChartData.value, { years: ['2023年', '2024年'], values: [11, 20] })
+  assert.deepEqual(s.trendChartData.value, { years: ['2023年', '2024年', new Date().getFullYear() + '年'], income: [0, 12.4, 7], expense: [11.2, 19.8, 0] })
   assert.ok(Math.abs(s.totalBalance.value + 11.6) < 1e-10)
   assert.equal(s.monthlyIncome.value, 7)
 })
@@ -126,6 +126,8 @@ test('OC detail preserves attribute order, hidden fields, ownership and gallery 
   const { state: s, unmount } = mountScript('views/柴圈板块/OCs/components/detail.vue', {
     'vue-router': { useRouter: () => ({}), useRoute: () => ({ params: { id: 'oc' } }) },
     '../stickman_store': { useStickmanStore: () => store },
+    '../stickman': {stickmanApi: {}}, '@/api/follow': {followApi: {}},
+    '../../components/ChaiComments.vue': {default: {}}, '@/utils/imageThumb': loadScript('utils/imageThumb.ts'),
     '@/stores/user': { useUserStore: () => ({ userInfo: { id: '1' } }) }, 'element-plus': { ElImage: {} },
   })
   t.after(unmount)
@@ -175,7 +177,7 @@ function activity(t, get, props = {}, params = {}) {
     'vue-router': { useRouter: () => ({}), useRoute: () => ({ params }) },
     '@/stores/user': { useUserStore: () => ({ userInfo: {} }) },
     '@/utils/request': { __esModule: true, default: { get } },
-    './CheckInModal.vue': {}, './DiscussionBoard.vue': {},
+    './CheckInModal.vue': {}, './DiscussionBoard.vue': {}, './CompetitionPanel.vue': {},
   }, props)
   t.after(mounted.unmount)
   return mounted.state
@@ -617,6 +619,7 @@ test('restore waits for running writes, preserves failed-restore drafts and disc
 async function historyLayout(t, overrides = {}) {
   const note = { id: 'a', title: '标题', type: 'note', content: { type: 'doc', content: [] }, blocks: [] }
   const activeNote = vue.ref(note), route = vue.reactive({ params: { id: 'a' } })
+  const notes = vue.ref(overrides.notes ?? [note, { ...note, id: 'b' }])
   const snapshot = { type: 'doc', content: [], blocks: [{ id: 'p', type: 'paragraph', data: '{}' }] }
   const api = { createSnapshot: t.mock.fn(async () => {}), rollbackTo: t.mock.fn(async () => {}), ...overrides.api }
   const queue = { syncToCloud: t.mock.fn(), saveNow: t.mock.fn(async () => {}), pauseNote: t.mock.fn(async () => {}), resumeNote: t.mock.fn(), ...overrides.queue }
@@ -625,7 +628,7 @@ async function historyLayout(t, overrides = {}) {
   const m = mountScript('views/太初灵脉/SpiritLayout.vue', {
     ...components, '@/components/SpiritToast.vue': {}, vue: { ...vue, onMounted() {}, onUnmounted() {} },
     'vue-router': { useRoute: () => route, useRouter: () => ({}) }, '../../api/lingmai': { lingmaiApi: api },
-    '../../composables/useSpiritData': { useSpiritData: () => ({ activeNote, notes: vue.ref([note]), currentSpaceId: vue.ref('space'), isLoading: vue.ref(false), selectNote }) },
+    '../../composables/useSpiritData': { useSpiritData: () => ({ activeNote, notes, currentSpaceId: vue.ref('space'), isLoading: vue.ref(false), selectNote }) },
     '@/utils/editorHelpers': loadScript('utils/editorHelpers.ts', { nanoid: { nanoid: () => 'id' } }),
     '@/composables/useAutoSave': { useAutoSave: () => queue },
   })
@@ -772,7 +775,8 @@ test('private profile library discards old type responses and resets pagination'
     '../../composables/useCos':{useCos:()=>({uploadFile:async()=>({url:''}),isUploading:vue.ref(false)})},
     '../../utils/request':{__esModule:true,default:{get:(url,config)=>new Promise(resolve=>pending.push({url,config,resolve}))}},
     'vue-router':{useRouter:()=>({push(){}})},
-    ...Object.fromEntries(['ProfileCard','PreferenceSettings','UserManualViewer','ClubCard'].map(name=>[`./${name}.vue`,{__esModule:true,default:{}}])),
+    '../画廊展厅/ArtworkInfiniteGrid.vue': {default: {}},
+    ...Object.fromEntries(['ProfileCard','PreferenceSettings','UserManualViewer','ClubCard','AiSettings'].map(name=>[`./${name}.vue`,{__esModule:true,default:{}}])),
   })
   t.after(s.unmount)
   s.state.page.value=2; await settle()
@@ -870,4 +874,42 @@ test('character form blocks repeat saves while preserving the draft for retry', 
   props.loading = true; s.handleSubmit(); assert.equal(events.length, 1)
   props.loading = false; s.handleSubmit(); assert.equal(events.length, 2)
   assert.equal(events[1][1].description, '保留简介')
+})
+
+
+test('direct note links wait for the directory and never keep another note editable during loading', async t => {
+  const s = await historyLayout(t, { notes: [] })
+  assert.equal(s.selectNote.mock.callCount(), 0)
+  assert.equal(s.currentDisplayNote.value, null)
+  s.notes.value = [{ id: 'a', title: '迟到的目录', type: 'note' }]
+  await settle()
+  assert.equal(s.currentDisplayNote.value.id, 'a')
+  assert.equal(s.selectNote.mock.callCount(), 1)
+  s.route.params.id = 'b'; await settle()
+  assert.equal(s.currentDisplayNote.value, null)
+  s.notes.value.push({ id: 'b', type: 'note' }); await settle()
+  assert.equal(s.currentDisplayNote.value.id, 'b')
+  assert.equal(s.selectNote.mock.callCount(), 2)
+})
+
+
+test('commit pagination retries the failed page and retains previous records', async t => {
+  const requests = []
+  let fail = false
+  t.mock.method(globalThis, 'fetch', async url => {
+    requests.push(String(url));
+    return { ok: !fail, json: async () => Array.from({ length: 5 }, (_, id) => ({ sha: requests.length + '-' + id })) }
+  })
+  const m = mountScript('views/推送首页/components/updateLog.vue', { vue: { ...vue, onMounted() {} } })
+  t.after(m.unmount)
+  const s = m.state
+  await s.fetchLogs(1)
+  fail = true; s.loadMore(); await settle()
+  assert.equal(s.logs.value.length, 5)
+  assert.equal(s.currentPage.value, 1)
+  assert.ok(s.error.value)
+  fail = false; s.loadMore(); await settle()
+  assert.match(requests.at(-1), /page=2$/)
+  assert.equal(s.logs.value.length, 10)
+  assert.equal(s.error.value, '')
 })

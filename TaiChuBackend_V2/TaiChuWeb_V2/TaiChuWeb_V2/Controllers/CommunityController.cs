@@ -8,7 +8,7 @@ namespace TaiChuWeb_V2.Controllers
     public sealed class CommunityFeedItem
     {
         public string Id { get; set; } = "";
-        public string Kind { get; set; } = ""; // blog | post | artwork | wiki-new | wiki-update | user-joined | comment-blog | comment-post | comment-artwork | joint | survey
+        public string Kind { get; set; } = ""; // blog | post | artwork | wiki-new | wiki-update | user-joined | signin | comment-blog | comment-post | comment-artwork | joint | survey | dev-project
         public string ActorName { get; set; } = "";
         public string TargetTitle { get; set; } = "";
         public string TargetId { get; set; } = "";
@@ -100,6 +100,24 @@ namespace TaiChuWeb_V2.Controllers
                     CreatedAt = u.CreatedAt
                 })
                 .ToListAsync();
+
+            // 4.5 签到动态（近几次签到，避免刷屏）
+            var signLimit = Math.Min(8, takeCount);
+            var signins = (await db.UserSignLogs
+                    .OrderByDescending(s => s.SignDate)
+                    .Take(signLimit)
+                    .Join(db.Users, s => s.UserId, u => u.Id, (s, u) => new { s.UserId, s.SignDate, u.Username })
+                    .ToListAsync())
+                .Select(x => new CommunityFeedItem
+                {
+                    Id = "signin:" + x.UserId + ":" + x.SignDate.ToString("yyyyMMdd"),
+                    Kind = "signin",
+                    ActorName = x.Username,
+                    TargetTitle = "",
+                    TargetId = x.UserId.ToString(),
+                    CreatedAt = x.SignDate
+                })
+                .ToList();
 
             // 5. 评论动态（博客/帖子的顶层评论 + 画廊作品的顶层评论）
 
@@ -215,7 +233,22 @@ namespace TaiChuWeb_V2.Controllers
                 CreatedAt = s.UpdatedAt ?? s.CreatedAt
             });
 
-            var feed = blogPosts.Concat(artworks).Concat(wikiItems).Concat(newUsers).Concat(commentItems).Concat(joints).Concat(surveys)
+            // 8. 官方开发进度
+            var devProjects = await db.DevProjects
+                .OrderByDescending(p => p.UpdatedAt)
+                .Take(takeCount)
+                .Select(p => new CommunityFeedItem
+                {
+                    Id = "dev:" + p.Id,
+                    Kind = "dev-project",
+                    ActorName = "太初官方",
+                    TargetTitle = p.Name + " · 进度 " + p.Progress + "%",
+                    TargetId = p.Id.ToString(),
+                    CreatedAt = p.UpdatedAt
+                })
+                .ToListAsync();
+
+            var feed = blogPosts.Concat(artworks).Concat(wikiItems).Concat(newUsers).Concat(signins).Concat(commentItems).Concat(joints).Concat(surveys).Concat(devProjects)
                 .OrderByDescending(i => i.CreatedAt)
                 .ToList();
 

@@ -72,3 +72,6 @@ defineExpose({ getDocument: () => editorRef.value?.getSnapshot() });
     </template>
   </div>
 </template>
+<style scoped>
+.editor-scroll-body { min-width: 0; padding: 24px clamp(16px, 3vw, 40px); }
+</style>

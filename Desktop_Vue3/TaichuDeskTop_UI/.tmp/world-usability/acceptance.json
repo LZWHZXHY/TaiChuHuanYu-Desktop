@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-25",
+  "scope": "世界观管理简化与真实流程验收",
+  "checks": {
+    "frontendTypecheck": "passed",
+    "frontendTests": 170,
+    "backendWorldChecks": 65,
+    "backendRecoveryAuthorizationChecks": 38,
+    "backendBuildErrors": 0,
+    "backendBuildWarnings": 167
+  },
+  "browser": {
+    "frontend": "http://127.0.0.1:5195",
+    "backend": "https://localhost:5049",
+    "passed": [
+      "创建私人世界后直接进入概览",
+      "独立创建地点并保存后阅读",
+      "编辑地点危险等级并在阅读页显示",
+      "人物行内引用地点并点击跳转",
+      "地点显示反向引用人物",
+      "折叠目录后搜索仍展示匹配条目",
+      "非作者公开世界没有创建或编辑入口",
+      "桌面白天与夜间模式",
+      "390px 手机目录展开、选择后收起",
+      "通知与手机菜单不再重叠",
+      "时间线和关系图谱入口"
+    ],
+    "retainedTestData": {
+      "project": "界面验收 · 雾海行记",
+      "isPublic": false,
+      "cards": [
+        "岚港",
+        "守灯人 · 阿岚"
+      ]
+    }
+  },
+  "limits": [
+    "未调用用户配置的 AI 接口或执行付费操作",
+    "公开世界详情沿用既有登录要求",
+    "未宣称全站或完整后端回归完成"
+  ],
+  "lineChanges": {
+    "productionNet": -970,
+    "testNet": 22,
+    "totalNet": -948
+  }
+}

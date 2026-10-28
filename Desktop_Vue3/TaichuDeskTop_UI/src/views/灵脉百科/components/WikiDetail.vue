@@ -1,5 +1,5 @@
 <template>
-  <main class="wiki-page content-page">
+  <main class="wiki-page content-page community-surface tone-library">
     <nav class="toolbar">
       <RouterLink :to="{ name: 'KnowledgeHome', query: { type: 'wiki', q: route.query.q, page: route.query.page, category: route.query.category } }">← 公共知识</RouterLink>
       <button v-if="entry && !editing" @click="startEdit">编辑词条</button>
@@ -12,11 +12,13 @@
       <button @click="load">重新加载</button>
     </div>
     <template v-else>
+      <header class="wiki-heading"><SectionTrace />
       <h1>{{ isNew ? '新建公共知识' : entry?.title }}</h1>
       <p v-if="entry" class="meta">{{ entry.revisionCount || 1 }} 个公开版本 · {{ Math.max(0, (entry.revisionCount || 1) - 1) }} 次修订 · 最近更新 {{ date(entry.publishedAt) }}</p>
       <div v-if="entry" class="tags">
         <span v-for="tag in wikiTags(entry.tags)" :key="tag">#{{ tag }}</span>
       </div>
+      </header>
       <section v-if="editing" class="wiki-editor content-panel">
         <p class="notice">提交后等待审核。保存修改说明，帮助其他贡献者理解这次编辑。</p>
         <template v-if="isNew">
@@ -150,6 +152,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, watch, nextTick, onUnmounted, defineAsyncComponent } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
 import { wikiApi, type IWikiCategory } from '@/api/Wiki';

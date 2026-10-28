@@ -34,10 +34,10 @@ defineEmits(['update:title']);
   max-width: 900px; 
   margin: 0 auto;
   background: var(--paper-card);
-  padding: clamp(20px, 3vw, 36px);
+  padding: 20px 0;
   container-type: inline-size;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.02);
+  border-radius: 0;
+  border-top: 2px solid var(--text-primary);
 }
 
 .title-input {
@@ -55,6 +55,6 @@ defineEmits(['update:title']);
 }
 
 @media (max-width: 1024px) {
-  .workspace-note { padding: 20px; }
+  .workspace-note { padding: 16px 0; }
 }
 </style>

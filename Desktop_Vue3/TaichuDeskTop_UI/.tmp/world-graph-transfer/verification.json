@@ -1,0 +1,29 @@
+{
+  "checkedAt": "2026-10-25T19:02:19.6965796-04:00",
+  "frontendTests": 196,
+  "backendRegression": 773,
+  "frontendBuild": "passed; existing lazy Three.js chunk warning remains",
+  "backendBuild": "passed",
+  "runtime": "frontend 5195; local test backend 5049",
+  "browserChecks": [
+    "real account private graph; flat/spatial switch; rotation; node details",
+    "360px real app; search; direct relations; detail navigation",
+    "day/night screenshots",
+    "guest public graph accessible; private world denied; no import for guest",
+    "TXT and MD imported as two new private test cards",
+    "Markdown download event completed",
+    "PDF srcdoc preview rendered Chinese, headings and references"
+  ],
+  "performance": "Isolated 1000-node, 1776-link fixture. Initial references=1, details=0; 2 initial draw calls and none while idle; final maximum canvas callback=0.8ms. This excludes network, layout and total frame cost. Earlier interaction runs up to 2.8ms.",
+  "remaining": [
+    "Native print/save PDF not verified in IAB; no saved PDF file claimed",
+    "Text import creates entries; not structured backup/relationship restoration",
+    "Images exported as links; not bundled offline",
+    "Spatial view remains heavier for thousands of nodes",
+    "New frontend and backend routes must be deployed together"
+  ],
+  "filesCreatedInTestWorld": [
+    "导入验收 · 雾海航记",
+    "导入验收-文本"
+  ]
+}

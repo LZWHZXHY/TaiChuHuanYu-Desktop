@@ -110,3 +110,33 @@ test('navigation keeps secondary tools and falls back when moved routes are unav
   let prevented=false;s.handleSelect({ctrlKey:true,button:0,preventDefault(){prevented=true}},{name:'太初灵脉',url:'/lingmai'});
   assert.equal(prevented,false);assert.equal(s.menuHref({url:'/lingmai'}),'#/lingmai');
 });
+
+
+test('home showcase retries failed public content without creating placeholder works', async t => {
+  let fail = true
+  const state = mount(t, 'views/推送首页/components/ArtworkShowcase.vue', {
+    '@/api/artwork': { artworkApi: { getGallery: async () => {
+      if (fail) throw Error('offline')
+      return { data: [{ id: 1, title: 'With cover', coverImageUrl: '/cover' }, { id: 2, title: 'No cover' }] }
+    } } },
+  })
+  await settle(); assert.equal(state.failed.value, true); assert.equal(state.loading.value, false)
+  assert.equal(state.works.value.length, 0)
+  fail = false; await state.load()
+  assert.equal(state.failed.value, false); assert.deepEqual(state.works.value.map(w => w.id), [1])
+})
+
+test('home showcase scroll boundaries and reduced-motion navigation follow the actual strip', async t => {
+  const oldResize = globalThis.ResizeObserver, oldMatch = globalThis.matchMedia
+  let disconnected = 0
+  globalThis.ResizeObserver = class { observe() {} disconnect() { disconnected++ } }
+  globalThis.matchMedia = () => ({ matches: true })
+  t.after(() => { globalThis.ResizeObserver = oldResize; globalThis.matchMedia = oldMatch })
+  const state = mount(t, 'views/推送首页/components/ArtworkShowcase.vue', { '@/api/artwork': { artworkApi: { getGallery: async () => ({ data: [] }) } } })
+  const calls = []; const el = { scrollLeft: 0, clientWidth: 400, scrollWidth: 1200, scrollBy: x => calls.push(x) }
+  state.strip.value = el; await settle()
+  assert.equal(state.atEnd.value, false)
+  state.move(1); assert.deepEqual(calls[0], { left: 320, behavior: 'instant' })
+  el.scrollLeft = 800; state.syncPosition(); assert.equal(state.atEnd.value, true)
+  state.strip.value = undefined; await settle(); assert.equal(disconnected, 1)
+})

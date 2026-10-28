@@ -9,6 +9,7 @@ import './views/柴圈板块/detail.css';
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import './assets/styles/variables.css'
+import './assets/styles/theme-rhine.css'
 import { setupTheme } from './composables/useTheme'
 const disposeTheme = setupTheme()
 if (import.meta.hot) import.meta.hot.dispose(disposeTheme)

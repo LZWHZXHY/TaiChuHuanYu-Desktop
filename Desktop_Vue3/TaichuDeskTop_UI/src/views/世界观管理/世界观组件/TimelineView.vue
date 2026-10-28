@@ -6,8 +6,9 @@
     </header>
 
     <p v-if="loading" class="tl-empty">正在加载时间线…</p>
+    <p v-else-if="loadError" class="tl-empty" role="alert">时间线暂时无法加载。<button class="tl-source" @click="load">重新加载</button></p>
     <p v-else-if="!items.length" class="tl-empty">
-      还没有时间线事件。进入某张卡片，在「时间线事件」里添加时间 + 标题即可在这里汇聚成时间轴。
+      {{ canEdit ? '还没有时间线事件。在条目的「时间线事件」里添加时间和标题，即可在这里汇总。' : '作者还没有添加时间线事件，可以从目录继续阅读世界设定。' }}
     </p>
 
     <template v-else>
@@ -35,13 +36,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onScopeDispose } from 'vue'
 import { worldApi, type TimelineItem } from '@/api/worldApi'
 
-const props = defineProps<{ projectId: string }>()
+const props = defineProps<{ projectId: string; canEdit?: boolean }>()
 defineEmits<{ select: [id: string] }>()
 const items = ref<TimelineItem[]>([])
 const loading = ref(false)
+const loadError = ref(false)
+let loadVersion = 0
 
 // 数字感知排序，让「创世历2年」排在「创世历10年」之前
 const sortedItems = computed(() =>
@@ -65,17 +68,21 @@ const groups = computed(() => {
 const lastGroup = computed(() => groups.value[groups.value.length - 1])
 
 async function load() {
+  const version = ++loadVersion
   loading.value = true
+  loadError.value = false
+  items.value = []
   try {
-    items.value = await worldApi.getTimeline(props.projectId)
+    const result = await worldApi.getTimeline(props.projectId)
+    if (version === loadVersion) items.value = result
   } catch {
-    items.value = []
+    if (version === loadVersion) loadError.value = true
   } finally {
-    loading.value = false
+    if (version === loadVersion) loading.value = false
   }
 }
-onMounted(load)
-watch(() => props.projectId, load)
+watch(() => props.projectId, load, { immediate: true })
+onScopeDispose(() => { loadVersion++ })
 </script>
 
 <style scoped>

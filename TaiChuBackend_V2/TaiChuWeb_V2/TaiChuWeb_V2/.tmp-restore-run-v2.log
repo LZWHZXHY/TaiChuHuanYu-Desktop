@@ -1,0 +1,939 @@
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: https://localhost:5049
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: E:\TaiChuHuanYu_DeskTop\TaiChuHuanYu-Desktop\TaiChuBackend_V2\TaiChuWeb_V2\TaiChuWeb_V2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (242ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (218ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`ProjectId`, `w`.`Title`, `w`.`Type`, `w`.`CoverImage`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w0`
+          WHERE `w0`.`SourceCardId` = `w`.`Id`) AS `OutRelationCount`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w1`
+          WHERE `w1`.`TargetCardId` = `w`.`Id`) AS `InRelationCount`
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`ProjectId` = @__projectId_0
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (221ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Name`, `w`.`Description`, `w`.`IsPublic`, `w`.`CreatedAt`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldCards` AS `w0`
+          WHERE `w`.`Id` = `w0`.`ProjectId`) AS `CardCount`, `u`.`Username` AS `OwnerName`, `w`.`OwnerId`
+      FROM `WorldProjects` AS `w`
+      INNER JOIN `Users` AS `u` ON `w`.`OwnerId` = `u`.`Id`
+      WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`SourceCardId`, `w`.`TargetCardId`, `w`.`RelationType`, `w`.`CreatedAt`, `w0`.`Title` AS `SourceCardTitle`, `w1`.`Title` AS `TargetCardTitle`, `w0`.`Type` AS `SourceCardType`, `w1`.`Type` AS `TargetCardType`
+      FROM `WorldRelations` AS `w`
+      INNER JOIN `WorldCards` AS `w0` ON `w`.`SourceCardId` = `w0`.`Id`
+      INNER JOIN `WorldCards` AS `w1` ON `w`.`TargetCardId` = `w1`.`Id`
+      WHERE (`w0`.`ProjectId` = @__projectId_0) OR (`w1`.`ProjectId` = @__projectId_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (229ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (530ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `c`.`Id`, `c`.`CreatedAt`, `c`.`Description`, `c`.`Icon`, `c`.`IsActive`, `c`.`IsSystem`, `c`.`Label`, `c`.`SortOrder`, `c`.`UpdatedAt`
+      FROM `CardTypes` AS `c`
+      WHERE `c`.`IsActive`
+      ORDER BY `c`.`SortOrder`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`CreatedAt`, `w`.`Description`, `w`.`IsPublic`, `w`.`Name`, `w`.`OwnerId`, `w`.`UpdatedAt`
+      FROM `WorldProjects` AS `w`
+      WHERE (`w`.`OwnerId` = @__userId_0) AND (`w`.`Id` = @__project_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__user_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`, `w`.`Plan`, `w`.`SourceProjectId`, `w`.`State`, `w`.`TargetProjectId`, `w`.`UpdatedAt`, `w`.`Uploaded`
+      FROM `WorldRestores` AS `w`
+      WHERE ((`w`.`OwnerId` = @__user_0) AND (`w`.`SourceProjectId` = @__project_1)) AND `w`.`State` IN ('pending', 'cleaning')
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (229ms) [Parameters=[@__id_0='?' (DbType = Guid), @__user_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`, `w`.`Plan`, `w`.`SourceProjectId`, `w`.`State`, `w`.`TargetProjectId`, `w`.`UpdatedAt`, `w`.`Uploaded`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`Id` = @__id_0) AND (`w`.`OwnerId` = @__user_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`CreatedAt`, `w`.`Description`, `w`.`IsPublic`, `w`.`Name`, `w`.`OwnerId`, `w`.`UpdatedAt`
+      FROM `WorldProjects` AS `w`
+      WHERE (`w`.`OwnerId` = @__userId_0) AND (`w`.`Id` = @__project_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (225ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `u`.`UserId`, `u`.`ArtworksCount`, `u`.`ContributionPoints`, `u`.`CurrentSignStreak`, `u`.`Experience`, `u`.`FollowersCount`, `u`.`FollowingCount`, `u`.`LastSignDate`, `u`.`LikesReceived`, `u`.`MaxCardsPerWorld`, `u`.`MaxNotes`, `u`.`MaxProjectCount`, `u`.`MaxSignStreak`, `u`.`MaxSpaces`, `u`.`MaxWorldCount`, `u`.`Reputation`, `u`.`Title`, `u`.`UsedNotes`, `u`.`UsedProjectCount`, `u`.`UsedSpaces`, `u`.`UsedWorldCount`
+      FROM `UserStats` AS `u`
+      WHERE `u`.`UserId` = @__userId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__plan_SourceProjectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`ProjectId` = @__plan_SourceProjectId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?' (DbType = Guid), @p2='?' (Size = 4000), @p3='?' (DbType = Guid), @p4='?' (Size = 16), @p5='?' (DbType = Guid), @p6='?' (DbType = DateTime), @p7='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SET AUTOCOMMIT = 1;
+      INSERT INTO `WorldRestores` (`Id`, `OwnerId`, `Plan`, `SourceProjectId`, `State`, `TargetProjectId`, `UpdatedAt`, `Uploaded`)
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7);
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[p0='?' (DbType = Guid), p1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT * FROM WorldRestores WHERE Id = @p0 AND OwnerId = @p1 FOR UPDATE
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (223ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`CreatedAt`, `w`.`Description`, `w`.`IsPublic`, `w`.`Name`, `w`.`OwnerId`, `w`.`UpdatedAt`
+      FROM `WorldProjects` AS `w`
+      WHERE (`w`.`OwnerId` = @__userId_0) AND (`w`.`Id` = @__project_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (221ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (239ms) [Parameters=[@p2='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SET AUTOCOMMIT = 1;
+      UPDATE `WorldRestores` SET `UpdatedAt` = @p0, `Uploaded` = @p1
+      WHERE `Id` = @p2;
+      SELECT ROW_COUNT();
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`ProjectId`, `w`.`Title`, `w`.`Type`, `w`.`CoverImage`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w0`
+          WHERE `w0`.`SourceCardId` = `w`.`Id`) AS `OutRelationCount`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w1`
+          WHERE `w1`.`TargetCardId` = `w`.`Id`) AS `InRelationCount`
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`ProjectId` = @__projectId_0
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (231ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Name`, `w`.`Description`, `w`.`IsPublic`, `w`.`CreatedAt`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldCards` AS `w0`
+          WHERE `w`.`Id` = `w0`.`ProjectId`) AS `CardCount`, `u`.`Username` AS `OwnerName`, `w`.`OwnerId`
+      FROM `WorldProjects` AS `w`
+      INNER JOIN `Users` AS `u` ON `w`.`OwnerId` = `u`.`Id`
+      WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `u`.`Permission`
+      FROM `user_permissions` AS `u`
+      WHERE `u`.`UserId` = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (213ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `p`.`Id`, `p`.`Icon`, `p`.`Name`, `p`.`Order`, `p`.`PlatformScope`, `p`.`RequiresAuth`, `p`.`Url`
+      FROM `Plugins` AS `p`
+      WHERE `p`.`PlatformScope` IN (0, 1)
+      ORDER BY `p`.`Order`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (679ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (711ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (216ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `u`.`Id`, `u`.`CreatedAt`, `u`.`Email`, `u`.`LegacyUserId`, `u`.`PasswordHash`, `u`.`Username`, `u0`.`UserId`, `u0`.`Address`, `u0`.`Avatar`, `u0`.`Bio`, `u0`.`Birthday`, `u0`.`ExtraConfig`, `u0`.`Gender`, `u0`.`Mood`, `u0`.`PhoneNumber`, `u0`.`SocialLinks`, `u1`.`UserId`, `u1`.`ArtworksCount`, `u1`.`ContributionPoints`, `u1`.`CurrentSignStreak`, `u1`.`Experience`, `u1`.`FollowersCount`, `u1`.`FollowingCount`, `u1`.`LastSignDate`, `u1`.`LikesReceived`, `u1`.`MaxCardsPerWorld`, `u1`.`MaxNotes`, `u1`.`MaxProjectCount`, `u1`.`MaxSignStreak`, `u1`.`MaxSpaces`, `u1`.`MaxWorldCount`, `u1`.`Reputation`, `u1`.`Title`, `u1`.`UsedNotes`, `u1`.`UsedProjectCount`, `u1`.`UsedSpaces`, `u1`.`UsedWorldCount`
+      FROM `Users` AS `u`
+      LEFT JOIN `UserProfiles` AS `u0` ON `u`.`Id` = `u0`.`UserId`
+      LEFT JOIN `UserStats` AS `u1` ON `u`.`Id` = `u1`.`UserId`
+      WHERE `u`.`Id` = @__userId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`SourceCardId`, `w`.`TargetCardId`, `w`.`RelationType`, `w`.`CreatedAt`, `w0`.`Title` AS `SourceCardTitle`, `w1`.`Title` AS `TargetCardTitle`, `w0`.`Type` AS `SourceCardType`, `w1`.`Type` AS `TargetCardType`
+      FROM `WorldRelations` AS `w`
+      INNER JOIN `WorldCards` AS `w0` ON `w`.`SourceCardId` = `w0`.`Id`
+      INNER JOIN `WorldCards` AS `w1` ON `w`.`TargetCardId` = `w1`.`Id`
+      WHERE (`w0`.`ProjectId` = @__projectId_0) OR (`w1`.`ProjectId` = @__projectId_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`ProjectId`, `w`.`Title`, `w`.`Type`, `w`.`CoverImage`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w0`
+          WHERE `w0`.`SourceCardId` = `w`.`Id`) AS `OutRelationCount`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w1`
+          WHERE `w1`.`TargetCardId` = `w`.`Id`) AS `InRelationCount`
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`ProjectId` = @__projectId_0
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Projects` AS `p`
+      WHERE (`p`.`OwnerId` = @__userId_0) AND (`p`.`Status` <> 3)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `c`.`Id`, `c`.`CreatedAt`, `c`.`Description`, `c`.`Icon`, `c`.`IsActive`, `c`.`IsSystem`, `c`.`Label`, `c`.`SortOrder`, `c`.`UpdatedAt`
+      FROM `CardTypes` AS `c`
+      WHERE `c`.`IsActive`
+      ORDER BY `c`.`SortOrder`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (218ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`CreatedAt`, `w`.`Description`, `w`.`IsPublic`, `w`.`Name`, `w`.`OwnerId`, `w`.`UpdatedAt`
+      FROM `WorldProjects` AS `w`
+      WHERE (`w`.`OwnerId` = @__userId_0) AND (`w`.`Id` = @__project_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (214ms) [Parameters=[@__user_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`, `w`.`Plan`, `w`.`SourceProjectId`, `w`.`State`, `w`.`TargetProjectId`, `w`.`UpdatedAt`, `w`.`Uploaded`
+      FROM `WorldRestores` AS `w`
+      WHERE ((`w`.`OwnerId` = @__user_0) AND (`w`.`SourceProjectId` = @__project_1)) AND `w`.`State` IN ('pending', 'cleaning')
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (218ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (218ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (214ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (221ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (215ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (213ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__id_0='?' (DbType = Guid), @__user_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`, `w`.`Plan`, `w`.`SourceProjectId`, `w`.`State`, `w`.`TargetProjectId`, `w`.`UpdatedAt`, `w`.`Uploaded`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`Id` = @__id_0) AND (`w`.`OwnerId` = @__user_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (216ms) [Parameters=[p0='?' (DbType = Guid), p1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT * FROM WorldRestores WHERE Id = @p0 AND OwnerId = @p1 FOR UPDATE
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[p0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT * FROM UserStats WHERE UserId = @p0 FOR UPDATE
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (213ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`CreatedAt`, `w`.`Description`, `w`.`IsPublic`, `w`.`Name`, `w`.`OwnerId`, `w`.`UpdatedAt`
+      FROM `WorldProjects` AS `w`
+      WHERE (`w`.`OwnerId` = @__userId_0) AND (`w`.`Id` = @__project_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `u`.`UserId`, `u`.`ArtworksCount`, `u`.`ContributionPoints`, `u`.`CurrentSignStreak`, `u`.`Experience`, `u`.`FollowersCount`, `u`.`FollowingCount`, `u`.`LastSignDate`, `u`.`LikesReceived`, `u`.`MaxCardsPerWorld`, `u`.`MaxNotes`, `u`.`MaxProjectCount`, `u`.`MaxSignStreak`, `u`.`MaxSpaces`, `u`.`MaxWorldCount`, `u`.`Reputation`, `u`.`Title`, `u`.`UsedNotes`, `u`.`UsedProjectCount`, `u`.`UsedSpaces`, `u`.`UsedWorldCount`
+      FROM `UserStats` AS `u`
+      WHERE `u`.`UserId` = @__userId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (215ms) [Parameters=[@__plan_SourceProjectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`ProjectId` = @__plan_SourceProjectId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?' (Size = 4000), @p2='?' (Size = 4000), @p3='?' (Size = 4000), @p4='?' (Size = 4000), @p5='?' (Size = 4000), @p6='?' (DbType = DateTime), @p7='?' (Size = 4000), @p8='?' (Size = 4000), @p9='?' (Size = 4000), @p10='?' (DbType = Guid), @p11='?' (Size = 50), @p12='?' (Size = 4000), @p13='?' (Size = 4000), @p14='?' (Size = 200), @p15='?' (Size = 50), @p16='?' (DbType = DateTime), @p17='?' (DbType = Guid), @p18='?' (Size = 4000), @p19='?' (Size = 4000), @p20='?' (Size = 4000), @p21='?' (Size = 4000), @p22='?' (Size = 4000), @p23='?' (DbType = DateTime), @p24='?' (Size = 4000), @p25='?' (Size = 4000), @p26='?' (Size = 4000), @p27='?' (DbType = Guid), @p28='?' (Size = 50), @p29='?' (Size = 4000), @p30='?' (Size = 4000), @p31='?' (Size = 200), @p32='?' (Size = 50), @p33='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SET AUTOCOMMIT = 1;
+      INSERT INTO `WorldCards` (`Id`, `Aliases`, `Attributes`, `Content`, `ContentBlocks`, `CoverImage`, `CreatedAt`, `Description`, `EmbeddedCards`, `GalleryImages`, `ProjectId`, `SubType`, `Tags`, `TimelineEvents`, `Title`, `Type`, `UpdatedAt`)
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7, @p8, @p9, @p10, @p11, @p12, @p13, @p14, @p15, @p16),
+      (@p17, @p18, @p19, @p20, @p21, @p22, @p23, @p24, @p25, @p26, @p27, @p28, @p29, @p30, @p31, @p32, @p33);
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?' (DbType = DateTime), @p2='?' (Size = 100), @p3='?' (DbType = Guid), @p4='?' (DbType = Guid), @p5='?' (DbType = Guid), @p6='?' (DbType = DateTime), @p7='?' (Size = 100), @p8='?' (DbType = Guid), @p9='?' (DbType = Guid), @p12='?' (DbType = Guid), @p10='?' (Size = 16), @p11='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      INSERT INTO `WorldRelations` (`Id`, `CreatedAt`, `RelationType`, `SourceCardId`, `TargetCardId`)
+      VALUES (@p0, @p1, @p2, @p3, @p4),
+      (@p5, @p6, @p7, @p8, @p9);
+      UPDATE `WorldRestores` SET `State` = @p10, `UpdatedAt` = @p11
+      WHERE `Id` = @p12;
+      SELECT ROW_COUNT();
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (216ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Name`, `w`.`Description`, `w`.`IsPublic`, `w`.`CreatedAt`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldCards` AS `w0`
+          WHERE `w`.`Id` = `w0`.`ProjectId`) AS `CardCount`, `u`.`Username` AS `OwnerName`, `w`.`OwnerId`
+      FROM `WorldProjects` AS `w`
+      INNER JOIN `Users` AS `u` ON `w`.`OwnerId` = `u`.`Id`
+      WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Name`, `w`.`Description`, `w`.`IsPublic`, `w`.`CreatedAt`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldCards` AS `w0`
+          WHERE `w`.`Id` = `w0`.`ProjectId`) AS `CardCount`, `u`.`Username` AS `OwnerName`, `w`.`OwnerId`
+      FROM `WorldProjects` AS `w`
+      INNER JOIN `Users` AS `u` ON `w`.`OwnerId` = `u`.`Id`
+      WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (218ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (230ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`SourceCardId`, `w`.`TargetCardId`, `w`.`RelationType`, `w`.`CreatedAt`, `w0`.`Title` AS `SourceCardTitle`, `w1`.`Title` AS `TargetCardTitle`, `w0`.`Type` AS `SourceCardType`, `w1`.`Type` AS `TargetCardType`
+      FROM `WorldRelations` AS `w`
+      INNER JOIN `WorldCards` AS `w0` ON `w`.`SourceCardId` = `w0`.`Id`
+      INNER JOIN `WorldCards` AS `w1` ON `w`.`TargetCardId` = `w1`.`Id`
+      WHERE (`w0`.`ProjectId` = @__projectId_0) OR (`w1`.`ProjectId` = @__projectId_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (230ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`ProjectId`, `w`.`Title`, `w`.`Type`, `w`.`CoverImage`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w0`
+          WHERE `w0`.`SourceCardId` = `w`.`Id`) AS `OutRelationCount`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w1`
+          WHERE `w1`.`TargetCardId` = `w`.`Id`) AS `InRelationCount`
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`ProjectId` = @__projectId_0
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (234ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`CreatedAt`, `w`.`Description`, `w`.`IsPublic`, `w`.`Name`, `w`.`OwnerId`, `w`.`UpdatedAt`
+      FROM `WorldProjects` AS `w`
+      WHERE (`w`.`OwnerId` = @__userId_0) AND (`w`.`Id` = @__project_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (218ms) [Parameters=[@__user_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`, `w`.`Plan`, `w`.`SourceProjectId`, `w`.`State`, `w`.`TargetProjectId`, `w`.`UpdatedAt`, `w`.`Uploaded`
+      FROM `WorldRestores` AS `w`
+      WHERE ((`w`.`OwnerId` = @__user_0) AND (`w`.`SourceProjectId` = @__project_1)) AND `w`.`State` IN ('pending', 'cleaning')
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (225ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (228ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (222ms) [Parameters=[@__id_0='?' (DbType = Guid), @__user_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`, `w`.`Plan`, `w`.`SourceProjectId`, `w`.`State`, `w`.`TargetProjectId`, `w`.`UpdatedAt`, `w`.`Uploaded`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`Id` = @__id_0) AND (`w`.`OwnerId` = @__user_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (218ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (234ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Aliases`, `w`.`Attributes`, `w`.`Content`, `w`.`ContentBlocks`, `w`.`CoverImage`, `w`.`CreatedAt`, `w`.`Description`, `w`.`EmbeddedCards`, `w`.`GalleryImages`, `w`.`ProjectId`, `w`.`SubType`, `w`.`Tags`, `w`.`TimelineEvents`, `w`.`Title`, `w`.`Type`, `w`.`UpdatedAt`
+      FROM `WorldCards` AS `w`
+      WHERE (`w`.`ProjectId` = @__projectId_0) AND `w`.`Id` IN ('cd7251f5-7e7e-420e-bffd-abb1730750da', '792379a9-ed93-4247-a31a-8c1d020ac91c')
+      ORDER BY `w`.`Id`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (222ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `s`.`Id`, `s`.`CreatedAt`, `s`.`RelationType`, `s`.`SourceCardId`, `s`.`TargetCardId`, `s`.`Id0`, `s`.`Aliases`, `s`.`Attributes`, `s`.`Content`, `s`.`ContentBlocks`, `s`.`CoverImage`, `s`.`CreatedAt0`, `s`.`Description`, `s`.`EmbeddedCards`, `s`.`GalleryImages`, `s`.`ProjectId`, `s`.`SubType`, `s`.`Tags`, `s`.`TimelineEvents`, `s`.`Title`, `s`.`Type`, `s`.`UpdatedAt`, `w`.`Id`
+      FROM `WorldCards` AS `w`
+      INNER JOIN (
+          SELECT `w0`.`Id`, `w0`.`CreatedAt`, `w0`.`RelationType`, `w0`.`SourceCardId`, `w0`.`TargetCardId`, `w1`.`Id` AS `Id0`, `w1`.`Aliases`, `w1`.`Attributes`, `w1`.`Content`, `w1`.`ContentBlocks`, `w1`.`CoverImage`, `w1`.`CreatedAt` AS `CreatedAt0`, `w1`.`Description`, `w1`.`EmbeddedCards`, `w1`.`GalleryImages`, `w1`.`ProjectId`, `w1`.`SubType`, `w1`.`Tags`, `w1`.`TimelineEvents`, `w1`.`Title`, `w1`.`Type`, `w1`.`UpdatedAt`
+          FROM `WorldRelations` AS `w0`
+          INNER JOIN `WorldCards` AS `w1` ON `w0`.`TargetCardId` = `w1`.`Id`
+      ) AS `s` ON `w`.`Id` = `s`.`SourceCardId`
+      WHERE (`w`.`ProjectId` = @__projectId_0) AND `w`.`Id` IN ('cd7251f5-7e7e-420e-bffd-abb1730750da', '792379a9-ed93-4247-a31a-8c1d020ac91c')
+      ORDER BY `w`.`Id`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `s0`.`Id`, `s0`.`CreatedAt`, `s0`.`RelationType`, `s0`.`SourceCardId`, `s0`.`TargetCardId`, `s0`.`Id0`, `s0`.`Aliases`, `s0`.`Attributes`, `s0`.`Content`, `s0`.`ContentBlocks`, `s0`.`CoverImage`, `s0`.`CreatedAt0`, `s0`.`Description`, `s0`.`EmbeddedCards`, `s0`.`GalleryImages`, `s0`.`ProjectId`, `s0`.`SubType`, `s0`.`Tags`, `s0`.`TimelineEvents`, `s0`.`Title`, `s0`.`Type`, `s0`.`UpdatedAt`, `w`.`Id`
+      FROM `WorldCards` AS `w`
+      INNER JOIN (
+          SELECT `w2`.`Id`, `w2`.`CreatedAt`, `w2`.`RelationType`, `w2`.`SourceCardId`, `w2`.`TargetCardId`, `w3`.`Id` AS `Id0`, `w3`.`Aliases`, `w3`.`Attributes`, `w3`.`Content`, `w3`.`ContentBlocks`, `w3`.`CoverImage`, `w3`.`CreatedAt` AS `CreatedAt0`, `w3`.`Description`, `w3`.`EmbeddedCards`, `w3`.`GalleryImages`, `w3`.`ProjectId`, `w3`.`SubType`, `w3`.`Tags`, `w3`.`TimelineEvents`, `w3`.`Title`, `w3`.`Type`, `w3`.`UpdatedAt`
+          FROM `WorldRelations` AS `w2`
+          INNER JOIN `WorldCards` AS `w3` ON `w2`.`SourceCardId` = `w3`.`Id`
+      ) AS `s0` ON `w`.`Id` = `s0`.`TargetCardId`
+      WHERE (`w`.`ProjectId` = @__projectId_0) AND `w`.`Id` IN ('cd7251f5-7e7e-420e-bffd-abb1730750da', '792379a9-ed93-4247-a31a-8c1d020ac91c')
+      ORDER BY `w`.`Id`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (221ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (229ms) [Parameters=[@__id_0='?' (DbType = Guid), @__user_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`, `w`.`Plan`, `w`.`SourceProjectId`, `w`.`State`, `w`.`TargetProjectId`, `w`.`UpdatedAt`, `w`.`Uploaded`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`Id` = @__id_0) AND (`w`.`OwnerId` = @__user_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (215ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`CreatedAt`, `w`.`Description`, `w`.`IsPublic`, `w`.`Name`, `w`.`OwnerId`, `w`.`UpdatedAt`
+      FROM `WorldProjects` AS `w`
+      WHERE (`w`.`OwnerId` = @__userId_0) AND (`w`.`Id` = @__project_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (229ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `u`.`UserId`, `u`.`ArtworksCount`, `u`.`ContributionPoints`, `u`.`CurrentSignStreak`, `u`.`Experience`, `u`.`FollowersCount`, `u`.`FollowingCount`, `u`.`LastSignDate`, `u`.`LikesReceived`, `u`.`MaxCardsPerWorld`, `u`.`MaxNotes`, `u`.`MaxProjectCount`, `u`.`MaxSignStreak`, `u`.`MaxSpaces`, `u`.`MaxWorldCount`, `u`.`Reputation`, `u`.`Title`, `u`.`UsedNotes`, `u`.`UsedProjectCount`, `u`.`UsedSpaces`, `u`.`UsedWorldCount`
+      FROM `UserStats` AS `u`
+      WHERE `u`.`UserId` = @__userId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (230ms) [Parameters=[@__plan_SourceProjectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`ProjectId` = @__plan_SourceProjectId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (223ms) [Parameters=[@p0='?' (DbType = Guid), @p1='?' (DbType = Guid), @p2='?' (Size = 4000), @p3='?' (DbType = Guid), @p4='?' (Size = 16), @p5='?' (DbType = Guid), @p6='?' (DbType = DateTime), @p7='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SET AUTOCOMMIT = 1;
+      INSERT INTO `WorldRestores` (`Id`, `OwnerId`, `Plan`, `SourceProjectId`, `State`, `TargetProjectId`, `UpdatedAt`, `Uploaded`)
+      VALUES (@p0, @p1, @p2, @p3, @p4, @p5, @p6, @p7);
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (225ms) [Parameters=[p0='?' (DbType = Guid), p1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT * FROM WorldRestores WHERE Id = @p0 AND OwnerId = @p1 FOR UPDATE
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (234ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`CreatedAt`, `w`.`Description`, `w`.`IsPublic`, `w`.`Name`, `w`.`OwnerId`, `w`.`UpdatedAt`
+      FROM `WorldProjects` AS `w`
+      WHERE (`w`.`OwnerId` = @__userId_0) AND (`w`.`Id` = @__project_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@p2='?' (DbType = Guid), @p0='?' (DbType = DateTime), @p1='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SET AUTOCOMMIT = 1;
+      UPDATE `WorldRestores` SET `UpdatedAt` = @p0, `Uploaded` = @p1
+      WHERE `Id` = @p2;
+      SELECT ROW_COUNT();
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (228ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (223ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`ProjectId`, `w`.`Title`, `w`.`Type`, `w`.`CoverImage`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w0`
+          WHERE `w0`.`SourceCardId` = `w`.`Id`) AS `OutRelationCount`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w1`
+          WHERE `w1`.`TargetCardId` = `w`.`Id`) AS `InRelationCount`
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`ProjectId` = @__projectId_0
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (222ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (222ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (223ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (230ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (225ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `u`.`Permission`
+      FROM `user_permissions` AS `u`
+      WHERE `u`.`UserId` = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `p`.`Id`, `p`.`Icon`, `p`.`Name`, `p`.`Order`, `p`.`PlatformScope`, `p`.`RequiresAuth`, `p`.`Url`
+      FROM `Plugins` AS `p`
+      WHERE `p`.`PlatformScope` IN (0, 1)
+      ORDER BY `p`.`Order`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (221ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (218ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE `w`.`IsPublic` AND (`w`.`Id` = @__projectId_0))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (223ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `p`.`Id`, `p`.`Icon`, `p`.`Name`, `p`.`Order`, `p`.`PlatformScope`, `p`.`RequiresAuth`, `p`.`Url`
+      FROM `Plugins` AS `p`
+      WHERE `p`.`PlatformScope` IN (0, 1)
+      ORDER BY `p`.`Order`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Name`, `w`.`Description`, `w`.`IsPublic`, `w`.`CreatedAt`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldCards` AS `w0`
+          WHERE `w`.`Id` = `w0`.`ProjectId`) AS `CardCount`, `u`.`Username` AS `OwnerName`, `w`.`OwnerId`
+      FROM `WorldProjects` AS `w`
+      INNER JOIN `Users` AS `u` ON `w`.`OwnerId` = `u`.`Id`
+      WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Name`, `w`.`Description`, `w`.`IsPublic`, `w`.`CreatedAt`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldCards` AS `w0`
+          WHERE `w`.`Id` = `w0`.`ProjectId`) AS `CardCount`, `u`.`Username` AS `OwnerName`, `w`.`OwnerId`
+      FROM `WorldProjects` AS `w`
+      INNER JOIN `Users` AS `u` ON `w`.`OwnerId` = `u`.`Id`
+      WHERE `w`.`IsPublic` AND (`w`.`Id` = @__projectId_0)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`SourceCardId`, `w`.`TargetCardId`, `w`.`RelationType`, `w`.`CreatedAt`, `w0`.`Title` AS `SourceCardTitle`, `w1`.`Title` AS `TargetCardTitle`, `w0`.`Type` AS `SourceCardType`, `w1`.`Type` AS `TargetCardType`
+      FROM `WorldRelations` AS `w`
+      INNER JOIN `WorldCards` AS `w0` ON `w`.`SourceCardId` = `w0`.`Id`
+      INNER JOIN `WorldCards` AS `w1` ON `w`.`TargetCardId` = `w1`.`Id`
+      WHERE (`w0`.`ProjectId` = @__projectId_0) OR (`w1`.`ProjectId` = @__projectId_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (214ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`ProjectId`, `w`.`Title`, `w`.`Type`, `w`.`CoverImage`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w0`
+          WHERE `w0`.`SourceCardId` = `w`.`Id`) AS `OutRelationCount`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w1`
+          WHERE `w1`.`TargetCardId` = `w`.`Id`) AS `InRelationCount`
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`ProjectId` = @__projectId_0
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (215ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE `w`.`IsPublic` AND (`w`.`Id` = @__projectId_0))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (214ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `u`.`Permission`
+      FROM `user_permissions` AS `u`
+      WHERE `u`.`UserId` = @__userId_0
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE `w`.`IsPublic` AND (`w`.`Id` = @__projectId_0))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (225ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `p`.`Id`, `p`.`Icon`, `p`.`Name`, `p`.`Order`, `p`.`PlatformScope`, `p`.`RequiresAuth`, `p`.`Url`
+      FROM `Plugins` AS `p`
+      WHERE `p`.`PlatformScope` IN (0, 1)
+      ORDER BY `p`.`Order`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`ProjectId`, `w`.`Title`, `w`.`Type`, `w`.`CoverImage`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w0`
+          WHERE `w0`.`SourceCardId` = `w`.`Id`) AS `OutRelationCount`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w1`
+          WHERE `w1`.`TargetCardId` = `w`.`Id`) AS `InRelationCount`
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`ProjectId` = @__projectId_0
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (213ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Name`, `w`.`Description`, `w`.`IsPublic`, `w`.`CreatedAt`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldCards` AS `w0`
+          WHERE `w`.`Id` = `w0`.`ProjectId`) AS `CardCount`, `u`.`Username` AS `OwnerName`, `w`.`OwnerId`
+      FROM `WorldProjects` AS `w`
+      INNER JOIN `Users` AS `u` ON `w`.`OwnerId` = `u`.`Id`
+      WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (230ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`SourceCardId`, `w`.`TargetCardId`, `w`.`RelationType`, `w`.`CreatedAt`, `w0`.`Title` AS `SourceCardTitle`, `w1`.`Title` AS `TargetCardTitle`, `w0`.`Type` AS `SourceCardType`, `w1`.`Type` AS `TargetCardType`
+      FROM `WorldRelations` AS `w`
+      INNER JOIN `WorldCards` AS `w0` ON `w`.`SourceCardId` = `w0`.`Id`
+      INNER JOIN `WorldCards` AS `w1` ON `w`.`TargetCardId` = `w1`.`Id`
+      WHERE (`w0`.`ProjectId` = @__projectId_0) OR (`w1`.`ProjectId` = @__projectId_0)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (222ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `p`.`Id`, `p`.`Icon`, `p`.`Name`, `p`.`Order`, `p`.`PlatformScope`, `p`.`RequiresAuth`, `p`.`Url`
+      FROM `Plugins` AS `p`
+      WHERE `p`.`PlatformScope` IN (0, 1)
+      ORDER BY `p`.`Order`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (230ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Name`, `w`.`Description`, `w`.`IsPublic`, `w`.`CreatedAt`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldCards` AS `w0`
+          WHERE `w`.`Id` = `w0`.`ProjectId`) AS `CardCount`, `u`.`Username` AS `OwnerName`, `w`.`OwnerId`
+      FROM `WorldProjects` AS `w`
+      INNER JOIN `Users` AS `u` ON `w`.`OwnerId` = `u`.`Id`
+      WHERE `w`.`IsPublic` AND (`w`.`Id` = @__projectId_0)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE `w`.`IsPublic` AND (`w`.`Id` = @__projectId_0))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (214ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `u`.`Id`, `u`.`CreatedAt`, `u`.`Email`, `u`.`LegacyUserId`, `u`.`PasswordHash`, `u`.`Username`, `u0`.`UserId`, `u0`.`Address`, `u0`.`Avatar`, `u0`.`Bio`, `u0`.`Birthday`, `u0`.`ExtraConfig`, `u0`.`Gender`, `u0`.`Mood`, `u0`.`PhoneNumber`, `u0`.`SocialLinks`, `u1`.`UserId`, `u1`.`ArtworksCount`, `u1`.`ContributionPoints`, `u1`.`CurrentSignStreak`, `u1`.`Experience`, `u1`.`FollowersCount`, `u1`.`FollowingCount`, `u1`.`LastSignDate`, `u1`.`LikesReceived`, `u1`.`MaxCardsPerWorld`, `u1`.`MaxNotes`, `u1`.`MaxProjectCount`, `u1`.`MaxSignStreak`, `u1`.`MaxSpaces`, `u1`.`MaxWorldCount`, `u1`.`Reputation`, `u1`.`Title`, `u1`.`UsedNotes`, `u1`.`UsedProjectCount`, `u1`.`UsedSpaces`, `u1`.`UsedWorldCount`
+      FROM `Users` AS `u`
+      LEFT JOIN `UserProfiles` AS `u0` ON `u`.`Id` = `u0`.`UserId`
+      LEFT JOIN `UserStats` AS `u1` ON `u`.`Id` = `u1`.`UserId`
+      WHERE `u`.`Id` = @__userId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (229ms) [Parameters=[@__userId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Projects` AS `p`
+      WHERE (`p`.`OwnerId` = @__userId_0) AND (`p`.`Status` <> 3)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (221ms) [Parameters=[@__id_0='?' (DbType = Guid), @__user_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`, `w`.`Plan`, `w`.`SourceProjectId`, `w`.`State`, `w`.`TargetProjectId`, `w`.`UpdatedAt`, `w`.`Uploaded`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`Id` = @__id_0) AND (`w`.`OwnerId` = @__user_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (215ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Aliases`, `w`.`Attributes`, `w`.`Content`, `w`.`ContentBlocks`, `w`.`CoverImage`, `w`.`CreatedAt`, `w`.`Description`, `w`.`EmbeddedCards`, `w`.`GalleryImages`, `w`.`ProjectId`, `w`.`SubType`, `w`.`Tags`, `w`.`TimelineEvents`, `w`.`Title`, `w`.`Type`, `w`.`UpdatedAt`
+      FROM `WorldCards` AS `w`
+      WHERE (`w`.`ProjectId` = @__projectId_0) AND `w`.`Id` IN ('cd7251f5-7e7e-420e-bffd-abb1730750da', '792379a9-ed93-4247-a31a-8c1d020ac91c')
+      ORDER BY `w`.`Id`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (218ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `s`.`Id`, `s`.`CreatedAt`, `s`.`RelationType`, `s`.`SourceCardId`, `s`.`TargetCardId`, `s`.`Id0`, `s`.`Aliases`, `s`.`Attributes`, `s`.`Content`, `s`.`ContentBlocks`, `s`.`CoverImage`, `s`.`CreatedAt0`, `s`.`Description`, `s`.`EmbeddedCards`, `s`.`GalleryImages`, `s`.`ProjectId`, `s`.`SubType`, `s`.`Tags`, `s`.`TimelineEvents`, `s`.`Title`, `s`.`Type`, `s`.`UpdatedAt`, `w`.`Id`
+      FROM `WorldCards` AS `w`
+      INNER JOIN (
+          SELECT `w0`.`Id`, `w0`.`CreatedAt`, `w0`.`RelationType`, `w0`.`SourceCardId`, `w0`.`TargetCardId`, `w1`.`Id` AS `Id0`, `w1`.`Aliases`, `w1`.`Attributes`, `w1`.`Content`, `w1`.`ContentBlocks`, `w1`.`CoverImage`, `w1`.`CreatedAt` AS `CreatedAt0`, `w1`.`Description`, `w1`.`EmbeddedCards`, `w1`.`GalleryImages`, `w1`.`ProjectId`, `w1`.`SubType`, `w1`.`Tags`, `w1`.`TimelineEvents`, `w1`.`Title`, `w1`.`Type`, `w1`.`UpdatedAt`
+          FROM `WorldRelations` AS `w0`
+          INNER JOIN `WorldCards` AS `w1` ON `w0`.`TargetCardId` = `w1`.`Id`
+      ) AS `s` ON `w`.`Id` = `s`.`SourceCardId`
+      WHERE (`w`.`ProjectId` = @__projectId_0) AND `w`.`Id` IN ('cd7251f5-7e7e-420e-bffd-abb1730750da', '792379a9-ed93-4247-a31a-8c1d020ac91c')
+      ORDER BY `w`.`Id`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (237ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `s0`.`Id`, `s0`.`CreatedAt`, `s0`.`RelationType`, `s0`.`SourceCardId`, `s0`.`TargetCardId`, `s0`.`Id0`, `s0`.`Aliases`, `s0`.`Attributes`, `s0`.`Content`, `s0`.`ContentBlocks`, `s0`.`CoverImage`, `s0`.`CreatedAt0`, `s0`.`Description`, `s0`.`EmbeddedCards`, `s0`.`GalleryImages`, `s0`.`ProjectId`, `s0`.`SubType`, `s0`.`Tags`, `s0`.`TimelineEvents`, `s0`.`Title`, `s0`.`Type`, `s0`.`UpdatedAt`, `w`.`Id`
+      FROM `WorldCards` AS `w`
+      INNER JOIN (
+          SELECT `w2`.`Id`, `w2`.`CreatedAt`, `w2`.`RelationType`, `w2`.`SourceCardId`, `w2`.`TargetCardId`, `w3`.`Id` AS `Id0`, `w3`.`Aliases`, `w3`.`Attributes`, `w3`.`Content`, `w3`.`ContentBlocks`, `w3`.`CoverImage`, `w3`.`CreatedAt` AS `CreatedAt0`, `w3`.`Description`, `w3`.`EmbeddedCards`, `w3`.`GalleryImages`, `w3`.`ProjectId`, `w3`.`SubType`, `w3`.`Tags`, `w3`.`TimelineEvents`, `w3`.`Title`, `w3`.`Type`, `w3`.`UpdatedAt`
+          FROM `WorldRelations` AS `w2`
+          INNER JOIN `WorldCards` AS `w3` ON `w2`.`SourceCardId` = `w3`.`Id`
+      ) AS `s0` ON `w`.`Id` = `s0`.`TargetCardId`
+      WHERE (`w`.`ProjectId` = @__projectId_0) AND `w`.`Id` IN ('cd7251f5-7e7e-420e-bffd-abb1730750da', '792379a9-ed93-4247-a31a-8c1d020ac91c')
+      ORDER BY `w`.`Id`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Name`, `w`.`Description`, `w`.`IsPublic`, `w`.`CreatedAt`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldCards` AS `w0`
+          WHERE `w`.`Id` = `w0`.`ProjectId`) AS `CardCount`, `u`.`Username` AS `OwnerName`, `w`.`OwnerId`
+      FROM `WorldProjects` AS `w`
+      INNER JOIN `Users` AS `u` ON `w`.`OwnerId` = `u`.`Id`
+      WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (215ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`ProjectId`, `w`.`Title`, `w`.`Type`, `w`.`CoverImage`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w0`
+          WHERE `w0`.`SourceCardId` = `w`.`Id`) AS `OutRelationCount`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w1`
+          WHERE `w1`.`TargetCardId` = `w`.`Id`) AS `InRelationCount`
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`ProjectId` = @__projectId_0
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (231ms) [Parameters=[@__id_0='?' (DbType = Guid), @__user_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`, `w`.`Plan`, `w`.`SourceProjectId`, `w`.`State`, `w`.`TargetProjectId`, `w`.`UpdatedAt`, `w`.`Uploaded`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`Id` = @__id_0) AND (`w`.`OwnerId` = @__user_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__projectId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldProjects` AS `w`
+          WHERE (`w`.`IsPublic` OR (`w`.`OwnerId` = @__userId_0)) AND (`w`.`Id` = @__projectId_1))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (229ms) [Parameters=[], CommandType='Text', CommandTimeout='30']
+      SELECT `c`.`Id`, `c`.`CreatedAt`, `c`.`Description`, `c`.`Icon`, `c`.`IsActive`, `c`.`IsSystem`, `c`.`Label`, `c`.`SortOrder`, `c`.`UpdatedAt`
+      FROM `CardTypes` AS `c`
+      WHERE `c`.`IsActive`
+      ORDER BY `c`.`SortOrder`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__projectId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`ProjectId`, `w`.`Title`, `w`.`Type`, `w`.`CoverImage`, `w`.`UpdatedAt`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w0`
+          WHERE `w0`.`SourceCardId` = `w`.`Id`) AS `OutRelationCount`, (
+          SELECT COUNT(*)
+          FROM `WorldRelations` AS `w1`
+          WHERE `w1`.`TargetCardId` = `w`.`Id`) AS `InRelationCount`
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`ProjectId` = @__projectId_0
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`CreatedAt`, `w`.`Description`, `w`.`IsPublic`, `w`.`Name`, `w`.`OwnerId`, `w`.`UpdatedAt`
+      FROM `WorldProjects` AS `w`
+      WHERE (`w`.`OwnerId` = @__userId_0) AND (`w`.`Id` = @__project_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__user_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`, `w`.`Plan`, `w`.`SourceProjectId`, `w`.`State`, `w`.`TargetProjectId`, `w`.`UpdatedAt`, `w`.`Uploaded`
+      FROM `WorldRestores` AS `w`
+      WHERE ((`w`.`OwnerId` = @__user_0) AND (`w`.`SourceProjectId` = @__project_1)) AND `w`.`State` IN ('pending', 'cleaning')
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (228ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (228ms) [Parameters=[p0='?' (DbType = Guid), p1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT * FROM WorldRestores WHERE Id = @p0 AND OwnerId = @p1 FOR UPDATE
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@p2='?' (DbType = Guid), @p0='?' (Size = 16), @p1='?' (DbType = DateTime)], CommandType='Text', CommandTimeout='30']
+      SET AUTOCOMMIT = 1;
+      UPDATE `WorldRestores` SET `State` = @p0, `UpdatedAt` = @p1
+      WHERE `Id` = @p2;
+      SELECT ROW_COUNT();
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[p0='?' (DbType = Guid), p1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT * FROM WorldRestores WHERE Id = @p0 AND OwnerId = @p1 FOR UPDATE
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@p3='?' (DbType = Guid), @p0='?' (Size = 16), @p1='?' (DbType = DateTime), @p2='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SET AUTOCOMMIT = 1;
+      UPDATE `WorldRestores` SET `State` = @p0, `UpdatedAt` = @p1, `Uploaded` = @p2
+      WHERE `Id` = @p3;
+      SELECT ROW_COUNT();
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (228ms) [Parameters=[@__userId_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`CreatedAt`, `w`.`Description`, `w`.`IsPublic`, `w`.`Name`, `w`.`OwnerId`, `w`.`UpdatedAt`
+      FROM `WorldProjects` AS `w`
+      WHERE (`w`.`OwnerId` = @__userId_0) AND (`w`.`Id` = @__project_1)
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__user_0='?' (DbType = Guid), @__project_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`, `w`.`Plan`, `w`.`SourceProjectId`, `w`.`State`, `w`.`TargetProjectId`, `w`.`UpdatedAt`, `w`.`Uploaded`
+      FROM `WorldRestores` AS `w`
+      WHERE ((`w`.`OwnerId` = @__user_0) AND (`w`.`SourceProjectId` = @__project_1)) AND `w`.`State` IN ('pending', 'cleaning')
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (229ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)

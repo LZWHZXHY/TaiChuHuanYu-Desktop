@@ -13,6 +13,10 @@ namespace TaiChuWeb_V2.Dtos.Chai.stickman
         public int Views { get; set; }
         public int LikeCount { get; set; }
         public int FavoriteCount { get; set; }
+        public int CommentCount { get; set; }
+        /// <summary>标签（列表也返回，供前端分类筛选）</summary>
+        public List<string> Tags { get; set; } = new();
+        public string? TagsText { get; set; }
         public DateTime CreatedAt { get; set; }
     }
 
@@ -21,7 +25,6 @@ namespace TaiChuWeb_V2.Dtos.Chai.stickman
     {
         public string? Description { get; set; }
         public string MediaUrl { get; set; } = string.Empty;
-        public List<string> Tags { get; set; } = new();
         public List<Guid> RelatedCharacterIds { get; set; } = new();
         public Guid? RelatedBattleId { get; set; }
         public Guid? RelatedJointId { get; set; }

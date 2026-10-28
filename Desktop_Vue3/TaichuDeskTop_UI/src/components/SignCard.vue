@@ -296,7 +296,7 @@ const getStatusClass = (status?: number) => {
 .nav-btn:disabled { opacity: 0.3; cursor: default; }
 .month-display { font-size: 1.2rem; font-weight: 450; letter-spacing: -0.2px; }
 .sign-stats { display: flex; align-items: baseline; gap: 1rem; }
-.sign-action-btn { background: none; border: 1px solid var(--border-line); padding: 0.2rem 1rem; font-size: 0.85rem; border-radius: 20px; cursor: pointer; color: var(--text-primary); transition: all 0.1s; }
+.sign-action-btn { background: none; border: 1px solid var(--border-line); padding: 0.2rem 1rem; font-size: 0.85rem; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); transition: all 0.1s; }
 .sign-action-btn:hover:not(:disabled) { background: var(--bg-sub); border-color: var(--text-secondary); }
 .sign-action-btn:disabled { color: var(--text-secondary); cursor: default; }
 .stats-label { font-size: 0.85rem; color: var(--text-secondary); }
@@ -312,7 +312,7 @@ const getStatusClass = (status?: number) => {
 .is-today .day-num { font-weight: 500; border-bottom: 1px solid var(--text-primary); }
 .is-selected { background: var(--bg-sub); outline: none; }
 .is-selected .day-num { font-weight: 500; }
-.activity-marker { font-size: 6px; color: #e68a2e; margin-top: 2px; line-height: 1; }
+.activity-marker { font-size: 6px; color: var(--warning); margin-top: 2px; line-height: 1; }
 
 .event-panel { margin-top: 2rem; border-top: 1px solid var(--border-line); padding-top: 1.5rem; }
 .event-panel-header { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-bottom: 1rem; }
@@ -324,7 +324,7 @@ const getStatusClass = (status?: number) => {
 .event-item { 
   padding: 0.75rem; 
   margin: 0 -0.75rem; /* 抵消内边距，保持文字对齐 */
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border-bottom: 1px solid #f0f2f5; 
   transition: background-color 0.2s ease;
 }
@@ -332,7 +332,7 @@ const getStatusClass = (status?: number) => {
 .event-item.clickable:hover { background-color: var(--bg-sub); border-bottom-color: transparent; }
 
 .event-name { font-weight: 500; }
-.event-time { display: inline-block; font-size: 0.75rem; font-family: monospace; color: #e68a2e; margin-right: 0.75rem; }
+.event-time { display: inline-block; font-size: 0.75rem; font-family: monospace; color: var(--warning); margin-right: 0.75rem; }
 .event-detail { font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem; }
 .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90%; }
 .event-empty { color: var(--text-secondary); font-size: 0.85rem; padding: 1rem 0; text-align: center; }
@@ -372,7 +372,7 @@ const getStatusClass = (status?: number) => {
   background: var(--paper-card);
   width: 90%;
   max-width: 440px;
-  border-radius: 16px;
+  border-radius: var(--radius-sm);
   padding: 2.5rem 2rem;
   position: relative;
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
@@ -401,14 +401,14 @@ const getStatusClass = (status?: number) => {
   display: inline-block;
   font-size: 0.7rem;
   padding: 0.2rem 0.6rem;
-  border-radius: 20px;
+  border-radius: var(--radius-sm);
   margin-bottom: 0.75rem;
   letter-spacing: 0.5px;
 }
-.badge-normal { background: var(--info-soft); color: #4b6bfb; } /* 未开始 */
-.badge-ongoing { background: #fff5e6; color: #e68a2e; } /* 进行中 */
-.badge-completed { background: var(--success-soft); color: #4c9f70; } /* 已结束 */
-.badge-cancelled { background: #f1f5f9; color: #64748b; } /* 已取消/草稿 */
+.badge-normal { background: var(--info-soft); color: var(--info); } /* 未开始 */
+.badge-ongoing { background: var(--warning-soft); color: var(--warning); } /* 进行中 */
+.badge-completed { background: var(--success-soft); color: var(--success); } /* 已结束 */
+.badge-cancelled { background: var(--bg-sub); color: var(--text-secondary); } /* 已取消/草稿 */
 
 .modal-title {
   margin: 0;
@@ -434,7 +434,7 @@ const getStatusClass = (status?: number) => {
   word-break: break-all;
 }
 .time-divider { color: var(--text-secondary); margin: 0 0.4rem; font-size: 0.8rem; }
-.desc-text { color: #5a6b82; white-space: pre-wrap; }
+.desc-text { color: var(--text-secondary); white-space: pre-wrap; }
 
 /* Vue 过渡动画 */
 .fade-enter-active, .fade-leave-active { transition: opacity 0.25s ease; }

@@ -36,21 +36,23 @@ const hasMore = ref(false)
 const error = ref('')
 let offset = 0
 
-const badgeText = (kind: string) => kind === 'post' ? '帖子' : kind === 'blog' ? '博客' : kind === 'artwork' ? '作品' : kind === 'user-joined' ? '新成员' : kind.startsWith('comment') ? '评论' : kind === 'joint' ? '联合' : kind === 'survey' ? '问卷' : '世界观'
-const badgeKind = (kind: string) => kind.startsWith('wiki') ? 'wiki' : kind.startsWith('comment') ? 'comment' : kind
-const verb = (kind: string) => kind === 'wiki-new' ? '创建了世界观设定' : kind === 'wiki-update' ? '更新了世界观设定' : kind === 'artwork' ? '发布了作品' : kind === 'post' ? '发布了帖子' : kind === 'user-joined' ? '加入了社区' : kind.startsWith('comment') ? '评论了' : kind === 'joint' ? '发起了联合活动' : kind === 'survey' ? '发起了问卷调查' : '发布了博客'
+const badgeText = (kind: string) => kind === 'post' ? '帖子' : kind === 'blog' ? '博客' : kind === 'artwork' ? '作品' : kind === 'user-joined' ? '新成员' : kind === 'signin' ? '签到' : kind.startsWith('comment') ? '评论' : kind === 'joint' ? '联合' : kind === 'survey' ? '问卷' : kind === 'dev-project' ? '开发进度' : '世界观'
+const badgeKind = (kind: string) => kind.startsWith('wiki') ? 'wiki' : kind.startsWith('comment') ? 'comment' : kind === 'dev-project' ? 'dev' : kind
+const verb = (kind: string) => kind === 'wiki-new' ? '创建了世界观设定' : kind === 'wiki-update' ? '更新了世界观设定' : kind === 'artwork' ? '发布了作品' : kind === 'post' ? '发布了帖子' : kind === 'user-joined' ? '加入了社区' : kind === 'signin' ? '签到打卡了' : kind.startsWith('comment') ? '评论了' : kind === 'joint' ? '发起了联合活动' : kind === 'survey' ? '发起了问卷调查' : kind === 'dev-project' ? '更新了开发进度' : '发布了博客'
 
 function open(item: CommunityFeedItem) {
   if (item.kind === 'blog' || item.kind === 'post' || item.kind === 'comment-blog' || item.kind === 'comment-post') {
     router.push({ name: 'CommunityStream', query: { post: item.targetId } })
   } else if (item.kind === 'artwork' || item.kind === 'comment-artwork') {
     router.push({ name: 'KnowledgeHome', query: { detailType: 'artwork', detail: item.targetId } })
-  } else if (item.kind === 'user-joined') {
+  } else if (item.kind === 'user-joined' || item.kind === 'signin') {
     router.push({ name: 'UserCenter', params: { id: item.targetId } })
   } else if (item.kind === 'joint') {
     router.push('/joint/' + item.targetId)
   } else if (item.kind === 'survey') {
     router.push({ name: 'FillSurvey', params: { id: item.targetId } })
+  } else if (item.kind === 'dev-project') {
+    document.getElementById('dev-progress')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   } else {
     router.push({ name: 'WikiDetail', params: { id: item.targetId } })
   }
@@ -100,12 +102,12 @@ onMounted(() => load(true))
 .community-feed { color: var(--text-primary); }
 .feed-header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .feed-header h2 { margin: 0; font-size: 1.05rem; }
-.feed-header span { color: var(--text-secondary); font-size: .75rem; }
+.feed-header span { color: var(--text-secondary); font-size: 12px; }
 .feed-list { list-style: none; margin: 0; padding: 0; }
-.feed-item { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; cursor: pointer; border-bottom: 1px solid var(--border-line); }
+.feed-item { display: flex; align-items: flex-start; gap: 14px; padding: 18px 0; cursor: pointer; border-bottom: 1px solid var(--border-line); }
 .feed-item:last-child { border-bottom: 0; }
 .feed-item:hover .feed-title { color: var(--accent-color); }
-.feed-badge { flex: 0 0 auto; min-width: 38px; padding: 2px 6px; border-radius: 5px; font-size: .66rem; font-weight: 600; text-align: center; background: var(--bg-sub); color: var(--text-secondary); }
+.feed-badge { flex: 0 0 auto; min-width: 38px; padding: 2px 6px; border-radius: 2px; font-size: 11px; font-weight: 600; text-align: center; background: var(--bg-sub); color: var(--text-secondary); }
 .badge-post { background: var(--accent-soft); color: var(--accent-color); }
 .badge-blog { background: var(--accent-soft); color: var(--accent-color); }
 .badge-artwork { background: var(--bg-sub); color: var(--text-secondary); }
@@ -114,15 +116,16 @@ onMounted(() => load(true))
 .badge-comment { background: var(--bg-sub); color: var(--text-secondary); }
 .badge-joint { background: var(--bg-sub); color: var(--text-secondary); }
 .badge-survey { background: var(--bg-sub); color: var(--text-secondary); }
+.badge-dev { background: var(--accent-soft); color: var(--accent-color); }
 .feed-body { flex: 1; min-width: 0; }
-.feed-line { margin: 0; font-size: .83rem; line-height: 1.6; overflow-wrap: anywhere; }
+.feed-line { margin: 0; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .feed-line strong { font-weight: 600; }
 .feed-title { transition: color .2s; }
-.feed-time { display: block; margin-top: 3px; font-size: .72rem; color: var(--text-secondary); }
+.feed-time { display: block; margin-top: 3px; font-size: 12px; color: var(--text-secondary); }
 .feed-state { padding: 16px 0; margin: 0; text-align: center; color: var(--text-secondary); font-size: .82rem; }
 .feed-error { color: var(--accent-color); margin: 8px 0 0; font-size: .8rem; }
 .feed-state button { font: inherit; color: var(--accent-color); background: none; border: 0; cursor: pointer; text-decoration: underline; }
-.load-more { display: block; width: 100%; margin-top: 12px; padding: 8px; color: var(--text-secondary); background: var(--bg-sub); border: 1px solid var(--border-line); border-radius: 8px; font-size: .78rem; cursor: pointer; }
+.load-more { display: block; width: 100%; margin-top: 12px; padding: 8px; color: var(--text-secondary); background: var(--bg-sub); border: 1px solid var(--border-line); border-radius: 3px; font-size: .78rem; cursor: pointer; }
 .load-more:hover:not(:disabled) { color: var(--accent-color); border-color: var(--accent-color); }
 .load-more:disabled { opacity: .5; cursor: default; }
 </style>

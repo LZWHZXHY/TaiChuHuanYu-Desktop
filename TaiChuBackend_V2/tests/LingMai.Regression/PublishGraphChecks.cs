@@ -63,7 +63,9 @@ static class PublishGraphChecks
                 Check(db.NoteRows.Rows[0].IsPublic && db.Saves == 1, "draft flag and save");
                 Check(published.AuthorName == (scenario == "update" ? "original" : scenario == "anonymous" ? "匿名隐士" : "author"), "author snapshot");
                 var blocks = db.PublishedBlockRows.Rows.Where(b => b.OwnerId == published.Id.ToString()).ToArray();
-                Check(blocks.Length == (scenario == "empty" ? 0 : type == "blog" ? 3 : 2), "block owner filters");
+                Check(blocks.Length == (scenario == "empty" ? 0 : 3), type + scenario + " retains source blocks across type migration");
+                Check(!blocks.Any(b => b.Data == "{}"), "foreign note blocks stay excluded");
+                if (scenario != "empty") Check(blocks.Any(b => b.Type == "blog_fixed_cover"), "legacy note-owned cover survives publication");
                 Check(blocks.All(b => b.OwnerType == type && b.Id != Guid.Empty), "published block type/ids");
                 if (scenario == "update") Check(published.Id == pubId && published.Resonance == 8 && !blocks.Any(b => b.Data == "old"), "stable identity and replace");
                 trace[$"publish-{type}-{scenario}"] = new { published.Title, published.Type, published.AuthorName, published.Tags, published.Excerpt, published.ExtraData, published.Resonance,
@@ -103,7 +105,7 @@ static class PublishGraphChecks
         {
             var db = Create("blog");
             db.PublishedRows.Rows.AddRange(new[] { "post", "blog", "wiki", "note" }.Select((type, i) => new PublishedNote { Id = new Guid(i + 1, 0, 0, new byte[8]), Type = type, PublishedAt = date.AddDays(i) }));
-            var c = new LingMaiPublishController(db, Array.Empty<ILingMaiPublishHandler>()) { ControllerContext = Login(false) };
+            var c = new LingMaiPublishController(db, Array.Empty<ILingMaiPublishHandler>(), new TaiChuWeb_V2.Services.LingMai.NoteCommentService(db)) { ControllerContext = Login(false) };
             trace["stream-default"] = Response(await c.GetPublicStream());
             trace["stream-all"] = Response(await c.GetPublicStream(null, (string?)null));
             trace["stream-public"] = Response(await c.GetPublicStream(null, 1, 20));

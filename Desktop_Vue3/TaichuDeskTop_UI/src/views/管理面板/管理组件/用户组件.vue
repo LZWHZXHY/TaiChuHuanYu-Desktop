@@ -132,7 +132,7 @@
 
     <Teleport to="body">
       <div v-if="showGovModal" class="modal-mask" @click.self="closeModal">
-        <div class="modal-container scroll-y">
+        <div class="modal-container scroll-y workbench-skin">
           <header class="modal-header">
             <div>
               <h3>太初域用户深度治理中枢</h3>
@@ -391,7 +391,7 @@ const formatDate = (dateStr: string) => {
 .btn-refresh:hover { border-color: var(--border-line); color: var(--text-primary); }
 
 /* 线条极简高留白表格结构 */
-.table-card { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.01); }
+.table-card { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); box-shadow: 0 4px 20px rgba(0,0,0,0.01); }
 .table-responsive { width: 100%; overflow-x: auto; }
 .ink-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
 .ink-table th { padding: 16px; background: var(--paper-card); color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border-line); }

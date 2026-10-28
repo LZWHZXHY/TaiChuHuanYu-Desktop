@@ -1,0 +1,15 @@
+{
+  "originalAddressFileExists": false,
+  "bytesExactlyEqual": true,
+  "originalSha256": "b2deb5949ed2c24424db4b81ec063980463bf23711c14b1471840935de8ee5e3",
+  "restoredSha256": "b2deb5949ed2c24424db4b81ec063980463bf23711c14b1471840935de8ee5e3",
+  "archivePaths": [
+    "images/b2deb5949ed2c24424db4b81ec063980463bf23711c14b1471840935de8ee5e3.png",
+    "world.md",
+    "manifest.json"
+  ],
+  "project": {
+    "name": "完整备份验收 · 60条含原图",
+    "description": "完整备份恢复验收；包含六十个条目、中文、环形引用及包内原图。"
+  }
+}

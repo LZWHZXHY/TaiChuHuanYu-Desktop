@@ -13,7 +13,7 @@ function load(path, mocks = {}) {
   const code = path.endsWith('.vue') ? compileScript(parse(source).descriptor, { id: path }).content : source
   const js = ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText
   const exports = {}
-  new Function('require', 'exports', js)(id => id in mocks ? mocks[id] : require(id), exports)
+  new Function('require', 'exports', js)(id => id in mocks ? mocks[id] : id.endsWith('/imageThumb') ? load('utils/imageThumb.ts') : require(id), exports)
   return exports
 }
 const settle = async () => { await vue.nextTick(); await new Promise(resolve => setImmediate(resolve)) }
@@ -161,7 +161,7 @@ test('detail switch ignores old fetch, exposes retry, and restores scrolling', a
   const env = setup(t), old = deferred(), props = vue.reactive({ id: 1 }), body = { style: { overflow: 'auto' } }
   const previous = globalThis.document; globalThis.document = { body }; t.after(() => { globalThis.document = previous })
   let fail = false
-  const c = mount(t, 'views/画廊展厅/ArtworkDetail.vue', props, { ...shared(env), '../../api/artwork': { artworkApi: { getDetail: async id => { if (fail) throw new Error('offline'); return id === 1 ? old.promise : { ...stats(id), title: 'second', images: [] } } } },
+  const c = mount(t, 'views/画廊展厅/ArtworkDetail.vue', props, { ...shared(env), '@/components/SectionTrace.vue': {}, '../../api/artwork': { artworkApi: { getDetail: async id => { if (fail) throw new Error('offline'); return id === 1 ? old.promise : { ...stats(id), title: 'second', images: [] } } } },
     '../../components/InteractActions.vue': { default: {} }, './ArtworkComments.vue': { default: {} }, './ArtworkPublishModal.vue': { default: {} } })
   props.id = 2; await settle(); old.resolve({ ...stats(1), title: 'old', images: [] }); await settle()
   assert.equal(c.state.artwork.value.id, 2); assert.equal(c.state.loading.value, false)

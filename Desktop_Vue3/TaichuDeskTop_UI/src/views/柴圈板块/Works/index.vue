@@ -17,6 +17,11 @@
       <button class="sort-btn" :class="{ active: sort === 'hot' }" @click="setSort('hot')">最热</button>
     </div>
 
+    <div v-if="allTags.length" class="tag-filter">
+      <button class="tag-chip" :class="{ active: !tag }" @click="setTag('')">全部</button>
+      <button v-for="t in allTags" :key="t" class="tag-chip" :class="{ active: tag === t }" @click="setTag(t)">#{{ t }}</button>
+    </div>
+
     <p v-if="loading" class="state">正在加载作品…</p>
     <p v-else-if="error" class="state" role="alert">{{ error }} <button @click="reload">重试</button></p>
     <div v-else-if="!items.length" class="state">还没有作品，来上传第一个吧。</div>
@@ -37,6 +42,7 @@
           <div class="work-stats">
             <span>❤ {{ w.likeCount }}</span>
             <span>⭐ {{ w.favoriteCount }}</span>
+            <span>💬 {{ w.commentCount }}</span>
           </div>
         </div>
       </RouterLink>
@@ -62,7 +68,15 @@ const page = ref(1)
 const pageSize = 12
 const total = ref(0)
 const keyword = ref('')
+const tag = ref('')
 const sort = ref('latest')
+
+// 标签筛选：从当前页作品里收集标签
+const allTags = computed(() => {
+  const set = new Set<string>()
+  for (const w of items.value) for (const t of (w.tags || [])) set.add(t)
+  return [...set].slice(0, 24)
+})
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)))
 
@@ -70,7 +84,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const res = await chaiWorkApi.getList({ page: page.value, pageSize, keyword: keyword.value || undefined, sort: sort.value })
+    const res = await chaiWorkApi.getList({ page: page.value, pageSize, keyword: keyword.value || undefined, tag: tag.value || undefined, sort: sort.value })
     items.value = res.items
     total.value = res.total
   } catch (e: any) {
@@ -82,6 +96,7 @@ async function load() {
 
 function reload() { page.value = 1; load() }
 function setSort(s: string) { sort.value = s; reload() }
+function setTag(t: string) { tag.value = t; reload() }
 function changePage(p: number) { page.value = p; load() }
 
 onMounted(load)
@@ -97,6 +112,10 @@ onMounted(load)
 .sort-btn { padding: 8px 14px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .85rem; }
 .sort-btn.active { color: var(--accent-color); border-color: var(--accent-color); }
 .state { padding: 40px 0; text-align: center; color: var(--text-secondary); }
+.tag-filter { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 18px; }
+.tag-chip { padding: 4px 12px; border: 1px solid var(--border-line); border-radius: 999px; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .78rem; }
+.tag-chip:hover { border-color: var(--accent-color); color: var(--accent-color); }
+.tag-chip.active { background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color); }
 .works-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 18px; }
 .work-card { border: 1px solid var(--border-line); border-radius: 12px; overflow: hidden; background: var(--paper-card); text-decoration: none; color: inherit; transition: transform .2s, border-color .2s; }
 .work-card:hover { transform: translateY(-3px); border-color: var(--accent-color); }

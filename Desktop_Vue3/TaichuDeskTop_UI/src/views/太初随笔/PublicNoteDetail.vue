@@ -2,7 +2,7 @@
   <div class="md-detail-mask" role="dialog" aria-modal="true" aria-label="文章详情" @click.self="$emit('close')">
     <div v-if="loading" class="md-loading-bar"></div>
 
-    <div class="md-viewport animate-fade-up content-page">
+    <div class="md-viewport animate-fade-up content-page community-surface tone-stream detail-surface">
       <nav class="md-controls content-actions">
         <button class="back-btn" @click="$emit('close')">
           <span class="arrow">←</span> 返回
@@ -21,6 +21,7 @@
 
         <article class="md-article">
           <header class="article-header">
+      <SectionTrace />
             <h1 v-if="post.type === 'note' || post.title" class="title">
               {{ post.title || '无标题碎片' }}
             </h1>
@@ -65,6 +66,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useEditor, EditorContent } from '@tiptap/vue-3';
 import { spiritExtensions } from '../../utils/editorConfig'; // 🌟 引入编辑器扩展
@@ -234,8 +236,8 @@ onUnmounted(() => {
 }
 .metadata { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: var(--text-secondary); font-size: 14px; }
 .author-block { display: flex; align-items: center; gap: 8px; }
-.mini-avatar-placeholder { width: 20px; height: 20px; border-radius: 50%; background: #e5e5ea; }
-.divider { color: #d2d2d7; }
+.mini-avatar-placeholder { width: 20px; height: 20px; border-radius: 50%; background: var(--border-line); }
+.divider { color: var(--text-secondary); }
 .resonance { display: flex; align-items: center; gap: 4px; }
 
 /* Tiptap 容器松紧度样式 */
@@ -253,13 +255,13 @@ onUnmounted(() => {
 }
 
 .article-footer { margin-top: 0; padding-top: 24px; text-align: center; }
-.footer-divider { height: 1px; background: #f2f2f2; margin-bottom: 40px; }
-.end-mark { font-size: 10px; letter-spacing: 0.4em; color: #d2d2d7; margin-top: 20px; }
-.footer-sign { font-size: 12px; color: #86868b; margin-top: 8px; }
+.footer-divider { height: 1px; background: var(--border-line); margin-bottom: 40px; }
+.end-mark { font-size: 10px; letter-spacing: 0.4em; color: var(--text-secondary); margin-top: 20px; }
+.footer-sign { font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
 
 .md-loading-bar {
   position: fixed; top: 0; left: 0; height: 2px;
-  background: #000; width: 100%; z-index: 2100;
+  background: var(--accent-color); width: 100%; z-index: 2100;
   animation: loading-flow 2s infinite linear;
 }
 @keyframes loading-flow {
@@ -267,7 +269,7 @@ onUnmounted(() => {
   100% { transform: translateX(100%); }
 }
 
-.empty-state { text-align: center; color: #86868b; font-size: 14px; }
+.empty-state { text-align: center; color: var(--text-secondary); font-size: 14px; }
 
 .animate-fade-up { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 @keyframes fadeUp {
@@ -275,4 +277,5 @@ onUnmounted(() => {
   to { opacity: 1; transform: translateY(0); }
 }
 @media(max-width: 720px) { .md-viewport { padding: 0 16px 60px; } .md-wrapper { padding: 20px; } .metadata { font-size: .8rem; gap: 8px; } }
+@media(prefers-reduced-motion: reduce) { .animate-fade-up, .md-loading-bar { animation: none; } }
 </style>

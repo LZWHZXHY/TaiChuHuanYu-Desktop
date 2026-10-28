@@ -1,6 +1,6 @@
 <template>
-  <div class="game-hub content-page">
-    <header class="content-header"><div><h1>太虚游</h1><p class="intro">玩游戏，也分享游戏里的故事。</p></div><RouterLink v-if="currentGameKey !== 'MinecraftServer'" class="game-discussion" to="/stream?tag=我的世界">我的世界讨论 →</RouterLink><span v-if="currentGameKey === 'Gobang'" class="connection-status" :class="isConnected ? 'online' : 'offline'">{{ isConnected ? '● 联机服务已连接' : '○ 联机服务未连接' }}</span></header>
+  <div class="game-hub content-page community-surface tone-play">
+    <header class="content-header"><SectionTrace /><div><h1>太虚游</h1><p class="intro">玩游戏，也分享游戏里的故事。</p></div><RouterLink v-if="currentGameKey !== 'MinecraftServer'" class="game-discussion" to="/stream?tag=我的世界">我的世界讨论 →</RouterLink><span v-if="currentGameKey === 'Gobang'" class="connection-status" :class="isConnected ? 'online' : 'offline'">{{ isConnected ? '● 联机服务已连接' : '○ 联机服务未连接' }}</span></header>
     <div class="hub-body">
       <!-- 左侧导航 – 分类分组 -->
       <aside v-if="currentGameKey" class="hub-sidebar">
@@ -64,6 +64,7 @@
 </template>
 
 <script setup>
+import SectionTrace from '@/components/SectionTrace.vue'
 import { useUserStore } from '@/stores/user'
 import { ref, shallowRef, defineAsyncComponent, onMounted, onUnmounted, provide, computed, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteUpdate, onBeforeRouteLeave } from 'vue-router'

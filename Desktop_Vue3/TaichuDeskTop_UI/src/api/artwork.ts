@@ -110,6 +110,10 @@ export const artworkApi = {
       params: { offset, limit, rankPeriod, search: search?.trim() || undefined }, silentError: true
     }),
 
+  /** 我收藏的作品（按收藏时间倒序） */
+  getFavorites: (offset: number, limit: number = 20) =>
+    request.get<ArtworkListResponse>('/Artwork/favorites', { params: { offset, limit }, silentError: true }),
+
   /**
    * 获取作品详情
    */

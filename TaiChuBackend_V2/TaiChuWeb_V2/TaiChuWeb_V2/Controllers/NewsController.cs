@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization; // 引入授权（后续加权限用）
 using System;
@@ -39,6 +39,9 @@ namespace TaiChuWeb_V2.Controllers
             news.Type = dto.Type;
             news.ImageUrl = dto.ImageUrl;
             news.Content = dto.Content;
+            news.NoticeKind = string.IsNullOrWhiteSpace(dto.NoticeKind) ? news.NoticeKind : dto.NoticeKind;
+            news.Importance = string.IsNullOrWhiteSpace(dto.Importance) ? news.Importance : dto.Importance;
+            news.ExpireAt = dto.ExpireAt;
             // 也可以选择在这里不更新 CreatedAt，保持原始发布时间
 
             await _context.SaveChangesAsync();
@@ -55,8 +58,17 @@ namespace TaiChuWeb_V2.Controllers
             var canManage = Guid.TryParse(userId, out var id) && await _context.UserPermissions
                 .AnyAsync(p => p.UserId == id && p.Permission == TaiChuWeb_V2.Models.User.AdminPermission.SuperAdmin);
             // 按创建时间倒序排列，最新发布的排在最前面
+            // 非管理员看不到「已到期的定时公告」
+            var now = DateTime.UtcNow;
+
+            // 定时公告到期 → 真正下架（写回 IsPublished=false），
+            // 否则管理端会一直显示「公开中」。通常 0 行受影响，开销极小。
+            await _context.News
+                .Where(n => n.IsPublished && n.NoticeKind == "scheduled" && n.ExpireAt != null && n.ExpireAt <= now)
+                .ExecuteUpdateAsync(s => s.SetProperty(n => n.IsPublished, false));
+
             var newsList = await _context.News
-                .Where(n => canManage || n.IsPublished)
+                .Where(n => canManage || (n.IsPublished && (n.NoticeKind != "scheduled" || n.ExpireAt == null || n.ExpireAt > now)))
                 .OrderByDescending(n => n.CreatedAt)
                 .ToListAsync();
 
@@ -84,6 +96,9 @@ namespace TaiChuWeb_V2.Controllers
                 Type = dto.Type ?? "公告",
                 ImageUrl = dto.ImageUrl,
                 Content = dto.Content,
+                NoticeKind = string.IsNullOrWhiteSpace(dto.NoticeKind) ? "persistent" : dto.NoticeKind,
+                Importance = string.IsNullOrWhiteSpace(dto.Importance) ? "normal" : dto.Importance,
+                ExpireAt = dto.ExpireAt,
                 IsPublished = true, // 默认直接发布
                 CreatedAt = DateTime.UtcNow
             };

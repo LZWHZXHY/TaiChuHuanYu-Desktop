@@ -6,6 +6,7 @@
   "scripts": {
     "test:auth": "node --test tests/auth.test.mjs",
     "test:world": "node --test tests/world.test.mjs",
+    "test:world-backup": "node --test tests/world-backup.test.mjs",
     "test:world-components": "node --test tests/world-components.test.mjs",
     "test:build": "node --test tests/build.test.mjs",
     "dev": "vite",
@@ -56,7 +57,8 @@
     "vis-network": "^10.1.0",
     "vue": "^3.5.32",
     "vuedraggable": "^4.1.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "fflate": "^0.8.3"
   },
   "devDependencies": {
     "@types/echarts": "^4.9.22",

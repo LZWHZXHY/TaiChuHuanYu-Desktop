@@ -73,7 +73,7 @@ namespace TaiChuWeb_V2.Controllers
                 .ToListAsync();
 
             var ids = artworks.Select(a => a.Id).ToArray();
-            var stats = await _engagement.Stats(CurrentUserId).Where(a => Enumerable.Contains(ids, a.Id)).ToDictionaryAsync(a => a.Id);
+            var stats = await _engagement.Stats(CurrentUserId, ids).ToDictionaryAsync(a => a.Id);
             foreach (var item in artworks) item.SetStats(stats[item.Id]);
 
             return Ok(new
@@ -84,6 +84,53 @@ namespace TaiChuWeb_V2.Controllers
             });
         }
 
+
+        /// <summary>我收藏的作品（按收藏时间倒序）。</summary>
+        [HttpGet("favorites")]
+        [Authorize]
+        public async Task<IActionResult> MyFavorites([FromQuery] int offset = 0, [FromQuery] int limit = 20)
+        {
+            if (!CurrentUserId.HasValue) return Unauthorized();
+            offset = Math.Max(0, offset);
+            limit = Math.Clamp(limit, 1, 50);
+            var uid = CurrentUserId.Value;
+
+            var favQuery = _context.UserInteractions
+                .Where(i => i.UserId == uid && i.TargetType == "Artwork" && i.ActionType == "Favorite");
+            var total = await favQuery.CountAsync();
+
+            var favs = await favQuery.OrderByDescending(i => i.CreatedAt)
+                .Skip(offset).Take(limit)
+                .Select(i => i.TargetId)
+                .ToListAsync();
+
+            var ids = favs.Select(t => int.TryParse(t, out var n) ? n : 0).Where(n => n > 0).ToList();
+            var artworks = await _context.Artworks.AsNoTracking()
+                .Where(a => ids.Contains(a.Id) && a.IsApproved && (a.Status == "published" || a.Status == "" || a.Status == null))
+                .Select(a => new ArtworkItemDto
+                {
+                    Id = a.Id,
+                    Title = a.Title,
+                    UploadAt = a.UploadAt,
+                    CoverImageUrl = a.Images.Where(i => i.IsCover).Select(i => i.ImageUrl).FirstOrDefault()
+                                     ?? a.Images.OrderBy(i => i.Id).Select(i => i.ImageUrl).FirstOrDefault(),
+                    AuthorName = a.Uploader.Username,
+                    AuthorAvatar = a.Uploader.Profile != null ? a.Uploader.Profile.Avatar : null,
+                    ImageCount = a.Images.Count,
+                    ViewCount = a.ViewCount
+                })
+                .ToListAsync();
+
+            var map = artworks.ToDictionary(a => a.Id);
+            var ordered = ids.Where(id => map.ContainsKey(id)).Select(id => map[id]).ToList();
+            if (ordered.Count > 0)
+            {
+                var stats = await _engagement.Stats(uid, ordered.Select(a => a.Id).ToArray()).ToDictionaryAsync(s => s.Id);
+                foreach (var a in ordered) a.SetStats(stats[a.Id]);
+            }
+
+            return Ok(new { Total = total, Data = ordered, HasMore = offset + favs.Count < total });
+        }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ArtworkDetailDto>> GetArtworkDetail(int id)

@@ -307,7 +307,7 @@ const handleSubmit = async () => {
 <style scoped>
 .email-manage-panel {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   padding: 32px;
   border: 1px solid var(--border-line);
   box-shadow: 0 4px 20px rgba(0,0,0,0.03);
@@ -339,7 +339,7 @@ const handleSubmit = async () => {
   gap: 12px;
   background: var(--bg-main);
   padding: 4px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 
 .tab-btn {
@@ -349,7 +349,7 @@ const handleSubmit = async () => {
   font-size: 0.9rem;
   color: var(--text-secondary);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   transition: all 0.3s;
 }
 
@@ -374,7 +374,7 @@ const handleSubmit = async () => {
   gap: 16px;
   padding: 20px;
   border: 1px solid var(--border-line);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   background: var(--paper-card);
   transition: all 0.3s ease;
@@ -456,7 +456,7 @@ const handleSubmit = async () => {
   background: var(--bg-main);
   border: 1px solid var(--warning-soft);
   padding: 16px 20px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin-bottom: 24px;
   align-items: flex-start;
 }
@@ -469,7 +469,7 @@ const handleSubmit = async () => {
   background: var(--paper-card);
   border-left: 4px solid var(--border-line);
   padding: 16px 20px 1px 20px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   margin-bottom: 24px;
 }
 
@@ -493,7 +493,7 @@ const handleSubmit = async () => {
   background: var(--paper-card);
   padding: 24px;
   border: 1px solid var(--border-line);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   margin-bottom: 24px;
 }
 
@@ -523,7 +523,7 @@ const handleSubmit = async () => {
   width: 100%;
   padding: 14px 16px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 0.95rem;
   transition: all 0.2s ease;
   font-family: inherit;
@@ -560,7 +560,7 @@ const handleSubmit = async () => {
 
 .btn-outline, .btn-primary {
   padding: 12px 28px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 600;
@@ -631,7 +631,7 @@ const handleSubmit = async () => {
 /* 标签样式 */
 .tag {
   padding: 4px 12px;
-  border-radius: 20px;
+  border-radius: var(--radius-sm);
   font-size: 0.8rem;
   font-weight: 500;
 }

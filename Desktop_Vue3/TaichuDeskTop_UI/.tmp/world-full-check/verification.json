@@ -1,0 +1,106 @@
+{
+  "backend": {
+    "checks": 767,
+    "failed": 0,
+    "build": "passed",
+    "regressionBuildWarnings": 0,
+    "backendBuildWarnings": [
+      "NU1510 existing Microsoft.AspNetCore.SignalR package reference"
+    ]
+  },
+  "frontend": {
+    "checks": 190,
+    "failed": 0,
+    "build": "passed",
+    "runner": "Each test file in its own node process with --experimental-test-isolation=none; default Node 22.17.1 worker mode intermittently fails deserializing test messages",
+    "warnings": [
+      "Three.js chunk 584.62 kB exceeds 500 kB warning threshold"
+    ]
+  },
+  "browser": {
+    "preview": "http://127.0.0.1:5195",
+    "backend": "https://localhost:5049",
+    "account": "腾蛇小号",
+    "privateTestProject": "a550e279-fc4a-4954-b29b-3fc0b0aa0ea1",
+    "newPrivateTestCard": "7d113843-9078-4880-981b-4376a7cdd670",
+    "verified": [
+      "Create organization entry with inline reference, relation and timeline event",
+      "All 12 existing types saved and read back, retaining reference, relation and timeline",
+      "Timeline event read, refresh keeps view, source button opens detail",
+      "Graph includes inline and block references, deduplicates them, explicit relations take priority",
+      "Graph node opens original detail; search and type filters; light/dark and 390px toolbar layout",
+      "Forward and reverse relations match after adding/removing test relation",
+      "Unsaved navigation can be cancelled or explicitly discarded",
+      "A draft survives refresh after B changes server; restore/save requires conflict choice",
+      "Simultaneous saves: one succeeds, the other gets actual HTTP 409 and retains local draft",
+      "After full page reload, HTTP409 does not open global LingMai debug panel"
+    ]
+  },
+  "remaining": [
+    "Watermark publication is intentionally disabled in existing backend implementation; tests now reflect this, standalone watermark renderer test retained",
+    "Default Node worker test runner intermittently fails communication; independent per-file runs pass",
+    "No large-graph performance or full cross-browser/device matrix covered"
+  ],
+  "changes": [
+    {
+      "path": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\tests\\LingMai.Regression\\CommunityChecks.cs",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\tests\\LingMai.Regression\\JointBattleChecks.cs",
+      "added": 1,
+      "removed": 1
+    },
+    {
+      "path": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\tests\\LingMai.Regression\\PublishGraphChecks.cs",
+      "added": 4,
+      "removed": 2
+    },
+    {
+      "path": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\tests\\LingMai.Regression\\ArtworkPublishChecks.cs",
+      "added": 8,
+      "removed": 12
+    },
+    {
+      "path": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\Desktop_Vue3\\TaichuDeskTop_UI\\src\\composables\\世界观管理\\useWorldGraph.ts",
+      "added": 30,
+      "removed": 6
+    },
+    {
+      "path": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\Desktop_Vue3\\TaichuDeskTop_UI\\src\\views\\世界观管理\\ProjectDetail.vue",
+      "added": 10,
+      "removed": 11
+    },
+    {
+      "path": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\Desktop_Vue3\\TaichuDeskTop_UI\\src\\views\\世界观管理\\世界观组件\\RelationGraph.vue",
+      "added": 26,
+      "removed": 22
+    },
+    {
+      "path": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\Desktop_Vue3\\TaichuDeskTop_UI\\tests\\world-components.test.mjs",
+      "added": 33,
+      "removed": 0
+    },
+    {
+      "path": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\Desktop_Vue3\\TaichuDeskTop_UI\\src\\utils\\worldGraph.ts",
+      "added": 20,
+      "removed": 4
+    },
+    {
+      "path": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\tests\\LingMai.Regression\\TestContext.cs",
+      "added": 2,
+      "removed": 0
+    },
+    {
+      "path": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\tests\\LingMai.Regression\\WorldDraftChecks.cs",
+      "added": 24,
+      "removed": 0
+    },
+    {
+      "path": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\Desktop_Vue3\\TaichuDeskTop_UI\\src\\api\\worldApi.ts",
+      "added": 1,
+      "removed": 1
+    }
+  ]
+}

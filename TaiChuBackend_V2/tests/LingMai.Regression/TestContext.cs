@@ -1,4 +1,4 @@
-using TaiChuWeb_V2.Models.Wiki;
+﻿using TaiChuWeb_V2.Models.Wiki;
 using TaiChuWeb_V2.Models.Project;
 using TaiChuWeb_V2.Models.World;
 using TaiChuWeb_V2.Models.ChaiCommunity;
@@ -22,6 +22,7 @@ using TaiChuWeb_V2.Models.User;
 sealed class TestContext : AppDbContext
 {
     public int Queries, Saves, Commits, Rollbacks;
+    public TestSet<WorldCard> WorldCardRows = new();
     public Exception? SaveFailure, CommitFailure;
     public TestSet<Artwork> ArtworkRows = new();
     public TestSet<ArtworkImage> ImageRows = new();
@@ -52,6 +53,7 @@ sealed class TestContext : AppDbContext
     {
         WikiArticles = Track(WikiRows); WikiArticleRevisions = Track(RevisionRows); WikiCategories = Track(WikiCategoryRows); WikiCategoryRequests = Track(new TestSet<WikiCategoryRequest>());
         Projects = Track(ProjectRows); ProjectMembers = Track(MemberRows); ProjectCustomRoles = Track(RoleRows); ProjectCategories = Track(CategoryRows); ProjectTasks = Track(TaskRows); ProjectDeliveryRecords = Track(DeliveryRows);
+        WorldCards = Track(WorldCardRows); WorldRelations = Track(new TestSet<WorldRelation>());
         WorldProjects = Track(new TestSet<WorldProject>()); StickmanCharacters = Track(new TestSet<StickmanCharacter>()); FinalNodes = Track(new TestSet<UniversalNode>());
         ArtworkImages = Track(ImageRows); UserPermissions = Track(PermissionRows);
         Artworks = Track(ArtworkRows); UserInteractions = Track(InteractionRows); Comments = Track(CommentRows);
@@ -97,6 +99,8 @@ sealed class TestSet<T> : DbSet<T>, IQueryable<T>, IAsyncEnumerable<T> where T :
         return ValueTask.FromResult(Rows.FirstOrDefault(row => Equals(typeof(T).GetProperty("Id")!.GetValue(row), keys![0])));
     }
     public override EntityEntry<T> Add(T entity) { Rows.Add(entity); return null!; }
+    public override ValueTask<EntityEntry<T>> AddAsync(T entity, CancellationToken cancellationToken = default) => ValueTask.FromResult(Add(entity));
+    public override EntityEntry<T> Update(T entity) => null!;
     public override void AddRange(IEnumerable<T> entities) => Rows.AddRange(entities);
     public override EntityEntry<T> Remove(T entity) { Rows.Remove(entity); return null!; }
     public override void RemoveRange(IEnumerable<T> entities) { foreach (var row in entities.ToArray()) Rows.Remove(row); }

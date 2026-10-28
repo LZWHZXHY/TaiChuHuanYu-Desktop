@@ -3,7 +3,7 @@ import type { CardDetail, CardSummary } from '@/api/types/world'
 import { toCdnUrl } from '@/utils/imageThumb'
 
 export const cardTypeOrder = Object.keys(CardTypeMeta) as CardType[]
-export const getCardTypeLabel = (type: string) => CardTypeMeta[type as CardType]?.label || type
+export const getCardTypeLabel = (type: string) => CardTypeMeta[type as CardType]?.label || ({ lore: '背景设定', ecology: '生态' } as Record<string, string>)[type] || type
 
 export function parseStringArray(value: unknown): string[] {
   try {
@@ -38,7 +38,9 @@ export function groupWorldCards(cards: CardSummary[], search = '') {
   const query = search.trim().toLowerCase()
   const groups = new Map<string, CardSummary[]>(cardTypeOrder.map(type => [type, []]))
   for (const card of cards) {
-    if (!query || card.title.toLowerCase().includes(query)) groups.get(card.type)?.push(card)
+    if (query && !card.title.toLowerCase().includes(query)) continue
+    if (!groups.has(card.type)) groups.set(card.type, [])
+    groups.get(card.type)!.push(card)
   }
   return [...groups].filter(([, cards]) => cards.length)
     .map(([type, cards]) => ({ type, label: getCardTypeLabel(type), cards }))

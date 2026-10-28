@@ -29,7 +29,7 @@ export interface ContentBlock {
   cardCover?: string
   cardSummary?: string
   cardAttributes?: { key: string; value: string }[]
-  contextLabel?: string  // 关系描述，如"出生地""武器""所属势力"
+  contextLabel?: string | null  // 引用说明，如"出生地""武器""所属势力"
 }
 
 export interface AttributeItem {

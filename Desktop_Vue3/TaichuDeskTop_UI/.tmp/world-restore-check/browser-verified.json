@@ -1,0 +1,13 @@
+{
+  "state": "committed",
+  "id": "cb34a20a-d34f-5535-0ecf-822148e0c9f7",
+  "count": 2,
+  "differences": [],
+  "hashMatches": true,
+  "imageBytes": 1557926,
+  "cardIds": [
+    "cd7251f5-7e7e-420e-bffd-abb1730750da",
+    "792379a9-ed93-4247-a31a-8c1d020ac91c"
+  ],
+  "allCards": 19
+}

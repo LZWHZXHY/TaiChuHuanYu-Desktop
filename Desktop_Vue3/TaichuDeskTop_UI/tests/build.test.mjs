@@ -49,9 +49,9 @@ test('startup and home do not eagerly load charts, 3D, note editors or math engi
   assert.doesNotMatch(modules(initial), /node_modules[\\/](three|echarts|zrender|@tiptap|katex|vis-network)[\\/]/)
 })
 
-test('world project details load 3D only when the graph view is requested', () => {
+test('world graph loads 3D only when the spatial view is requested', () => {
   assert.doesNotMatch(modules(closure(page('/src/views/世界观管理/ProjectDetail.vue'))), /node_modules[\\/]three[\\/]/)
-  assert.match(modules(closure(page('/src/views/世界观管理/世界观组件/RelationGraph.vue'))), /node_modules[\\/]three[\\/]/)
+  assert.doesNotMatch(modules(closure(page('/src/views/世界观管理/世界观组件/RelationGraph.vue'))), /node_modules[\\/]three[\\/]/)
 })
 
 test('finance bundle includes only the registered pie and line chart families', () => {

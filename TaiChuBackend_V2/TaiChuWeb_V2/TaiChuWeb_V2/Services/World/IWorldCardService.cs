@@ -78,11 +78,13 @@ namespace TaiChuWeb_V2.Services.World
         /// <summary>
         /// 反向引用：返回引用了当前卡片的其它卡片（关联内容 + 描述内的 {CARD:id} 行内引用）。
         /// </summary>
-        Task<IEnumerable<CardSummaryDto>> GetBacklinksAsync(Guid cardId, Guid userId);
+        Task<IEnumerable<CardSummaryDto>> GetBacklinksAsync(Guid cardId, Guid userId, Guid? projectId = null);
 
         /// <summary>
         /// 项目级时间线：聚合项目下所有卡片的时间线事件。
         /// </summary>
+        Task<Dictionary<Guid, List<Guid>>> GetReferencesAsync(Guid projectId, Guid userId);
+
         Task<IEnumerable<TimelineItemDto>> GetTimelineAsync(Guid projectId, Guid userId);
 
         /// <summary>

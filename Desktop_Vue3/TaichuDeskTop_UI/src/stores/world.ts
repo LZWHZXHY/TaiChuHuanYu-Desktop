@@ -3,11 +3,11 @@ import { computed, reactive, ref, watch } from 'vue'
 import { worldApi } from '@/api/worldApi'
 import type {
   WorldProject, CardSummary, CardDetail, Relation, CardTypeOption,
-  CreateProjectPayload, UpdateProjectPayload, CardSavePayload, UpdateCardPayload, RelationInput,
+  CreateProjectPayload, UpdateProjectPayload, CreateCardPayload, UpdateCardPayload,
 } from '@/api/types/world'
 import { useUserStore } from './user'
 import { useAsyncRequests } from '@/composables/useAsyncRequests'
-import { diffRelations, toCardSummary } from '@/utils/worldCards'
+import { toCardSummary } from '@/utils/worldCards'
 
 export type { WorldProject } from '@/api/types/world'
 export type WorldCardSummary = CardSummary
@@ -41,6 +41,7 @@ export const useWorldStore = defineStore('world', () => {
   const selectedDetailKey = ref('')
   const snapshots = reactive(new Map<string, ProjectSnapshot>())
   const dirtyProjects = new Set<string>()
+  const references = reactive(new Map<string, Record<string, string[]>>())
   const details = reactive(new Map<string, CardDetail>())
   let sessionVersion = 0
 
@@ -63,6 +64,7 @@ export const useWorldStore = defineStore('world', () => {
     publicProjects.value = []
     cardTypes.value = []
     snapshots.clear()
+    references.clear()
     dirtyProjects.clear()
     details.clear()
     activeProjectId.value = ''
@@ -115,10 +117,25 @@ export const useWorldStore = defineStore('world', () => {
   }
 
   async function fetchCards(projectId: string, force = false) {
+    const version = sessionVersion
     if (activeProjectId.value !== projectId) selectedDetailKey.value = ''
     activeProjectId.value = projectId
     if (force) invalidateProject(projectId)
-    return (await loadProject(projectId)).cards
+    try { return (await loadProject(projectId)).cards }
+    catch (error) {
+      if (version === sessionVersion) {
+        snapshots.delete(projectId)
+        invalidateProject(projectId)
+      }
+      throw error
+    }
+  }
+
+  function loadReferences(projectId: string) {
+    const cached = references.get(projectId)
+    if (cached) return Promise.resolve(cached)
+    return requests.run(`${projectKey(projectId)}references`, projectKey(projectId),
+      () => worldApi.getReferences(projectId), result => references.set(projectId, result))
   }
 
   function loadCardDetail(projectId: string, cardId: string, force = false): Promise<CardDetail> {
@@ -159,6 +176,7 @@ export const useWorldStore = defineStore('world', () => {
   function invalidateProject(projectId: string) {
     requests.invalidate(projectKey(projectId))
     dirtyProjects.add(projectId)
+    references.delete(projectId)
     for (const key of details.keys()) if (key.startsWith(projectKey(projectId))) details.delete(key)
   }
 
@@ -213,19 +231,8 @@ export const useWorldStore = defineStore('world', () => {
     })
   }
 
-  async function syncRelations(cardId: string, existing: Relation[], desired: RelationInput[]) {
-    const { toRemove, toAdd } = diffRelations(existing, desired)
-    for (const relation of toRemove) await worldApi.removeRelation(cardId, relation.id)
-    for (const relation of toAdd) await worldApi.addRelation(cardId, relation.targetCardId, relation.relationType)
-  }
-
-  async function createCard(projectId: string, payload: CardSavePayload) {
-    const { relations = [], ...cardPayload } = payload
-    const card = await mutateProject(projectId, async () => {
-      const created = await worldApi.createCard(projectId, cardPayload)
-      await syncRelations(created.id, [], relations)
-      return created
-    })
+  async function createCard(projectId: string, payload: CreateCardPayload) {
+    const card = await mutateProject(projectId, () => worldApi.createCard(projectId, payload))
     return getCardById(card.id, projectId) ?? toCardSummary(card)
   }
 
@@ -235,14 +242,9 @@ export const useWorldStore = defineStore('world', () => {
     return card
   }
 
-  async function updateCard(cardId: string, payload: CardSavePayload<UpdateCardPayload>) {
+  async function updateCard(cardId: string, payload: UpdateCardPayload) {
     const projectId = findCard(cardId).projectId
-    const { relations, ...cardPayload } = payload
-    const card = await mutateProject(projectId, async () => {
-      const updated = await worldApi.updateCard(projectId, cardId, cardPayload)
-      if (relations !== undefined) await syncRelations(cardId, updated.outRelations, relations)
-      return updated
-    })
+    const card = await mutateProject(projectId, () => worldApi.updateCard(projectId, cardId, payload))
     return getCardById(card.id, projectId) ?? toCardSummary(card)
   }
 
@@ -266,7 +268,7 @@ export const useWorldStore = defineStore('world', () => {
     projects, publicProjects, currentProject, cards, currentCard, cardTypes, allRelations,
     loading: requests.loading, loadingProjects, loadingPublicProjects, loadingCards, loadingDetails, saving,
     fetchProjects, fetchPublicProjects, fetchCardTypes, createProject, updateProject,
-    fetchCards, fetchCardDetail, loadCardDetail, fetchCardsByIds,
+    loadReferences, fetchCards, fetchCardDetail, loadCardDetail, fetchCardsByIds,
     createCard, updateCard, deleteCard, addRelation, removeRelation,
     getCardById, getCardDetailById, reset,
     getCardTitle: (id: string) => getCardById(id)?.title || '已删除的卡片',

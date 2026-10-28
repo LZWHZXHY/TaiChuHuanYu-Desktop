@@ -17,6 +17,7 @@ public sealed class AdminAccessFilter(AppDbContext db) : IAsyncAuthorizationFilt
         var administration = action.ControllerTypeInfo.Namespace == "TaiChuWeb_V2.Controllers.Admin";
         var sharedController = action.ControllerTypeInfo.Namespace == "TaiChuWeb_V2.Controllers" && action.ControllerName switch
         {
+            "Migration" => true,
             "News" => action.ActionName != "GetAllNews",
             "Event" => action.ActionName != "GetMonthEvents",
             "Feedback" => action.ActionName is not ("SubmitFeedback" or "GetPublicFeedbacks"),

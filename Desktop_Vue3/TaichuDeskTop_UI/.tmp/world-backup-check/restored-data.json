@@ -1,0 +1,15 @@
+{
+  "id": "a50e938f-500a-4df7-b95a-3ef4eaba2232",
+  "isPublic": false,
+  "nameMatches": true,
+  "descriptionMatches": true,
+  "count": 60,
+  "differences": [],
+  "images": [
+    "https://img.bianyuzhou.com/world/restored/images/68c3cfcb-d21f-43f0-8924-9f6226eefd50-b2deb5949ed2c24424db4b81ec063980463bf23711c14b1471840935de8ee5e3.png"
+  ],
+  "oldImageAddressRemaining": false,
+  "allReferencesNew": true,
+  "firstCard": "e9d51989-41ea-40cb-836b-6c7a6122bda1",
+  "locationCard": "a21a82e5-f14d-44a2-878a-c9e8a09e3be2"
+}

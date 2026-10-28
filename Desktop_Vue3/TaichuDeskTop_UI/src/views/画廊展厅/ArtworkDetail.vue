@@ -2,7 +2,7 @@
   <div class="md-detail-mask" role="dialog" aria-modal="true" aria-label="作品详情" @click.self="$emit('close')">
     <div v-if="loading" class="md-loading-bar"></div>
 
-    <div class="md-viewport content-page">
+    <div class="md-viewport content-page community-surface tone-gallery detail-surface">
       <nav class="md-controls content-actions">
         <button class="back-btn" @click="$emit('close')">
           <span class="arrow">←</span> 返回列表
@@ -85,6 +85,7 @@
 
         <article class="md-article content-panel">
           <header class="article-header">
+      <SectionTrace />
             <h1 class="title">{{ artwork.title }}</h1>
             <div class="metadata">
               <div class="author-block">
@@ -128,6 +129,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { artworkApi } from '../../api/artwork'
 import type { ArtworkDetail } from '../../api/artwork'

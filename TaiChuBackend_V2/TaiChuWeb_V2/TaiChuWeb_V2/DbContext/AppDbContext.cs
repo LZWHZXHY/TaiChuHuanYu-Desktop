@@ -6,6 +6,7 @@ using TaiChuWeb_V2.Models.ChaiCommunity;  // 新增
 using TaiChuWeb_V2.Models.ChaiCommunity.Battle; // 引入约战模型
 using TaiChuWeb_V2.Models.ChaiCommunity.Joint; // 引入联合活动模型
 using TaiChuWeb_V2.Models.Club;
+using TaiChuWeb_V2.Models.Community;
 using TaiChuWeb_V2.Models.Event;
 using TaiChuWeb_V2.Models.Feedback;
 using TaiChuWeb_V2.Models.FinalNodes;
@@ -122,6 +123,29 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<GameSession> GameSessions { get; set; }
         public DbSet<BoardGameRecord> BoardGameRecords { get; set; }
 
+        // ===== 官方开发进度 =====
+        public DbSet<DevProject> DevProjects { get; set; }
+
+        // ===== 赞助墙 =====
+        public DbSet<Sponsor> Sponsors { get; set; }
+
+        // ===== 爱发电同步配置 =====
+        public DbSet<AfdianConfig> AfdianConfigs { get; set; }
+
+        // ===== 必吃榜 =====
+        public DbSet<MustEatItem> MustEatItems { get; set; }
+        public DbSet<MustEatRating> MustEatRatings { get; set; }
+
+        // ===== 站内通知 =====
+        public DbSet<TaiChuWeb_V2.Models.Notify.Notification> Notifications { get; set; }
+
+        // ===== 版本更新 =====
+        public DbSet<TaiChuWeb_V2.Models.Release.Release> Releases { get; set; }
+
+        // ===== 社区规则 =====
+        public DbSet<CommunityRule> CommunityRules { get; set; }
+        public DbSet<RulesMeta> RulesMeta { get; set; }
+
 
 
         public DbSet<SystemConfig> SystemConfigs { get; set; }
@@ -148,6 +172,7 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<Plugin> Plugins { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<UserProfile> UserProfiles { get; set; }
+        public DbSet<UserAiConfig> UserAiConfigs { get; set; }
         public DbSet<UserStats> UserStats { get; set; }
         public DbSet<UserSignLog> UserSignLogs { get; set; }
 
@@ -192,9 +217,12 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<Post> Posts { get; set; }
         public DbSet<Reply> Replies { get; set; }
 
+        public DbSet<WorldRestore> WorldRestores { get; set; }
         public DbSet<WorldProject> WorldProjects { get; set; }
         public DbSet<WorldCard> WorldCards { get; set; }
         public DbSet<WorldRelation> WorldRelations { get; set; }
+        public DbSet<WorldNovel> WorldNovels { get; set; }
+        public DbSet<WorldNovelChapter> WorldNovelChapters { get; set; }
 
         public DbSet<CardType> CardTypes { get; set; }
 
@@ -209,6 +237,9 @@ namespace TaiChuWeb_V2.DbContext
 
 
         public DbSet<ActivityType> ActivityTypes { get; set; }
+        public DbSet<ActivityEntry> ActivityEntries { get; set; }
+        public DbSet<ActivityVote> ActivityVotes { get; set; }
+        public DbSet<ActivityMatch> ActivityMatches { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -3,6 +3,7 @@ using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.Artwork;
 using TaiChuWeb_V2.Models.Interact;
 using TaiChuWeb_V2.Models.LingMai;
+using TaiChuWeb_V2.Services.Notify;
 
 namespace TaiChuWeb_V2.Services.Artworks;
 
@@ -14,15 +15,23 @@ public sealed class ArtworkRequestException(int status, string message) : Except
 public class ArtworkEngagementService(AppDbContext context)
 {
     // 记录是统计的依据，避免旧的“收藏增加点赞数”错误继续影响列表和详情。
-    public IQueryable<ArtworkStatsResult> Stats(Guid? userId) => context.Artworks.Select(a => new ArtworkStatsResult
+    // idFilter：在投影之前先按作品 Id 过滤，避免把 Where 套在投影之后导致 EF 参数求值异常。
+    public IQueryable<ArtworkStatsResult> Stats(Guid? userId, IReadOnlyCollection<int>? idFilter = null)
     {
-        Id = a.Id,
-        LikesCount = context.UserInteractions.Where(i => i.TargetType == "Artwork" && i.TargetId == a.Id.ToString() && i.ActionType == "Like").Select(i => i.UserId).Distinct().Count(),
-        FavoritesCount = context.UserInteractions.Where(i => i.TargetType == "Artwork" && i.TargetId == a.Id.ToString() && i.ActionType == "Favorite").Select(i => i.UserId).Distinct().Count(),
-        CommentsCount = context.Comments.Count(c => c.ArtworkId == a.Id && c.Content != ""),
-        IsLiked = userId.HasValue && context.UserInteractions.Any(i => i.TargetType == "Artwork" && i.TargetId == a.Id.ToString() && i.ActionType == "Like" && i.UserId == userId),
-        IsFavorited = userId.HasValue && context.UserInteractions.Any(i => i.TargetType == "Artwork" && i.TargetId == a.Id.ToString() && i.ActionType == "Favorite" && i.UserId == userId)
-    });
+        var source = idFilter == null
+            ? context.Artworks.AsQueryable()
+            : context.Artworks.Where(a => idFilter.Contains(a.Id));
+
+        return source.Select(a => new ArtworkStatsResult
+        {
+            Id = a.Id,
+            LikesCount = context.UserInteractions.Where(i => i.TargetType == "Artwork" && i.TargetId == a.Id.ToString() && i.ActionType == "Like").Select(i => i.UserId).Distinct().Count(),
+            FavoritesCount = context.UserInteractions.Where(i => i.TargetType == "Artwork" && i.TargetId == a.Id.ToString() && i.ActionType == "Favorite").Select(i => i.UserId).Distinct().Count(),
+            CommentsCount = context.Comments.Count(c => c.ArtworkId == a.Id && c.Content != ""),
+            IsLiked = userId.HasValue && context.UserInteractions.Any(i => i.TargetType == "Artwork" && i.TargetId == a.Id.ToString() && i.ActionType == "Like" && i.UserId == userId),
+            IsFavorited = userId.HasValue && context.UserInteractions.Any(i => i.TargetType == "Artwork" && i.TargetId == a.Id.ToString() && i.ActionType == "Favorite" && i.UserId == userId)
+        });
+    }
 
     public async Task<object> SetInteractionAsync(int id, Guid userId, string action, bool? desired)
     {
@@ -85,6 +94,21 @@ public class ArtworkEngagementService(AppDbContext context)
                 throw new ArtworkRequestException(400, "回复的评论不存在、已删除或不属于当前作品");
             var comment = new Comment { Id = commentId, ArtworkId = id, UserId = userId.ToString(), Content = content, ParentId = dto.ParentId };
             context.Comments.Add(comment);
+
+            // 站内通知：回复 → 通知被回复者；评论 → 通知作品作者；自己操作自己不通知
+            var notifier = new NotificationService(context);
+            if (dto.ParentId.HasValue)
+            {
+                var parentUserId = await context.Comments.Where(c => c.Id == dto.ParentId).Select(c => c.UserId).FirstOrDefaultAsync();
+                if (Guid.TryParse(parentUserId, out var parentId))
+                    notifier.Add(parentId, userId, "reply", "artwork", id.ToString(), "回复了你的评论", $"/gallery?workId={id}");
+            }
+            else
+            {
+                var authorId = await context.Artworks.Where(a => a.Id == id).Select(a => a.UploaderId).FirstOrDefaultAsync();
+                notifier.Add(authorId, userId, "comment", "artwork", id.ToString(), "评论了你的作品", $"/gallery?workId={id}");
+            }
+
             return comment.Id;
         }, (commentId, stats) => new { id = commentId, stats });
     }

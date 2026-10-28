@@ -54,7 +54,7 @@ static class RecoveryChecks
 
         async Task<IActionResult?> Authorize(string controller, string action, ClaimsPrincipal user)
         {
-            var type = controller switch { "News" => typeof(NewsController), "Event" => typeof(EventController), "Feedback" => typeof(FeedbackController), _ => typeof(AdminUserController) };
+            var type = controller switch { "Migration" => typeof(MigrationController), "News" => typeof(NewsController), "Event" => typeof(EventController), "Feedback" => typeof(FeedbackController), _ => typeof(AdminUserController) };
             var descriptor = new ControllerActionDescriptor { ControllerName = controller, ActionName = action, ControllerTypeInfo = type.GetTypeInfo() };
             var context = new AuthorizationFilterContext(new ActionContext(new DefaultHttpContext { User = user }, new RouteData(), descriptor), new List<IFilterMetadata>());
             await new AdminAccessFilter(db).OnAuthorizationAsync(context); return context.Result;
@@ -67,7 +67,7 @@ static class RecoveryChecks
         Check(await Authorize("AdminUser", "GetUsers", identity) == null, "user auditor keeps scoped access");
         Check(await Authorize("AdminUser", "UpdatePermissions", identity) is ForbidResult, "auditor cannot grant admin rights");
         Check(await Authorize("AdminTrade", "GetOrders", identity) is ForbidResult, "auditor cannot access trade admin");
-        foreach (var (controller, action) in new[] { ("News", "CreateNews"), ("News", "DeleteNews"), ("Event", "GetAllEvents"), ("Event", "UpdateEvent"), ("Feedback", "GetAllFeedbacks"), ("Feedback", "DeleteFeedback") })
+        foreach (var (controller, action) in new[] { ("Migration", "ClearMigrationData"), ("Migration", "MigrateWorldCards"), ("News", "CreateNews"), ("News", "DeleteNews"), ("Event", "GetAllEvents"), ("Event", "UpdateEvent"), ("Feedback", "GetAllFeedbacks"), ("Feedback", "DeleteFeedback") })
         {
             Check(await Authorize(controller, action, new ClaimsPrincipal()) is UnauthorizedResult, "anonymous shared admin endpoint denied: " + controller + action);
             Check(await Authorize(controller, action, identity) is ForbidResult, "auditor cannot manage shared admin endpoint: " + controller + action);
@@ -76,6 +76,8 @@ static class RecoveryChecks
             Check(await Authorize(controller, action, new ClaimsPrincipal()) == null, "public/user action retains its own authorization: " + controller + action);
         db.PermissionRows.Rows.Add(new() { UserId = id, Permission = AdminPermission.SuperAdmin });
         Check(await Authorize("AdminUser", "UpdatePermissions", identity) == null, "superadmin permission management retained");
+
+        Check(await Authorize("Migration", "ClearMigrationData", identity) == null, "superadmin migration access retained without executing action");
 
         db.ExpRows.Rows.AddRange(new[] {
             new UserExpLog { Id = 1, UserId = id, Change = 10, Reason = "sign", CreatedAt = now.AddDays(-1) },

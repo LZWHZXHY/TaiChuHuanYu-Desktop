@@ -73,94 +73,17 @@ onMounted(fetchStats);
 </script>
 
 <style scoped>
-.data-panel-wrapper {
-  width: 100%;
-}
-
-/* 侧边栏完美适配的网格，这里保持 2 列，保证卡片宽度适中 */
-.data-grid, .panel-loading {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-.data-card {
-  background: var(--bg-sub);
-  border: 1px solid var(--border-line);
-  border-radius: 6px;
-  padding: 14px 12px;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-  position: relative;
-  overflow: hidden;
-}
-
-.data-card:hover {
-  background: var(--paper-card);
-  border-color: var(--text-primary);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.03);
-  transform: translateY(-2px);
-}
-
-.card-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.data-label {
-  font-size: 0.65rem; /* 针对 6 个卡片，微调字号防止折行 */
-  color: var(--text-secondary);
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-.prefix {
-  color: var(--text-secondary);
-  font-weight: bold;
-}
-.data-card:hover .prefix {
-  color: var(--text-primary);
-}
-
-.data-value-wrapper {
-  display: flex;
-  align-items: baseline;
-  gap: 3px;
-}
-
-.data-value {
-  font-size: 1.25rem; /* 适应侧边栏密集布局 */
-  font-weight: 400;
-  color: var(--text-primary);
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  line-height: 1;
-  letter-spacing: -0.02em;
-}
-
-.data-unit {
-  font-size: 0.65rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.skeleton-item {
-  height: 60px;
-  background: linear-gradient(90deg, var(--bg-sub) 25%, var(--border-line) 37%, var(--bg-sub) 63%);
-  background-size: 400% 100%;
-  animation: skeleton-loading 1.4s ease infinite;
-  border-radius: 6px;
-  border: 1px solid var(--border-line);
-}
-
-@keyframes skeleton-loading {
-  0% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-@media (max-width: 480px) {
-  .data-grid, .panel-loading {
-    grid-template-columns: 1fr; /* 极小屏单列 */
-  }
-}
+.data-panel-wrapper { width: 100%; }
+.data-grid, .panel-loading { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.data-card { --stat-color: #00abc9; position: relative; overflow: hidden; padding: 16px 12px; border: 1px solid color-mix(in srgb, var(--stat-color) 25%, var(--border-line)); border-radius: var(--radius-sm); background: linear-gradient(135deg, color-mix(in srgb, var(--stat-color) 5%, var(--paper-card)), color-mix(in srgb, var(--stat-color) 18%, var(--paper-card))); background-size: 170% 170%; transition: background-position .6s, border-color .3s; }
+.data-card:nth-child(2) { --stat-color: #8595f5; }.data-card:nth-child(3) { --stat-color: #42bca8; }.data-card:nth-child(4) { --stat-color: #c79b52; }.data-card:nth-child(5) { --stat-color: #5aade7; }.data-card:nth-child(6) { --stat-color: #9e8dcc; }
+.data-card::before { content: ''; position: absolute; inset: 0 0 auto; height: 2px; background: linear-gradient(90deg, var(--stat-color), transparent); }
+.data-card:hover { background-position: 100% 100%; border-color: color-mix(in srgb, var(--stat-color) 55%, var(--border-line)); }
+.card-inner { display: flex; flex-direction: column; gap: 12px; }.data-label { font-size: 11px; color: var(--text-secondary); font-weight: 500; white-space: nowrap; }.prefix { color: var(--accent-color); font-weight: 700; margin-right: 2px; }
+.data-value-wrapper { display: flex; align-items: baseline; gap: 5px; }.data-value { font-size: 28px; font-weight: 600; color: var(--text-primary); font-family: var(--font-mono); line-height: 1; letter-spacing: -.05em; }.data-unit { font-size: 11px; color: var(--text-secondary); }
+.skeleton-item { height: 92px; background: linear-gradient(90deg, var(--bg-sub) 25%, var(--border-line) 37%, var(--bg-sub) 63%); background-size: 400% 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-line); }
+@media(prefers-reduced-motion: no-preference) { .skeleton-item { animation: skeleton-loading 1.4s ease infinite; } }
+@keyframes skeleton-loading { from { background-position: 100% 50%; } to { background-position: 0% 50%; } }
+@media(prefers-reduced-motion: reduce) { .data-card { transition: none; } }
+@media(max-width: 340px) { .data-grid, .panel-loading { grid-template-columns: 1fr; } }
 </style>

@@ -13,6 +13,7 @@ export function useCardQuota(projectId: Ref<string> | string) {
     canAdd: true,
   })
   const loading = ref(false)
+  const error = ref(false)
   let loadVersion = 0
 
   const loadQuota = async () => {
@@ -23,6 +24,7 @@ export function useCardQuota(projectId: Ref<string> | string) {
       return
     }
     loading.value = true
+    error.value = false
     try {
       const data = await worldApi.canAddCard(id)
       if (version !== loadVersion) return
@@ -32,8 +34,8 @@ export function useCardQuota(projectId: Ref<string> | string) {
         remaining: data.maxCount - data.currentCount,
         canAdd: data.canAdd,
       }
-    } catch (error) {
-      console.error('获取卡片配额失败:', error)
+    } catch {
+      if (version === loadVersion) error.value = true
     } finally {
       if (version === loadVersion) loading.value = false
     }
@@ -67,6 +69,7 @@ export function useCardQuota(projectId: Ref<string> | string) {
   )
 
   return {
+    error,
     quotaInfo,
     quotaStatus,
     loadQuota,

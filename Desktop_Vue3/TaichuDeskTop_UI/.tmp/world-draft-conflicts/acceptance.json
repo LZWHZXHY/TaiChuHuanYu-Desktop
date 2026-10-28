@@ -1,0 +1,24 @@
+{
+  "frontendTests": 187,
+  "backendFocusedChecks": 7,
+  "frontendBuild": "passed; existing large-chunk warning",
+  "backendBuild": "passed; existing compiler warnings",
+  "fullBackendRegression": "blocked by 5 existing LingMaiPublishController constructor argument mismatches; unrelated files not modified",
+  "browser": [
+    "two independent unsaved body drafts listed together",
+    "active tab draft cannot be discarded by another tab",
+    "A saved, B retained",
+    "old draft restored after reload still requires conflict review",
+    "server-version choice applied and saved",
+    "day/night desktop and 390px iframe screenshots",
+    "test body additions removed; original reference relationships retained"
+  ],
+  "database": "Uses existing UpdatedAt datetime(6); EF concurrency token; observed actual UPDATE WHERE Id AND UpdatedAt; no schema migration executed",
+  "limits": [
+    "field-level conservative merge: conflicting paragraph changes require selection of entire body, then manual editing",
+    "same-browser backups, no cross-device draft sync",
+    "older clients without expectedUpdatedAt retain legacy contract; deploy frontend and backend together"
+  ],
+  "netApplicationLines": 140,
+  "netTestLines": 128
+}

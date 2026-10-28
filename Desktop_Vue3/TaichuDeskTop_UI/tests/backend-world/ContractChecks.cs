@@ -56,6 +56,9 @@ internal static class ContractChecks
                 "GetProjectByIdAsync" or "CreateProjectAsync" or "UpdateProjectAsync" =>
                     Task.FromResult(mode == "missing" ? null : project),
                 "GetCardSummariesByProjectAsync" => Task.FromResult<IEnumerable<CardSummaryDto>>([new() { Id = cardId, ProjectId = projectId }]),
+                "GetBacklinksAsync" => Task.FromResult<IEnumerable<CardSummaryDto>>([]),
+                "GetTimelineAsync" => Task.FromResult<IEnumerable<TimelineItemDto>>([]),
+                "SearchCardsAsync" => Task.FromResult<IEnumerable<WorldSearchResultDto>>([]),
                 "GetCardByIdAsync" or "CreateCardAsync" or "UpdateCardAsync" => Task.FromResult(mode == "missing" ? null : card),
                 "DeleteProjectAsync" or "DeleteCardAsync" or "DeleteRelationAsync" or "DeleteTypeAsync" => Task.FromResult(mode != "missing"),
                 "GetRelationsForCardAsync" or "GetRelationsForProjectAsync" => Task.FromResult<IEnumerable<RelationDto>>([relation]),
@@ -117,6 +120,37 @@ internal static class ContractChecks
             var projectPath = $"/api/world/projects/{projectId}";
             var cardsPath = projectPath + "/cards";
             var relationsPath = $"/api/world/cards/{cardId}/relations";
+            foreach (var (url, userIndex) in new[] { (projectPath, 1), (cardsPath, 1), (cardsPath + "/" + cardId, 1),
+                (cardsPath + "/timeline", 1), (cardsPath + "/" + cardId + "/backlinks", 1),
+                (relationsPath, 1), (projectPath + "/relations", 1), ("/api/world/search?q=角色", 0) })
+            {
+                var publicRead = await Send(HttpMethod.Get, url);
+                check(publicRead.Status == HttpStatusCode.OK && (Guid)lastArguments![userIndex]! == Guid.Empty,
+                    $"匿名读取向服务传递空身份：{url}");
+                var memberRead = await Send(HttpMethod.Get, url, identity: userId.ToString());
+                check(memberRead.Status == HttpStatusCode.OK && (Guid)lastArguments![userIndex]! == userId,
+                    $"登录读取保留真实身份：{url}");
+                mode = "private";
+                var deniedRead = await Send(HttpMethod.Get, url);
+                check(deniedRead.Status == HttpStatusCode.NotFound, $"服务拒绝的私密内容不会被匿名入口放行：{url}");
+                mode = "normal";
+            }
+            await Send(HttpMethod.Get, cardsPath + "/" + cardId + "/backlinks");
+            check((Guid?)lastArguments![2] == projectId, "反向引用同样验证 URL 项目归属");
+            foreach (var (method, url, body) in new (HttpMethod, string, object?)[] {
+                (HttpMethod.Post, "/api/world/projects", new { name = "世界" }),
+                (HttpMethod.Put, projectPath, new { name = "修改" }), (HttpMethod.Delete, projectPath, null),
+                (HttpMethod.Post, cardsPath, new { title = "条目", type = "character" }),
+                (HttpMethod.Put, cardsPath + "/" + cardId, new { title = "修改" }),
+                (HttpMethod.Delete, cardsPath + "/" + cardId, null),
+                (HttpMethod.Post, relationsPath, new { targetCardId = Guid.NewGuid() }),
+                (HttpMethod.Delete, relationsPath + "/" + relationId, null) })
+            {
+                var before = calls;
+                var deniedWrite = await Send(method, url, body);
+                check(deniedWrite.Status == HttpStatusCode.Unauthorized && calls == before,
+                    $"匿名写请求在服务执行前被拒绝：{method} {url}");
+            }
             var response = await Send(HttpMethod.Get, "/api/world/projects/public");
             check(response.Status == HttpStatusCode.OK && response.Body[0].GetProperty("ownerId").GetGuid() == userId,
                 "公开项目允许匿名访问且直接返回 DTO 数组");
@@ -228,7 +262,7 @@ internal static class ContractChecks
         public void PopulateFeature(IEnumerable<ApplicationPart> parts, ControllerFeature feature)
         {
             foreach (var type in new[] { typeof(WorldProjectsController), typeof(WorldCardsController),
-                typeof(WorldRelationsController), typeof(WorldQuotaController), typeof(WorldCardTypesController) })
+                typeof(WorldRelationsController), typeof(WorldQuotaController), typeof(WorldCardTypesController), typeof(WorldSearchController) })
                 feature.Controllers.Add(type.GetTypeInfo());
         }
     }

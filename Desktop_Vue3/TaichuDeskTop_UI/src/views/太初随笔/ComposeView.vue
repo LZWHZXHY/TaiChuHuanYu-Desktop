@@ -1,5 +1,5 @@
 <template>
-  <main class="compose-page content-page">
+  <main class="compose-page content-page workbench-skin">
     <header class="content-header">
       <div>
       <RouterLink :to="{ path: '/stream', query: topic ? { tag: topic } : {} }">← {{ topic || '博客与帖子' }}</RouterLink>
@@ -18,10 +18,10 @@
     </section>
     <p v-if="loading" role="status">正在加载草稿…</p>
     <template v-else-if="!loadError">
+      <div class="compose-fields">
+      <section class="compose-main" aria-label="正文编辑">
       <label for="compose-title">{{ isPost ? '标题（可选）' : '标题' }}</label>
       <input id="compose-title" v-model="title" :disabled="busy" maxlength="100" placeholder="为内容起个标题" />
-      <label for="compose-tags">标签（可选）</label>
-      <input id="compose-tags" v-model="tags" :disabled="busy" maxlength="200" placeholder="用逗号分隔，例如：风景，创作记录，练习" />
       <fieldset :disabled="busy">
         <legend>正文</legend>
         <SpiritText
@@ -33,6 +33,11 @@
           @change="changeContent"
         />
       </fieldset>
+      </section>
+      <aside class="compose-settings" aria-label="发布设置">
+        <h2>发布设置</h2>
+      <label for="compose-tags">标签（可选）</label>
+      <input id="compose-tags" v-model="tags" :disabled="busy" maxlength="200" placeholder="用逗号分隔，例如：风景，创作记录，练习" />
       <label v-if="!isPost" for="compose-summary">{{ isPost ? '内容简介（可选）' : '文章摘要（可选）' }}</label>
       <textarea
         v-if="!isPost"
@@ -42,6 +47,8 @@
         maxlength="150"
         placeholder="不填时由正文生成"
       />
+      </aside>
+      </div>
       <p v-if="message" role="status">{{ message }}</p>
       <p v-if="error" role="alert">{{ error }}</p>
       <footer class="compose-footer">
@@ -227,23 +234,27 @@ onUnmounted(() => { session++; draftVersion++; window.removeEventListener('befor
 
 <style scoped>
 
-.compose-page { max-width: 920px; }
+.compose-page { max-width: 1200px; }
+.compose-fields { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 24px; align-items: start; }
+.compose-main { min-width: 0; }
+.compose-settings { padding: 20px; background: var(--bg-sub); border-top: 2px solid var(--text-primary); }
+.compose-settings h2 { margin: 0; font-size: 14px; }
 label { display: block; margin: 20px 0 8px; font-weight: 600; font-size: .9rem; }
-input, textarea { width: 100%; padding: 12px; font: inherit; color: inherit; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 8px; }
+input, textarea { width: 100%; padding: 12px; font: inherit; color: inherit; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); }
 textarea { min-height: 90px; resize: vertical; }
-fieldset { margin: 24px 0; min-height: 300px; min-width: 0; border: 1px solid var(--border-line); border-radius: 12px; padding: 20px; background: var(--paper-card); }
+fieldset { margin: 24px 0; min-height: 300px; min-width: 0; border: 1px solid var(--border-line); border-radius: var(--radius-sm); padding: 20px; background: var(--paper-card); }
 legend { padding: 0 8px; font-weight: 600; }
 fieldset:disabled { pointer-events: none; opacity: .7; }
 .compose-footer { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 16px 0; margin-top: 24px; border-top: 1px solid var(--border-line); background: var(--paper-bg); position: sticky; bottom: -1px; z-index: 2; }
-button { padding: 10px 16px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: inherit; }
+button { padding: 10px 16px; border: 1px solid var(--border-line); border-radius: var(--radius-sm); background: var(--paper-card); color: inherit; }
 a { color: var(--accent-color); text-underline-offset: 3px; }
 .draft-list a { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--border-line); }
 .draft-list h2 { font-size: 1.1rem; }
 :deep(.tiptap) { min-height: 260px; padding-top: 16px; line-height: 1.9; }
+@media (max-width: 1000px) { .compose-fields { grid-template-columns: 1fr; }.compose-settings { padding: 16px; } }
 @media (max-width: 720px) {
   fieldset { padding: 12px; }
-  /* 给全站左下角导航按钮留出位置，避免挡住保存草稿。 */
-  .compose-footer { bottom: -20px; padding-left: 64px; }
+  .compose-footer { bottom: 0; }
 }
 
 </style>

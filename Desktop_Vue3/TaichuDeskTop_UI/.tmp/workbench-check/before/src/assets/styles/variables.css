@@ -1,0 +1,52 @@
+/* 全站及弹层共用语义颜色；模块只引用，不再覆盖根主题。 */
+:root {
+  color-scheme: light;
+  --bg-main: #ffffff; --bg-sub: #f1f4f2; --paper-card: #ffffff;
+  --text-primary: #111814; --text-secondary: #5c665f; --border-line: #d3d9d5;
+  --accent-color: #b54b0b; --accent-soft: #fff0e5; --on-accent: #ffffff;
+  --signal-color: #ff7a1a; --grid-line: rgb(25 45 33 / 8%);
+  --signal-lime: #d4f254; --diagram-paper: #eef2ed;
+  --inverse-bg: #13251b; --inverse-text: #ffffff;
+  --success: #267453; --success-soft: #e5f2e9; --info-soft: #e7eef8; --danger: #bd3939;
+  --info: #286390; --danger-soft: #fbeaea; --warning: #966015; --warning-soft: #fbf1dc; --on-overlay: #ffffff;
+  --overlay: rgb(12 18 24 / 45%);
+  --shadow-sm: 0 2px 8px rgb(24 32 40 / 4%); --shadow-md: 0 12px 36px rgb(24 32 40 / 10%);
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --font-family: var(--font-sans);
+  --radius-sm: 3px; --radius-md: 4px; --radius-lg: 6px;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-main: #101412; --bg-sub: #242d26; --paper-card: #171e19;
+  --text-primary: #f6faf4; --text-secondary: #aeb9b0; --border-line: #3c4c41;
+  --accent-color: #ffa15a; --accent-soft: #3b2d22; --on-accent: #141b15;
+  --signal-color: #ff8a3c; --grid-line: rgb(192 209 178 / 9%);
+  --signal-lime: #d4f254; --diagram-paper: #26332a;
+  --inverse-bg: #e6f0e5; --inverse-text: #16251a;
+  --success: #87d4ae; --success-soft: #233d32; --info-soft: #26374b; --danger: #ff9c9c;
+  --info: #96c5eb; --danger-soft: #422b31; --warning: #ecc17c; --warning-soft: #3c3426;
+  --overlay: rgb(0 0 0 / 65%);
+  --shadow-sm: 0 2px 8px rgb(0 0 0 / 12%); --shadow-md: 0 12px 36px rgb(0 0 0 / 28%);
+}
+:root {
+  /* 兼容已有组件命名，颜色来源保持唯一。 */
+  --paper-bg: var(--bg-main); --paper-sub: var(--bg-sub);
+  --ink-black: var(--text-primary); --ink-gray: var(--text-secondary);
+  --line-raw: var(--border-line); --cinnabar: var(--accent-color);
+  --text-main: var(--text-primary); --text-mute: var(--text-secondary);
+  --bg-hover: var(--bg-sub); --accent: var(--accent-color); --border-light: var(--border-line);
+  --el-color-primary: var(--accent-color);
+  --el-color-primary-light-3: color-mix(in srgb, var(--accent-color) 70%, var(--paper-card));
+  --el-color-primary-light-5: color-mix(in srgb, var(--accent-color) 50%, var(--paper-card));
+  --el-color-primary-light-7: var(--accent-soft); --el-color-primary-light-8: var(--accent-soft); --el-color-primary-light-9: var(--accent-soft);
+  --el-bg-color: var(--paper-card); --el-bg-color-page: var(--bg-main); --el-bg-color-overlay: var(--paper-card);
+  --el-text-color-primary: var(--text-primary); --el-text-color-regular: var(--text-primary);
+  --el-text-color-secondary: var(--text-secondary); --el-text-color-placeholder: var(--text-secondary);
+  --el-border-color: var(--border-line); --el-border-color-light: var(--border-line); --el-border-color-lighter: var(--border-line);
+  --el-fill-color: var(--bg-sub); --el-fill-color-light: var(--bg-sub); --el-fill-color-lighter: var(--bg-sub); --el-fill-color-blank: var(--paper-card);
+  --el-mask-color: var(--overlay);
+  --el-border-radius-base: var(--radius-sm); --el-border-radius-small: var(--radius-sm);
+  --el-color-success: var(--success); --el-color-danger: var(--danger); --el-color-warning: var(--warning);
+  --el-color-success-light-9: var(--success-soft); --el-color-danger-light-9: var(--danger-soft); --el-color-warning-light-9: var(--warning-soft);
+}

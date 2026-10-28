@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
 import { createPinia, setActivePinia } from 'pinia'
 
-let server, worldApi, useWorldStore, useUserStore, request, originalApi, diffRelations
+let server, worldApi, useWorldStore, useUserStore, request, originalApi
 const root = fileURLToPath(new URL('../', import.meta.url))
 const date = '2026-10-21T00:00:00Z'
 const project = id => ({ id, name: id, description: null, isPublic: false, createdAt: date,
@@ -35,7 +35,6 @@ before(async () => {
   ;({ useWorldStore } = await server.ssrLoadModule('/src/stores/world.ts'))
   ;({ useUserStore } = await server.ssrLoadModule('/src/stores/user.ts'))
   ;({ default: request } = await server.ssrLoadModule('/src/utils/request.ts'))
-  ;({ diffRelations } = await server.ssrLoadModule('/src/utils/worldCards.ts'))
   originalApi = { ...worldApi }
 })
 beforeEach(() => {
@@ -60,6 +59,10 @@ function backend() {
   let nextId = 0
   const getDetail = id => ({ ...data.get(id), outRelations: relations.filter(r => r.sourceCardId === id),
     inRelations: relations.filter(r => r.targetCardId === id) })
+  const saveRelations = (id, desired) => {
+    if (desired === undefined) return
+    relations = relations.filter(r => r.sourceCardId !== id).concat(desired.map(r => relation(`r-${++nextId}`, id, r.targetCardId, r.relationType)))
+  }
   Object.assign(worldApi, {
     getProject: async id => ({ ...project(id), cardCount: data.size }),
     getCards: async () => [...data.keys()].map(id => summary(getDetail(id))),
@@ -68,9 +71,10 @@ function backend() {
     createCard: async (pid, payload) => {
       const created = { ...detail(`new-${++nextId}`, pid), ...payload }
       data.set(created.id, created)
+      saveRelations(created.id, payload.relations)
       return getDetail(created.id)
     },
-    updateCard: async (_, id, payload) => { data.set(id, { ...data.get(id), ...payload }); return getDetail(id) },
+    updateCard: async (_, id, payload) => { data.set(id, { ...data.get(id), ...payload }); saveRelations(id, payload.relations); return getDetail(id) },
     deleteCard: async (_, id) => { data.delete(id); relations = relations.filter(r => r.sourceCardId !== id && r.targetCardId !== id) },
     addRelation: async (source, target, type) => {
       const added = relation(`r-${++nextId}`, source, target, type)
@@ -108,6 +112,19 @@ test('an empty project is cached and explicit refresh bypasses it', async () => 
   await store.fetchCards('a', true)
   assert.equal(calls, 2)
   assert.equal(store.loading, false)
+})
+
+test('a denied refresh clears previously readable project and card caches', async () => {
+  backend()
+  const store = useWorldStore()
+  await store.fetchCards('a')
+  await store.fetchCardDetail('a', 'one')
+  worldApi.getProject = async () => { throw new Error('not public') }
+  await assert.rejects(store.fetchCards('a', true), /not public/)
+  assert.equal(store.currentProject, null)
+  assert.deepEqual(store.cards, [])
+  assert.equal(store.getCardDetailById('one', 'a'), undefined)
+  assert.equal(store.loadingCards, false)
 })
 
 test('concurrent project loads deduplicate and an old project cannot replace the active project', async () => {
@@ -235,14 +252,17 @@ test('card deletion relies on server relationship cleanup and removes stale deta
   assert.equal(store.currentProject.cardCount, 1)
 })
 
-test('partial relation save failures reconcile successful server changes and release saving state', async () => {
+test('card and relations use one write; rejected saves retain previously persisted data', async () => {
   backend()
   const store = useWorldStore()
   await store.fetchCards('a')
-  worldApi.addRelation = async () => { throw new Error('relation failed') }
+  worldApi.addRelation = async () => { throw new Error('must not save relations separately') }
+  await store.updateCard('one', { title: 'Before failure', relations: [{ targetCardId: 'two', relationType: '朋友' }] })
+  worldApi.updateCard = async () => { throw new Error('invalid relation') }
   await assert.rejects(store.updateCard('one', { title: 'Saved title',
-    relations: [{ targetCardId: 'two', relationType: '朋友' }] }), /relation failed/)
-  assert.equal(store.getCardById('one').title, 'Saved title')
+    relations: [{ targetCardId: 'missing', relationType: '朋友' }] }), /invalid relation/)
+  assert.equal(store.getCardById('one').title, 'Before failure')
+  assert.equal(store.allRelations[0].targetCardId, 'two')
   assert.equal(store.saving, false)
   assert.equal(store.loading, false)
 })
@@ -327,9 +347,3 @@ test('card type DTOs are mapped once into selector options', async () => {
   assert.deepEqual(store.cardTypes, [{ value: 'character', label: '角色', icon: undefined }])
 })
 
-test('relation diff treats a changed type as removal plus addition', () => {
-  const old = relation('r', 'one', 'two', '朋友')
-  assert.deepEqual(diffRelations([old], [{ targetCardId: 'two', relationType: '敌人' }]), {
-    toRemove: [old], toAdd: [{ targetCardId: 'two', relationType: '敌人' }],
-  })
-})

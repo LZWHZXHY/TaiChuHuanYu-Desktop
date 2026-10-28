@@ -33,6 +33,7 @@
         <div class="interactions">
           <button class="interact-btn" :class="{ active: liked }" @click="toggleLike">❤ {{ likeCount }}</button>
           <button class="interact-btn" :class="{ active: favorited }" @click="toggleFavorite">⭐ {{ favoriteCount }}</button>
+          <span class="interact-count">💬 {{ work.commentCount || 0 }}</span>
         </div>
 
         <ChaiComments :target-type="'work'" :target-id="workId" />
@@ -42,6 +43,8 @@
         <div class="side-card">
           <h3>关于作者</h3>
           <RouterLink :to="`/user/${work.authorId}`">@{{ work.authorName }}</RouterLink>
+          <button v-if="!isAuthor && user.isLoggedIn" class="follow-btn" :class="{ active: following }" @click="toggleFollow">{{ following ? '已关注' : '+ 关注' }}</button>
+          <span class="follower-count">{{ followerCount }} 粉丝</span>
         </div>
         <div v-if="work.relatedCharacterIds?.length" class="side-card">
           <h3>相关 OC</h3>
@@ -59,6 +62,7 @@ import { chaiWorkApi, type ChaiWork } from '@/api/chaiWork'
 import { useUserStore } from '@/stores/user'
 import ChaiComments from '../components/ChaiComments.vue'
 import { withThumbnail } from '@/utils/imageThumb'
+import { followApi } from '@/api/follow'
 
 const route = useRoute()
 const router = useRouter()
@@ -71,6 +75,8 @@ const liked = ref(false)
 const favorited = ref(false)
 const likeCount = ref(0)
 const favoriteCount = ref(0)
+const following = ref(false)
+const followerCount = ref(0)
 
 const isAuthor = computed(() => Boolean(user.userId && work.value && work.value.authorId === user.userId))
 
@@ -82,11 +88,28 @@ async function load() {
     work.value = detail
     likeCount.value = detail.likeCount
     favoriteCount.value = detail.favoriteCount
+    if (detail.authorId) {
+      try {
+        const st = await followApi.status(detail.authorId)
+        following.value = st.following
+        followerCount.value = st.followerCount
+      } catch { /* 关注状态拿不到不影响浏览 */ }
+    }
   } catch (e: any) {
     error.value = e.friendlyMessage || '作品加载失败'
   } finally {
     loading.value = false
   }
+}
+
+async function toggleFollow() {
+  if (!user.isLoggedIn) { error.value = '请先登录'; return }
+  if (!work.value) return
+  try {
+    const res = await followApi.toggle(work.value.authorId)
+    following.value = res.following
+    followerCount.value = res.followerCount
+  } catch (e: any) { error.value = e.friendlyMessage || '关注失败' }
 }
 
 async function toggleLike() {
@@ -128,6 +151,10 @@ onMounted(load)
 .interactions { display: flex; gap: 12px; margin-top: 20px; }
 .interact-btn { padding: 8px 16px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; }
 .interact-btn.active { color: var(--accent-color); border-color: var(--accent-color); }
+.interact-count { display: inline-flex; align-items: center; padding: 0 8px; font-size: .85rem; color: var(--text-secondary); }
+.follow-btn { padding: 6px 12px; border: 1px solid var(--accent-color); border-radius: 8px; background: transparent; color: var(--accent-color); cursor: pointer; font-size: .8rem; justify-self: start; }
+.follow-btn.active { background: var(--accent-soft); }
+.follower-count { font-size: .75rem; color: var(--text-secondary); }
 .side-col { display: grid; gap: 16px; align-content: start; }
 .side-card { border: 1px solid var(--border-line); border-radius: 10px; padding: 16px; background: var(--paper-card); display: grid; gap: 8px; }
 .side-card h3 { margin: 0 0 4px; font-size: .9rem; }

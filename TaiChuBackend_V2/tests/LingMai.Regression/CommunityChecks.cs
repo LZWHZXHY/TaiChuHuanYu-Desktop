@@ -109,7 +109,7 @@ static class CommunityChecks
             new PublishedNote { Id = Guid.NewGuid(), Type = "post", Title = "different", Tags = "[\"我的世界观\"]", PublishedAt = DateTime.UtcNow },
             new PublishedNote { Id = Guid.NewGuid(), Type = "blog", Title = "blog", Tags = "我的世界" }
         });
-        var stream = new TaiChuWeb_V2.Controllers.LingMai.LingMaiPublishController(topics, Array.Empty<TaiChuWeb_V2.Services.Publish.ILingMaiPublishHandler>());
+        var stream = new TaiChuWeb_V2.Controllers.LingMai.LingMaiPublishController(topics, Array.Empty<TaiChuWeb_V2.Services.Publish.ILingMaiPublishHandler>(), new TaiChuWeb_V2.Services.LingMai.NoteCommentService(topics));
         JsonElement Rows(IActionResult result) => JsonSerializer.SerializeToElement(((OkObjectResult)result).Value);
         var tagged = Rows(await stream.GetPublicStream("post", tag: " 我的世界 "));
         Check(tagged.GetArrayLength() == 2, "topic matches escaped and literal JSON but not longer tags");

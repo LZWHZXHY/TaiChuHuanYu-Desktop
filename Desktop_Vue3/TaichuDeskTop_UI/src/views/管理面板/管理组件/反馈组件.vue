@@ -195,7 +195,7 @@ const handleDelete = async (id: string) => {
   background: var(--paper-card);
   border: 1px solid var(--border-line);
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.9rem;
@@ -210,7 +210,7 @@ const handleDelete = async (id: string) => {
 /* 表格主体样式 */
 .table-wrapper {
   background: var(--paper-card);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   overflow-x: auto;
 }

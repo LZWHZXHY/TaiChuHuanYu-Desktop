@@ -1,0 +1,185 @@
+/* 莱茵式细线与直角语言应用于日夜两种模式。颜色仅来自 variables.css。
+   不按 class 名片段匹配所有卡片/弹窗，避免污染图谱、编辑器及俱乐部。 */
+.content-page :is(input:not([type=checkbox]):not([type=radio]), textarea, select),
+.content-form :is(input:not([type=checkbox]):not([type=radio]), textarea, select) {
+  border-radius: var(--radius-sm);
+}
+.content-page :is(.content-panel, .content-state, .content-badge),
+.content-page .content-actions :is(a, button),
+.content-page > .toolbar :is(a, button) { border-radius: var(--radius-sm); }
+.content-page .content-actions :is(a, button):hover:not(:disabled) {
+  border-color: var(--accent-color);
+}
+.content-page .eyebrow { font-family: var(--font-mono); letter-spacing: .12em; }
+.content-page :is(.tiptap, .spirit-render-engine, .prose) { line-height: 1.85; }
+::selection { color: var(--on-accent); background: var(--accent-color); }
+/* 路由切换只绘制页头的分隔线，正文与编辑区域不位移。 */
+.content-page .content-header { position: relative; }
+.content-page .content-header::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px; background: var(--text-primary); transform-origin: left; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .content-page .content-header::after { animation: section-rule .65s cubic-bezier(.2,.7,.2,1) both; }
+}
+@keyframes section-rule { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* 可操作区域的反馈：抬起、按下、选中。禁用控件不参与，正文区域不伪装成按钮。 */
+.content-page :is(.content-actions, .gallery-search, .search-controls, .pagination, .content-state, .load-more) :is(a, button),
+.content-page :is(.content-filters button, .type-nav button),
+.world-toolbar button, .hero-actions a, .site-search, .user-profile {
+  transition: translate .18s ease, box-shadow .18s ease, background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+.content-page :is(.content-actions, .gallery-search, .search-controls, .pagination, .content-state, .load-more) :is(a, button):not(:disabled):is(:hover, :focus-visible),
+.world-toolbar button:not(:disabled):is(:hover, :focus-visible), .hero-actions a:is(:hover, :focus-visible) {
+  translate: -2px -2px;
+  box-shadow: 3px 3px 0 var(--text-primary);
+  border-color: var(--text-primary);
+}
+.content-page :is(.content-actions, .gallery-search, .search-controls, .pagination, .content-state, .load-more) :is(a, button):not(:disabled):active,
+.world-toolbar button:not(:disabled):active, .hero-actions a:active { translate: 0 0; box-shadow: none; }
+.content-page :is(.content-filters button, .type-nav button):not(:disabled):is(:hover, :focus-visible) { box-shadow: inset 0 -3px 0 var(--signal-color); }
+.content-page :is(.content-filters button, .type-nav button)[aria-pressed=true] { box-shadow: inset 0 -3px 0 var(--signal-color); }
+.site-search:is(:hover, :focus-visible), .user-profile:is(:hover, :focus-visible) { color: var(--accent-color); translate: 2px 0; }
+.content-page :is(.stream-card, .world-card, .masonry-item, .content-card) { transition: border-color .2s, box-shadow .2s, translate .2s; }
+.content-page :is(.stream-card, .world-card, .masonry-item, .content-card):is(:focus-within, :has(:is(a, button):hover)) {
+  translate: 0 -3px; border-color: var(--text-primary); box-shadow: 0 3px 0 var(--signal-color);
+}
+.content-page :is(.world-link, .card-cover, .item-visual):active { opacity: .82; }
+.content-page :is(.title-button, .item-title button, .card-content h2 a):is(:hover, :focus-visible) { color: var(--accent-color); text-decoration: underline; text-underline-offset: 5px; }
+@media (prefers-reduced-motion: reduce) {
+  .content-page :is(a, button, .stream-card, .world-card, .masonry-item, .content-card),
+  .world-toolbar button, .hero-actions a, .site-search, .user-profile { translate: none !important; }
+}
+
+/* 仅管理工作区与编辑器主动启用；俱乐部保持原有布局。 */
+.workbench-skin { --workbench-rule: 2px solid var(--text-primary); }
+.workbench-skin :is(button, summary, [role="button"], a) {
+  transition: background-color .18s, color .18s, border-color .18s, box-shadow .18s;
+}
+.workbench-skin :is(button, summary, [role="button"], a):focus-visible {
+  outline: 2px solid var(--accent-color); outline-offset: 3px;
+}
+.workbench-skin button:not(:disabled):hover { box-shadow: inset 0 -2px 0 var(--signal-color); }
+.workbench-skin button:not(:disabled):active { box-shadow: inset 0 -3px 0 var(--accent-color); filter: brightness(.92); }
+.workbench-skin button[aria-pressed="true"] { box-shadow: inset 0 -3px 0 var(--signal-color); }
+.workbench-skin button:disabled { cursor: not-allowed; }
+.workbench-skin :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]), textarea, select) {
+  color: var(--text-primary); background-color: var(--paper-card); border-radius: var(--radius-sm);
+  transition: border-color .18s, box-shadow .18s;
+}
+.workbench-skin :is(input, textarea, select):focus-visible {
+  outline: 2px solid var(--accent-color); outline-offset: 2px; border-color: var(--accent-color);
+}
+.workbench-skin :is(.editor-tools, .panel-tabs, .md-tabs) { border-bottom: 1px solid var(--border-line); }
+.workbench-skin .editor-tools { padding: 10px 0; gap: 8px; flex-wrap: wrap; }
+.workbench-skin :is(.editor-footer, .compose-footer, .drawer-footer) { border-top: 2px solid var(--text-primary); }
+.workbench-skin :is(.btn-primary, .btn-save, .primary) {
+  color: var(--on-accent); background: var(--accent-color); border-color: var(--accent-color); border-radius: var(--radius-sm);
+}
+.workbench-skin :is(.btn-primary, .btn-save, .primary):not(:disabled):hover { background: var(--accent-color); color: var(--on-accent); }
+.workbench-skin :is(.optional-section, .draft-recovery, .conflict-field, .ai-modal) { border-radius: var(--radius-sm); }
+.workbench-skin .optional-section { border-left: 3px solid var(--border-line); }
+.workbench-skin .optional-section[open] { border-left-color: var(--accent-color); }
+.workbench-skin summary:hover { color: var(--accent-color); }
+.admin-layout.workbench-skin .content-body :is(.module-header, .panel-header, .md-header) {
+  padding: 20px 0; margin-bottom: 20px; border: 0; border-bottom: 1px solid var(--border-line); gap: 16px; flex-wrap: wrap;
+}
+.admin-layout.workbench-skin .content-body :is(.module-header, .panel-header, .md-header) :is(h1, h2) { font-size: clamp(20px, 2vw, 26px); margin: 0 0 6px; }
+.admin-layout.workbench-skin :is(.filter-panel, .filter-bar) { padding: 16px; background: var(--bg-sub); border: 1px solid var(--border-line); border-radius: var(--radius-sm); gap: 12px; }
+.admin-layout.workbench-skin :is(.table-card, .table-responsive) { border-radius: var(--radius-sm); border: 1px solid var(--border-line); }
+.admin-layout.workbench-skin :is(.ink-table, .md-table) { width: 100%; border-collapse: collapse; }
+.admin-layout.workbench-skin :is(.ink-table, .md-table) th { background: var(--bg-sub); color: var(--text-secondary); font-size: 12px; letter-spacing: .04em; padding: 14px 16px; white-space: nowrap; }
+.admin-layout.workbench-skin :is(.ink-table, .md-table) td { padding: 14px 16px; border-bottom: 1px solid var(--border-line); }
+.admin-layout.workbench-skin :is(.ink-table, .md-table) tbody tr:hover { background: var(--accent-soft); }
+.admin-layout.workbench-skin :is(.stat-card, .metric-card) { border-radius: var(--radius-sm); border-top: 2px solid var(--text-primary); box-shadow: none; }
+.workbench-skin:is(.modal-container, .md-modal, .md-modal-card, .form-modal, .spirit-dialog, .transfer-dialog, .settings-modal, .publish-modal, .drawer-content) {
+  border: 1px solid var(--border-line); border-top: 3px solid var(--accent-color); border-radius: var(--radius-sm);
+}
+@media (prefers-reduced-motion: reduce) {
+  .workbench-skin :is(button, summary, [role="button"], a, input, textarea, select) { transition: none; }
+}
+
+.workbench-skin :is(.workspace-post-frame, .workspace-blog-frame) { border-radius: var(--radius-sm); border-top: 2px solid var(--text-primary); box-shadow: none; }
+.workbench-skin .post-tag-item { background: var(--accent-soft); color: var(--accent-color); border-radius: var(--radius-sm); }
+.workbench-skin :is(.doc-sidebar, .doc-viewer-content) { border-radius: var(--radius-sm); }
+
+/* 内容区主动启用：颜色只铺在边界、标题和元信息，图片与正文保持原貌。 */
+.community-surface {
+  --surface-color: #179db8;
+  --surface-companion: #718fe0;
+  --surface-wash: color-mix(in srgb, var(--surface-color) 9%, var(--paper-card));
+  --surface-edge: color-mix(in srgb, var(--surface-color) 32%, var(--border-line));
+}
+.tone-gallery { --surface-color: #788de3; --surface-companion: #24b2c8; }
+.tone-library { --surface-color: #36ad9e; --surface-companion: #5c9dd3; }
+.tone-world { --surface-color: #7d8fe0; --surface-companion: #34b7b4; }
+.tone-collab { --surface-color: #20a5b4; --surface-companion: #849de4; }
+.tone-play { --surface-color: #399fbf; --surface-companion: #5cb39f; }
+.tone-chai { --surface-color: #a784bd; --surface-companion: #61abc9; }
+.tone-profile { --surface-color: #379cbb; --surface-companion: #9b88d8; }
+.community-surface :is(.content-header, .user-header, .wiki-heading, .surface-heading) {
+  position: relative; isolation: isolate; padding: 26px 24px;
+  border: 1px solid var(--border-line); border-top: 2px solid var(--surface-color); border-radius: var(--radius-sm);
+  background: linear-gradient(115deg, var(--paper-card) 30%, var(--surface-wash) 78%, color-mix(in srgb, var(--surface-companion) 12%, var(--paper-card)));
+}
+.community-surface :is(.content-header, .user-header, .wiki-heading, .surface-heading) > :not(.section-trace),
+.detail-surface .article-header > :not(.section-trace) { position: relative; z-index: 1; }
+.community-surface .content-header::after { background: linear-gradient(90deg, var(--surface-color), transparent 75%); }
+.community-surface :is(.gallery-search, .search-form) { padding: 16px; border: 1px solid var(--border-line); border-radius: var(--radius-sm); background: var(--paper-card); }
+.community-surface :is(.content-filters, .content-tabs) { background: var(--paper-card); }
+.community-surface :is(.content-filters, .content-tabs, .type-nav) button { position: relative; transition: color .18s, background-color .18s, box-shadow .18s; }
+.community-surface :is(.content-filters, .content-tabs, .type-nav) button::after { content: ''; position: absolute; inset: auto 8px 0; height: 2px; background: var(--signal-color); transform: scaleX(0); transform-origin: left; transition: transform .22s; pointer-events: none; }
+.community-surface :is(.content-filters, .content-tabs, .type-nav) button:is(:hover, :focus-visible, [aria-pressed=true])::after { transform: scaleX(1); }
+.community-surface :is(.stream-card, .content-card) { border: 1px solid var(--border-line); border-top-color: var(--surface-edge); border-radius: var(--radius-sm); background: var(--paper-card); }
+.community-surface .artwork-masonry-wrapper .masonry-item { border: 1px solid var(--border-line); border-radius: var(--radius-sm); overflow: hidden; background: var(--paper-card); }
+.community-surface :is(.card-meta, .item-details) { background: linear-gradient(120deg, var(--surface-wash), var(--paper-card) 82%); }
+.community-surface .card-meta { padding: 8px 10px; border-left: 2px solid var(--surface-edge); }
+.community-surface .card-body .card-meta { background: none; border: 0; padding: 0; }
+.community-surface :is(.stream-card, .content-card, .artwork-masonry-wrapper .masonry-item):is(:focus-within, :has(:is(a,button):hover)) {
+  translate: none; border-color: var(--surface-color); box-shadow: 0 3px 0 var(--surface-edge);
+}
+.community-surface :is(.content-actions, .interact-actions, .toolbar, .resource-row, .form-actions) :is(a,button),
+.community-surface :is(.btn-line, .library-item, .text-action, .community-links a) { transition: background-color .2s, border-color .2s, box-shadow .2s, translate .2s; }
+.community-surface :is(.content-actions, .interact-actions, .toolbar, .resource-row, .form-actions) :is(a,button):not(:disabled):is(:hover,:focus-visible),
+.community-surface :is(.btn-line, .text-action):not(:disabled):is(:hover,:focus-visible) { border-color: var(--accent-color); box-shadow: inset 0 -2px var(--signal-color); translate: 0 -1px; }
+.community-surface :is(.content-actions, .interact-actions, .toolbar, .resource-row, .form-actions) :is(a,button):not(:disabled):active { translate: 0 1px; box-shadow: inset 0 -3px var(--accent-color); }
+.community-surface .interact-actions button[aria-pressed=true] { background: var(--accent-soft); color: var(--accent-color); border-color: var(--accent-color); }
+.detail-surface .md-controls { padding: 12px 16px; border: 1px solid var(--border-line); border-left: 3px solid var(--surface-color); background: var(--paper-card); border-radius: var(--radius-sm); }
+.detail-surface .article-header { position: relative; isolation: isolate; padding: 24px 20px; border-block: 1px solid var(--surface-edge); background: linear-gradient(110deg, var(--surface-wash), var(--paper-card)); }
+.detail-surface .article-header .section-trace { opacity: .65; }
+.detail-surface :is(.md-article, .md-wrapper.content-panel) { border-radius: var(--radius-sm); }
+.detail-surface :is(.comments, .note-comments) { border-top: 2px solid var(--surface-edge); }
+.detail-surface :is(.comments-heading, .composer-field) { background: linear-gradient(110deg, var(--surface-wash), var(--paper-card)); }
+.detail-surface .comments-heading { padding: 14px 16px; margin-bottom: 20px; }
+.community-surface.wiki-page .wiki-heading { margin: 20px 0 24px; }
+.community-surface.wiki-page :is(.wiki-reading-footer, .history.content-panel) { background: linear-gradient(130deg, var(--surface-wash), var(--paper-card) 65%); }
+.community-surface.user-center > .stats-grid .stat-item { border-radius: var(--radius-sm); border-top: 2px solid var(--surface-color); background: linear-gradient(125deg, var(--paper-card), color-mix(in srgb, var(--surface-color) 12%, var(--paper-card))); }
+.community-surface.user-center > .stats-grid .stat-item:nth-child(2) { --surface-color: #9b88d8; }
+.community-surface.user-center > .stats-grid .stat-item:nth-child(3) { --surface-color: #39b5a0; }
+.community-surface.user-center .exp-bar > div { background: linear-gradient(90deg, var(--accent-color), var(--signal-color)); transition: width .5s ease; }
+.community-surface.user-center :is(.library-panel, .profile-card, .experience-history) { border-radius: var(--radius-sm); border-top: 2px solid var(--surface-edge); }
+.community-surface.user-center :is(.library-item, .community-links a):is(:hover,:focus-visible) { background: var(--surface-wash); box-shadow: inset 3px 0 var(--surface-color); }
+.community-surface.user-center .item-action { transition: translate .2s; }.community-surface.user-center .library-item:is(:hover,:focus-visible) .item-action { translate: 3px 0; }
+.community-surface.user-center :is(button,a,input,textarea,select,summary):focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
+@media(max-width: 640px) {
+  .community-surface :is(.content-header, .user-header, .wiki-heading, .surface-heading), .detail-surface .article-header { padding: 20px 16px; }
+  .detail-surface .md-controls { flex-wrap: wrap; gap: 10px; }
+}
+@media(prefers-reduced-motion: reduce) {
+  .community-surface :is(button,a,input,textarea,select), .community-surface .item-action, .community-surface .exp-bar > div { transition: none !important; translate: none !important; }
+  .community-surface :is(.content-filters, .content-tabs, .type-nav) button::after { transition: none; }
+}
+
+/* 页头与可操作卡片共享层次；条目正文、画布和编辑字段不叠加装饰。 */
+.community-surface .surface-heading { margin-bottom: 24px; }
+.project-detail > .surface-heading { z-index: 5; }
+.community-surface :is(.world-card footer, .entry-meta, .meta-card, .hub-sidebar) { background: linear-gradient(115deg, var(--surface-wash), var(--paper-card)); border-color: var(--surface-edge); }
+.community-surface .world-card .world-cover:has(.world-mark) { position: relative; background: linear-gradient(135deg, var(--surface-wash) 35%, color-mix(in srgb,var(--surface-companion) 16%,var(--paper-card)) 35%, var(--paper-card) 80%); }
+.community-surface .world-cover:has(.world-mark)::after { content: ''; position: absolute; width: 150px; height: 150px; border: 1px solid var(--surface-color); border-radius: 50%; right: -50px; bottom: -60px; opacity: .3; pointer-events: none; }
+.community-surface :is(.game-card, .project-entry) { position: relative; border-radius: var(--radius-sm); border-top: 2px solid var(--surface-edge); background: linear-gradient(125deg, var(--paper-card) 55%, var(--surface-wash)); transition: border-color .2s, box-shadow .2s; }
+.community-surface :is(.game-card, .project-entry)::after { content: ''; position: absolute; inset: auto 16px 0; height: 2px; background: linear-gradient(90deg,var(--surface-color),var(--surface-companion)); transform: scaleX(0); transform-origin: left; transition: transform .25s; pointer-events: none; }
+.community-surface :is(.game-card, .project-entry):is(:hover,:focus-within)::after { transform: scaleX(1); }
+.community-surface :is(.game-card, .project-entry):is(:hover,:focus-within) { border-color: var(--surface-color); box-shadow: 0 3px 0 var(--surface-edge); }
+.community-surface :is(.game-discussion, .create-trigger, .header-actions button, .header-actions summary, .world-toolbar button, .module-nav button, .community-nav a, .section-more) { transition: background-color .2s, border-color .2s, box-shadow .2s, color .2s; }
+.community-surface :is(.game-discussion, .create-trigger, .header-actions button, .header-actions summary, .world-toolbar button, .module-nav button, .community-nav a, .section-more):not(:disabled):is(:hover,:focus-visible) { box-shadow: inset 0 -2px var(--signal-color); color: var(--accent-color); }
+.community-surface .create-trigger:not(:disabled):is(:hover,:focus-visible), .community-surface .header-actions .create-btn:not(:disabled):is(:hover,:focus-visible) { color: var(--on-accent); }
+.community-surface .world-toolbar button[aria-pressed=true], .community-surface .module-nav .is-active { box-shadow: inset 0 -2px var(--signal-color); }
+@media(prefers-reduced-motion: reduce) { .community-surface :is(.game-card, .project-entry), .community-surface :is(.game-card, .project-entry)::after { transition: none; } }

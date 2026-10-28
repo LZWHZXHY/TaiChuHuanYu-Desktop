@@ -1,0 +1,45 @@
+{
+  "scope": "frontend only; no backend/API/permission/schema changes",
+  "checks": {
+    "frontend_tests": 192,
+    "failed": 0,
+    "world_components_final": 41,
+    "production_build": "passed"
+  },
+  "browser": {
+    "actual_account": "existing test account",
+    "actual_world_nodes": 6,
+    "actual_world_connections": 4,
+    "flows": [
+      "search and camera recenter",
+      "type filter and clear",
+      "focus and neighbor connections",
+      "detail navigation",
+      "rotation toggle",
+      "reset view",
+      "day/night",
+      "390px real app iframe",
+      "guest denied private world"
+    ],
+    "synthetic_sizes": [
+      100,
+      500,
+      1000
+    ],
+    "synthetic_max_connections": 1776,
+    "synthetic_widths": [
+      360,
+      390,
+      1100
+    ],
+    "label_font_px": 14,
+    "observed_label_overlaps": 0,
+    "database_writes": false
+  },
+  "remaining": [
+    "Dense all-node views still contain crossing connections; colliding labels are hidden, nodes remain selectable/searchable.",
+    "Reference preload still reads details individually using existing cache and concurrency limit.",
+    "Browser RAF readings varied and are insufficient for a stable frame-rate guarantee on low-end devices.",
+    "Existing Three.js bundle exceeds 500 kB warning remains."
+  ]
+}

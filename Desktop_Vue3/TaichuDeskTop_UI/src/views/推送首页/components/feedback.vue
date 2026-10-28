@@ -270,10 +270,14 @@ const handleSubmit = async () => {
 .feedback-meta {
   font-size: 0.8rem;
   display: flex;
+  flex-wrap: wrap;              /* 整行放不下时按字段换行 */
   align-items: center;
-  gap: 10px;
+  gap: 4px 8px;
+  line-height: 1.5;
   font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
+/* 每个字段内部不拆行，避免「待处/理」这种断字 */
+.feedback-meta > span { white-space: nowrap; }
 
 .id-text { color: var(--text-secondary); }
 .status-text { font-weight: 500; }

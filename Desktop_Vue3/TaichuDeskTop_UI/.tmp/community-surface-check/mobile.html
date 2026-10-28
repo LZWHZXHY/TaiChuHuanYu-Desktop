@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8"><title>内容页窄屏检查</title>
+<style>body{margin:16px;background:#dce4e8;font:14px sans-serif}nav{margin-bottom:12px}iframe{width:390px;height:640px;border:1px solid #8c9ca5;margin-right:12px;background:white}main{display:flex}</style>
+<nav>390px 实际页面 · <button onclick="setGroup(0)">列表</button> <button onclick="setGroup(1)">个人与详情</button> <button onclick="setGroup(2)">首页与列表</button></nav><main><iframe title="窄屏页面一"></iframe><iframe title="窄屏页面二"></iframe><iframe title="窄屏页面三"></iframe></main>
+<script>
+const groups=[['/Gallery','/PublicNote','/knowledge?type=wiki'],['/user/3243086e-4322-11f1-9adb-b8cef6159562','/PublicNote?type=blog&post=8b3683bc-1f46-43fd-950f-6bf85ab9efeb','/codex/0e667f89-b9cb-43d9-b0f2-237929c6f17b?type=wiki'],['/','/Gallery','/knowledge']];
+function setGroup(i){document.querySelectorAll('iframe').forEach((frame,n)=>frame.src='/#'+groups[i][n])}setGroup(0);
+</script>

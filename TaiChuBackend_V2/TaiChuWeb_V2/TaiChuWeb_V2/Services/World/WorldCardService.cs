@@ -93,16 +93,8 @@ namespace TaiChuWeb_V2.Services.World
             // 缓存只保存数据；每次读取仍验证项目当前的访问权限。
             if (!await IsCardAccessibleAsync(cardId, userId)) return null;
 
-            var cacheKey = WorldCache.CardKey(cardId);
-            if (_cache.TryGetValue(cacheKey, out CardResponseDto? cached)) return EnsureProject(cached, projectId);
-
-            var card = await GetCardByIdInternalAsync(cardId);
-            if (card == null) return null;
-
-            // ✅ 缓存 5 分钟
-            _cache.Set(cacheKey, card, TimeSpan.FromMinutes(5));
-
-            return EnsureProject(card, projectId);
+            // 编辑冲突核对必须取得数据库当前内容，不能返回其他实例遗留的缓存。
+            return EnsureProject(await GetCardByIdInternalAsync(cardId), projectId);
         }
 
         // ============================================================
@@ -142,14 +134,11 @@ namespace TaiChuWeb_V2.Services.World
             if (idList.Count == 0)
                 return new List<CardResponseDto>();
 
-            // 验证项目权限
-            var isAccessible = await _projectService.IsProjectAccessibleAsync(projectId, userId);
-            if (!isAccessible)
-                return new List<CardResponseDto>();
+            await WorldAccess.RequireReadableProjectAsync(_context, projectId, userId);
 
             // ✅ 批量查询，一次 SQL
             var cards = await _context.WorldCards
-                .AsNoTracking()
+                .AsNoTracking().AsSplitQuery()
                 .Include(c => c.OutRelations)
                     .ThenInclude(r => r.TargetCard)
                 .Include(c => c.InRelations)
@@ -175,9 +164,25 @@ namespace TaiChuWeb_V2.Services.World
                 });
             // CanAddCardAsync 已验证项目存在和所有者权限。
 
+            var card = CreateEntity(projectId, Guid.NewGuid(), dto);
+            await ApplyRelationsAsync(card, dto.Relations);
+            await _context.WorldCards.AddAsync(card);
+            await _context.SaveChangesAsync();
+
+            // ✅ 清除项目卡片列表缓存
+            WorldCache.InvalidateProject(_cache, projectId, userId);
+
+            WorldCache.InvalidateCards(_cache, card.OutRelations.Select(r => r.TargetCardId));
+
+            // 返回创建的卡片
+            return MapToResponseDto(card);
+        }
+
+        internal static WorldCard CreateEntity(Guid projectId, Guid id, CreateCardDto dto)
+        {
             var card = new WorldCard
             {
-                Id = Guid.NewGuid(),
+                Id = id,
                 ProjectId = projectId,
                 Title = dto.Title,
                 Type = dto.Type,
@@ -197,14 +202,8 @@ namespace TaiChuWeb_V2.Services.World
                 UpdatedAt = DateTime.UtcNow
             };
 
-            await _context.WorldCards.AddAsync(card);
-            await _context.SaveChangesAsync();
-
-            // ✅ 清除项目卡片列表缓存
-            WorldCache.InvalidateProject(_cache, projectId, userId);
-
-            // 返回创建的卡片
-            return MapToResponseDto(card);
+            card.AdvanceVersion();
+            return card;
         }
 
         public async Task<CardResponseDto?> UpdateCardAsync(Guid cardId, Guid userId, UpdateCardDto dto, Guid? projectId = null)
@@ -225,6 +224,14 @@ namespace TaiChuWeb_V2.Services.World
             // 2. 权限检查：只有项目所有者才能修改
             if (card.Project == null || !WorldAccess.IsOwner(card.Project.OwnerId, userId))
                 return null;
+
+            if (dto.ExpectedUpdatedAt.HasValue && dto.ExpectedUpdatedAt.Value.Ticks != card.UpdatedAt.Ticks)
+                throw new WorldOperationException(WorldErrorKind.Conflict, "条目已被更新，请核对最新内容后再保存",
+                    new Dictionary<string, object?> { ["code"] = "WORLD_CARD_CONFLICT" });
+
+            var affectedIds = card.OutRelations.Concat(card.InRelations)
+                .SelectMany(r => new[] { r.SourceCardId, r.TargetCardId }).Append(cardId).ToList();
+            await ApplyRelationsAsync(card, dto.Relations);
 
             // 3. 更新字段（只更新有值的）
             if (dto.CoverImage != null)
@@ -271,15 +278,13 @@ namespace TaiChuWeb_V2.Services.World
                 card.Content = dto.Content;
 
             // 4. 更新时间戳
-            card.UpdatedAt = DateTime.UtcNow;
+            card.AdvanceVersion();
 
             // 5. 保存更改
-            _context.WorldCards.Update(card);
             await _context.SaveChangesAsync();
 
             // 6. 清除缓存
-            WorldCache.InvalidateCards(_cache, card.OutRelations.Concat(card.InRelations)
-                .SelectMany(relation => new[] { relation.SourceCardId, relation.TargetCardId }).Append(cardId));
+            WorldCache.InvalidateCards(_cache, affectedIds.Concat(card.OutRelations.Select(r => r.TargetCardId)));
             WorldCache.InvalidateProject(_cache, card.ProjectId, userId);
 
             // 7. 直接使用已加载关系的 card 实体构造 DTO，无需额外查询
@@ -338,7 +343,7 @@ namespace TaiChuWeb_V2.Services.World
         // ============================================================
         //  11. 反向引用：哪些卡片引用了当前卡片
         // ============================================================
-        public async Task<IEnumerable<CardSummaryDto>> GetBacklinksAsync(Guid cardId, Guid userId)
+        public async Task<IEnumerable<CardSummaryDto>> GetBacklinksAsync(Guid cardId, Guid userId, Guid? projectId = null)
         {
             // 无权限读取当前卡片时，同样不暴露反向引用。
             if (!await WorldAccess.CanReadCardAsync(_context, cardId, userId))
@@ -346,15 +351,16 @@ namespace TaiChuWeb_V2.Services.World
 
             var target = await _context.WorldCards.AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == cardId);
-            if (target == null) return new List<CardSummaryDto>();
+            if (target == null || (projectId.HasValue && target.ProjectId != projectId.Value)) return new List<CardSummaryDto>();
 
             var idStr = cardId.ToString();
             var inlineToken = "{CARD:" + idStr + "}";
 
-            // 关联内容（ContentBlocks JSON 子串）或 描述行内 {CARD:id} 引用，二者其一命中即算引用。
+            // 显式搜索 JSON 内的字符串值，避免把普通 ID 参数按 JSON 类型 CAST。
+            // 仅检索已授权的当前项目，兼容已有内容块的 JSON 字段格式。
             return await _context.WorldCards.AsNoTracking()
                 .Where(c => c.ProjectId == target.ProjectId && c.Id != cardId)
-                .Where(c => (c.Description != null && c.Description.Contains(inlineToken)) || c.ContentBlocks.Contains(idStr))
+                .Where(c => (c.Description != null && c.Description.Contains(inlineToken)) || EF.Functions.JsonSearchAny(c.ContentBlocks, idStr))
                 .OrderByDescending(c => c.UpdatedAt)
                 .Select(c => new CardSummaryDto
                 {
@@ -368,6 +374,34 @@ namespace TaiChuWeb_V2.Services.World
                     InRelationCount = 0
                 })
                 .ToListAsync();
+        }
+
+        public async Task<Dictionary<Guid, List<Guid>>> GetReferencesAsync(Guid projectId, Guid userId)
+        {
+            await WorldAccess.RequireReadableProjectAsync(_context, projectId, userId);
+            var rows = await _context.WorldCards.AsNoTracking().Where(c => c.ProjectId == projectId)
+                .Select(c => new { c.Id, c.Description, c.ContentBlocks }).ToListAsync();
+            var allowed = rows.Select(c => c.Id).ToHashSet();
+            var result = new Dictionary<Guid, List<Guid>>();
+            foreach (var row in rows)
+            {
+                var ids = new HashSet<Guid>();
+                foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(row.Description ?? "", @"\{CARD:([^}]+)\}"))
+                    if (Guid.TryParse(match.Groups[1].Value, out var id)) ids.Add(id);
+                try
+                {
+                    using var blocks = JsonDocument.Parse(row.ContentBlocks ?? "[]");
+                    if (blocks.RootElement.ValueKind == JsonValueKind.Array)
+                        foreach (var block in blocks.RootElement.EnumerateArray())
+                            if (block.ValueKind == JsonValueKind.Object && (block.TryGetProperty("cardId", out var value) || block.TryGetProperty("CardId", out value))
+                                && value.ValueKind == JsonValueKind.String && Guid.TryParse(value.GetString(), out var id)) ids.Add(id);
+                }
+                catch (JsonException) { /* 旧数据损坏时仍保留正文中的有效引用。 */ }
+                ids.Remove(row.Id);
+                var targets = ids.Where(allowed.Contains).OrderBy(id => id).ToList();
+                if (targets.Count > 0) result[row.Id] = targets;
+            }
+            return result;
         }
 
         public async Task<IEnumerable<TimelineItemDto>> GetTimelineAsync(Guid projectId, Guid userId)
@@ -407,7 +441,7 @@ namespace TaiChuWeb_V2.Services.World
             var q = query.Trim().ToLower();
 
             var accessibleProjectIds = await _context.WorldProjects
-                .Where(p => p.OwnerId == userId || p.IsPublic)
+                .ReadableBy(userId)
                 .Select(p => p.Id)
                 .ToListAsync();
 
@@ -426,6 +460,47 @@ namespace TaiChuWeb_V2.Services.World
                           })
                           .Take(limit)
                           .ToListAsync();
+        }
+
+        // 先验证完整关系集合，再与正文一起由一次 SaveChanges 提交，避免部分保存。
+        private async Task ApplyRelationsAsync(WorldCard card, List<CreateRelationDto>? desired)
+        {
+            if (desired == null) return;
+            var ids = ValidateRelations(card.Id, desired);
+            var projectId = card.ProjectId;
+            var targetIds = ids.ToList();
+            var targets = targetIds.Count == 0 ? new Dictionary<Guid, WorldCard>() :
+                await _context.WorldCards.Where(c => c.ProjectId == projectId && targetIds.Contains(c.Id))
+                    .ToDictionaryAsync(c => c.Id);
+            if (targets.Count != ids.Length)
+                throw new WorldOperationException(WorldErrorKind.Invalid, "关联目标不存在或不属于当前世界");
+
+            foreach (var old in card.OutRelations.Where(r => !ids.Contains(r.TargetCardId)).ToList())
+            {
+                _context.WorldRelations.Remove(old);
+                card.OutRelations.Remove(old);
+            }
+            foreach (var input in desired)
+            {
+                var relation = card.OutRelations.FirstOrDefault(r => r.TargetCardId == input.TargetCardId);
+                if (relation != null) relation.RelationType = input.RelationType;
+                else
+                {
+                    relation = new WorldRelation { Id = Guid.NewGuid(), SourceCard = card, SourceCardId = card.Id,
+                        TargetCard = targets[input.TargetCardId], TargetCardId = input.TargetCardId,
+                        RelationType = input.RelationType, CreatedAt = DateTime.UtcNow };
+                    _context.WorldRelations.Add(relation);
+                }
+            }
+        }
+
+        internal static Guid[] ValidateRelations(Guid cardId, List<CreateRelationDto> desired)
+        {
+            foreach (var relation in desired) WorldValidation.Validate(relation);
+            var ids = desired.Select(r => r.TargetCardId).ToArray();
+            if (ids.Contains(cardId) || ids.Distinct().Count() != ids.Length)
+                throw new WorldOperationException(WorldErrorKind.Invalid, "不能关联自己或重复关联同一条目");
+            return ids;
         }
 
         private static CardResponseDto? EnsureProject(CardResponseDto? card, Guid? projectId)

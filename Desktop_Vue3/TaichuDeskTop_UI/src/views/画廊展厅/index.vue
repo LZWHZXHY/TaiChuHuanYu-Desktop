@@ -1,7 +1,8 @@
 <template>
-  <article class="gallery-container content-page">
+  <article class="gallery-container content-page community-surface tone-gallery">
     <p v-if="publishMessage" class="publish-message" role="status">{{ publishMessage }}</p>
     <header class="gallery-nav content-header">
+      <SectionTrace />
       <div class="nav-left">
         <div><p class="eyebrow">社区创作 · 画廊</p><h1 class="brand-title">太初艺术馆</h1><p class="intro">分享作品与练习，用标签发现同好。</p></div>
 
@@ -72,6 +73,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, nextTick, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { ArtworkWriteResult } from '../../api/artwork';
@@ -161,15 +163,15 @@ const onArtworkPublished = (createdArtwork: ArtworkWriteResult) => {
 <style scoped>
 
 .gallery-container { min-height: 70vh; }
-.gallery-search { display: flex; gap: 10px; margin: 0 0 28px; padding: 16px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 12px; }
+.gallery-search { display: flex; gap: 10px; margin: 0 0 28px; }
 .gallery-search input { flex: 1; min-width: 0; }
-.gallery-search input, .gallery-search button { padding: 10px 14px; color: var(--text-primary); background: var(--paper-bg); border: 1px solid var(--border-line); border-radius: 8px; }
+.gallery-search input, .gallery-search button { padding: 10px 14px; color: var(--text-primary); background: var(--paper-bg); border: 1px solid var(--border-line); border-radius: var(--radius-sm); }
 .publish-message { color: var(--accent-color); padding: 12px 0; }
 .nav-left { display: flex; flex-wrap: wrap; align-items: center; gap: 28px; }
 .view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .view-label { font-size: .9rem; color: var(--text-secondary); }
 .fade-enter-active, .fade-leave-active, .slide-up-enter-active, .slide-up-leave-active { transition: opacity .2s ease; }
 .fade-enter-from, .fade-leave-to, .slide-up-enter-from, .slide-up-leave-to { opacity: 0; }
-@media (max-width: 720px) { .gallery-search { padding: 12px; flex-wrap: wrap; } .nav-left { gap: 16px; } }
+@media (max-width: 720px) { .gallery-search { flex-wrap: wrap; } .nav-left { gap: 16px; } }
 
 </style>

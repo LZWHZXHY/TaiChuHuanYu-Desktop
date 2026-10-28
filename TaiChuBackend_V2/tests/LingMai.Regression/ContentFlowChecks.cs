@@ -28,6 +28,10 @@ static class ContentFlowChecks
             var tagSql = db.TagAssignments.Where(t => t.EntityType == "Artwork" && Enumerable.Contains(tagIds, t.EntityId)).ToQueryString();
             Check(tagSql.Length > 0, "catalog tag IDs translate, including wiki-only empty IDs");
         }
+        foreach (var contributorIds in new[] { Array.Empty<Guid>(), new[] { Guid.NewGuid() }, new[] { Guid.NewGuid(), Guid.NewGuid() } }) {
+            var historyNamesSql = db.Users.AsNoTracking().Where(u => Enumerable.Contains(contributorIds, u.Id)).Select(u => new { u.Id, u.Username }).ToQueryString();
+            Check(historyNamesSql.Contains("WHERE"), "wiki contributor filter translates on net10, including empty IDs");
+        }
         var commentsSql = new ArtworkEngagementService(db).Comments(1, null).OrderByDescending(c => c.CreatedAt).Take(20).ToQueryString();
         Check(commentsSql.Split("COLLATE utf8mb4_general_ci").Length >= 5, "comment authors and reply authors use explicit collation");
         Check(commentsSql.Contains("LEFT JOIN") && commentsSql.Contains("LIMIT"), "comments preserve deleted authors and pagination");

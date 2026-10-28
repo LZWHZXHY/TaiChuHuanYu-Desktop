@@ -1,0 +1,794 @@
+info: Microsoft.Hosting.Lifetime[14]
+      Now listening on: https://localhost:5049
+info: Microsoft.Hosting.Lifetime[0]
+      Application started. Press Ctrl+C to shut down.
+info: Microsoft.Hosting.Lifetime[0]
+      Hosting environment: Development
+info: Microsoft.Hosting.Lifetime[0]
+      Content root path: E:\TaiChuHuanYu_DeskTop\TaiChuHuanYu-Desktop\TaiChuBackend_V2\TaiChuWeb_V2\TaiChuWeb_V2
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (236ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (216ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (216ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__cardId_0='?' (DbType = Guid), @__userId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldCards` AS `w`
+          INNER JOIN `WorldProjects` AS `w0` ON `w`.`ProjectId` = `w0`.`Id`
+          WHERE (`w`.`Id` = @__cardId_0) AND (`w0`.`IsPublic` OR (`w0`.`OwnerId` = @__userId_1)))
+warn: Microsoft.EntityFrameworkCore.Query[20504]
+      Compiling a query which loads related collections for more than one collection navigation, either via 'Include' or through projection, but no 'QuerySplittingBehavior' has been configured. By default, Entity Framework will use 'QuerySplittingBehavior.SingleQuery', which can potentially result in slow query performance. See https://go.microsoft.com/fwlink/?linkid=2134277 for more information. To identify the query that's triggering this warning call 'ConfigureWarnings(w => w.Throw(RelationalEventId.MultipleCollectionIncludeWarning))'.
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (218ms) [Parameters=[@__cardId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w4`.`Id`, `w4`.`Aliases`, `w4`.`Attributes`, `w4`.`Content`, `w4`.`ContentBlocks`, `w4`.`CoverImage`, `w4`.`CreatedAt`, `w4`.`Description`, `w4`.`EmbeddedCards`, `w4`.`GalleryImages`, `w4`.`ProjectId`, `w4`.`SubType`, `w4`.`Tags`, `w4`.`TimelineEvents`, `w4`.`Title`, `w4`.`Type`, `w4`.`UpdatedAt`, `s`.`Id`, `s`.`CreatedAt`, `s`.`RelationType`, `s`.`SourceCardId`, `s`.`TargetCardId`, `s`.`Id0`, `s`.`Aliases`, `s`.`Attributes`, `s`.`Content`, `s`.`ContentBlocks`, `s`.`CoverImage`, `s`.`CreatedAt0`, `s`.`Description`, `s`.`EmbeddedCards`, `s`.`GalleryImages`, `s`.`ProjectId`, `s`.`SubType`, `s`.`Tags`, `s`.`TimelineEvents`, `s`.`Title`, `s`.`Type`, `s`.`UpdatedAt`, `s0`.`Id`, `s0`.`CreatedAt`, `s0`.`RelationType`, `s0`.`SourceCardId`, `s0`.`TargetCardId`, `s0`.`Id0`, `s0`.`Aliases`, `s0`.`Attributes`, `s0`.`Content`, `s0`.`ContentBlocks`, `s0`.`CoverImage`, `s0`.`CreatedAt0`, `s0`.`Description`, `s0`.`EmbeddedCards`, `s0`.`GalleryImages`, `s0`.`ProjectId`, `s0`.`SubType`, `s0`.`Tags`, `s0`.`TimelineEvents`, `s0`.`Title`, `s0`.`Type`, `s0`.`UpdatedAt`
+      FROM (
+          SELECT `w`.`Id`, `w`.`Aliases`, `w`.`Attributes`, `w`.`Content`, `w`.`ContentBlocks`, `w`.`CoverImage`, `w`.`CreatedAt`, `w`.`Description`, `w`.`EmbeddedCards`, `w`.`GalleryImages`, `w`.`ProjectId`, `w`.`SubType`, `w`.`Tags`, `w`.`TimelineEvents`, `w`.`Title`, `w`.`Type`, `w`.`UpdatedAt`
+          FROM `WorldCards` AS `w`
+          WHERE `w`.`Id` = @__cardId_0
+          LIMIT 1
+      ) AS `w4`
+      LEFT JOIN (
+          SELECT `w0`.`Id`, `w0`.`CreatedAt`, `w0`.`RelationType`, `w0`.`SourceCardId`, `w0`.`TargetCardId`, `w1`.`Id` AS `Id0`, `w1`.`Aliases`, `w1`.`Attributes`, `w1`.`Content`, `w1`.`ContentBlocks`, `w1`.`CoverImage`, `w1`.`CreatedAt` AS `CreatedAt0`, `w1`.`Description`, `w1`.`EmbeddedCards`, `w1`.`GalleryImages`, `w1`.`ProjectId`, `w1`.`SubType`, `w1`.`Tags`, `w1`.`TimelineEvents`, `w1`.`Title`, `w1`.`Type`, `w1`.`UpdatedAt`
+          FROM `WorldRelations` AS `w0`
+          INNER JOIN `WorldCards` AS `w1` ON `w0`.`TargetCardId` = `w1`.`Id`
+      ) AS `s` ON `w4`.`Id` = `s`.`SourceCardId`
+      LEFT JOIN (
+          SELECT `w2`.`Id`, `w2`.`CreatedAt`, `w2`.`RelationType`, `w2`.`SourceCardId`, `w2`.`TargetCardId`, `w3`.`Id` AS `Id0`, `w3`.`Aliases`, `w3`.`Attributes`, `w3`.`Content`, `w3`.`ContentBlocks`, `w3`.`CoverImage`, `w3`.`CreatedAt` AS `CreatedAt0`, `w3`.`Description`, `w3`.`EmbeddedCards`, `w3`.`GalleryImages`, `w3`.`ProjectId`, `w3`.`SubType`, `w3`.`Tags`, `w3`.`TimelineEvents`, `w3`.`Title`, `w3`.`Type`, `w3`.`UpdatedAt`
+          FROM `WorldRelations` AS `w2`
+          INNER JOIN `WorldCards` AS `w3` ON `w2`.`SourceCardId` = `w3`.`Id`
+      ) AS `s0` ON `w4`.`Id` = `s0`.`TargetCardId`
+      ORDER BY `w4`.`Id`, `s`.`Id`, `s`.`Id0`, `s0`.`Id`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__cardId_0='?' (DbType = Guid), @__userId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldCards` AS `w`
+          INNER JOIN `WorldProjects` AS `w0` ON `w`.`ProjectId` = `w0`.`Id`
+          WHERE (`w`.`Id` = @__cardId_0) AND (`w0`.`IsPublic` OR (`w0`.`OwnerId` = @__userId_1)))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__cardId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Aliases`, `w`.`Attributes`, `w`.`Content`, `w`.`ContentBlocks`, `w`.`CoverImage`, `w`.`CreatedAt`, `w`.`Description`, `w`.`EmbeddedCards`, `w`.`GalleryImages`, `w`.`ProjectId`, `w`.`SubType`, `w`.`Tags`, `w`.`TimelineEvents`, `w`.`Title`, `w`.`Type`, `w`.`UpdatedAt`
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`Id` = @__cardId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__target_ProjectId_0='?' (DbType = Guid), @__cardId_1='?' (DbType = Guid), @__inlineToken_2_contains='?' (Size = 4000), @__idStr_4='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`ProjectId`, `w`.`Title`, `w`.`Type`, `w`.`CoverImage`, `w`.`UpdatedAt`, 0 AS `OutRelationCount`
+      FROM `WorldCards` AS `w`
+      WHERE ((`w`.`ProjectId` = @__target_ProjectId_0) AND (`w`.`Id` <> @__cardId_1)) AND ((`w`.`Description` IS NOT NULL AND (`w`.`Description` LIKE @__inlineToken_2_contains)) OR (JSON_SEARCH(`w`.`ContentBlocks`, 'one', @__idStr_4) IS NOT NULL))
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (220ms) [Parameters=[@__cardId_0='?' (DbType = Guid), @__userId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldCards` AS `w`
+          INNER JOIN `WorldProjects` AS `w0` ON `w`.`ProjectId` = `w0`.`Id`
+          WHERE (`w`.`Id` = @__cardId_0) AND (`w0`.`IsPublic` OR (`w0`.`OwnerId` = @__userId_1)))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (833ms) [Parameters=[@__cardId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w4`.`Id`, `w4`.`Aliases`, `w4`.`Attributes`, `w4`.`Content`, `w4`.`ContentBlocks`, `w4`.`CoverImage`, `w4`.`CreatedAt`, `w4`.`Description`, `w4`.`EmbeddedCards`, `w4`.`GalleryImages`, `w4`.`ProjectId`, `w4`.`SubType`, `w4`.`Tags`, `w4`.`TimelineEvents`, `w4`.`Title`, `w4`.`Type`, `w4`.`UpdatedAt`, `s`.`Id`, `s`.`CreatedAt`, `s`.`RelationType`, `s`.`SourceCardId`, `s`.`TargetCardId`, `s`.`Id0`, `s`.`Aliases`, `s`.`Attributes`, `s`.`Content`, `s`.`ContentBlocks`, `s`.`CoverImage`, `s`.`CreatedAt0`, `s`.`Description`, `s`.`EmbeddedCards`, `s`.`GalleryImages`, `s`.`ProjectId`, `s`.`SubType`, `s`.`Tags`, `s`.`TimelineEvents`, `s`.`Title`, `s`.`Type`, `s`.`UpdatedAt`, `s0`.`Id`, `s0`.`CreatedAt`, `s0`.`RelationType`, `s0`.`SourceCardId`, `s0`.`TargetCardId`, `s0`.`Id0`, `s0`.`Aliases`, `s0`.`Attributes`, `s0`.`Content`, `s0`.`ContentBlocks`, `s0`.`CoverImage`, `s0`.`CreatedAt0`, `s0`.`Description`, `s0`.`EmbeddedCards`, `s0`.`GalleryImages`, `s0`.`ProjectId`, `s0`.`SubType`, `s0`.`Tags`, `s0`.`TimelineEvents`, `s0`.`Title`, `s0`.`Type`, `s0`.`UpdatedAt`
+      FROM (
+          SELECT `w`.`Id`, `w`.`Aliases`, `w`.`Attributes`, `w`.`Content`, `w`.`ContentBlocks`, `w`.`CoverImage`, `w`.`CreatedAt`, `w`.`Description`, `w`.`EmbeddedCards`, `w`.`GalleryImages`, `w`.`ProjectId`, `w`.`SubType`, `w`.`Tags`, `w`.`TimelineEvents`, `w`.`Title`, `w`.`Type`, `w`.`UpdatedAt`
+          FROM `WorldCards` AS `w`
+          WHERE `w`.`Id` = @__cardId_0
+          LIMIT 1
+      ) AS `w4`
+      LEFT JOIN (
+          SELECT `w0`.`Id`, `w0`.`CreatedAt`, `w0`.`RelationType`, `w0`.`SourceCardId`, `w0`.`TargetCardId`, `w1`.`Id` AS `Id0`, `w1`.`Aliases`, `w1`.`Attributes`, `w1`.`Content`, `w1`.`ContentBlocks`, `w1`.`CoverImage`, `w1`.`CreatedAt` AS `CreatedAt0`, `w1`.`Description`, `w1`.`EmbeddedCards`, `w1`.`GalleryImages`, `w1`.`ProjectId`, `w1`.`SubType`, `w1`.`Tags`, `w1`.`TimelineEvents`, `w1`.`Title`, `w1`.`Type`, `w1`.`UpdatedAt`
+          FROM `WorldRelations` AS `w0`
+          INNER JOIN `WorldCards` AS `w1` ON `w0`.`TargetCardId` = `w1`.`Id`
+      ) AS `s` ON `w4`.`Id` = `s`.`SourceCardId`
+      LEFT JOIN (
+          SELECT `w2`.`Id`, `w2`.`CreatedAt`, `w2`.`RelationType`, `w2`.`SourceCardId`, `w2`.`TargetCardId`, `w3`.`Id` AS `Id0`, `w3`.`Aliases`, `w3`.`Attributes`, `w3`.`Content`, `w3`.`ContentBlocks`, `w3`.`CoverImage`, `w3`.`CreatedAt` AS `CreatedAt0`, `w3`.`Description`, `w3`.`EmbeddedCards`, `w3`.`GalleryImages`, `w3`.`ProjectId`, `w3`.`SubType`, `w3`.`Tags`, `w3`.`TimelineEvents`, `w3`.`Title`, `w3`.`Type`, `w3`.`UpdatedAt`
+          FROM `WorldRelations` AS `w2`
+          INNER JOIN `WorldCards` AS `w3` ON `w2`.`SourceCardId` = `w3`.`Id`
+      ) AS `s0` ON `w4`.`Id` = `s0`.`TargetCardId`
+      ORDER BY `w4`.`Id`, `s`.`Id`, `s`.`Id0`, `s0`.`Id`
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (214ms) [Parameters=[@__cardId_0='?' (DbType = Guid), @__userId_1='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT EXISTS (
+          SELECT 1
+          FROM `WorldCards` AS `w`
+          INNER JOIN `WorldProjects` AS `w0` ON `w`.`ProjectId` = `w0`.`Id`
+          WHERE (`w`.`Id` = @__cardId_0) AND (`w0`.`IsPublic` OR (`w0`.`OwnerId` = @__userId_1)))
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (216ms) [Parameters=[@__cardId_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`Aliases`, `w`.`Attributes`, `w`.`Content`, `w`.`ContentBlocks`, `w`.`CoverImage`, `w`.`CreatedAt`, `w`.`Description`, `w`.`EmbeddedCards`, `w`.`GalleryImages`, `w`.`ProjectId`, `w`.`SubType`, `w`.`Tags`, `w`.`TimelineEvents`, `w`.`Title`, `w`.`Type`, `w`.`UpdatedAt`
+      FROM `WorldCards` AS `w`
+      WHERE `w`.`Id` = @__cardId_0
+      LIMIT 1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__target_ProjectId_0='?' (DbType = Guid), @__cardId_1='?' (DbType = Guid), @__inlineToken_2_contains='?' (Size = 4000), @__idStr_4='?' (Size = 4000)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`ProjectId`, `w`.`Title`, `w`.`Type`, `w`.`CoverImage`, `w`.`UpdatedAt`, 0 AS `OutRelationCount`
+      FROM `WorldCards` AS `w`
+      WHERE ((`w`.`ProjectId` = @__target_ProjectId_0) AND (`w`.`Id` <> @__cardId_1)) AND ((`w`.`Description` IS NOT NULL AND (`w`.`Description` LIKE @__inlineToken_2_contains)) OR (JSON_SEARCH(`w`.`ContentBlocks`, 'one', @__idStr_4) IS NOT NULL))
+      ORDER BY `w`.`UpdatedAt` DESC
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (219ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (522ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (218ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (214ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (216ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (221ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (216ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (215ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (217ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (223ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (230ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (532ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (532ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (223ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (538ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (542ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (225ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (542ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (532ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (223ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (236ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (246ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (542ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (223ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (225ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (531ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (837ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (230ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (223ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (225ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (230ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (522ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (522ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (224ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (532ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (223ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (227ms) [Parameters=[@__expiry_0='?' (DbType = DateTime), @__p_1='?' (DbType = Int32)], CommandType='Text', CommandTimeout='30']
+      SELECT `w`.`Id`, `w`.`OwnerId`
+      FROM `WorldRestores` AS `w`
+      WHERE (`w`.`State` = 'cleaning') OR ((`w`.`State` = 'pending') AND (`w`.`UpdatedAt` < @__expiry_0))
+      ORDER BY `w`.`UpdatedAt`
+      LIMIT @__p_1
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (226ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)
+info: Microsoft.EntityFrameworkCore.Database.Command[20101]
+      Executed DbCommand (223ms) [Parameters=[@__CurrentUserId_Value_0='?' (DbType = Guid)], CommandType='Text', CommandTimeout='30']
+      SELECT COUNT(*)
+      FROM `Notifications` AS `n`
+      WHERE (`n`.`UserId` = @__CurrentUserId_Value_0) AND NOT (`n`.`IsRead`)

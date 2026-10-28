@@ -1,0 +1,104 @@
+[
+  {
+    "file": "src/router/index.ts",
+    "before": 211,
+    "after": 209,
+    "net": -2
+  },
+  {
+    "file": "src/views/世界观管理/index.vue",
+    "before": 157,
+    "after": 169,
+    "net": 12
+  },
+  {
+    "file": "src/views/世界观管理/ProjectDetail.vue",
+    "before": 678,
+    "after": 701,
+    "net": 23
+  },
+  {
+    "file": "src/views/世界观管理/世界观组件/CardDetail.vue",
+    "before": 553,
+    "after": 0,
+    "net": -553
+  },
+  {
+    "file": "src/stores/world.ts",
+    "before": 274,
+    "after": 282,
+    "net": 8
+  },
+  {
+    "file": "tests/world-components.test.mjs",
+    "before": 300,
+    "after": 302,
+    "net": 2
+  },
+  {
+    "file": "tests/world.test.mjs",
+    "before": 335,
+    "after": 348,
+    "net": 13
+  },
+  {
+    "file": "tests/backend-world/ContractChecks.cs",
+    "before": 260,
+    "after": 294,
+    "net": 34
+  },
+  {
+    "file": "tests/backend-world/QueryChecks.cs",
+    "before": 99,
+    "after": 102,
+    "net": 3
+  },
+  {
+    "file": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\TaiChuWeb_V2\\TaiChuWeb_V2\\Controllers\\World\\WorldControllerBase.cs",
+    "before": 15,
+    "after": 19,
+    "net": 4
+  },
+  {
+    "file": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\TaiChuWeb_V2\\TaiChuWeb_V2\\Controllers\\World\\WorldProjectsController.cs",
+    "before": 46,
+    "after": 47,
+    "net": 1
+  },
+  {
+    "file": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\TaiChuWeb_V2\\TaiChuWeb_V2\\Controllers\\World\\WorldCardsController.cs",
+    "before": 51,
+    "after": 55,
+    "net": 4
+  },
+  {
+    "file": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\TaiChuWeb_V2\\TaiChuWeb_V2\\Controllers\\World\\WorldRelationsController.cs",
+    "before": 33,
+    "after": 35,
+    "net": 2
+  },
+  {
+    "file": "E:\\TaiChuHuanYu_DeskTop\\TaiChuHuanYu-Desktop\\TaiChuBackend_V2\\TaiChuWeb_V2\\TaiChuWeb_V2\\Controllers\\World\\WorldSearchController.cs",
+    "before": 14,
+    "after": 15,
+    "net": 1
+  },
+  {
+    "file": "src/views/世界观管理/世界观组件/ProjectCardDocument.vue",
+    "before": 379,
+    "after": 382,
+    "net": 3
+  },
+  {
+    "file": "tests/auth.test.mjs",
+    "before": 307,
+    "after": 325,
+    "net": 18
+  },
+  {
+    "file": "src/views/世界观管理/世界观组件/TimelineView.vue",
+    "before": 133,
+    "after": 140,
+    "net": 7
+  }
+]

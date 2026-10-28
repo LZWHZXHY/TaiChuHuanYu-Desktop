@@ -62,5 +62,11 @@ Check(!cache.TryGetValue($"cards_project_{projectId}", out _) &&
     "卡片数量变化清理项目及个人/公开列表缓存");
 Check(cache.TryGetValue($"card_{otherId}", out _), "项目失效不清空整个内存缓存");
 QueryChecks.Run(Check);
+var blockRoundTrip = JsonSerializer.Deserialize<ContentBlockDto>(JsonSerializer.Serialize(
+    new ContentBlockDto { CardId = target.Id, ContextLabel = "所属组织" }, options), options)!;
+Check(blockRoundTrip.ContextLabel == "所属组织", "引用说明在 DTO JSON 往返后保留");
+Check(JsonSerializer.Deserialize<UpdateCardDto>("{}", options)!.Relations == null &&
+    JsonSerializer.Deserialize<UpdateCardDto>("{\"relations\":[]}", options)!.Relations!.Count == 0,
+    "未提交关系与显式清空关系保持不同语义");
 await ContractChecks.Run(Check);
 Console.WriteLine($"{passed} backend world checks passed.");

@@ -76,11 +76,11 @@ onUnmounted(() => {
 <style scoped>
 .mc-page { width: 100%; min-width: 0; color: var(--text-primary); }
 .mc-header, .discussion { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; }
-.mc-header { margin-bottom: 24px; }
+.mc-header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--surface-edge); }
 h2 { font-size: 26px; margin: 0 0 8px; } h3 { margin: 0 0 12px; font-size: 18px; } h4 { margin: 16px 0 8px; }
 p { color: var(--text-secondary); font-size: 14px; line-height: 1.7; margin: 8px 0; }
 .mc-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; margin-bottom: 20px; }
-.mc-card { padding: clamp(16px, 2vw, 24px); border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); min-width: 0; }
+.mc-card { padding: clamp(16px, 2vw, 24px); border: 1px solid var(--border-line); border-radius: var(--radius-sm); border-top: 2px solid var(--surface-edge); background: linear-gradient(135deg, var(--paper-card) 65%, var(--surface-wash)); min-width: 0; }
 a { color: var(--accent-color); text-decoration: none; } .mc-card > a:not(.primary) { display: block; padding: 12px 0; }
 .server-address { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; background: var(--bg-sub); padding: 12px; border-radius: 8px; margin: 16px 0; }
 code { overflow-wrap: anywhere; } button, .primary { border: 0; background: var(--accent-color); color: var(--on-accent); padding: 10px 16px; border-radius: 8px; cursor: pointer; }

@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using TaiChuWeb_V2.Models.Interact;
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
@@ -55,12 +55,9 @@ static class ArtworkPublishChecks
         update.Captions = new(); await Error(() => service.EditAsync(art.Id, user, update), 409);
         var watermarked = Upload(); watermarked.WatermarkEnabled = true;
         await service.UploadAsync(user, watermarked);
-        Check(watermark.ByteCalls == 2 && db.ArtworkRows.Rows.Last().WatermarkText == "太初寰宇", "direct uploads really apply watermark");
-        watermark.Fail = true;
-        var count = db.ArtworkRows.Rows.Count;
-        try { await service.UploadAsync(user, watermarked); throw new Exception("expected watermark failure"); }
-        catch (IOException) { Check(db.ArtworkRows.Rows.Count == count, "watermark failure must not publish an unprotected image"); }
-        watermark.Fail = false;
+        // 发布端目前明确禁用水印；旧客户端传 true 也不能伪报已加水印。
+        Check(watermark.ByteCalls == 0 && !db.ArtworkRows.Rows.Last().WatermarkEnabled,
+            "disabled watermark is reported honestly for legacy uploads");
 
         await Error(() => service.PublishNoteAsync(noteId, other), 403);
         await Error(() => service.PublishNoteAsync(noteId, user), 400);
@@ -74,7 +71,7 @@ static class ArtworkPublishChecks
         Check(linked.Id == linkedId && linked.Title == "修订稿" && linked.LikesCount == 9 && !linked.IsApproved && linked.Status == "hidden", "republish preserves identity, counters and moderation");
         await Error(() => service.EditAsync(linked.Id, user, update), 409);
         await Error(() => service.UploadAsync(user, hijack), 409);
-        var controller = new LingMaiPublishController(db, Array.Empty<ILingMaiPublishHandler>());
+        var controller = new LingMaiPublishController(db, Array.Empty<ILingMaiPublishHandler>(), new TaiChuWeb_V2.Services.LingMai.NoteCommentService(db));
         ControllerContext Login(Guid? id) => new() { HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(id == null ? Array.Empty<Claim>() : new[] { new Claim(ClaimTypes.NameIdentifier, id.ToString()!) }, "test")) } };
         controller.ControllerContext = Login(other);
         Check(await controller.UnpublishNote(noteId) is ForbidResult, "non-owner cannot withdraw");
@@ -113,7 +110,7 @@ static class ArtworkPublishChecks
         await controllerWithOwner().UnpublishNote(noteId);
         await admin.UpdateGalleryGovernance("GAL-" + linkedId, new() { Status = "published" });
         Check(!linked.IsApproved, "admin restore cannot override owner withdrawal");
-        LingMaiPublishController controllerWithOwner() => new(db, Array.Empty<ILingMaiPublishHandler>()) { ControllerContext = Login(user) };
+        LingMaiPublishController controllerWithOwner() => new(db, Array.Empty<ILingMaiPublishHandler>(), new TaiChuWeb_V2.Services.LingMai.NoteCommentService(db)) { ControllerContext = Login(user) };
         var metadata = new LingMaiController(new LingMaiService(db), db) { ControllerContext = Login(other) };
         var change = JsonSerializer.Deserialize<JsonElement>("{\"type\":\"blog\"}");
         Check(await metadata.UpdateNoteMeta(noteId, change) is ForbidResult, "metadata cannot hijack foreign source");
@@ -169,8 +166,8 @@ static class ArtworkPublishChecks
         db.BlockRows.Rows.Single(b => b.Id == "meta").Data = "{\"watermarkEnabled\":true}";
         var beforeUploads = cos.Uploads.Count;
         await Failed(() => service.PublishNoteAsync(noteId, user), "republish failed");
-        Check(cos.Deletes.Skip(beforeCleanup).SequenceEqual(cos.Uploads.Skip(beforeUploads)) && cos.Deletes.Last().StartsWith("artwork/watermarked/"),
-            "failed republish cleans new watermarked derivatives only");
+        Check(cos.Uploads.Count == beforeUploads && cos.Deletes.Count == beforeCleanup,
+            "disabled watermark republish neither creates derivatives nor deletes originals");
         db.SaveFailure = null;
         if (OperatingSystem.IsWindowsVersionAtLeast(6, 1))
         {
@@ -211,9 +208,8 @@ sealed class RecordingWatermark() : WatermarkService(null!)
     public override Task<byte[]> ApplyWatermarkAsync(string url, string? text, string? image, string type, string position, int size, double opacity, string color, int rotation, double scale, double imageOpacity)
         => ApplyWatermarkAsync(new byte[8], text, image, type, position, size, opacity, color, rotation, scale, imageOpacity);
     public int ByteCalls;
-    public bool Fail;
     public override Task<byte[]> ApplyWatermarkAsync(byte[] bytes, string? text, string? image, string type, string position, int size, double opacity, string color, int rotation, double scale, double imageOpacity)
-    { ByteCalls++; return Fail ? Task.FromException<byte[]>(new IOException("image failed")) : Task.FromResult(bytes); }
+    { ByteCalls++; return Task.FromResult(bytes); }
 }
 
 sealed class LocalHttpFactory : IHttpClientFactory { public HttpClient CreateClient(string name) => new(); }

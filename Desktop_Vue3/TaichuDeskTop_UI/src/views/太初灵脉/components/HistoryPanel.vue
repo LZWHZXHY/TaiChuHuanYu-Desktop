@@ -1,6 +1,6 @@
 <template>
   <transition name="panel-slide">
-    <aside v-if="modelValue" class="spirit-history-panel">
+    <aside v-if="modelValue" class="spirit-history-panel workbench-skin">
       <div class="panel-header">
         <div class="header-main">
           <h3>版本历史</h3>
@@ -125,7 +125,7 @@ const handleRollback = (rev: any) => {
 
 .history-card {
   display: flex; gap: 12px; padding: 12px;
-  border-radius: 12px; cursor: pointer; transition: all 0.2s;
+  border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;
   position: relative; border: 1px solid transparent;
 }
 .history-card:hover { background: var(--bg-sub); border-color: var(--border-line); }
@@ -148,7 +148,7 @@ const handleRollback = (rev: any) => {
 .panel-footer { padding: 20px; border-top: 1px solid var(--border-line); }
 .manual-save-btn {
   width: 100%; padding: 12px; background: var(--text-primary); color: var(--paper-card);
-  border: none; border-radius: 10px; font-size: 13px; font-weight: 600;
+  border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
   cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 

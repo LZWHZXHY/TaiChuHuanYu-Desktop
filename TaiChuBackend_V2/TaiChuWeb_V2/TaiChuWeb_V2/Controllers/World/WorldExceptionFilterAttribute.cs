@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using TaiChuWeb_V2.Services.World;
@@ -29,6 +30,8 @@ public sealed class WorldExceptionFilterAttribute : ExceptionFilterAttribute
             var body = new Dictionary<string, object?>(failure.Details) { ["message"] = failure.Message };
             context.Result = new ObjectResult(body) { StatusCode = status };
         }
+        else if (context.Exception is DbUpdateConcurrencyException)
+            context.Result = new ConflictObjectResult(new { code = "WORLD_CARD_CONFLICT", message = "条目已被更新，请核对最新内容后再保存" });
         else if (FailureMessage != null)
             context.Result = new ObjectResult(new { message = FailureMessage, error = context.Exception.Message }) { StatusCode = 500 };
         else return;

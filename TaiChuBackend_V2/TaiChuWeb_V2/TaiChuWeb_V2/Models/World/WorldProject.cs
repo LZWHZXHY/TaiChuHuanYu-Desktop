@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using UserEntity = TaiChuWeb_V2.Models.User.User;
 namespace TaiChuWeb_V2.Models.World
@@ -18,6 +18,14 @@ namespace TaiChuWeb_V2.Models.World
         public string Name { get; set; } = string.Empty;
 
         public string? Description { get; set; }
+
+        /// <summary>世界观封面图（COS/CDN URL）</summary>
+        [MaxLength(500)]
+        public string? CoverImage { get; set; }
+
+        /// <summary>关系图谱中手动拖拽的节点坐标（JSON：{cardId:{x,y}}）</summary>
+        [Column(TypeName = "longtext")]
+        public string? GraphPositions { get; set; }
 
         public bool IsPublic { get; set; } = false;
 

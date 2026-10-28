@@ -1,6 +1,6 @@
 <template>
-  <div class="collaboration-portal">
-    <header class="portal-header">
+  <div class="collaboration-portal community-surface tone-collab">
+    <header class="portal-header surface-heading"><SectionTrace />
       <div class="brand-section">
         <h1 class="title">太初协作</h1>
         
@@ -205,6 +205,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, onMounted, reactive, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import projectService from '../../api/projectService';

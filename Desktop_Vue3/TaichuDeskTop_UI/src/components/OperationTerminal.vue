@@ -1,13 +1,13 @@
 <template>
   <aside class="terminal-wrapper" @keydown.esc="closeMenu">
     <div class="terminal-brand">
-      <RouterLink to="/" class="brand-link" @click="isExpanded = false"><span class="brand-mark">初</span><span>太初寰宇<small>创作 · 相遇 · 共建</small></span></RouterLink>
+      <RouterLink to="/" class="brand-link" @click="isExpanded = false"><img class="brand-mark" src="/taichu-logo.png" alt="" width="40" height="40" /><span>太初寰宇<small>创作 · 相遇 · 共建</small></span></RouterLink>
       <button ref="trigger" class="menu-trigger" :aria-expanded="isExpanded" aria-controls="community-menu" @click="isExpanded = !isExpanded">{{ isExpanded ? '收起' : '菜单' }}</button>
     </div>
     <div id="community-menu" class="side-panel" :class="{ expanded: isExpanded }">
       <nav aria-label="全站导航" class="menu-list">
-        <div v-for="group in groups" :key="group.title" class="nav-group">
-          <p class="index-label">{{ group.title }}</p>
+        <div v-for="(group, index) in groups" :key="group.title" class="nav-group">
+          <p class="index-label"><span aria-hidden="true">0{{ index + 1 }}</span>{{ group.title }}</p>
           <a v-for="item in group.items" :key="item.name" :href="menuHref(item)" class="menu-item" :class="{ active: isActive(item) }" :aria-current="isActive(item) ? 'page' : undefined" @click="handleSelect($event, item)">
             <span class="menu-symbol" aria-hidden="true">{{ symbols[item.name] || '·' }}</span><span>{{ labels[item.name] || item.name }}</span>
           </a>
@@ -20,7 +20,7 @@
       <div class="terminal-footer">
         <label class="theme-label" for="site-theme">显示模式</label>
         <select id="site-theme" :value="mode" @change="setTheme(($event.target as HTMLSelectElement).value as ThemeMode)">
-          <option value="light">☀ 白天模式</option><option value="dark">☾ 夜间模式</option><option value="system">◐ 跟随系统</option>
+          <option value="light">白天模式</option><option value="dark">夜间模式</option><option value="system">跟随系统</option>
         </select>
         <button class="user-profile" @click="handleAuthClick"><span class="avatar">{{ userName?.[0]?.toUpperCase() || '客' }}</span><span class="user-info"><strong>{{ userName || '访客' }}</strong><small>{{ userStore.isLoggedIn ? '打开个人中心' : '登录，加入社区' }}</small></span><span>→</span></button>
       </div>
@@ -45,11 +45,11 @@ const isExpanded = ref(false)
 const trigger = ref<HTMLButtonElement>()
 const userName = computed(() => userStore.userInfo?.username)
 const labels: Record<string, string> = { 推送首页: '首页', 太初随笔: '博客与帖子', 太初协作: '协作项目', 荣誉墙: '排行榜 · 荣誉墙' }
-const symbols: Record<string, string> = { 推送首页: '⌂', 画廊展厅: '▧', 太初随笔: '≡', 知识库: '▤', 太初俱乐部: '◇', 柴圈板块: '◎', 荣誉墙: '☆', 太虚游: '⊞' }
+const symbols: Record<string, string> = { 推送首页: '⌂', 画廊展厅: '▧', 太初随笔: '≡', 知识库: '▤', 开发进度: '▣', 赞助墙: '♡', 必吃榜: '≋', 版本更新: '◷', 社区规则: '§', 太初俱乐部: '◇', 柴圈板块: '◎', 荣誉墙: '☆', 太虚游: '⊞', 太初灵脉: '⌁', 世界观管理: '◈', 太初协作: '⊕' }
 const sections = [
-  { title: '内容', names: ['推送首页', '画廊展厅', '太初随笔', '知识库'] },
+  { title: '内容', names: ['推送首页', '画廊展厅', '太初随笔', '知识库', '开发进度', '必吃榜', '版本更新'] },
   { title: '创作', names: ['太初灵脉', '世界观管理', '太初协作'] },
-  { title: '社区', names: ['柴圈板块', '太虚游', '太初俱乐部'] },
+  { title: '社区', names: ['柴圈板块', '太虚游', '太初俱乐部', '赞助墙', '社区规则'] },
 ]
 const availableItems = computed(() => props.menuItems.filter(item =>
   !['', '身份认证', '个人中心', '灵脉百科'].includes(item.name) &&
@@ -84,40 +84,51 @@ function handleSelect(event: MouseEvent, item: MenuItem) {
 watch(() => route.fullPath, () => { isExpanded.value = false })
 </script>
 <style scoped>
-.terminal-wrapper { width: 228px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--paper-card); border-right: 1px solid var(--border-line); }
-.terminal-brand { padding: 28px 20px; display: flex; align-items: center; justify-content: space-between; }
-.brand-link { display: flex; gap: 12px; align-items: center; text-decoration: none; color: var(--text-primary); font-weight: 700; }
-.brand-link small { display: block; margin-top: 4px; color: var(--text-secondary); font-size: 10px; font-weight: 400; letter-spacing: .1em; }
-.brand-mark { display: grid; place-items: center; width: 36px; height: 38px; border-radius: 10px; color: var(--on-accent); background: var(--accent-color); font-family: serif; font-size: 22px; }
+.terminal-wrapper { width: 220px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--paper-card); border-right: 1px solid var(--border-line); }
+.terminal-brand { padding: 25px 20px; display: flex; align-items: center; justify-content: space-between; border-top: 4px solid var(--signal-color); }
+.brand-link { display: flex; gap: 12px; align-items: center; text-decoration: none; color: var(--text-primary); font-size: 17px; font-weight: 750; letter-spacing: .04em; }
+.brand-link small { display: block; margin-top: 5px; color: var(--text-secondary); font-size: 10px; font-weight: 400; letter-spacing: .08em; }
+.brand-mark { display: block; width: 40px; height: 40px; object-fit: contain; padding: 2px; background: #000; box-shadow: 3px 3px 0 var(--signal-color); }
 .side-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.menu-list { padding: 0 12px; overflow: auto; flex: 1; }
-.nav-group { margin-bottom: 14px; }
-.nav-more { margin-bottom: 16px; }
-.nav-more summary { padding: 10px 14px; color: var(--text-secondary); cursor: pointer; font-size: 13px; }
-.nav-more .menu-item { padding-left: 26px; }
-.index-label { padding: 0 14px; margin: 0 0 8px; font-size: 11px; color: var(--text-secondary); letter-spacing: .12em; }
-.menu-item { width: 100%; display: flex; align-items: center; text-align: left; gap: 12px; padding: 9px 12px; border: 1px solid transparent; border-radius: 9px; font-size: 13px; color: var(--text-secondary); background: transparent; text-decoration: none; }
-.menu-item:hover { background: var(--bg-sub); color: var(--text-primary); }
-.menu-item.active { background: var(--accent-soft); color: var(--accent-color); font-weight: 600; }
-.menu-symbol { width: 20px; text-align: center; font-size: 19px; }
+.menu-list { padding: 0 14px; overflow: auto; flex: 1; }
+.nav-group { margin-bottom: 18px; }
+.index-label { display: flex; align-items: center; gap: 9px; padding: 12px 8px 8px; margin: 0 0 4px; border-top: 1px solid var(--border-line); font-size: 11px; color: var(--text-secondary); letter-spacing: .15em; }
+.index-label span { font-family: var(--font-mono); font-size: 10px; color: var(--accent-color); }
+.menu-item { position: relative; width: 100%; display: flex; align-items: center; text-align: left; gap: 10px; padding: 10px 12px; border: 0; border-radius: 2px; font-size: 13px; line-height: 1.4; color: var(--text-secondary); background: transparent; text-decoration: none; transition: color .2s, background .2s; }
+.menu-symbol { transition: transform .2s; }
+.menu-item:is(:hover, :focus-visible) .menu-symbol { transform: translateX(3px); }
+.menu-item { isolation: isolate; overflow: hidden; }
+.menu-item:not(.active)::after { content: ''; position: absolute; inset: 0; background: var(--bg-sub); z-index: -1; transform: scaleX(0); transform-origin: left; transition: transform .2s ease-out; }
+.menu-item:not(.active):is(:hover, :focus-visible)::after { transform: scaleX(1); }
+.menu-item:hover { color: var(--text-primary); }
+.menu-item.active { background: var(--inverse-bg); color: var(--inverse-text); font-weight: 600; }
+.menu-item.active::before { content: ''; position: absolute; top: 10px; bottom: 10px; left: 0; width: 3px; background: var(--signal-color); }
+.menu-symbol { width: 20px; text-align: center; font-family: var(--font-mono); font-size: 17px; }
+.nav-more { margin-bottom: 16px; border-top: 1px solid var(--border-line); }
+.nav-more summary { padding: 12px 8px; color: var(--text-secondary); cursor: pointer; font-size: 12px; }
+.nav-more .menu-item { padding-left: 24px; }
 .terminal-footer { padding: 16px; border-top: 1px solid var(--border-line); }
 .theme-label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
-select { width: 100%; border: 1px solid var(--border-line); border-radius: 8px; padding: 9px; font-size: 12px; }
+select { width: 100%; border: 1px solid var(--border-line); border-radius: 3px; padding: 9px; font-size: 12px; background: var(--bg-main); color: var(--text-primary); }
 .user-profile { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; padding: 16px 0 0; color: var(--text-primary); background: transparent; text-align: left; }
-.avatar { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-sub); }
+.avatar { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 3px; border: 1px solid var(--border-line); background: var(--bg-sub); }
 .user-info { flex: 1; min-width: 0; }
 .user-info strong { display: block; overflow-wrap: anywhere; font-size: 12px; }
 .user-info small { display: block; margin-top: 3px; font-size: 11px; color: var(--text-secondary); }
 .menu-trigger { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .menu-item.active::before { transform-origin: top; animation: nav-mark .3s ease-out; }
+}
+@keyframes nav-mark { from { transform: scaleY(0); } to { transform: scaleY(1); } }
 @media(max-width: 900px) {
   .terminal-wrapper { width: 100%; border: 0; border-bottom: 1px solid var(--border-line); max-height: 75dvh; }
-  .terminal-brand { padding: 12px 16px; }
-  .brand-mark { height: 32px; width: 32px; font-size: 18px; }
-  .brand-link small { display: none; }
-  .menu-trigger { display: block; padding: 6px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-sub); color: var(--text-primary); }
+  .terminal-brand { padding: 12px 16px; border-top-width: 3px; }
+  .brand-mark { height: 30px; width: 30px; font-size: 19px; }
+  .brand-link { font-size: 16px; }.brand-link small { display: none; }
+  .menu-trigger { display: block; padding: 7px 12px; border: 1px solid var(--border-line); border-radius: 3px; background: var(--bg-sub); color: var(--text-primary); }
   .side-panel { display: none; overflow: auto; }
   .side-panel.expanded { display: flex; }
-  .menu-list { flex: none; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); padding-top: 12px; overflow: visible; }
+  .menu-list { flex: none; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 12px; padding-top: 12px; overflow: visible; }
   .terminal-footer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
   .theme-label { grid-column: 1; margin: 0; }
   select { grid-column: 1; }

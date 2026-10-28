@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.LingMai;
 using TaiChuWeb_V2.Models.LingMai;
+using TaiChuWeb_V2.Services.Notify;
 
 namespace TaiChuWeb_V2.Services.LingMai;
 
@@ -75,6 +76,22 @@ public class NoteCommentService(AppDbContext context)
 
         var comment = new Comment { Id = Guid.NewGuid(), NoteId = noteId, UserId = userId.ToString(), Content = content, ParentId = dto.ParentId };
         context.Comments.Add(comment);
+
+        // 站内通知：回复 → 通知被回复者；评论 → 通知内容作者
+        var notifier = new NotificationService(context);
+        if (dto.ParentId.HasValue)
+        {
+            var parentUserId = await context.Comments.Where(c => c.Id == dto.ParentId).Select(c => c.UserId).FirstOrDefaultAsync();
+            if (Guid.TryParse(parentUserId, out var parentId))
+                notifier.Add(parentId, userId, "reply", "note", publishedId.ToString(), "回复了你的评论", $"/stream?post={publishedId}");
+        }
+        else
+        {
+            var ownerId = await context.Notes.Where(n => n.Id == noteId).Select(n => n.AuthorId).FirstOrDefaultAsync();
+            if (Guid.TryParse(ownerId, out var authorId))
+                notifier.Add(authorId, userId, "comment", "note", publishedId.ToString(), "评论了你的帖子", $"/stream?post={publishedId}");
+        }
+
         await context.SaveChangesAsync();
         var count = await context.Comments.CountAsync(c => c.NoteId == noteId && c.Content != "");
         return new { id = comment.Id, commentsCount = count };

@@ -1,0 +1,18 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><title>世界观导出验收</title><div id="app"></div>
+<script type="module">
+import {createApp,h,ref} from 'vue';
+import {createPinia} from 'pinia';
+import WorldTransfer from '/src/views/世界观管理/世界观组件/WorldTransfer.vue';
+import {worldApi} from '/src/api/worldApi.ts';
+import '/src/assets/styles/variables.css';
+const date='2026-10-25T12:00:00Z';
+const paragraphs=Array.from({length:36},(_,i)=>`第 ${i+1} 段：雾海中的旅人沿着星桥港前行，守灯人记录晨昏、潮汐与季节。中文标点、数字 123、English，以及少见字：龘、𠮷。`.repeat(3)).join('\n\n');
+const card=(id,title,extra={})=>({id,projectId:'fixture',title,type:'lore',subType:null,createdAt:date,updatedAt:date,coverImage:null,description:'中文正文。',content:'{}',aliases:[],attributes:[],tags:[],contentBlocks:[],timelineEvents:[],embeddedCards:[],galleryImages:[],outRelations:[],inRelations:[],...extra});
+const cards=[card('one','第一章：旅人与港口',{description:'前往 {CARD:two}。\n\n'+paragraphs,coverImage:'["/.tmp/world-transfer-check/landscape.png"]',galleryImages:['http://localhost:5195/.tmp/world-transfer-check/portrait.png']}),card('two','第二章：港口档案',{description:'欢迎 {CARD:one}。\n\n| 名称 | 说明 |\n| --- | --- |\n'+Array.from({length:45},(_,i)=>`| 记录 ${i+1} | 潮汐变化与灯塔巡查的中文记录 |`).join('\n')+'\n\n```text\n'+('LongUnbrokenLine'.repeat(40))+'\n```'})];
+worldApi.getCards=async()=>cards;worldApi.getCardsBatch=async()=>cards;
+const project={id:'fixture',name:'世界观 PDF 验收：雾海行记',description:'验收内容：中文、长文分页、横图、长图、跨页表格、引用链接。',ownerId:'fixture',ownerName:'验收',isPublic:false,createdAt:date,updatedAt:date,cardCount:2};
+const app=createApp({setup(){const show=ref(true);return()=>h('main',[h('button',{onClick:()=>show.value=true},'打开导出'),show.value?h(WorldTransfer,{project,mode:'export',canEdit:false,onClose:()=>show.value=false}):null])}});
+app.use(createPinia());app.mount('#app');
+</script></html>
+
+

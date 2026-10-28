@@ -34,6 +34,7 @@
           <div class="card-cover" :style="{ backgroundImage: `url(${act.cover || defaultCover})` }">
             <span class="type-tag"><i class="fas fa-tag"></i> {{ act.type }}</span>
             <span class="status-badge" :class="statusClass(act.status)">{{ act.status }}</span>
+            <span v-if="kindLabel(act)" class="kind-badge">{{ kindLabel(act) }}</span>
           </div>
           <div class="card-body">
             <div class="card-meta">
@@ -131,6 +132,7 @@ const goToDetail = (id: number) => {
   router.push(`/activity/checkin/detail/${id}`);
 };
 
+const kindLabel = (a: any) => a?.kind === 'match' ? '对战赛' : a?.kind === 'contest' ? '作品赛' : ''
 const statusClass = (status: string) => ({
   'recruiting': status === '招募中',
   'ongoing': status === '进行中',
@@ -318,6 +320,7 @@ onMounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
+.kind-badge { position: absolute; right: 10px; bottom: 10px; padding: 2px 9px; border-radius: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: .68rem; letter-spacing: .04em; }
 .status-badge {
   padding: 4px 14px;
   border-radius: 30px;

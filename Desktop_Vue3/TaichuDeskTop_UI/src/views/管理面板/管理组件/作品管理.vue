@@ -21,7 +21,7 @@
 
     <div class="works-content-body table-card">
       <transition name="fade-transform" mode="out-in">
-        <component :is="currentComponent" />
+        <component :is="currentComponent" :type="activeTab === 'post' ? 'post' : 'blog'" />
       </transition>
     </div>
   </div>
@@ -43,11 +43,12 @@ const activeTab = ref('gallery'); // 默认先展示画廊
 // 定义 Tabs 结构
 const TABS = [
   { id: 'gallery', label: '画廊治理' },
-  { id: 'blog', label: '博客管理' } // 2. 添加 Tab 配置
+  { id: 'blog', label: '博客管理' },
+  { id: 'post', label: '帖子管理' }
 ];
 
 const currentComponent = computed(() => {
-  if (activeTab.value === 'blog') return 博客治理; // 3. 映射组件
+  if (activeTab.value === 'blog' || activeTab.value === 'post') return 博客治理;
   return GalleryGovernance;
 });
 </script>
@@ -93,7 +94,7 @@ const currentComponent = computed(() => {
 .table-card { 
   background: var(--paper-card); 
   border: 1px solid var(--border-line); 
-  border-radius: 8px; 
+  border-radius: var(--radius-sm); 
   padding: 24px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.01); 
   min-height: 500px;

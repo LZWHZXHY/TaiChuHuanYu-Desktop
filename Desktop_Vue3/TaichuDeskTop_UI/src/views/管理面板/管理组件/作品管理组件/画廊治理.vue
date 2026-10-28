@@ -106,7 +106,7 @@
 
     <Teleport to="body">
       <div v-if="showGovModal" class="modal-mask" @click.self="closeModal">
-        <div class="modal-container scroll-y">
+        <div class="modal-container scroll-y workbench-skin">
           <header class="modal-header">
             <div>
               <h3>管理作品</h3>

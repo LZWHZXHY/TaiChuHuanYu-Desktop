@@ -1,10 +1,10 @@
 <template>
   <aside class="spirit-sidebar">
     <div class="space-selector-area">
-      <div class="current-space-label" @click.stop="toggleSpaceList">
+      <button type="button" class="current-space-label" :aria-expanded="isSpaceListOpen" @click.stop="toggleSpaceList">
         <span class="space-text">{{ currentSpaceName }}</span>
         <svg class="chevron-icon" :class="{ rotated: isSpaceListOpen }" width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6" /></svg>
-      </div>
+      </button>
 
       <transition name="fade">
         <div v-if="isSpaceListOpen" class="space-dropdown" @click.stop>
@@ -41,28 +41,28 @@
       </div>
       
       <div class="header-actions" style="position: relative;">
-        <span class="text-btn" @click="$emit('create', 'folder')">Folder</span>
+        <button type="button" class="text-btn" @click="$emit('create', 'folder')">文件夹</button>
         
-        <span class="text-btn active" @click.stop="toggleCreateMenu">
-          New <span style="font-size: 8px; margin-left: 2px;">▼</span>
-        </span>
+        <button type="button" class="text-btn active" :aria-expanded="isCreateMenuOpen" @click.stop="toggleCreateMenu">
+          新建 <span aria-hidden="true">▾</span>
+        </button>
 
         <transition name="fade">
           <div v-if="isCreateMenuOpen" class="create-dropdown" @click.stop>
-            <div class="create-opt" @click="handleCreateWithType('note')">📝 长文随笔</div>
-            <div class="create-opt" @click="handleCreateWithType('doc')">📄 项目文档</div>
-            <div class="create-opt" @click="handleCreateWithType('blog')">✒️ 深度博客</div>
-            <div class="create-opt" @click="handleCreateWithType('post')">💬 短篇简语</div>
-            <div class="create-opt" @click="handleCreateWithType('wiki')">🪐 百科与攻略</div>
-            <div class="create-opt" @click="handleCreateWithType('schedule')">📅 日历看板</div>
-            <div class="create-opt" @click="handleCreateWithType('canvas')">🕸️ 星图白板</div>
+            <button type="button" class="create-opt" @click="handleCreateWithType('note')">📝 长文随笔</button>
+            <button type="button" class="create-opt" @click="handleCreateWithType('doc')">📄 项目文档</button>
+            <button type="button" class="create-opt" @click="handleCreateWithType('blog')">✒️ 深度博客</button>
+            <button type="button" class="create-opt" @click="handleCreateWithType('post')">💬 短篇简语</button>
+            <button type="button" class="create-opt" @click="handleCreateWithType('wiki')">🪐 百科与攻略</button>
+            <button type="button" class="create-opt" @click="handleCreateWithType('schedule')">📅 日历看板</button>
+            <button type="button" class="create-opt" @click="handleCreateWithType('canvas')">🕸️ 星图白板</button>
           </div>
         </transition>
       </div>
     </div>
 
     <div class="sidebar-search">
-      <input type="text" v-model="searchQuery" placeholder="Search..." spellcheck="false" />
+      <input type="text" v-model="searchQuery" placeholder="搜索灵脉" aria-label="搜索灵脉" spellcheck="false" />
     </div>
 
     <nav class="note-list">
@@ -72,7 +72,7 @@
           :key="note.id" 
           class="note-item" 
           :class="['type-' + (note.type || 'note'), { active: activeId === note.id }]" 
-          @click="$emit('select', note.id)"
+          @click="$emit('select', note.id)" role="button" tabindex="0" @keydown.enter.self="$emit('select', note.id)" @keydown.space.self.prevent="$emit('select', note.id)"
           draggable="true" 
           @dragstart="onDragStart($event, note.id)"
         >
@@ -81,7 +81,7 @@
             <span class="type-label">{{ note.type || 'note' }}</span>
           </div>
           <div class="item-hover-actions">
-            <span class="danger" @click.stop="startDeleteItem(note.id)">Delete</span>
+            <button type="button" class="danger" @click.stop="startDeleteItem(note.id)">删除</button>
           </div>
         </div>
       </div>
@@ -113,7 +113,7 @@
                 :key="subNote.id" 
                 class="note-item sub" 
                 :class="['type-' + (subNote.type || 'note'), { active: activeId === subNote.id }]" 
-                @click="$emit('select', subNote.id)"
+                @click="$emit('select', subNote.id)" role="button" tabindex="0" @keydown.enter.self="$emit('select', subNote.id)" @keydown.space.self.prevent="$emit('select', subNote.id)"
                 draggable="true"
                 @dragstart="onDragStart($event, subNote.id)"
               >
@@ -122,7 +122,7 @@
                   <span class="type-label">{{ subNote.type || 'note' }}</span>
                 </div>
                 <div class="item-hover-actions">
-                  <span class="danger" @click.stop="startDeleteItem(subNote.id)">Delete</span>
+                  <button type="button" class="danger" @click.stop="startDeleteItem(subNote.id)">删除</button>
                 </div>
               </div>
             </div>
@@ -467,4 +467,11 @@ onUnmounted(() => {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
+.current-space-label { width: 100%; background: none; color: inherit; border: none; font: inherit; text-align: left; }
+.text-btn, .create-opt, .item-hover-actions button { background: none; border: none; font-family: inherit; cursor: pointer; }
+.header-actions { gap: 8px; white-space: nowrap; }.sidebar-header { padding: 10px 16px; }
+.create-opt { display: block; width: 100%; text-align: left; }
+.item-hover-actions .danger { color: var(--danger); }
+.note-item:focus-within .item-hover-actions { opacity: 1; }
+@media (hover: none) { .item-hover-actions { opacity: 1; } }
 </style>

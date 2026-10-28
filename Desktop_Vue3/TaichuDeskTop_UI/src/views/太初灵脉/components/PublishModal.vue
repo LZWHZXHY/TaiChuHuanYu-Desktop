@@ -190,22 +190,22 @@ watch(() => [props.modelValue, props.noteId, props.noteType], async () => {
 input, select { background: var(--paper-card); color: var(--text-primary); }
 .md-container { max-width: calc(100vw - 32px); box-sizing: border-box; max-height: 90vh; overflow-y: auto; }
 .md-overlay { position: fixed; inset: 0; background: var(--paper-card); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 5000; }
-.md-container { width: 440px; background: var(--paper-bg); padding: 32px; border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
+.md-container { width: 440px; background: var(--paper-bg); padding: 32px; border-radius: var(--radius-sm); box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
 .md-header { margin-bottom: 32px; display: flex; justify-content: space-between; }
 .md-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.1em; }
 .md-title h1 { font-size: 20px; font-weight: 700; margin: 4px 0 0; }
-.simple-confirm-text { padding: 20px; color: var(--text-primary); font-size: 14px; text-align: center; border: 1px solid var(--border-line); border-radius: 12px; }
+.simple-confirm-text { padding: 20px; color: var(--text-primary); font-size: 14px; text-align: center; border: 1px solid var(--border-line); border-radius: var(--radius-sm); }
 .extra-zone { padding-top: 10px; }
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 8px; }
-select { width: 100%; border: 1px solid var(--border-line); padding: 8px; border-radius: 6px; font-size: 13px; outline: none; }
-.tag-input-box { border: 1px solid var(--border-line); border-radius: 6px; padding: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
+select { width: 100%; border: 1px solid var(--border-line); padding: 8px; border-radius: var(--radius-sm); font-size: 13px; outline: none; }
+.tag-input-box { border: 1px solid var(--border-line); border-radius: var(--radius-sm); padding: 4px; display: flex; flex-wrap: wrap; gap: 4px; }
 .tag-pill { background: var(--border-line); padding: 2px 8px; border-radius: 4px; font-size: 11px; display: flex; align-items: center; gap: 4px; }
 .tag-pill button { border: none; background: none; cursor: pointer; }
 .tag-input-box input { border: none; padding: 4px; font-size: 12px; outline: none; flex: 1; }
 .md-footer { margin-top: 32px; display: flex; gap: 12px; }
 .btn-cancel { flex: 1; background: none; border: none; color: var(--text-secondary); font-size: 13px; cursor: pointer; }
-.btn-primary { flex: 2; padding: 10px; background: var(--accent-color); color: var(--paper-card); border: none; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.btn-primary { flex: 2; padding: 10px; background: var(--accent-color); color: var(--paper-card); border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 .md-close { background: none; border: none; color: var(--text-secondary); cursor: pointer; }
 </style>

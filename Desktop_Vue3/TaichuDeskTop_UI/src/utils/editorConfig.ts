@@ -443,6 +443,9 @@ export const spiritExtensions = [
         img.style.width = node.attrs.width || '100%'
         img.style.height = 'auto'
         img.style.display = 'block'
+        // 对齐：img 是块级元素，必须靠左右 margin 生效（figure 的 text-align 对它无效）
+        img.style.marginLeft = node.attrs.align === 'right' ? 'auto' : node.attrs.align === 'center' ? 'auto' : '0'
+        img.style.marginRight = node.attrs.align === 'left' ? 'auto' : node.attrs.align === 'center' ? 'auto' : '0'
         container.appendChild(img)
 
         const caption = document.createElement('figcaption')

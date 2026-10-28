@@ -34,6 +34,31 @@
         <textarea aria-label="规则说明" v-model="form.rule" rows="3" placeholder="详细描述打卡要求..."></textarea>
       </div>
 
+      <div class="form-group">
+        <label>活动形态</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" :class="{ active: form.kind === 'general' }" @click="form.kind = 'general'" style="padding:7px 16px;border:1px solid var(--border-line);border-radius:8px;background:var(--paper-card);cursor:pointer">普通活动</button>
+          <button type="button" :class="{ active: form.kind === 'match' }" @click="form.kind = 'match'" style="padding:7px 16px;border:1px solid var(--border-line);border-radius:8px;background:var(--paper-card);cursor:pointer">对战赛</button>
+          <button type="button" :class="{ active: form.kind === 'contest' }" @click="form.kind = 'contest'" style="padding:7px 16px;border:1px solid var(--border-line);border-radius:8px;background:var(--paper-card);cursor:pointer">作品赛</button>
+        </div>
+        <div class="hint">对战赛显示对阵表；作品赛显示作品墙和投票</div>
+      </div>
+
+      <div v-if="form.kind !== 'general'" class="form-group">
+        <label>比赛时间</label>
+        <div style="display:grid;gap:10px">
+          <label style="display:grid;gap:4px;font-size:.82rem;color:var(--text-secondary)">报名截止
+            <input type="date" v-model="form.signupDeadline" />
+          </label>
+          <label style="display:grid;gap:4px;font-size:.82rem;color:var(--text-secondary)">开始时间
+            <input type="date" v-model="form.startAt" />
+          </label>
+          <label style="display:grid;gap:4px;font-size:.82rem;color:var(--text-secondary)">结束时间
+            <input type="date" v-model="form.endAt" />
+          </label>
+        </div>
+      </div>
+
       <!-- 封面图区域：支持上传图片或手动输入 URL -->
       <div class="form-group">
         <label>封面图</label>
@@ -99,6 +124,10 @@ const form = ref({
   title: '',
   typeId: 0,
   days: 30,
+  kind: 'general',
+  signupDeadline: '',
+  startAt: '',
+  endAt: '',
   rule: '',
   cover: '',
 });
@@ -187,6 +216,11 @@ const handleSubmit = async () => {
       typeId: form.value.typeId,
       cover: form.value.cover || '', // 可为空
       days: form.value.days,
+      kind: form.value.kind,
+      rules: form.value.rule,
+      signupDeadline: form.value.signupDeadline || null,
+      startAt: form.value.startAt || null,
+      endAt: form.value.endAt || null,
     });
     alert('活动发布成功！');
     router.push('/activity/checkin');

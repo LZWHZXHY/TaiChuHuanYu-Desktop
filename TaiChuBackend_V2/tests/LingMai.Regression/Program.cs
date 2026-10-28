@@ -145,6 +145,7 @@ checks += await RecoveryChecks.Run();
 checks += await JointBattleChecks.Run();
 checks += await ArtworkChecks.Run();
 checks += await ArtworkPublishChecks.Run();
+checks += await WorldDraftChecks.Run();
 if (args.Length > 0) File.WriteAllText(args[0], JsonSerializer.Serialize(trace));
 Console.WriteLine($"LingMai regression: {checks} checks passed.");
 

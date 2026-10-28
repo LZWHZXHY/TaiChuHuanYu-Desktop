@@ -10,8 +10,9 @@ namespace TaiChuWeb_V2.Controllers.World;
 public class WorldRelationsController(IWorldRelationService relationService) : WorldControllerBase
 {
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> GetRelations(Guid cardId) =>
-        Ok(await relationService.GetRelationsForCardAsync(cardId, CurrentUserId));
+        Ok(await relationService.GetRelationsForCardAsync(cardId, ReaderUserId));
 
     [HttpPost]
     public async Task<IActionResult> CreateRelation(Guid cardId, [FromBody] CreateRelationDto dto)
@@ -28,6 +29,7 @@ public class WorldRelationsController(IWorldRelationService relationService) : W
     }
 
     [HttpGet("/api/world/projects/{projectId}/relations")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetProjectRelations(Guid projectId) =>
-        Ok(await relationService.GetRelationsForProjectAsync(projectId, CurrentUserId));
+        Ok(await relationService.GetRelationsForProjectAsync(projectId, ReaderUserId));
 }

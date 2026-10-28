@@ -1,16 +1,19 @@
 <template>
-  <aside class="sidebar">
+  <aside class="sidebar" :class="{ 'mobile-expanded': mobileExpanded }">
+    <button class="overview-btn" :class="{ active: view === 'card' && !selectedCardId }" @click="$emit('overview')">世界概览</button>
+    <button class="mobile-directory" :aria-expanded="mobileExpanded" @click="mobileExpanded = !mobileExpanded">{{ mobileExpanded ? '收起目录' : `目录 · ${cards.length} 个条目` }}</button>
     <div class="search">
       <input
         v-model="searchQuery"
         type="text"
-        placeholder="搜索..."
+        placeholder="查找这个世界的设定"
+        aria-label="查找这个世界的设定"
       />
     </div>
 
     <div class="tree-toolbar">
       <span class="tree-total">{{ cards.length }} 个条目</span>
-      <button class="toggle-all" @click="toggleAll">{{ allCollapsed ? '展开全部' : '收起全部' }}</button>
+      <button class="toggle-all" :disabled="Boolean(searchQuery.trim())" @click="toggleAll">{{ allCollapsed ? '展开全部' : '收起全部' }}</button>
     </div>
 
     <nav class="tree" v-loading="loading">
@@ -34,7 +37,7 @@
             :key="card.id"
             class="tree-item"
             :class="{ active: selectedCardId === card.id }"
-            @click="$emit('select', card.id)"
+            @click="mobileExpanded = false; $emit('select', card.id)"
           >
             {{ card.title }}
           </button>
@@ -42,7 +45,7 @@
       </div>
 
       <div v-if="!groupedCards.length && !loading" class="tree-empty">
-        {{ searchQuery ? '没有匹配的卡片' : '还没有卡片' }}
+        {{ searchQuery ? '没有匹配的设定' : '还没有设定' }}
       </div>
     </nav>
 
@@ -72,21 +75,12 @@ import { groupWorldCards } from '@/utils/worldPresentation'
 
 const props = defineProps<{ cards: CardSummary[]; loading: boolean; selectedCardId: string | null; view: 'card' | 'graph' | 'timeline' }>()
 const searchQuery = defineModel<string>('search', { default: '' })
-defineEmits<{ select: [id: string]; graph: []; timeline: [] }>()
+defineEmits<{ select: [id: string]; graph: []; timeline: []; overview: [] }>()
 
 const groupedCards = computed(() => groupWorldCards(props.cards, searchQuery.value))
 
-// 折叠状态：默认收起所有分组，只展开当前选中卡片所在分组。
 const collapsed = ref<Set<string>>(new Set())
-let didInit = false
-
-watch(() => props.cards, () => {
-  if (didInit || !props.cards.length) return
-  const types = new Set(props.cards.map(c => c.type))
-  const selected = props.cards.find(c => c.id === props.selectedCardId)
-  collapsed.value = new Set([...types].filter(t => t !== selected?.type))
-  didInit = true
-}, { immediate: true })
+const mobileExpanded = ref(false)
 
 watch(() => props.selectedCardId, (id) => {
   if (!id) return
@@ -98,7 +92,7 @@ const allCollapsed = computed(() =>
   groupedCards.value.length > 0 && groupedCards.value.every(g => collapsed.value.has(g.type))
 )
 
-function isCollapsed(type: string) { return collapsed.value.has(type) }
+function isCollapsed(type: string) { return !searchQuery.value.trim() && collapsed.value.has(type) }
 function toggle(type: string) {
   const next = new Set(collapsed.value)
   next.has(type) ? next.delete(type) : next.add(type)
@@ -115,6 +109,10 @@ function toggleAll() {
 
 <style scoped>
 * { box-sizing: border-box; }
+.mobile-directory { display: none; }
+.overview-btn { margin: 12px 12px 0; padding: 12px; text-align: left; border: 0; border-radius: 8px; background: transparent; color: var(--text-primary); cursor: pointer; font: inherit; }
+.overview-btn.active { background: var(--accent-soft); color: var(--accent-color); }
+.toggle-all:disabled { opacity: .5; cursor: default; }
 .btn-icon { font-size: 16px; line-height: 1; }
 .sidebar {
   width: 260px;
@@ -230,9 +228,16 @@ function toggleAll() {
 @media (max-width: 820px) {
   .sidebar {
     width: 100%;
-    height: 200px;
+    height: auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     border-right: none;
     border-bottom: 1px solid var(--border-line);
   }
+  .mobile-directory { display: block; border: 0; background: none; color: var(--accent-color); cursor: pointer; font: inherit; font-size: 13px; padding: 12px; }
+  .search, .tree-toolbar, .tree, .sidebar-footer { grid-column: 1 / -1; }
+  .sidebar:not(.mobile-expanded) :is(.search, .tree-toolbar, .tree) { display: none; }
+  .tree { max-height: 240px; }
+  .sidebar-footer { display: flex; border-top: 0; }
 }
 </style>

@@ -1,0 +1,26 @@
+<!doctype html><html lang="zh"><meta charset="UTF-8"><title>世界观往返数据核验</title><style>body{font:16px system-ui;max-width:1000px;margin:30px auto}button{padding:12px}textarea{width:100%;height:220px}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style><h1>世界观往返数据核验（仅测试条目）</h1><button id="check">读取并比较测试条目</button><pre id="result">等待检查</pre><div id="links"></div><label>实际数据导出的 Markdown<textarea id="markdown" readonly></textarea></label><script type="module">
+import {worldApi} from '/src/api/worldApi.ts';
+import {worldMarkdown,parseWorldText,resolveWorldImport} from '/src/utils/worldTransfer.ts';
+const fixture=await (await fetch('./source.json')).json(), pid='a550e279-fc4a-4954-b29b-3fc0b0aa0ea1';
+const original=resolveWorldImport(parseWorldText(worldMarkdown(fixture.project,fixture.cards),'fixture.md'),fixture.cards.map(c=>c.id)).payloads;
+const normalize=(p)=>({...p,content:JSON.parse(p.content||'{}')});
+document.querySelector('#check').onclick=async()=>{try{
+ const project=await worldApi.getProject(pid), allSummaries=await worldApi.getCards(pid), summaries=allSummaries.filter(c=>c.title.startsWith('往返验收 · '));
+ const allCards=await worldApi.getCardsBatch(pid,allSummaries.map(c=>c.id));
+ let completeWorld;try{completeWorld={restoredCount:parseWorldText(worldMarkdown(project,allCards),'全世界.md').length}}catch(e){completeWorld={error:String(e)}};
+ const cards=await worldApi.getCardsBatch(pid,summaries.map(c=>c.id));
+ const groups=[];
+ for(const a of cards.filter(c=>c.title==='往返验收 · 行者')){
+ const b=cards.find(c=>c.id===a.outRelations.find(r=>r.relationType==='居住于')?.targetCardId);
+ if(!b){groups.push({id:a.id,error:'关系丢失'});continue}
+ const result=resolveWorldImport(parseWorldText(worldMarkdown(project,[a,b]),'actual.md'),fixture.cards.map(c=>c.id)).payloads;
+ const differences=result.flatMap((p,i)=>Object.keys(original[i]).filter(k=>JSON.stringify(normalize(p)[k])!==JSON.stringify(normalize(original[i])[k])).map(k=>`${i}:${k}`));
+ groups.push({ids:[a.id,b.id],differences,pass:!differences.length,updatedAt:a.updatedAt});
+ }
+ document.querySelector('#result').textContent=JSON.stringify({public:project.isPublic,total:project.cardCount,completeWorld,groups,eventReferences:allCards.filter(c=>c.title==='事件往返验收 · 启程').map(c=>({id:c.id,locationId:JSON.parse(c.content).locationId,targetTitle:allCards.find(t=>t.id===JSON.parse(c.content).locationId)?.title,originalIdRemaining:c.content.includes('22222222-2222-4222-8222-222222222222')}))},null,2);
+ const latest=cards.filter(c=>c.title==='往返验收 · 行者').sort((a,b)=>b.createdAt.localeCompare(a.createdAt))[0];
+ const pair=latest?[latest,cards.find(c=>c.id===latest.outRelations.find(r=>r.relationType==='居住于')?.targetCardId)].filter(Boolean):[];
+ document.querySelector('#markdown').value=worldMarkdown(project,pair);
+ document.querySelector('#links').replaceChildren(...pair.map(c=>{const a=document.createElement('a');a.href=`/#/world/project/${pid}/card/${c.id}`;a.textContent=c.title+' ';return a}));
+ }catch(e){document.querySelector('#result').textContent=String(e)}};
+</script></html>

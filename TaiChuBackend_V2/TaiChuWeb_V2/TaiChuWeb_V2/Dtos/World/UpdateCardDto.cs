@@ -4,6 +4,9 @@ namespace TaiChuWeb_V2.Dtos.World
 {
     public class UpdateCardDto
     {
+        // 可选以兼容既有调用；编辑器始终发送读取时的版本。
+        public DateTime? ExpectedUpdatedAt { get; set; }
+
         [MaxLength(200)]
         public string? Title { get; set; }
 
@@ -32,6 +35,9 @@ namespace TaiChuWeb_V2.Dtos.World
         public string? Content { get; set; }
 
         public string? CoverImage { get; set; }
+
+        // 省略时保留既有关系；传空数组时清空出向关系。
+        public List<CreateRelationDto>? Relations { get; set; }
 
     }
 }

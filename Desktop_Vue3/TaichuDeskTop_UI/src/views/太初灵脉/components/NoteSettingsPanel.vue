@@ -1,12 +1,12 @@
 <template>
   <transition name="slide">
-    <div v-if="modelValue" class="note-settings-drawer">
+    <div v-if="modelValue" class="note-settings-drawer workbench-skin">
       <div class="drawer-header">
         <div class="tab-switcher">
           <button :class="{ active: activeTab === 'fragment' }" @click="activeTab = 'fragment'">设置</button>
           <button :class="{ active: activeTab === 'space' }" @click="activeTab = 'space'">位面</button>
         </div>
-        <button class="close-icon-btn" @click="$emit('update:modelValue', false)">✕</button>
+        <button class="close-icon-btn" aria-label="关闭碎片设置" @click="$emit('update:modelValue', false)">✕</button>
       </div>
 
       <div class="drawer-content">
@@ -28,6 +28,7 @@
                   @click="updateNoteField('type', t.value)"
                 >{{ t.label }}</button>
               </div>
+              <p class="type-dest">👉 {{ destinationText }}</p>
             </div>
           </section>
 
@@ -41,7 +42,13 @@
               </label>
             </div>
             <div class="toggle-row">
-              <span>发布状态（通过下方按钮操作）</span>
+              <span class="row-label">
+                发布状态
+                <button class="help-tip" type="button" aria-label="发布去向说明">
+                  ?
+                  <span class="help-bubble">{{ destinationText }}</span>
+                </button>
+              </span>
               <label class="spirit-switch">
                 <input type="checkbox" :checked="note.isPublic" disabled />
                 <span class="slider"></span>
@@ -91,7 +98,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue';
+import { ref, reactive, watch, computed } from 'vue';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -147,12 +154,28 @@ const updateNoteField = (field: string, val: any) => emit('update-note-meta', { 
 const updateSpaceField = (field: string, val: any) => emit('update-space-meta', { id: props.currentSpaceId, [field]: val });
 
 // 🌟【根绝报错】：删除了原先同名的 const canPublish 计算属性，确保 props.canPublish 正常生效
+
+// 碎片形态 → 发布后出现的板块
+const typeLabels: Record<string, string> = {
+  note: '笔记', doc: '项目文档', blog: '随笔', schedule: '计划表', post: '简语',
+  wiki: '词条', art: '艺术', canvas: '星图白板', map: '世界地图', excel: '表格'
+};
+const destinationMap: Record<string, string> = {
+  blog: '太初随笔（博客）', post: '太初随笔（帖子）', wiki: '灵脉百科', art: '画廊展厅',
+  doc: '太初协作（项目文档）', char: '柴圈板块（角色档案）'
+};
+const destinationText = computed(() => {
+  const t = props.note?.type as string;
+  if (!t) return '发布后会出现在对应的社区板块';
+  const dest = destinationMap[t];
+  return dest ? `「${typeLabels[t] || t}」发布后 → ${dest}` : `「${typeLabels[t] || t}」不对外发布，仅存于灵脉内部`;
+});
 </script>
 
 <style scoped>
 .note-settings-drawer {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 320px;
-  background: var(--paper-card); z-index: 3000; padding: 40px 24px;
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(400px, 100vw);
+  background: var(--paper-card); z-index: 3000; padding: 24px;
   box-shadow: -10px 0 40px rgba(0,0,0,0.05); display: flex; flex-direction: column;
 }
 .drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px; }
@@ -164,11 +187,12 @@ const updateSpaceField = (field: string, val: any) => emit('update-space-meta', 
 .section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-secondary); margin-bottom: 20px; }
 .field-group { margin-bottom: 24px; }
 .field-group label { font-size: 12px; color: var(--text-secondary); margin-bottom: 8px; display: block; }
-select, .spirit-input { width: 100%; border: 1px solid var(--border-line); padding: 8px 12px; border-radius: 6px; outline: none; transition: 0.2s; font-size: 13px; }
+select, .spirit-input { width: 100%; border: 1px solid var(--border-line); padding: 8px 12px; border-radius: var(--radius-sm); outline: none; transition: 0.2s; font-size: 13px; }
 select:focus, .spirit-input:focus { border-color: var(--accent-color); }
 .type-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.type-chips button { border: 1px solid var(--border-line); background: var(--paper-card); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: 0.2s; color: var(--text-secondary); }
+.type-chips button { border: 1px solid var(--border-line); background: var(--paper-card); padding: 6px 12px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; transition: 0.2s; color: var(--text-secondary); }
 .type-chips button.active { border-color: var(--border-line); color: var(--text-primary); background: var(--bg-sub); font-weight: 600; }
+.type-dest { margin: 10px 0 0; font-size: 12px; color: var(--accent-color); line-height: 1.6; }
 .toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; font-size: 13px; color: var(--text-primary); }
 
 /* 过滤矩阵排版增强 */
@@ -179,18 +203,24 @@ select:focus, .spirit-input:focus { border-color: var(--accent-color); }
 .action-link { display: block; background: none; border: none; padding: 10px 0; font-size: 13px; color: var(--text-secondary); cursor: pointer; width: 100%; text-align: left; }
 .action-link.danger { color: var(--danger); }
 .drawer-footer { margin-top: auto; display: flex; gap: 12px; padding-top: 20px; border-top: 1px solid var(--border-line); }
-.save-btn { flex: 1; padding: 10px; background: var(--text-primary); color: var(--paper-card); border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
-.publish-btn { flex: 1; padding: 10px; background: var(--bg-sub); border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; color: var(--text-secondary); transition: all 0.2s; }
+.save-btn { flex: 1; padding: 10px; background: var(--text-primary); color: var(--paper-card); border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; font-size: 13px; }
+.publish-btn { flex: 1; padding: 10px; background: var(--bg-sub); border: none; border-radius: var(--radius-sm); font-weight: 600; cursor: pointer; font-size: 13px; color: var(--text-secondary); transition: all 0.2s; }
 .publish-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .publish-btn.is-active { background: var(--success); color: var(--on-accent); }
 
 .spirit-switch { position: relative; display: inline-block; width: 32px; height: 18px; flex-shrink: 0; }
 .spirit-switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-sub); transition: .3s; border-radius: 20px; }
+.slider { position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-sub); transition: .3s; border-radius: var(--radius-sm); }
 .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 2px; bottom: 2px; background-color: var(--paper-card); transition: .3s; border-radius: 50%; }
 input:checked + .slider { background-color: var(--accent-color); }
 input:checked + .slider:before { transform: translateX(14px); }
 .close-icon-btn { background: none; border: none; font-size: 16px; cursor: pointer; color: var(--text-secondary); }
 .slide-enter-active, .slide-leave-active { transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 .slide-enter-from, .slide-leave-to { transform: translateX(100%); }
+
+/* 发布去向「?」提示 */
+.row-label { display: inline-flex; align-items: center; gap: 6px; }
+.help-tip { position: relative; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border-line); background: var(--bg-sub); color: var(--text-secondary); font-size: 11px; line-height: 1; cursor: help; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+.help-bubble { position: absolute; right: -6px; bottom: 135%; width: 220px; background: rgba(20, 20, 24, 0.92); color: #fff; font-size: 12px; line-height: 1.6; padding: 10px 12px; border-radius: var(--radius-sm); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.15s, visibility 0.15s; z-index: 20; text-align: left; white-space: normal; }
+.help-tip:hover .help-bubble, .help-tip:focus .help-bubble { opacity: 1; visibility: visible; }
 </style>

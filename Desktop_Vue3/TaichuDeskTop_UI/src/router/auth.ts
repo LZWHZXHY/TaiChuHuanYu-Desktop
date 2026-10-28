@@ -12,7 +12,7 @@ export function setupAuthSession(pinia: Pinia, router: Router) {
   const onExpired = (requestToken: string) => {
     if (requestToken !== getStoredToken()) return
     userStore.logout()
-    if (router.currentRoute.value.path !== LOGIN_PATH) {
+    if (router.currentRoute.value.meta.requiresAuth !== false && router.currentRoute.value.path !== LOGIN_PATH) {
       void router.replace(LOGIN_PATH)
     }
   }

@@ -73,8 +73,7 @@ namespace TaiChuWeb_V2.Controllers.Admin
                 .ToListAsync();
 
             var ids = artworks.Select(a => a.Id).ToArray();
-            var stats = await new ArtworkEngagementService(_context).Stats(null)
-                .Where(s => ids.Contains(s.Id)).ToDictionaryAsync(s => s.Id);
+            var stats = await new ArtworkEngagementService(_context).Stats(null, ids).ToDictionaryAsync(s => s.Id);
 
             // 与公开列表、详情复用真实互动统计，旧计数列仅作为缓存。
             var items = artworks.Select(a => new
@@ -160,10 +159,64 @@ namespace TaiChuWeb_V2.Controllers.Admin
             var note = await _context.PublishedNotes.FindAsync(id);
             if (note == null || note.Type != "blog") return NotFound(new { message = "未捕捉到该博客实体" });
 
+            // 连带清掉正文块，避免残留孤儿数据
+            var blocks = await _context.PublishedBlocks.Where(b => b.OwnerId == id.ToString()).ToListAsync();
+            _context.PublishedBlocks.RemoveRange(blocks);
             _context.PublishedNotes.Remove(note);
             await _context.SaveChangesAsync();
             return Ok(new { message = "博客已彻底移除" });
         }
+
+        /// <summary>
+        /// 帖子（短动态）管理列表
+        /// </summary>
+        [HttpGet("post")]
+        public async Task<IActionResult> GetPosts(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 15,
+            [FromQuery] string? search = null)
+        {
+            var query = _context.PublishedNotes.Where(n => n.Type == "post");
+
+            if (!string.IsNullOrWhiteSpace(search))
+                query = query.Where(n => (n.Title != null && n.Title.Contains(search)) || (n.AuthorName != null && n.AuthorName.Contains(search)));
+
+            var totalCount = await query.CountAsync();
+            var posts = await query
+                .OrderByDescending(n => n.PublishedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var items = posts.Select(p => new
+            {
+                id = p.Id.ToString(),
+                title = p.Title ?? "无题",
+                authorName = p.AuthorName ?? "佚名",
+                excerpt = p.Excerpt,
+                resonance = p.Resonance,
+                publishedAt = p.PublishedAt
+            });
+
+            return Ok(new { items, totalCount });
+        }
+
+        /// <summary>
+        /// 彻底删除帖子（含正文块）
+        /// </summary>
+        [HttpDelete("post/{id}")]
+        public async Task<IActionResult> DeletePost(Guid id)
+        {
+            var note = await _context.PublishedNotes.FindAsync(id);
+            if (note == null || note.Type != "post") return NotFound(new { message = "未捕捉到该帖子" });
+
+            var blocks = await _context.PublishedBlocks.Where(b => b.OwnerId == id.ToString()).ToListAsync();
+            _context.PublishedBlocks.RemoveRange(blocks);
+            _context.PublishedNotes.Remove(note);
+            await _context.SaveChangesAsync();
+            return Ok(new { message = "帖子已彻底移除" });
+        }
+
         /// <summary>
         /// 深层干涉：更新画廊作品特征与流转状态
         /// </summary>

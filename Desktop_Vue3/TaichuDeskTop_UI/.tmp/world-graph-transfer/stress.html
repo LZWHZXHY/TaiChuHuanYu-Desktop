@@ -1,0 +1,37 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>关系图谱本地压力检查</title></head><body><div id="app"></div>
+<script type="module">
+import {createApp,h,ref,nextTick} from 'vue'
+import {createPinia} from 'pinia'
+import ElementPlus from 'element-plus'
+import '/node_modules/element-plus/dist/index.css'
+import '/src/assets/styles/variables.css'
+import RelationGraph from '/src/views/世界观管理/世界观组件/RelationGraph.vue'
+import {useWorldStore} from '/src/stores/world.ts'
+import {worldApi} from '/src/api/worldApi.ts'
+let graphDraws=0, graphDrawMax=0, referenceRequests=0
+const rawFrame=window.requestAnimationFrame.bind(window)
+window.requestAnimationFrame=callback=>rawFrame(time=>{const start=performance.now();callback(time);if(callback.name==='draw'){graphDraws++;graphDrawMax=Math.max(graphDrawMax,performance.now()-start)}})
+const app=createApp({setup(){
+ const store=useWorldStore(),count=ref(100),width=ref(390),theme=ref('light'),ready=ref(false),version=ref(0),selected=ref(''),metrics=ref('准备中')
+ let cards=[],relations=[],requests=0,frames=[],previous=performance.now(),longTasks=0,longestTask=0,totalTaskMs=0,start=0
+ new PerformanceObserver(list=>{longTasks+=list.getEntries().length;for(const entry of list.getEntries()){longestTask=Math.max(longestTask,entry.duration);totalTaskMs+=entry.duration}}).observe({type:'longtask',buffered:false})
+ function tick(now){const delta=now-previous;previous=now;if(delta<1000){frames.push(delta);if(frames.length>180)frames.shift()}requestAnimationFrame(tick)}requestAnimationFrame(tick)
+ worldApi.getReferences=async()=>{referenceRequests++;return {}};worldApi.getProject=async()=>({id:'stress',name:'本地模拟数据',isPublic:true,cardCount:count.value})
+ worldApi.getCards=async()=>cards
+ worldApi.getProjectRelations=async()=>relations
+ worldApi.getCard=async(pid,id)=>{requests++;await new Promise(r=>setTimeout(r,20));return {...cards.find(c=>c.id===id),description:'本地压力检查，不写入数据库。',tags:[],embeddedCards:[],contentBlocks:[],outRelations:[],inRelations:[]}}
+ async function load(){ready.value=false;await nextTick();store.reset();requests=0;graphDraws=0;graphDrawMax=0;referenceRequests=0;longTasks=0;longestTask=0;totalTaskMs=0;frames=[];start=performance.now();
+ cards=Array.from({length:count.value},(_,i)=>({id:`node-${i}`,projectId:'stress',title:`${['巡灯员','星桥港','雾海议会'][i%3]} ${i}${i%7===0?' · 中文长名称与远航记录':''}`,type:['character','location','faction'][i%3],updatedAt:'2026-10-25T00:00:00Z'}))
+ relations=cards.flatMap((c,i)=>i%9===0?[]:[{id:`r${i}`,sourceCardId:c.id,targetCardId:cards[Math.floor(i/9)*9].id,relationType:'关联'},{id:`s${i}`,sourceCardId:c.id,targetCardId:cards[(i+1)%cards.length].id,relationType:'同行'}])
+ await store.fetchCards('stress');version.value++;ready.value=true
+ }
+ setInterval(()=>{const labels=[...document.querySelectorAll('.labels button')],rects=labels.map(e=>e.getBoundingClientRect());let overlap=0;for(let i=0;i<rects.length;i++)for(let j=i+1;j<rects.length;j++){let a=rects[i],b=rects[j];if(a.left<b.right&&a.right>b.left&&a.top<b.bottom&&a.bottom>b.top)overlap++}
+ let sorted=[...frames].sort((a,b)=>a-b);metrics.value=JSON.stringify({graphDraws,graphDrawMax:Number(graphDrawMax.toFixed(2)),referenceRequests,nodes:count.value,links:relations.length,width:width.value,theme:theme.value,seconds:Math.round((performance.now()-start)/1000),labels:labels.length,overlap,font:labels[0]?getComputedStyle(labels[0]).fontSize:null,fps:Math.round(1000/(frames.reduce((a,b)=>a+b,0)/frames.length)),p95ms:Math.round(sorted[Math.floor(sorted.length*.95)]||0),longTasks,longestTask:Math.round(longestTask),totalTaskMs:Math.round(totalTaskMs),visibility:document.visibilityState,detailRequests:requests})},1000)
+ load()
+ return()=>h('main',[h('h1','本地关系图谱检查（模拟数据）'),h('div',{class:'settings'},[
+ h('label',['节点 ',h('select',{'aria-label':'节点数',value:count.value,onChange:e=>{count.value=Number(e.target.value);load()}},[6,100,500,1000].map(n=>h('option',{value:n},n)))]),
+ h('label',['宽度 ',h('select',{'aria-label':'检查宽度',value:width.value,onChange:e=>width.value=Number(e.target.value)},[360,390,1100].map(n=>h('option',{value:n},n)))]),
+ h('label',['主题 ',h('select',{'aria-label':'检查主题',value:theme.value,onChange:e=>{theme.value=e.target.value;document.documentElement.dataset.theme=theme.value}},['light','dark'].map(n=>h('option',{value:n},n)))]),h('button',{onClick:load},'重新加载')]),
+ h('output',metrics.value),h('p',selected.value),h('div',{style:{width:width.value+'px',height:'660px',border:'1px solid var(--border-color)'}},ready.value?h(RelationGraph,{key:version.value,projectId:'stress',onSelect:id=>selected.value=`已打开：${cards.find(c=>c.id===id)?.title}`}):'加载中')])
+}});app.use(createPinia());app.use(ElementPlus);app.mount('#app')
+</script><style>body{margin:16px;background:var(--bg-main);color:var(--text-primary);font-family:sans-serif}h1{font-size:18px}.settings{display:flex;gap:16px;margin-bottom:12px}output{display:block;max-width:1100px;overflow-wrap:anywhere;font:13px/1.6 monospace}select,button{font:inherit}main>p{margin:8px 0}</style></body></html>

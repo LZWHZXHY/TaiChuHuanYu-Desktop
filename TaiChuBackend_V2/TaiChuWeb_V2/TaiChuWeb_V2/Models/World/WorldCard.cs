@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace TaiChuWeb_V2.Models.World
@@ -57,7 +57,12 @@ namespace TaiChuWeb_V2.Models.World
         public string Content { get; set; } = "{}";
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        [ConcurrencyCheck]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        // MySQL datetime(6) 保存到微秒；返回的版本必须与数据库一致且严格递增。
+        public void AdvanceVersion() => UpdatedAt = new DateTime(
+            Math.Max(DateTime.UtcNow.Ticks / 10 * 10, UpdatedAt.Ticks / 10 * 10 + 10), DateTimeKind.Utc);
 
         [ForeignKey("ProjectId")]
         public virtual WorldProject? Project { get; set; }

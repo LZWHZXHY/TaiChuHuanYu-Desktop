@@ -65,11 +65,21 @@
       </div>
     </div>
 
+    <!-- 内容分布分析 -->
+    <section v-if="distItems.length" class="content-dist">
+      <h3 class="dist-title">内容分布分析</h3>
+      <div v-for="item in distItems" :key="item.label" class="dist-row">
+        <span class="dist-label">{{ item.label }}</span>
+        <span class="dist-bar"><span class="dist-fill" :style="{ width: item.pct + '%' }"></span></span>
+        <span class="dist-value">{{ item.value.toLocaleString() }}</span>
+      </div>
+    </section>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import request from '@/utils/request'; // 确保 request.ts 的路径正确
 
 const loading = ref(false), loaded = ref(false), error = ref('');
@@ -80,15 +90,36 @@ const metrics = ref({
   mau: { value: 0, trendPercent: 0, isUp: true }
 });
 
+// 内容分布（来自 DataPanel/overview）
+const overview = ref<any>(null);
+const distItems = computed(() => {
+  const o = overview.value;
+  if (!o) return [];
+  const items = [
+    { label: '用户', value: o.userCount ?? 0 },
+    { label: '作品', value: o.workCount ?? 0 },
+    { label: '博客', value: o.blogCount ?? 0 },
+    { label: '帖子', value: o.postCount ?? 0 },
+    { label: '百科', value: o.wikiCount ?? 0 },
+    { label: '项目', value: o.projectCount ?? 0 }
+  ];
+  const max = Math.max(1, ...items.map(i => i.value));
+  return items.map(i => ({ ...i, pct: Math.round(i.value / max * 100) }));
+});
+
 // 从后端获取真实指标数据
 const fetchMetrics = async () => {
   if (loading.value) return;
   loading.value = true; error.value = '';
   try {
-    const res: any = await request.get('/Admin/Data/Metrics');
+    const [res, ov] = await Promise.all([
+      request.get<any>('/Admin/Data/Metrics'),
+      request.get<any>('/DataPanel/overview', { silentError: true }).catch(() => null)
+    ]);
     if (res) {
       metrics.value = res; loaded.value = true;
     }
+    overview.value = ov;
   } catch {
     error.value = '指标读取失败，请重试。';
   } finally { loading.value = false; }
@@ -99,16 +130,24 @@ onMounted(fetchMetrics);
 
 <style scoped>
 .data-center-panel { display: grid; gap: 24px; color: var(--text-primary); }
-.panel-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding: 24px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-md); }
+.panel-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; padding: 24px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); }
 h2 { margin: 0 0 8px; font-size: 24px; }
 .subtitle { color: var(--text-secondary); font-size: 14px; }
 .btn-primary { background: var(--accent-color); color: var(--on-accent); border: 0; border-radius: var(--radius-sm); padding: 10px 16px; cursor: pointer; }
-.metrics-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
-.metric-card { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-md); padding: 24px; }
+.metrics-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 20px; }
+.metric-card { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); padding: 24px; }
 .card-top { display: flex; justify-content: space-between; gap: 12px; color: var(--text-secondary); font-size: 14px; }
 .metric-value { font-size: 36px; font-weight: 650; margin: 20px 0 12px; }
 .metric-trend { font-size: 13px; color: var(--text-secondary); }
 .metric-trend.up { color: var(--success); }
 .metric-trend.down { color: var(--danger); }
+.content-dist { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); padding: 24px; display: grid; gap: 12px; }
+.dist-title { margin: 0 0 4px; font-size: 18px; }
+.dist-row { display: flex; align-items: center; gap: 14px; font-size: 14px; }
+.dist-label { width: 48px; flex-shrink: 0; color: var(--text-secondary); }
+.dist-bar { flex: 1; height: 10px; background: var(--bg-sub); border-radius: 5px; overflow: hidden; }
+.dist-fill { display: block; height: 100%; background: linear-gradient(90deg, var(--accent-color), var(--signal-color)); border-radius: 5px; }
+.dist-value { width: 70px; text-align: right; font-variant-numeric: tabular-nums; }
+@media(max-width:1100px) { .metrics-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media(max-width:600px) { .metrics-grid { grid-template-columns: 1fr; } }
 </style>

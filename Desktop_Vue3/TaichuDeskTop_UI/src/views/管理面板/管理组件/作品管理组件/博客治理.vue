@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
-import request from '@/utils/request'; // 直接引入你的请求工具
+import { ref, computed, onMounted, watch } from 'vue';
+import request from '@/utils/request';
 
-// 定义接口类型
-interface BlogDto {
+interface ItemDto {
   id: string;
   title: string;
   authorName: string;
@@ -11,36 +10,36 @@ interface BlogDto {
   publishedAt: string;
 }
 
-const blogList = ref<BlogDto[]>([]);
-const loading = ref(false);
+const props = withDefaults(defineProps<{ type?: 'blog' | 'post' }>(), { type: 'blog' });
 
-// 1. 获取博客列表
-const fetchBlogs = async () => {
+const list = ref<ItemDto[]>([]);
+const loading = ref(false);
+const label = computed(() => (props.type === 'post' ? '帖子' : '博客'));
+
+async function fetchList() {
   loading.value = true;
   try {
-    // 直接在这里调用 API，省去了单独的 API 文件
-    const res = await request.get<{ items: BlogDto[], totalCount: number }>('/admin/product/blog');
-    blogList.value = res.items;
+    const res = await request.get<{ items: ItemDto[]; totalCount: number }>(`/admin/product/${props.type}`);
+    list.value = res.items || [];
   } catch (err) {
-    console.error('拉取博客失败', err);
+    console.error('拉取内容失败', err);
   } finally {
     loading.value = false;
   }
-};
+}
 
-// 2. 删除逻辑 (直接调用)
-const handleDelete = async (id: string, title: string) => {
-  if (!confirm(`确定要彻底抹除《${title}》吗？`)) return;
-  
+async function handleDelete(id: string, title: string) {
+  if (!confirm(`确定要彻底抹除${label.value}《${title}》吗？正文块会一起删除。`)) return;
   try {
-    await request.delete(`/admin/product/blog/${id}`);
-    fetchBlogs(); // 操作成功后刷新
-  } catch (err) {
-    // request.ts 里的拦截器已经处理了报错弹窗，这里无需额外代码
+    await request.delete(`/admin/product/${props.type}/${id}`);
+    fetchList();
+  } catch {
+    // request.ts 拦截器已统一提示
   }
-};
+}
 
-onMounted(fetchBlogs);
+onMounted(fetchList);
+watch(() => props.type, fetchList);
 </script>
 
 <template>
@@ -55,12 +54,18 @@ onMounted(fetchBlogs);
         </tr>
       </thead>
       <tbody>
-        <tr v-for="blog in blogList" :key="blog.id">
-          <td>{{ blog.title }}</td>
-          <td>{{ blog.authorName }}</td>
-          <td>{{ blog.resonance }}</td>
+        <tr v-if="loading">
+          <td colspan="4" class="empty-cell">正在读取{{ label }}…</td>
+        </tr>
+        <tr v-else-if="!list.length">
+          <td colspan="4" class="empty-cell">还没有已发布的{{ label }}</td>
+        </tr>
+        <tr v-for="item in list" v-else :key="item.id">
+          <td>{{ item.title }}</td>
+          <td>{{ item.authorName }}</td>
+          <td>{{ item.resonance }}</td>
           <td>
-            <button class="btn-action danger" @click="handleDelete(blog.id, blog.title)">删除</button>
+            <button class="btn-action danger" @click="handleDelete(item.id, item.title)">删除</button>
           </td>
         </tr>
       </tbody>
@@ -69,6 +74,8 @@ onMounted(fetchBlogs);
 </template>
 
 <style scoped>
+.empty-cell { text-align: center; padding: 40px 20px; color: var(--text-secondary); font-size: .85rem; }
+
 /* 容器基调 */
 .blog-sub-module {
   animation: slideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
@@ -83,7 +90,7 @@ onMounted(fetchBlogs);
   margin-top: 16px;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 

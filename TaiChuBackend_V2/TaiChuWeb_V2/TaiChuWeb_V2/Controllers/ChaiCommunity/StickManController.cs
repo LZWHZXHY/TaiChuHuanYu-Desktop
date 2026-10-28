@@ -195,17 +195,17 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
         // ============================================================
         // 2.6 点赞 / 收藏（复用 UserInteraction，可取消）
         // ============================================================
-        [HttpPost("{id:guid}/{action}")]
-        public async Task<IActionResult> ToggleInteraction(Guid id, string action)
+        [HttpPost("{id:guid}/{kind}")]
+        public async Task<IActionResult> ToggleInteraction(Guid id, string kind)
         {
             var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(userIdStr, out var userId)) return Unauthorized();
-            if (action is not ("like" or "favorite")) return BadRequest(new { message = "不支持的操作" });
+            if (kind is not ("like" or "favorite")) return BadRequest(new { message = "不支持的操作" });
 
             var oc = await _context.StickmanCharacters.FirstOrDefaultAsync(c => c.Id == id && c.Status == "published");
             if (oc == null) return NotFound(new { message = "角色不存在或未公开" });
 
-            var actionType = action == "like" ? "Like" : "Favorite";
+            var actionType = kind == "like" ? "Like" : "Favorite";
             var target = id.ToString();
             var existing = await _context.UserInteractions
                 .Where(i => i.UserId == userId && i.TargetType == "StickmanCharacter" && i.TargetId == target && i.ActionType == actionType)
@@ -218,6 +218,22 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             await _context.SaveChangesAsync();
             var count = await _context.UserInteractions.CountAsync(i => i.TargetType == "StickmanCharacter" && i.TargetId == target && i.ActionType == actionType);
             return Ok(new { active, count });
+        }
+
+        /// <summary>当前用户对这条 OC 的点赞 / 收藏状态（刷新后保持高亮）</summary>
+        [HttpGet("{id:guid}/interaction")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetInteraction(Guid id)
+        {
+            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(userIdStr, out var userId)) return Ok(new { liked = false, favorited = false });
+
+            var target = id.ToString();
+            var actions = await _context.UserInteractions
+                .Where(i => i.UserId == userId && i.TargetType == "StickmanCharacter" && i.TargetId == target)
+                .Select(i => i.ActionType)
+                .ToListAsync();
+            return Ok(new { liked = actions.Contains("Like"), favorited = actions.Contains("Favorite") });
         }
 
         // ============================================================

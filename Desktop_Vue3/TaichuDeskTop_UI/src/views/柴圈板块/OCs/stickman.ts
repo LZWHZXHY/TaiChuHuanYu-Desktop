@@ -125,4 +125,6 @@ export const stickmanApi = {
 
   toggle: (id: string, action: 'like' | 'favorite') =>
     request.post<{ active: boolean; count: number }>(`/StickMan/${id}/${action}`, undefined, { silentError: true }),
+  interaction: (id: string) =>
+    request.get<{ liked: boolean; favorited: boolean }>(`/StickMan/${id}/interaction`, { silentError: true }),
 }

@@ -9,6 +9,8 @@ internal static class WorldProjectMapper
     public static readonly Expression<Func<WorldProject, ProjectResponseDto>> Projection = project => new ProjectResponseDto
     {
         Id = project.Id, Name = project.Name, Description = project.Description,
+        CoverImage = project.CoverImage,
+        GraphPositions = project.GraphPositions,
         IsPublic = project.IsPublic, CreatedAt = project.CreatedAt, UpdatedAt = project.UpdatedAt,
         CardCount = project.Cards.Count, OwnerName = project.Owner != null ? project.Owner.Username : null,
         OwnerId = project.OwnerId

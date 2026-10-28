@@ -67,6 +67,14 @@ builder.Services.AddScoped<JwtService>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<SystemConfigService>();
 builder.Services.AddScoped<IWorldQuotaService, WorldQuotaService>();
+builder.Services.AddScoped<WorldRestoreService>();
+builder.Services.AddHostedService<WorldRestoreCleanup>();
+
+// 爱发电同步（订单→财政、赞助者→赞助墙）
+builder.Services.AddScoped<TaiChuWeb_V2.Services.Afdian.AfdianService>();
+builder.Services.AddScoped<TaiChuWeb_V2.Services.Afdian.AfdianSyncService>();
+if (builder.Configuration.GetValue("Afdian:SyncEnabled", true))
+    builder.Services.AddHostedService<TaiChuWeb_V2.Services.Afdian.AfdianSyncWorker>();
 builder.Services.AddScoped<IProjectPermissionService, ProjectPermissionService>();
 
 

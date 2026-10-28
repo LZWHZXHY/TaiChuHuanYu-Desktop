@@ -1,0 +1,45 @@
+/* 全站及弹层共用语义颜色；模块只引用，不再覆盖根主题。 */
+:root {
+  color-scheme: light;
+  --bg-main: #f5f4f0; --bg-sub: #eeede7; --paper-card: #ffffff;
+  --text-primary: #272c30; --text-secondary: #646b72; --border-line: #dce0df;
+  --accent-color: #a33930; --accent-soft: #f7eae6; --on-accent: #ffffff;
+  --success: #267453; --success-soft: #e5f2e9; --info-soft: #e7eef8; --danger: #bd3939;
+  --info: #286390; --danger-soft: #fbeaea; --warning: #966015; --warning-soft: #fbf1dc; --on-overlay: #ffffff;
+  --overlay: rgb(12 18 24 / 45%);
+  --shadow-sm: 0 2px 8px rgb(24 32 40 / 4%); --shadow-md: 0 12px 36px rgb(24 32 40 / 10%);
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  --font-family: var(--font-sans);
+  --radius-sm: 6px; --radius-md: 12px; --radius-lg: 20px;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-main: #15191e; --bg-sub: #242a32; --paper-card: #1c2229;
+  --text-primary: #e8ebed; --text-secondary: #a4afb9; --border-line: #37414b;
+  --accent-color: #f1a18d; --accent-soft: #3b2b2b; --on-accent: #291a17;
+  --success: #87d4ae; --success-soft: #233d32; --info-soft: #26374b; --danger: #ff9c9c;
+  --info: #96c5eb; --danger-soft: #422b31; --warning: #ecc17c; --warning-soft: #3c3426;
+  --overlay: rgb(0 0 0 / 65%);
+  --shadow-sm: 0 2px 8px rgb(0 0 0 / 12%); --shadow-md: 0 12px 36px rgb(0 0 0 / 28%);
+}
+:root {
+  /* 兼容已有组件命名，颜色来源保持唯一。 */
+  --paper-bg: var(--bg-main); --paper-sub: var(--bg-sub);
+  --ink-black: var(--text-primary); --ink-gray: var(--text-secondary);
+  --line-raw: var(--border-line); --cinnabar: var(--accent-color);
+  --text-main: var(--text-primary); --text-mute: var(--text-secondary);
+  --bg-hover: var(--bg-sub); --accent: var(--accent-color); --border-light: var(--border-line);
+  --el-color-primary: var(--accent-color);
+  --el-color-primary-light-3: color-mix(in srgb, var(--accent-color) 70%, var(--paper-card));
+  --el-color-primary-light-5: color-mix(in srgb, var(--accent-color) 50%, var(--paper-card));
+  --el-color-primary-light-7: var(--accent-soft); --el-color-primary-light-8: var(--accent-soft); --el-color-primary-light-9: var(--accent-soft);
+  --el-bg-color: var(--paper-card); --el-bg-color-page: var(--bg-main); --el-bg-color-overlay: var(--paper-card);
+  --el-text-color-primary: var(--text-primary); --el-text-color-regular: var(--text-primary);
+  --el-text-color-secondary: var(--text-secondary); --el-text-color-placeholder: var(--text-secondary);
+  --el-border-color: var(--border-line); --el-border-color-light: var(--border-line); --el-border-color-lighter: var(--border-line);
+  --el-fill-color: var(--bg-sub); --el-fill-color-light: var(--bg-sub); --el-fill-color-lighter: var(--bg-sub); --el-fill-color-blank: var(--paper-card);
+  --el-mask-color: var(--overlay);
+  --el-color-success: var(--success); --el-color-danger: var(--danger); --el-color-warning: var(--warning);
+  --el-color-success-light-9: var(--success-soft); --el-color-danger-light-9: var(--danger-soft); --el-color-warning-light-9: var(--warning-soft);
+}

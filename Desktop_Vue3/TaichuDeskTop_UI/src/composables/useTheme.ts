@@ -3,7 +3,8 @@ import { ref } from 'vue'
 export type ThemeMode = 'light' | 'dark' | 'system'
 const key = 'taichu-theme'
 const mode = ref<ThemeMode>('system')
-const valid = (value: unknown): value is ThemeMode => ['light', 'dark', 'system'].includes(String(value))
+// 原莱茵皮肤已成为全站设计，旧偏好继续对应浅色，避免升级后突然变暗。
+const normalize = (value: unknown): ThemeMode => value === 'rhine' || value === 'light' ? 'light' : value === 'dark' ? 'dark' : 'system'
 let preference: MediaQueryList | undefined
 
 function apply() {
@@ -13,10 +14,10 @@ function apply() {
 
 export function setupTheme() {
   preference = window.matchMedia('(prefers-color-scheme: dark)')
-  try { const saved = localStorage.getItem(key); if (valid(saved)) mode.value = saved } catch { /* 浏览器禁止存储时仍可切换。 */ }
+  try { mode.value = normalize(localStorage.getItem(key)) } catch { /* 浏览器禁止存储时仍可切换。 */ }
   apply()
   const sync = (event: StorageEvent) => {
-    if (event.key === key || event.key === null) { mode.value = valid(event.newValue) ? event.newValue : 'system'; apply() }
+    if (event.key === key || event.key === null) { mode.value = normalize(event.newValue); apply() }
   }
   preference.addEventListener('change', apply)
   window.addEventListener('storage', sync)

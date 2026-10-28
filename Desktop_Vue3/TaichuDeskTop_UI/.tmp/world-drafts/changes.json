@@ -1,0 +1,32 @@
+[
+  {
+    "file": "src/composables/世界观管理/useCardEditor.ts",
+    "added": 14,
+    "removed": 3,
+    "net": 11
+  },
+  {
+    "file": "src/views/世界观管理/世界观组件/CardEditor.vue",
+    "added": 17,
+    "removed": 5,
+    "net": 12
+  },
+  {
+    "file": "src/views/世界观管理/ProjectDetail.vue",
+    "added": 18,
+    "removed": 6,
+    "net": 12
+  },
+  {
+    "file": "tests/world-components.test.mjs",
+    "added": 111,
+    "removed": 0,
+    "net": 111
+  },
+  {
+    "file": "src/composables/世界观管理/useCardDraft.ts",
+    "added": 94,
+    "removed": 0,
+    "net": 94
+  }
+]

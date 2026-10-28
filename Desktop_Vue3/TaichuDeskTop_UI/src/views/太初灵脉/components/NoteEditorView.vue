@@ -128,9 +128,10 @@ defineExpose({
 /* 样式保持不变 */
 .note-editor-view {
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 0 20px 20px;
+  padding: 0 0 20px;
 }
 .content-loading-state {
   display: flex;

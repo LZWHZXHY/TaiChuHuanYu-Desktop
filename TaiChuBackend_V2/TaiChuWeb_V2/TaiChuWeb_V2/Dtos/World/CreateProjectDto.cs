@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 
 namespace TaiChuWeb_V2.Dtos.World
 {
@@ -9,6 +9,9 @@ namespace TaiChuWeb_V2.Dtos.World
         public string Name { get; set; } = string.Empty;
 
         public string? Description { get; set; }
+
+        [MaxLength(500)]
+        public string? CoverImage { get; set; }
 
         public bool IsPublic { get; set; } = false;
     }

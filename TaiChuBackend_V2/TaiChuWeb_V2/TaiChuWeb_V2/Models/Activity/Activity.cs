@@ -1,4 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using UserModel = TaiChuWeb_V2.Models.User.User; // 别名
 
@@ -29,6 +29,18 @@ public class Activity
 
     [Required]
     public int Days { get; set; } = 30;
+
+    /// <summary>活动形态：general（普通）/ match（对战赛）/ contest（作品赛）</summary>
+    [MaxLength(20)]
+    public string Kind { get; set; } = "general";
+
+    public DateTime? SignupDeadline { get; set; }
+    public DateTime? StartAt { get; set; }
+    public DateTime? EndAt { get; set; }
+
+    /// <summary>比赛规则 / 主题说明（长文本）</summary>
+    [Column(TypeName = "longtext")]
+    public string? Rules { get; set; }
 
     public Guid OwnerId { get; set; }
 

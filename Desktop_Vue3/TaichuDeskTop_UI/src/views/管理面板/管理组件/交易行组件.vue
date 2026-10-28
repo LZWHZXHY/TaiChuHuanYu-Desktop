@@ -64,7 +64,7 @@
         @mousedown="handleMaskMouseDown"
         @mouseup="handleMaskMouseUp"
       >
-        <div class="modal-container mobile-full" @mousedown.stop @mouseup.stop>
+        <div class="modal-container mobile-full workbench-skin" @mousedown.stop @mouseup.stop>
           <header class="modal-header">
             <div class="header-content">
               <h3>{{ isEdit ? '修订资源参数' : '上架太初资源' }}</h3>
@@ -256,7 +256,7 @@ const submitForm = async () => {
 .search-bar input { width: 100%; border: 1px solid var(--border-line); padding: 10px 16px; border-radius: 4px; outline: none; transition: 0.3s; }
 .search-bar input:focus { border-color: var(--border-line); }
 .btn-add { background: var(--accent-color); color: var(--on-accent); border: none; padding: 10px 24px; cursor: pointer; font-weight: 600; }
-.table-card { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 8px; }
+.table-card { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); }
 .table-responsive { width: 100%; overflow-x: auto; }
 .ink-table { width: 100%; border-collapse: collapse; min-width: 800px; }
 .ink-table th { padding: 16px; text-align: left; font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; border-bottom: 2px solid var(--border-line); }

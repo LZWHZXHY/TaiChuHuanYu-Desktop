@@ -74,7 +74,7 @@
 
                 <!-- 下方：历史年度趋势走向 -->
                 <div class="chart-box trend-panel-box">
-                  <span class="chart-sub-title">ANNUAL_TREND // 历史年度总开销趋势走向</span>
+                  <span class="chart-sub-title">ANNUAL_TREND // 历史年度收支趋势走向</span>
                   <div class="echart-holder line-holder">
                     <div ref="trendChartEl" class="echart-instance"></div>
                   </div>
@@ -93,6 +93,7 @@
                       <div class="ledger-meta">
                         <span class="ledger-date">{{ formatDate(log.date) }}</span>
                         <span class="ledger-desc" :title="log.zhiChuXiangMu">{{ log.zhiChuXiangMu }}</span>
+                        <span v-if="log.shouKuan" class="ledger-payer">{{ log.payReceive === 0 ? '来源' : '收款方' }}：{{ log.shouKuan }}</span>
                       </div>
                       <div class="ledger-right-meta">
                         <span class="ledger-payer-tag">{{ log.payReceive === 0 ? '赞助入库' : log.zhiChu }}</span>
@@ -176,7 +177,7 @@ const groupPieData = (payReceive: number, getName: (log: FinancialDto) => string
     const name = getName(log);
     totals[name] = (totals[name] || 0) + log.amount;
   }
-  return Object.entries(totals).map(([name, value]) => ({ name, value: Math.round(value) }))
+  return Object.entries(totals).map(([name, value]) => ({ name, value: Math.round(value * 100) / 100 }))
     .sort((a, b) => b.value - a.value);
 };
 
@@ -195,15 +196,20 @@ const shouKuanChartData = computed(() => {
 const zhiChuChartData = computed(() => groupPieData(1, log => (log.zhiChu || '系统内库').trim()));
 
 const trendChartData = computed(() => {
-  const map: Record<string, number> = {};
+  const incomeMap: Record<string, number> = {};
+  const expenseMap: Record<string, number> = {};
   financeLogs.value.forEach(log => {
-    if (log.payReceive === 1) {
-      const year = new Date(log.date).getFullYear().toString() + '年';
-      map[year] = (map[year] || 0) + log.amount;
-    }
+    const year = new Date(log.date).getFullYear().toString() + '年';
+    if (log.payReceive === 1) expenseMap[year] = (expenseMap[year] || 0) + log.amount;
+    else incomeMap[year] = (incomeMap[year] || 0) + log.amount;
   });
-  const years = Object.keys(map).sort((a, b) => parseInt(a) - parseInt(b));
-  return { years, values: years.map(y => Math.round(map[y])) };
+  const years = Array.from(new Set([...Object.keys(incomeMap), ...Object.keys(expenseMap)]))
+    .sort((a, b) => parseInt(a) - parseInt(b));
+  return {
+    years,
+    income: years.map(y => Math.round((incomeMap[y] || 0) * 100) / 100),
+    expense: years.map(y => Math.round((expenseMap[y] || 0) * 100) / 100),
+  };
 });
 
 /* ==========================================
@@ -218,7 +224,7 @@ const getPieOption = (data: { name: string; value: number }[], colors: string[])
     borderColor: colorBlack,
     borderWidth: 1.5,
     textStyle: { fontFamily: fontMono, color: colorBlack, fontSize: 10 },
-    formatter: '{b}: ￥{c} ({d}%)'
+    formatter: (p: any) => `${p.name}: ￥${Number(p.value).toFixed(2)} (${p.percent}%)`
   },
   legend: {
     orient: 'horizontal',
@@ -230,7 +236,7 @@ const getPieOption = (data: { name: string; value: number }[], colors: string[])
     textStyle: { fontFamily: fontMono, fontSize: 8.5, color: colorBlack },
     formatter: (name: string) => {
       const target = data.find(d => d.name === name);
-      return `${name} ￥${target ? target.value : 0}`;
+      return `${name} ￥${(target ? target.value : 0).toFixed(2)}`;
     }
   },
   series: [{
@@ -245,7 +251,7 @@ const getPieOption = (data: { name: string; value: number }[], colors: string[])
   }]
 });
 
-const getTrendOption = (years: string[], values: number[]) => ({
+const getTrendOption = (years: string[], income: number[], expense: number[]) => ({
   tooltip: {
     trigger: 'axis',
     backgroundColor: chartSurface,
@@ -254,7 +260,15 @@ const getTrendOption = (years: string[], values: number[]) => ({
     textStyle: { fontFamily: fontMono, fontSize: 10 },
     axisPointer: { type: 'line', lineStyle: { color: colorBlack, type: 'dashed' } }
   },
-  grid: { left: '2%', right: '3%', bottom: '8%', top: '22%', containLabel: true },
+  legend: {
+    top: '0%',
+    left: 'center',
+    icon: 'circle',
+    itemWidth: 7,
+    itemHeight: 7,
+    textStyle: { fontFamily: fontMono, fontSize: 9, color: colorBlack }
+  },
+  grid: { left: '2%', right: '3%', bottom: '8%', top: '30%', containLabel: true },
   xAxis: {
     type: 'category',
     data: years,
@@ -267,32 +281,60 @@ const getTrendOption = (years: string[], values: number[]) => ({
     splitLine: { lineStyle: { color: chartLine, type: 'dashed' } },
     axisLabel: { fontFamily: fontMono, color: colorBlack, fontSize: 9.5 }
   },
-  series: [{
-    name: '年度总支出',
-    type: 'line',
-    smooth: 0.12,
-    data: values,
-    itemStyle: { color: colorBlack },
-    lineStyle: { width: 1.8, color: colorBlack },
-    symbol: 'circle',
-    symbolSize: 6,
-    areaStyle: {
-      color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [
-        { offset: 0, color: 'rgba(31, 35, 40, 0.12)' },
-        { offset: 1, color: 'rgba(31, 35, 40, 0.01)' }
-      ] }
+  series: [
+    {
+      name: '年度总收入',
+      type: 'line',
+      smooth: 0.12,
+      data: income,
+      itemStyle: { color: '#2da44e' },
+      lineStyle: { width: 1.8, color: '#2da44e' },
+      symbol: 'circle',
+      symbolSize: 6,
+      areaStyle: {
+        color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [
+          { offset: 0, color: 'rgba(45, 164, 78, 0.16)' },
+          { offset: 1, color: 'rgba(45, 164, 78, 0.01)' }
+        ] }
+      },
+      label: {
+        show: true,
+        position: 'top',
+        fontFamily: fontMono,
+        fontSize: 9,
+        fontWeight: 'bold',
+        color: '#2da44e',
+        formatter: (p: any) => `￥${Number(p.value).toFixed(2)}`,
+        distance: 8
+      }
     },
-    label: {
-      show: true,
-      position: 'top',
-      fontFamily: fontMono,
-      fontSize: 9.5,
-      fontWeight: 'bold',
-      color: colorBlack,
-      formatter: '￥{c}',
-      distance: 10
+    {
+      name: '年度总支出',
+      type: 'line',
+      smooth: 0.12,
+      data: expense,
+      itemStyle: { color: colorBlack },
+      lineStyle: { width: 1.8, color: colorBlack },
+      symbol: 'circle',
+      symbolSize: 6,
+      areaStyle: {
+        color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [
+          { offset: 0, color: 'rgba(31, 35, 40, 0.10)' },
+          { offset: 1, color: 'rgba(31, 35, 40, 0.01)' }
+        ] }
+      },
+      label: {
+        show: true,
+        position: 'bottom',
+        fontFamily: fontMono,
+        fontSize: 9,
+        fontWeight: 'bold',
+        color: colorBlack,
+        formatter: (p: any) => `￥${Number(p.value).toFixed(2)}`,
+        distance: 8
+      }
     }
-  }]
+  ]
 });
 
 // 数据仅在打开弹窗后的请求中赋值，加载完成后统一挂载，无需额外监听数据。
@@ -302,12 +344,12 @@ const mountAllCharts = (echarts: Pick<typeof import('echarts/core'), 'init'>) =>
   colorBlack = colors.getPropertyValue('--text-primary').trim();
   chartSurface = colors.getPropertyValue('--paper-card').trim();
   chartLine = colors.getPropertyValue('--border-line').trim();
-  const { years, values } = trendChartData.value;
+  const { years, income, expense } = trendChartData.value;
   const charts = [
     { element: incomeChartEl.value, option: getPieOption(incomeChartData.value, ['#2da44e', '#54b677', '#8cd1a4', '#b6e5cd']) },
     { element: shouKuanChartEl.value, option: getPieOption(shouKuanChartData.value, [colorBlack, '#57606a', '#8c959f', '#cbd5e1']) },
     { element: zhiChuChartEl.value, option: getPieOption(zhiChuChartData.value, [colorBlack, '#e68a2e', '#8c959f', '#cbd5e1']) },
-    { element: years.length ? trendChartEl.value : null, option: getTrendOption(years, values) },
+    { element: years.length ? trendChartEl.value : null, option: getTrendOption(years, income, expense) },
   ];
   for (const { element, option } of charts) {
     if (!element) continue;
@@ -388,7 +430,7 @@ onBeforeUnmount(closeModal);
   background: var(--text-primary);
   color: var(--paper-card);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   padding: 16px 20px;
   font-size: 0.9rem;
   font-weight: 400;
@@ -396,7 +438,7 @@ onBeforeUnmount(closeModal);
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   letter-spacing: 0.05em;
 }
-.finance-trigger-btn:hover { background: #33383e; transform: translateY(-1px); }
+.finance-trigger-btn:hover { background: var(--accent-color); color: var(--on-accent); transform: translateY(-1px); }
 .symbol { font-family: ui-monospace, monospace; margin-right: 4px; color: var(--text-secondary); }
 .arrow { transition: transform 0.3s; }
 .finance-trigger-btn:hover .arrow { transform: translateX(4px); }
@@ -422,7 +464,8 @@ onBeforeUnmount(closeModal);
   width: 95%;
   max-width: 1160px; /* 🌟 深度拓宽到 1160px 彻底消除任何侧边挤压感 */
   height: 88vh; 
-  border-radius: 16px;
+  overflow-y: auto;
+  border-radius: var(--radius-sm);
   padding: 36px 40px;
   position: relative;
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.06);
@@ -445,8 +488,8 @@ onBeforeUnmount(closeModal);
   margin-bottom: 16px;
   flex-shrink: 0;
 }
-.asset-card { background: var(--bg-sub); border: 1px solid var(--border-line); border-radius: 6px; padding: 12px 20px; display: flex; flex-direction: column; gap: 2px; }
-.asset-card.active { background: var(--success-soft); border-color: #d2ebd4; }
+.asset-card { background: var(--bg-sub); border: 1px solid var(--border-line); border-radius: var(--radius-sm); padding: 12px 20px; display: flex; flex-direction: column; gap: 2px; }
+.asset-card.active { background: var(--success-soft); border-color: var(--success); }
 .asset-label { font-size: 0.72rem; color: var(--text-secondary); }
 .asset-value { font-size: 1.35rem; font-weight: 400; font-family: ui-monospace, monospace; }
 .asset-value.negative-val { color: var(--danger); } 
@@ -462,17 +505,17 @@ onBeforeUnmount(closeModal);
   gap: 14px;
   margin-bottom: 12px;
 }
-.chart-box { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 8px; padding: 14px; display: flex; flex-direction: column; min-width: 0; }
+.chart-box { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); padding: 14px; display: flex; flex-direction: column; min-width: 0; }
 .chart-sub-title { font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500; display: block;}
 
 /* ECharts 底衬渲染锚定 */
 .echart-holder {
   width: 100% !important;
-  height: 175px !important; /* 🌟 下移 legend 后，高度拔高到 175px 让圆环展现得更圆润壮观 */
+  height: 145px !important; /* 稍收窄，把更多空间留给下方账单明细 */
   position: relative;
 }
 .echart-holder.line-holder {
-  height: 135px !important;
+  height: 110px !important;
 }
 .echart-instance {
   width: 100%;
@@ -480,7 +523,7 @@ onBeforeUnmount(closeModal);
 }
 
 /* 细分流水摘要 */
-.ledger-section { margin-bottom: 4px; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.ledger-section { margin-bottom: 4px; flex: 1; display: flex; flex-direction: column; min-height: 320px; }
 .ledger-list-container { flex: 1; overflow-y: auto; padding-right: 4px; }
 .ledger-list-container::-webkit-scrollbar { width: 4px; }
 .ledger-list-container::-webkit-scrollbar-thumb { background: var(--border-line); border-radius: 4px; }
@@ -491,6 +534,7 @@ onBeforeUnmount(closeModal);
 .ledger-meta { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
 .ledger-date { font-family: ui-monospace, monospace; font-size: 0.75rem; color: var(--text-secondary); }
 .ledger-desc { font-size: 0.88rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ledger-payer { font-size: 0.74rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .ledger-right-meta { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
 .ledger-payer-tag { font-size: 0.72rem; background: var(--bg-sub); border: 1px solid var(--border-line); padding: 1px 6px; border-radius: 3px; color: var(--text-secondary); font-weight: bold; }

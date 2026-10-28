@@ -1,0 +1,93 @@
+{
+  "project": {
+    "id": "fixture",
+    "name": "MD 往返验收",
+    "description": "世界简介不应变成额外条目",
+    "createdAt": "2026-10-25T12:00:00Z",
+    "updatedAt": "2026-10-25T12:00:00Z",
+    "isPublic": false,
+    "ownerId": "fixture",
+    "ownerName": "验收",
+    "cardCount": 2
+  },
+  "cards": [
+    {
+      "id": "11111111-1111-4111-8111-111111111111",
+      "projectId": "fixture",
+      "title": "往返验收 · 行者",
+      "type": "character",
+      "createdAt": "2026-10-25T12:00:00Z",
+      "updatedAt": "2026-10-25T12:00:00Z",
+      "subType": "测试子类型",
+      "description": "## 原始正文标题\n行者来自 {CARD:22222222-2222-4222-8222-222222222222}。\n\n```md\n## 代码中的标题\n```\n末尾保留空格  ",
+      "content": "{\"age\":20,\"enabled\":false,\"notes\":\"类型数据\"}",
+      "coverImage": "[\"http://127.0.0.1:5195/.tmp/world-transfer-check/landscape.png\"]",
+      "aliases": [
+        "灯塔旅人"
+      ],
+      "attributes": [
+        {
+          "key": "身高",
+          "value": "170",
+          "type": "number"
+        }
+      ],
+      "tags": [
+        "往返验收"
+      ],
+      "embeddedCards": [
+        "22222222-2222-4222-8222-222222222222"
+      ],
+      "contentBlocks": [
+        {
+          "id": "33333333-3333-4333-8333-333333333333",
+          "cardId": "22222222-2222-4222-8222-222222222222",
+          "cardType": "location",
+          "order": 0,
+          "contextLabel": "常住地"
+        }
+      ],
+      "timelineEvents": [
+        {
+          "date": "100年",
+          "era": "雾海纪元",
+          "title": "启程",
+          "description": "从港口出发"
+        }
+      ],
+      "galleryImages": [
+        "http://127.0.0.1:5195/.tmp/world-transfer-check/portrait.png"
+      ],
+      "outRelations": [
+        {
+          "id": "r",
+          "sourceCardId": "11111111-1111-4111-8111-111111111111",
+          "targetCardId": "22222222-2222-4222-8222-222222222222",
+          "relationType": "居住于"
+        }
+      ],
+      "inRelations": []
+    },
+    {
+      "id": "22222222-2222-4222-8222-222222222222",
+      "projectId": "fixture",
+      "title": "往返验收 · 港城",
+      "type": "location",
+      "createdAt": "2026-10-25T12:00:00Z",
+      "updatedAt": "2026-10-25T12:00:00Z",
+      "subType": null,
+      "description": "迎接 {CARD:11111111-1111-4111-8111-111111111111}。",
+      "content": "{\"dangerLevel\":\"低\"}",
+      "coverImage": null,
+      "aliases": [],
+      "attributes": [],
+      "tags": [],
+      "embeddedCards": [],
+      "contentBlocks": [],
+      "timelineEvents": [],
+      "galleryImages": [],
+      "outRelations": [],
+      "inRelations": []
+    }
+  ]
+}

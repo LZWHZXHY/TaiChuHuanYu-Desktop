@@ -37,6 +37,9 @@ namespace TaiChuWeb_V2.Dtos.World
 
         public string? CoverImage { get; set; }
 
+        // 省略时保留既有关系；传空数组时清空出向关系。
+        public List<CreateRelationDto>? Relations { get; set; }
+
     }
 
     public class AttributeDto
@@ -52,6 +55,7 @@ namespace TaiChuWeb_V2.Dtos.World
         public Guid CardId { get; set; }
         public string CardType { get; set; } = string.Empty;
         public int Order { get; set; }
+        public string? ContextLabel { get; set; }
     }
 
     public class TimelineEventDto

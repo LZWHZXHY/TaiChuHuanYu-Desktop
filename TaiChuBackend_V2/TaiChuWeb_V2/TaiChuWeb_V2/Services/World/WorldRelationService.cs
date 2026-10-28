@@ -30,10 +30,10 @@ namespace TaiChuWeb_V2.Services.World
             // 1. 验证源卡片权限（只取 ProjectId 和 OwnerId）
             var sourceInfo = await _context.WorldCards
                 .Where(c => c.Id == sourceCardId)
-                .Select(c => new { c.ProjectId, OwnerId = c.Project != null ? c.Project.OwnerId : Guid.Empty })
+                .Include(c => c.Project)
                 .FirstOrDefaultAsync();
 
-            if (sourceInfo == null || !WorldAccess.IsOwner(sourceInfo.OwnerId, userId))
+            if (sourceInfo == null || !WorldAccess.IsOwner(sourceInfo.Project?.OwnerId ?? Guid.Empty, userId))
                 throw new WorldOperationException(WorldErrorKind.Forbidden, "源卡片不存在或无权限");
 
             // 2. 验证目标卡片存在且在同一项目（只取 ProjectId）
@@ -67,11 +67,12 @@ namespace TaiChuWeb_V2.Services.World
                 CreatedAt = DateTime.UtcNow
             };
 
+            sourceInfo.AdvanceVersion();
             await _context.WorldRelations.AddAsync(relation);
             await _context.SaveChangesAsync();
 
             WorldCache.InvalidateCards(_cache, new[] { sourceCardId, dto.TargetCardId });
-            WorldCache.InvalidateProject(_cache, sourceInfo.ProjectId, sourceInfo.OwnerId);
+            WorldCache.InvalidateProject(_cache, sourceInfo.ProjectId, sourceInfo.Project?.OwnerId ?? Guid.Empty);
 
             return await _context.WorldRelations.AsNoTracking()
                 .Where(item => item.Id == relation.Id)
@@ -98,6 +99,7 @@ namespace TaiChuWeb_V2.Services.World
             var sourceCardId = relation.SourceCardId;
             var targetCardId = relation.TargetCardId;
 
+            relation.SourceCard.AdvanceVersion();
             _context.WorldRelations.Remove(relation);
             await _context.SaveChangesAsync();
 

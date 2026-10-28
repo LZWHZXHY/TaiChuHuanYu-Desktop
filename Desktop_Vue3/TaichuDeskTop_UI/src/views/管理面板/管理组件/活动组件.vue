@@ -55,7 +55,7 @@
     <Teleport to="body">
       <Transition name="fade">
         <div v-if="isModalOpen" class="modal-overlay" @click.self="closeModal">
-          <div class="modal-content form-modal">
+          <div class="modal-content form-modal workbench-skin">
             <button class="modal-close-btn" @click="closeModal">×</button>
             <h3 class="modal-title">{{ isEditing ? '编辑活动' : '新增活动' }}</h3>
             
@@ -262,7 +262,7 @@ const getStatusClass = (status: number) => {
   color: var(--on-accent);
   border: none;
   padding: 0.5rem 1.25rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
   cursor: pointer;
   transition: opacity 0.2s;
@@ -275,7 +275,7 @@ const getStatusClass = (status: number) => {
   color: var(--text-secondary);
   border: 1px solid var(--border-line);
   padding: 0.5rem 1.25rem;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -285,7 +285,7 @@ const getStatusClass = (status: number) => {
 /* 表格设计: 极简线条，大量留白 */
 .table-wrapper {
   background: var(--paper-card);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   box-shadow: 0 2px 8px rgba(0,0,0,0.02);
   overflow-x: auto;
 }
@@ -390,7 +390,7 @@ const getStatusClass = (status: number) => {
 .form-group textarea {
   padding: 0.6rem;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.9rem;
   color: var(--text-primary);
   outline: none;
@@ -436,7 +436,7 @@ const getStatusClass = (status: number) => {
 .modal-content {
   background: var(--paper-card);
   width: 90%;
-  border-radius: 16px;
+  border-radius: var(--radius-sm);
   position: relative;
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
 

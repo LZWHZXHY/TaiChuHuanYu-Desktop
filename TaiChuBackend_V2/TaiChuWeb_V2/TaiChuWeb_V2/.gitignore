@@ -1,0 +1,23 @@
+# ===== 构建产物 =====
+bin/
+obj/
+*.user
+.vs/
+
+# ===== 密钥/配置（含明文密钥，禁止提交）=====
+appsettings.json
+appsettings.Development.json
+.env
+.env.*
+
+# 保留模板文件（可提交）
+!appsettings.Example.json
+!appsettings.example.json
+!*.env.example
+# 世界观恢复所需的迁移必须随代码交付；其他历史迁移仍按现有规则处理。
+!Migrations/
+Migrations/*
+!Migrations/20261026033651_AddWorldRestore.cs
+!Migrations/20261026033651_AddWorldRestore.Designer.cs
+!Migrations/AppDbContextModelSnapshot.cs
+!Migrations/WorldRestore.sql

@@ -9,6 +9,7 @@ namespace TaiChuWeb_V2.Controllers.World;
 public class WorldSearchController(IWorldCardService cardService) : WorldControllerBase
 {
     [HttpGet]
+    [AllowAnonymous]
     public async Task<IActionResult> Search([FromQuery] string q, [FromQuery] int limit = 20)
-        => Ok(await cardService.SearchCardsAsync(CurrentUserId, q, limit));
+        => Ok(await cardService.SearchCardsAsync(ReaderUserId, q, limit));
 }

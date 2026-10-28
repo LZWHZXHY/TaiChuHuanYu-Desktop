@@ -11,6 +11,8 @@ export interface ChaiWorkBrief {
   views: number;
   likeCount: number;
   favoriteCount: number;
+  commentCount: number;
+  tags?: string[];
   createdAt: string;
 }
 
@@ -45,7 +47,7 @@ export interface ChaiWorkPayload {
 }
 
 export const chaiWorkApi = {
-  getList: (params: { page?: number; pageSize?: number; keyword?: string; sort?: string } = {}) =>
+  getList: (params: { page?: number; pageSize?: number; keyword?: string; tag?: string; sort?: string } = {}) =>
     request.get<ChaiWorkListResponse>('/ChaiWork', { params, silentError: true }),
   getDetail: (id: string) => request.get<ChaiWork>(`/ChaiWork/${id}`, { silentError: true }),
   create: (payload: ChaiWorkPayload) => request.post<ChaiWork>('/ChaiWork', payload, { silentError: true }),

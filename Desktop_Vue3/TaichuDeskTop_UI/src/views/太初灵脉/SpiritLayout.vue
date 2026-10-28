@@ -1,5 +1,5 @@
 <template>
-  <div class="spirit-link-app" :class="{ 'is-mobile': isMobile }">
+  <div class="spirit-link-app workbench-skin" :class="{ 'is-mobile': isMobile }">
     <!-- 全局加载遮罩（首次加载） -->
     <transition name="fade">
       <div v-if="isLoading && notes.length === 0" class="loading-overlay">
@@ -355,7 +355,11 @@ const initSpaces = async () => {
 
 const checkScreen = () => { isMobile.value = window.innerWidth <= 1024; };
 
-watch(() => route.params.id, async (newId) => { showPublishModal.value = false; await loadNote(newId as string).catch(() => {}); }, { immediate: true });
+// 直接进入深链接时，先等目录包含目标条目；切换期间清空旧编辑器，避免写错目标。
+watch([currentNoteId, () => notes.value.some(note => note.id === currentNoteId.value)], async ([id, listed]) => {
+  showPublishModal.value = false;
+  await loadNote(listed ? id : '').catch(() => {});
+}, { immediate: true });
 
 provide('currentDisplayNote', currentDisplayNote);
 provide('currentBlocks', currentBlocks);
@@ -395,7 +399,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.spirit-link-app { display: flex; width: 100%; height: 94vh; background: var(--paper-card); overflow: hidden; position: relative; }
+.spirit-link-app { display: flex; width: 100%; height: 100%; min-height: 0; border: 1px solid var(--border-line); background: var(--paper-card); overflow: hidden; position: relative; }
 .editor-workspace-layout { display: flex; flex: 1; width: 100%; height: 100%; overflow: hidden; position: relative; }
 .spirit-main-editor { flex: 1; display: flex; flex-direction: column; min-width: 0; background: var(--bg-main); }
 .loading-overlay { position: absolute; inset: 0; background: var(--paper-card); backdrop-filter: blur(10px); z-index: 9999; display: flex; align-items: center; justify-content: center; }
@@ -404,5 +408,13 @@ onUnmounted(() => {
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
-@media (max-width: 1024px) { .editor-workspace-layout { flex-direction: column; } }
+.sidebar-layer { flex-shrink: 0; width: 220px; min-width: 0; height: 100%; }
+.editor-workspace-layout > :deep(.spirit-right-panel) { width: 240px; flex-shrink: 0; }
+@media (max-width: 1024px) {
+  .editor-workspace-layout { flex-direction: column; }
+  .sidebar-layer { position: absolute; inset: 0 auto 0 0; z-index: 31; visibility: hidden; transform: translateX(-100%); transition: transform .2s, visibility .2s; }
+  .sidebar-layer.open { transform: none; visibility: visible; }
+  .mobile-overlay { position: absolute; inset: 0; background: var(--overlay); z-index: 30; }
+}
+@media (prefers-reduced-motion: reduce) { .sidebar-layer { transition: none; } }
 </style>
