@@ -1,6 +1,6 @@
 <template>
-  <div class="admin-layout" :class="{ 'workbench-skin': activeTab !== 'club' }">
-    <header class="admin-heading">
+  <div class="admin-layout" :class="{ 'workbench-skin editor-surface community-surface tone-admin': activeTab !== 'club' }">
+    <header class="admin-heading" :class="{ 'studio-heading': activeTab !== 'club' }"><SectionTrace v-if="activeTab !== 'club'" />
       <div><p class="workbench-eyebrow">ADMINISTRATION / 社区治理</p><h1>管理中心</h1></div>
       <p class="admin-identity">{{ user.userInfo?.username || '管理员' }}<span>仅显示当前账号有权限的模块</span></p>
     </header>
@@ -19,6 +19,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { useUserStore } from '@/stores/user'
 import { ref, computed, watch} from 'vue';
 import 交易行组件 from './管理组件/交易行组件.vue';
@@ -34,12 +35,18 @@ import 俱乐部游戏组件 from './管理组件/俱乐部游戏组件.vue';
 import 邮件管理 from './管理组件/邮件管理.vue';
 import 数据中心 from './管理组件/数据中心.vue';
 import 用户手册组件 from './管理组件/用户手册组件.vue';
+import 年度最佳组件 from './管理组件/年度最佳组件.vue';
+import 聊天室组件 from './管理组件/聊天室组件.vue';
+import 游戏展示组件 from './管理组件/游戏展示组件.vue';
+import 背景特权组件 from './管理组件/背景特权组件.vue';
+import { useRoute } from 'vue-router';
 
 
 
 
 
-const activeTab = ref('data');
+// 支持 /admin?tab=awards 这样直接打开某个模块（例如从年度最佳展览页点「编辑」）。
+const activeTab = ref(String(useRoute().query.tab || 'data'));
 
 // 🌟 2. 新增：将用户组件注册到左侧导航菜单
 const user = useUserStore()
@@ -55,8 +62,12 @@ const allMenus = [
   { id: 'wiki', label: '维基', icon: '▤', component: 维基组件 },
   { id: 'club', label: '俱乐部', icon: '🎮', component: 俱乐部游戏组件 }, // 🌟 新增
   { id: 'product', label: '作品', icon: '▤', component: 作品管理 },
+  { id: 'awards', label: '年度最佳', icon: '✦', component: 年度最佳组件 },
+  { id: 'chat', label: '聊天室', icon: '◍', component: 聊天室组件 },
+  { id: 'showcase', label: 'Steam 游戏', icon: '▶', component: 游戏展示组件 },
+  { id: 'appearance', label: '背景与赞助特权', icon: '◩', component: 背景特权组件 }, // 仅超级管理员
 ];
-const modulePermissions: Record<string,string> = { data: 'System_Monitor', trade: 'Trade_Manage', users: 'User_Audit', product: 'Trade_Manage', wiki: 'Wiki_Editor' }
+const modulePermissions: Record<string,string> = { data: 'System_Monitor', trade: 'Trade_Manage', users: 'User_Audit', product: 'Trade_Manage', wiki: 'Wiki_Editor', chat: 'User_Audit', showcase: 'Trade_Manage' }
 const menus = computed(() => allMenus.filter(menu => user.permissions.includes('SuperAdmin') || (modulePermissions[menu.id] && user.permissions.includes(modulePermissions[menu.id]))))
 watch(menus, items => { if (!items.some(item => item.id === activeTab.value)) activeTab.value = items[0]?.id || '' }, { immediate: true })
 const currentView = computed(() => {
@@ -76,7 +87,7 @@ const activeMenuLabel = computed(() => {
 h1 { font-size: clamp(28px, 3vw, 40px); letter-spacing: -.04em; line-height: 1.2; }
 .admin-identity { font-size: 13px; text-align: right; }.admin-identity span { display: block; margin-top: 7px; color: var(--text-secondary); font-size: 12px; }
 .admin-modules { display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 0; border-block: 1px solid var(--border-line); margin-bottom: 24px; }
-.nav-item { position: relative; display: inline-flex; gap: 8px; align-items: center; padding: 12px 16px; border: 0; border-radius: 2px; background: transparent; color: var(--text-secondary); font-size: 13px; cursor: pointer; }
+.nav-item { position: relative; display: inline-flex; gap: 8px; align-items: center; padding: 12px 16px; border: 0; border-radius: 0; background: transparent; color: var(--text-secondary); font-size: 13px; cursor: pointer; }
 .nav-item::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--signal-color); transform: scaleX(0); transform-origin: left; transition: transform .2s; }
 .nav-item:is(:hover,:focus-visible) { background: var(--bg-sub); color: var(--text-primary); }.nav-item:is(:hover,:focus-visible)::after, .nav-item.is-active::after { transform: scaleX(1); }
 .nav-item.is-active { background: var(--inverse-bg); color: var(--inverse-text); }

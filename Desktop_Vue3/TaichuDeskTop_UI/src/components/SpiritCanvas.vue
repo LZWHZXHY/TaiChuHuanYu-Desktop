@@ -13,7 +13,7 @@
       :max-zoom="4"
       fit-view-on-init
     >
-      <Background pattern-color="#c7c7cc" :gap="24" :size="2" />
+      <Background pattern-color="var(--border-line)" :gap="24" :size="2" />
       <Controls position="bottom-right" />
 
       <!-- 🌟 核心升级：自定义节点模板，支持四个方向连线 & 动态万能块渲染 -->
@@ -48,7 +48,7 @@
                 :block="block" 
               />
             </template>
-            <div v-else class="node-empty-hint">双击注入灵魂...</div>
+            <div v-else class="node-empty-hint">双击编辑内容</div>
           </div>
         </div>
       </template>
@@ -56,10 +56,10 @@
 
     <!-- 连线编辑器面板 -->
     <transition name="fade">
-      <div v-if="selectedEdge" class="edge-editor-panel">
-        <header class="editor-header">
+      <div v-if="selectedEdge" class="edge-editor-panel workbench-skin editor-surface community-surface tone-world">
+        <header class="editor-header studio-heading">
           <h4>调整连线</h4>
-          <button class="close-btn" @click="onPaneClick">✕</button>
+          <button class="close-btn" aria-label="关闭连线设置" @click="onPaneClick">✕</button>
         </header>
         
         <div class="editor-body">
@@ -71,12 +71,12 @@
           <div class="control-group">
             <label>连线颜色</label>
             <div class="color-picker">
-              <div v-for="color in presetColors" :key="color" 
+              <button type="button" :aria-label="`连线颜色 ${color}`" :aria-pressed="edgeColor === color" v-for="color in presetColors" :key="color" 
                    class="color-btn" 
                    :style="{ backgroundColor: color }"
                    :class="{ active: edgeColor === color }"
                    @click="edgeColor = color; applyEdgeUpdate()">
-              </div>
+              </button>
             </div>
           </div>
 
@@ -186,9 +186,10 @@ const syncFlowData = () => {
     });
   }
 
-  notes.value.forEach(note => {
+  const currentPositions = new Map(flowNodes.value.map(node => [node.id, node.position]));
+  notes.value.forEach((note, index) => {
     const savedPos = positionMap.get(note.id);
-    const finalPos = savedPos || { x: Math.random() * 400, y: Math.random() * 400 };
+    const finalPos = savedPos || currentPositions.get(note.id) || { x: (index % 3) * 300, y: Math.floor(index / 3) * 200 };
 
     newNodes.push({
       id: note.id,
@@ -210,7 +211,7 @@ const syncFlowData = () => {
           target: targetId,
           sourceHandle: 'bottom', // 自动引用的蓝线默认底出顶进，更整洁
           targetHandle: 'top',
-          animated: true, 
+          animated: false,
           style: { stroke: '#0066cc', strokeWidth: 2, opacity: 0.6 }
         })
       }
@@ -301,8 +302,9 @@ const deleteSelectedEdge = () => {
 <style scoped>
 .spirit-canvas-wrapper {
   width: 100%;
-  height: 100vh;
-  background-color: #fcfcfd;
+  height: 100%;
+  min-height: 380px;
+  background-color: var(--bg-main);
   position: relative;
 }
 
@@ -310,8 +312,8 @@ const deleteSelectedEdge = () => {
 :deep(.custom-handle) {
   width: 10px;
   height: 10px;
-  background-color: #0066cc;
-  border: 2px solid white;
+  background-color: var(--accent-color);
+  border: 2px solid var(--paper-card);
   opacity: 0; /* 默认隐藏，不打扰视觉 */
   transition: opacity 0.2s ease, transform 0.2s ease;
   cursor: crosshair;
@@ -327,21 +329,20 @@ const deleteSelectedEdge = () => {
 /* 🌟 核心节点卡片样式 */
 :deep(.spirit-node-card) {
   position: relative; /* 确保 Handle 正确吸附在边缘 */
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
+  border-radius: 0;
   padding: 12px 16px;
   min-width: 180px;
   max-width: 260px; /* 限制最大宽度以免文本太长 */
   font-size: 14px;
-  color: #1d1d1f;
+  color: var(--text-primary);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
   cursor: grab;
 }
 :deep(.spirit-node-card:hover) { box-shadow: 0 8px 24px rgba(0, 102, 204, 0.12); }
-:deep(.vue-flow__node.selected .spirit-node-card) { border-color: #0066cc; box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2); }
+:deep(.vue-flow__node.selected .spirit-node-card) { border-color: var(--accent-color); box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2); }
 :deep(.spirit-node-card:active) { cursor: grabbing; }
 
 /* 节点内部排版优化 */
@@ -349,7 +350,7 @@ const deleteSelectedEdge = () => {
   display: flex;
   align-items: center;
   gap: 6px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid var(--border-line);
   padding-bottom: 8px;
   margin-bottom: 10px;
 }
@@ -364,30 +365,30 @@ const deleteSelectedEdge = () => {
 }
 :deep(.node-empty-hint) {
   font-size: 12px;
-  color: #c7c7cc;
+  color: var(--text-secondary);
   font-style: italic;
   text-align: center;
   padding: 8px 0;
 }
 
 /* 文件夹节点特殊主题 */
-:deep(.node-type-folder) { background: rgba(250, 245, 255, 0.95); border-color: #e0d4f5; border-radius: 16px; }
+:deep(.node-type-folder) { background: var(--accent-soft); border-color: var(--border-line); border-radius: 0; }
 :deep(.node-type-folder:hover) { box-shadow: 0 8px 24px rgba(103, 58, 183, 0.12); }
-:deep(.vue-flow__node.selected .node-type-folder) { border-color: #673ab7; box-shadow: 0 0 0 2px rgba(103, 58, 183, 0.2); }
+:deep(.vue-flow__node.selected .node-type-folder) { border-color: var(--accent-color); box-shadow: 0 0 0 2px rgba(103, 58, 183, 0.2); }
 
 /* 连线编辑器面板样式 */
 .edge-editor-panel {
   position: absolute;
-  top: 24px;
-  right: 24px;
-  width: 260px;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
+  top: 12px;
+  right: 12px;
+  width: min(260px,calc(100% - 24px));
+  max-height: calc(100% - 24px); overflow-y: auto; box-sizing: border-box;
+  background: var(--paper-card);
+  border: 1px solid var(--border-line);
+  border-radius: 0;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
   z-index: 1000;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .editor-header {
@@ -395,43 +396,49 @@ const deleteSelectedEdge = () => {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
-  background: rgba(0, 0, 0, 0.02);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  background: var(--bg-sub);
+  border-bottom: 1px solid var(--border-line);
 }
 
-.editor-header h4 { margin: 0; font-size: 14px; color: #1d1d1f; }
-.close-btn { background: none; border: none; cursor: pointer; color: #86868b; font-size: 14px; }
-.close-btn:hover { color: #1d1d1f; }
+.editor-header h4 { margin: 0; font-size: 14px; color: var(--text-primary); }
+.close-btn { background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 14px; }
+.close-btn:hover { color: var(--text-primary); }
 
 .editor-body { padding: 16px; display: flex; flex-direction: column; gap: 16px; }
 .control-group { display: flex; flex-direction: column; gap: 6px; }
-.control-group label { font-size: 12px; color: #86868b; font-weight: 500; }
+.control-group label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
 
 .control-group input, .control-group select {
   width: 100%;
   padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid #d2d2d7;
+  border-radius: 0;
+  border: 1px solid var(--border-line);
   font-size: 13px;
   outline: none;
-  background: white;
+  background: var(--paper-card);
   box-sizing: border-box;
 }
-.control-group input:focus, .control-group select:focus { border-color: #0066cc; }
+.control-group input:focus, .control-group select:focus { border-color: var(--accent-color); }
 
 .color-picker { display: flex; gap: 8px; }
 .color-btn {
-  width: 24px; height: 24px; border-radius: 50%; cursor: pointer;
+  width: 24px; height: 24px; border-radius: 0; cursor: pointer;
   border: 2px solid transparent; transition: transform 0.2s;
 }
-.color-btn.active { border-color: #1d1d1f; transform: scale(1.1); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+.color-btn.active { border-color: var(--text-primary); transform: scale(1.1); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 
 .btn-delete {
-  margin-top: 8px; padding: 10px; border-radius: 8px; border: none;
-  background: #ffeeea; color: #ff3b30; font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s;
+  margin-top: 8px; padding: 10px; border-radius: 0; border: none;
+  background: var(--bg-sub); color: var(--danger); font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.2s;
 }
-.btn-delete:hover { background: #ffd3cc; }
+.btn-delete:hover { background: var(--accent-soft); }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s, transform 0.2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-10px); }
+.control-group input,.control-group select { color: var(--text-primary); }
+:deep(.vue-flow__controls-button) { background: var(--paper-card); color: var(--text-primary); border-color: var(--border-line); }:deep(.vue-flow__controls-button svg) { fill: currentColor; }
+:deep(.vue-flow__edge-textbg) { fill: var(--paper-card); }:deep(.vue-flow__edge-text) { fill: var(--text-primary); }
+button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
+@media(hover:none) { :deep(.custom-handle) { opacity: 1; } }
+@media(prefers-reduced-motion:reduce) { :deep(*),* { transition: none !important; animation: none !important; } }
 </style>

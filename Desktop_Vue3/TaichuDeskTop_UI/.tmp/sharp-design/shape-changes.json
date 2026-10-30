@@ -1,0 +1,706 @@
+[
+  {
+    "path": "src/components/ContentReferencePicker.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/components/ExpNotification.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/components/GlobalNotify.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/components/InteractActions.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/components/NotificationBell.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/components/OperationTerminal.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/components/SignCard.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/components/SpiritBlock.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/components/SpiritCanvas.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/components/SpiritMap.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/components/SpiritMenuList.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/components/SpiritText.vue",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/components/SpiritToast.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/世界观管理/index.vue",
+    "changedDeclarations": 8
+  },
+  {
+    "path": "src/views/世界观管理/ProjectCreate.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/世界观管理/ProjectDetail.vue",
+    "changedDeclarations": 23
+  },
+  {
+    "path": "src/views/个人中心/AiSettings.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/个人中心/index.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/个人中心/PreferenceSettings.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/个人中心/ProfileCard.vue",
+    "changedDeclarations": 11
+  },
+  {
+    "path": "src/views/个人中心/UserManualViewer.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/交易行/index.vue",
+    "changedDeclarations": 9
+  },
+  {
+    "path": "src/views/任务栏/index.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/太初协作/index.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/太初随笔/ComposeView.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/太初随笔/index.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/太初随笔/NoteComments.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/太初随笔/PublicNoteDetail.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/太虚游/index.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/工具箱/Home.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/开发进度/index.vue",
+    "changedDeclarations": 24
+  },
+  {
+    "path": "src/views/开发进度/ReportDetail.vue",
+    "changedDeclarations": 9
+  },
+  {
+    "path": "src/views/必吃榜/index.vue",
+    "changedDeclarations": 13
+  },
+  {
+    "path": "src/views/推送首页/index.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/柴圈板块/detail.css",
+    "changedDeclarations": 10
+  },
+  {
+    "path": "src/views/柴圈板块/index.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/活动中心/theme.css",
+    "changedDeclarations": 17
+  },
+  {
+    "path": "src/views/版本更新/index.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/画廊展厅/ArtworkComments.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/画廊展厅/ArtworkDetail.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/画廊展厅/ArtworkInfiniteGrid.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/画廊展厅/ArtworkPublishModal.vue",
+    "changedDeclarations": 10
+  },
+  {
+    "path": "src/views/画廊展厅/ArtworkRanking.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/画廊展厅/index.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/知识库/GraphControlPanel.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/知识库/GraphDetailsPanel.vue",
+    "changedDeclarations": 8
+  },
+  {
+    "path": "src/views/知识库/GraphFilterPanel.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/知识库/index.vue",
+    "changedDeclarations": 11
+  },
+  {
+    "path": "src/views/知识库/KnowledgeGraph.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/社区规则/index.vue",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/views/管理面板/index.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/荣誉墙/index.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/荣誉墙/UniverseWorkDesk.vue",
+    "changedDeclarations": 14
+  },
+  {
+    "path": "src/views/赞助墙/index.vue",
+    "changedDeclarations": 10
+  },
+  {
+    "path": "src/views/身份认证/auth-form.css",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/管理面板/管理组件/交易行组件.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/管理面板/管理组件/作品管理.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/管理面板/管理组件/公告组件.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/管理面板/管理组件/反馈组件.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/管理面板/管理组件/数据中心.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/管理面板/管理组件/活动组件.vue",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/views/管理面板/管理组件/用户手册组件.vue",
+    "changedDeclarations": 9
+  },
+  {
+    "path": "src/views/管理面板/管理组件/用户组件.vue",
+    "changedDeclarations": 11
+  },
+  {
+    "path": "src/views/管理面板/管理组件/邮件管理.vue",
+    "changedDeclarations": 11
+  },
+  {
+    "path": "src/views/管理面板/管理组件/作品管理组件/博客治理.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/管理面板/管理组件/作品管理组件/画廊治理.vue",
+    "changedDeclarations": 9
+  },
+  {
+    "path": "src/views/管理面板/管理组件/维基组件子类/CategoryManager.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/管理面板/管理组件/维基组件子类/RevisionReview.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/管理面板/管理组件/维基组件子类/Wiki子组件风格.css",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/灵脉百科/components/CommunityView.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/灵脉百科/components/WikiDetail.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/灵脉百科/components/WorldviewView.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/活动中心/打卡中心/ActivityDetail.vue",
+    "changedDeclarations": 22
+  },
+  {
+    "path": "src/views/活动中心/打卡中心/ActivityHome.vue",
+    "changedDeclarations": 8
+  },
+  {
+    "path": "src/views/活动中心/打卡中心/CheckInModal.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/活动中心/打卡中心/CompetitionPanel.vue",
+    "changedDeclarations": 11
+  },
+  {
+    "path": "src/views/活动中心/打卡中心/CreateActivity.vue",
+    "changedDeclarations": 9
+  },
+  {
+    "path": "src/views/活动中心/打卡中心/DiscussionBoard.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/活动中心/打卡中心/MyActivities.vue",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/views/活动中心/打卡中心/Square.vue",
+    "changedDeclarations": 8
+  },
+  {
+    "path": "src/views/活动中心/问卷中心/FillSurvey.vue",
+    "changedDeclarations": 11
+  },
+  {
+    "path": "src/views/活动中心/问卷中心/Manage.vue",
+    "changedDeclarations": 9
+  },
+  {
+    "path": "src/views/活动中心/问卷中心/SurveyEditor.vue",
+    "changedDeclarations": 21
+  },
+  {
+    "path": "src/views/活动中心/问卷中心/SurveyList.vue",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/views/活动中心/问卷中心/SurveyResult.vue",
+    "changedDeclarations": 9
+  },
+  {
+    "path": "src/views/柴圈板块/Battle/index.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/柴圈板块/components/ChaiAchievements.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/柴圈板块/components/ChaiComments.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/柴圈板块/components/ChaiFeed.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/柴圈板块/components/ChaiLeaderboardCard.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/柴圈板块/components/CharacterForm.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/柴圈板块/OCs/index.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/柴圈板块/Works/Create.vue",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/views/柴圈板块/Works/Detail.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/柴圈板块/Works/index.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/柴圈板块/OCs/components/detail.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/柴圈板块/Joint/components/JointCard.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/柴圈板块/Joint/components/JointDetail.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/柴圈板块/Joint/components/JointForm.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/柴圈板块/Joint/components/MyJoint.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/柴圈板块/Battle/components/BattleDetail.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/柴圈板块/Battle/components/CreateBattle.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/柴圈板块/Battle/components/Leaderboard.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/柴圈板块/Battle/components/MyBattles.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/推送首页/components/CommunityFeed.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/推送首页/components/CommunityLinks.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/推送首页/components/DataPanel.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/推送首页/components/DevProgress.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/推送首页/components/feedback.vue",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/views/推送首页/components/FinancePanel.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/推送首页/components/LatestNews.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/工具箱/boids/index.vue",
+    "changedDeclarations": 8
+  },
+  {
+    "path": "src/views/工具箱/percolation/index.vue",
+    "changedDeclarations": 12
+  },
+  {
+    "path": "src/views/太虚游/Custom/index.vue",
+    "changedDeclarations": 8
+  },
+  {
+    "path": "src/views/太虚游/games/TempHolder.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/太虚游/games/Go/index.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/太虚游/games/Gobang/index.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/太虚游/games/Minecraft/index.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/太虚游/games/Xiangqi/index.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/太虚游/games/Question/components/TestGame.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/太虚游/games/Gobang/components/CreateRoom.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/太虚游/games/Gobang/components/GameBoard.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/太虚游/games/Gobang/components/WaitingRoom.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/太虚游/Custom/components/CreateQuestionnaire.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/太初灵脉/components/GraphView.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/太初灵脉/components/HistoryPanel.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/太初灵脉/components/NoteSettingsPanel.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/太初灵脉/components/PublishModal.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/太初灵脉/components/QuickEditorDrawer.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/太初灵脉/components/RightSidePanel.vue",
+    "changedDeclarations": 10
+  },
+  {
+    "path": "src/views/太初灵脉/components/SidebarIndex.vue",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/views/太初灵脉/components/TopBar.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/太初灵脉/components/WikiImportModal.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/太初灵脉/components/WorkspaceBlog.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/太初灵脉/components/WorkspacePost.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/太初灵脉/components/WorkspaceSchedule.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/太初灵脉/components/WorkspaceWiki.vue",
+    "changedDeclarations": 21
+  },
+  {
+    "path": "src/views/太初协作/协作组件/ProjectDeliveries.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/太初协作/协作组件/ProjectDetail.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/太初协作/协作组件/ProjectDocument.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/太初协作/协作组件/ProjectKanban.vue",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/views/太初协作/协作组件/ProjectMember.vue",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/views/太初协作/协作组件/ProjectReports.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/太初协作/协作组件/ProjectSettings.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/太初协作/协作组件/ProjectTaskDetail.vue",
+    "changedDeclarations": 9
+  },
+  {
+    "path": "src/views/太初协作/协作组件/ProjectTimeline.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/世界观管理/Novels/Detail.vue",
+    "changedDeclarations": 9
+  },
+  {
+    "path": "src/views/世界观管理/Novels/index.vue",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/AttributeList.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/CardEditor.css",
+    "changedDeclarations": 10
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/CardEditor.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/CardRefTextarea.vue",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/ContentBlockManager.vue",
+    "changedDeclarations": 9
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/DynamicForm.vue",
+    "changedDeclarations": 6
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/EmbeddedCard.vue",
+    "changedDeclarations": 8
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/FlatWorldGraph.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/ProjectCardDocument.vue",
+    "changedDeclarations": 5
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/ProjectCardNavigation.vue",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/ProjectHeader.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/RelationGraph.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/RelationList.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/RelationSelector.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/SpatialWorldGraph.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/TagInput.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/TimelineView.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/WorldQuotaBanner.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/views/世界观管理/世界观组件/WorldTransfer.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/components/SpiritTextComponents/EditorBubbleMenu.vue",
+    "changedDeclarations": 3
+  },
+  {
+    "path": "src/components/SpiritTextComponents/MathBlockView.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/components/SpiritTextComponents/MathInlineView.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/components/SpiritTextComponents/PanelGraphBlock.vue",
+    "changedDeclarations": 24
+  },
+  {
+    "path": "src/components/SpiritTextComponents/PdfEmbedView.vue",
+    "changedDeclarations": 2
+  },
+  {
+    "path": "src/components/SpiritTextComponents/spirit-typography.css",
+    "changedDeclarations": 4
+  },
+  {
+    "path": "src/components/SpiritTextComponents/SpiritPreview.vue",
+    "changedDeclarations": 1
+  },
+  {
+    "path": "src/assets/styles/content.css",
+    "changedDeclarations": 7
+  },
+  {
+    "path": "src/assets/styles/theme-rhine.css",
+    "changedDeclarations": 24
+  }
+]

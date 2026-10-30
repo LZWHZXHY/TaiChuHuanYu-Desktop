@@ -397,7 +397,7 @@ onMounted(fetchSurvey)
   text-align: center;
   padding: 60px 20px;
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   border: 1px solid var(--border-line);
 }
 
@@ -421,7 +421,7 @@ onMounted(fetchSurvey)
 .btn-back {
   padding: 10px 28px;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--info);
   color: var(--on-accent);
   font-weight: 500;
@@ -430,7 +430,7 @@ onMounted(fetchSurvey)
 
 .survey-header {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 28px 32px;
   border: 1px solid var(--border-line);
   margin-bottom: 24px;
@@ -460,14 +460,14 @@ onMounted(fetchSurvey)
   flex: 1;
   height: 6px;
   background: var(--bg-sub);
-  border-radius: 3px;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
   background: var(--info);
-  border-radius: 3px;
+  border-radius: 0;
   transition: width 0.3s;
 }
 
@@ -479,7 +479,7 @@ onMounted(fetchSurvey)
 
 .question-item {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 20px 24px;
   border: 1px solid var(--border-line);
 }
@@ -510,7 +510,7 @@ onMounted(fetchSurvey)
   color: var(--danger);
   background: var(--bg-main);
   padding: 2px 10px;
-  border-radius: 12px;
+  border-radius: 0;
 }
 
 .q-desc {
@@ -545,7 +545,7 @@ onMounted(fetchSurvey)
   width: 100%;
   padding: 10px 14px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 0.95rem;
   font-family: inherit;
   resize: vertical;
@@ -594,7 +594,7 @@ onMounted(fetchSurvey)
   padding: 10px 14px;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   cursor: grab;
   transition: all 0.2s;
 }
@@ -612,7 +612,7 @@ onMounted(fetchSurvey)
   margin-left: auto;
   background: var(--bg-sub);
   padding: 2px 10px;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 0.75rem;
   color: var(--text-secondary);
 }
@@ -666,7 +666,7 @@ onMounted(fetchSurvey)
 .btn-submit {
   padding: 12px 48px;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   background: linear-gradient(135deg, var(--info), var(--accent-color));
   color: var(--on-accent);
   font-size: 1rem;

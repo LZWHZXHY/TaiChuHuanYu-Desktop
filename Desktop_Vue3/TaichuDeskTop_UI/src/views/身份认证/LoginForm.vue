@@ -1,26 +1,26 @@
 <template>
   <div class="form-body">
     <div class="input-group">
-      <label>账号 / IDENTITY</label>
-      <input v-model="form.identifier" @keyup.enter="submit" placeholder="输入您的名号" />
+      <label>账号</label>
+      <input v-model="form.identifier" @keyup.enter="submit" placeholder="用户名或邮箱" aria-label="账号" />
     </div>
     
     <div class="input-group">
-      <label>密钥 / PASSWORD</label>
-      <input v-model="form.password" type="password" @keyup.enter="submit" placeholder="输入密钥" />
+      <label>密码</label>
+      <input v-model="form.password" type="password" autocomplete="current-password" @keyup.enter="submit" placeholder="输入密码" aria-label="密码" />
     </div>
 
-    <button @click="submit" :disabled="isSubmitting">
-      {{ isSubmitting ? '正在接入...' : '确认接入' }}
+    <button class="black-btn" @click="submit" :disabled="isSubmitting">
+      {{ isSubmitting ? '正在登录…' : '登录' }}
     </button>
 
     <div class="footer-links">
-      <span @click="$emit('switch', 'register')">注册新账号</span>
+      <button type="button" class="text-link" @click="$emit('switch', 'register')">注册新账号</button>
       <span class="dot">·</span>
-      <span @click="$emit('switch', 'forgot')">找回密码</span>
+      <button type="button" class="text-link" @click="$emit('switch', 'forgot')">找回密码</button>
     </div>
 
-    <p v-if="errorMsg" class="error-text">{{ errorMsg }}</p>
+    <p role="alert" v-if="errorMsg" class="error-text">{{ errorMsg }}</p>
   </div>
 </template>
 
@@ -69,52 +69,4 @@ const submit = async () => {
 
 
 
-<style scoped>
-.input-group { margin-bottom: 20px; }
-label {
-  display: block;
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-input {
-  width: 100%;
-  padding: 10px 12px;
-  background: var(--bg-sub);
-  border: 1px solid var(--border-line);
-  border-radius: 6px;
-  color: var(--text-primary);
-  font-size: 14px;
-  transition: all 0.2s;
-}
-input:focus {
-  background: var(--paper-card);
-  border-color: var(--accent-color);
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(9, 105, 218, 0.1);
-}
-button {
-  width: 100%;
-  padding: 12px;
-  background: var(--text-primary); /* 黑色按钮 */
-  border: none;
-  border-radius: 6px;
-  color: var(--paper-card);
-  font-weight: 600;
-  cursor: pointer;
-  margin-top: 10px;
-  transition: background 0.2s;
-}
-button:hover { background: var(--text-primary); }
-
-.footer-links {
-  margin-top: 24px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-.footer-links span { cursor: pointer; }
-.footer-links span:hover { color: var(--accent-color); text-decoration: underline; }
-.dot { margin: 0 8px; color: var(--border-line); }
-</style>
+<style scoped src="./auth-form.css"></style>

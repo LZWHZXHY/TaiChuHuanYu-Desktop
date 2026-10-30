@@ -50,7 +50,7 @@ const statusClass = computed(() => {
   max-width: 480px;
   width: 100%;
   text-align: center;
-  border-radius: 4px;
+  border-radius: 0;
   transition: border-color 0.3s;
 }
 
@@ -118,7 +118,7 @@ const statusClass = computed(() => {
   height: 60px;
   border: 1px dashed var(--line-raw, #D5CEC5);
   background: var(--paper-sub, #F0EBE1);
-  border-radius: 2px;
+  border-radius: 0;
   transition: background 0.3s;
 }
 

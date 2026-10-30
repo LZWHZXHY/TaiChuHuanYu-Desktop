@@ -87,12 +87,12 @@
           <template v-else-if="history">
             <p>
               参与维护：
-              <span v-for="person in history.contributors" :key="person.id" class="contributor">{{ person.name }}</span>
+              <UserLink v-for="person in history.contributors" :key="person.id" class="contributor" :id="person.id" :name="person.name" />
             </p>
             <ol>
               <li v-for="revision in history.items" :key="revision.id">
                 <div>
-                  <strong>{{ revision.contributorName }}</strong>
+                  <UserLink :id="revision.contributorId" :name="revision.contributorName"><strong>{{ revision.contributorName }}</strong></UserLink>
                   ·
                   <time :title="date(revision.createdAt)">{{ relative(revision.createdAt) }}</time>
                   · 版本 #
@@ -152,6 +152,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, watch, nextTick, onUnmounted, defineAsyncComponent } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router';
@@ -392,7 +393,7 @@ button, input, select, textarea {
   background: var(--paper-card);
   color: inherit;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
 }
 button {
   padding: 8px 14px;
@@ -405,7 +406,7 @@ button:disabled {
 fieldset {
   min-width: 0;
   border: 1px solid var(--border-line);
-  border-radius: 10px;
+  border-radius: 0;
   padding: 20px;
 }
 fieldset:disabled {
@@ -415,7 +416,7 @@ fieldset:disabled {
 .notice {
   padding: 16px;
   background: var(--paper-sub);
-  border-radius: 8px;
+  border-radius: 0;
 }
 [role=alert] {
   color: var(--accent-color);
@@ -425,7 +426,7 @@ fieldset:disabled {
 .wiki-reading :deep(.spirit-render-engine) { max-width: 760px; margin: auto; font-size: 1.05rem; line-height: 1.9; }
 .wiki-reading-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border-top: 1px solid var(--border-line); margin-top: 32px; padding-top: 20px; color: var(--text-secondary); font-size: .9rem; }
 .diff-label { display: block; color: var(--text-secondary); font-size: .78rem; margin-bottom: 6px; }
-.tags span, .contributor { padding: 3px 10px; background: var(--paper-sub); border-radius: 6px; font-size: .85rem; }
+.tags span, .contributor { padding: 3px 10px; background: var(--paper-sub); border-radius: 0; font-size: .85rem; }
 .history li { border-left: 2px solid var(--border-line); padding-left: 20px; }
 @media(max-width: 720px) { .wiki-reading { padding: 20px; } fieldset { padding: 12px; } }
 ol {
@@ -447,7 +448,7 @@ li p {
   padding: 16px;
   margin: 12px 0;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
 }
 .change p {
   white-space: pre-wrap;

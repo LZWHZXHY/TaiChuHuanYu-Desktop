@@ -493,7 +493,7 @@ const formatShortDate = (dateStr: string) => {
 .kanban-wrapper { width: 100%; animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1); }
 .kanban-scroll-viewport { display: flex; gap: 16px; overflow-x: auto; padding: 10px 0 30px; align-items: flex-start; min-height: 400px; }
 .kanban-scroll-viewport::-webkit-scrollbar { height: 4px; }
-.kanban-scroll-viewport::-webkit-scrollbar-thumb { background: var(--bg-sub); border-radius: var(--radius-sm); }
+.kanban-scroll-viewport::-webkit-scrollbar-thumb { background: var(--bg-sub); border-radius: 0; }
 
 .kanban-lane { 
   flex: 0 0 320px; 
@@ -556,7 +556,7 @@ const formatShortDate = (dateStr: string) => {
   color: var(--text-secondary);
   cursor: pointer;
   outline: none;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 .lane-type-switcher select:hover {
   border-color: var(--border-line);
@@ -590,11 +590,11 @@ const formatShortDate = (dateStr: string) => {
 .card-top-meta { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
 .tag-pills { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
 .tiny-quant-pill {
-  background: var(--text-primary); color: var(--paper-card); font-size: 0.6rem; padding: 1px 5px; border-radius: var(--radius-sm);
+  background: var(--text-primary); color: var(--paper-card); font-size: 0.6rem; padding: 1px 5px; border-radius: 0;
   font-family: monospace;
 }
 .tiny-quant-pill.hours { background: var(--bg-sub); color: var(--text-secondary); }
-.tiny-tag { background: var(--bg-main); color: var(--text-secondary); font-size: 0.6rem; padding: 1px 5px; border-radius: var(--radius-sm); }
+.tiny-tag { background: var(--bg-main); color: var(--text-secondary); font-size: 0.6rem; padding: 1px 5px; border-radius: 0; }
 
 .priority-icon { font-weight: bold; font-size: 0.8rem; }
 .priority-icon.high { color: var(--warning); }
@@ -618,19 +618,19 @@ const formatShortDate = (dateStr: string) => {
 .color-picker-wrapper { width: 14px; height: 14px; border-radius: 50%; overflow: hidden; position: relative; cursor: pointer; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.1); }
 .color-picker-wrapper input[type="color"] { position: absolute; top: -10px; left: -10px; width: 40px; height: 40px; opacity: 0; cursor: pointer; }
 
-.due-date { font-size: 0.65rem; padding: 2px 4px; background: var(--bg-sub); border-radius: var(--radius-sm); color: var(--text-secondary); }
+.due-date { font-size: 0.65rem; padding: 2px 4px; background: var(--bg-sub); border-radius: 0; color: var(--text-secondary); }
 .due-date.overdue { background: var(--bg-sub); color: var(--danger); }
 
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--overlay); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 9999; /* 🌟 核心：拉高层级，压过抽屉组件 */ }
 .minimal-modal { background: var(--paper-card); width: 100%; max-width: 440px; padding: clamp(20px, 4vw, 32px); border: 1px solid var(--border-line); box-shadow: 0 40px 100px rgba(0,0,0,0.04); 
-  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
+  max-height: 90dvh; overflow-y: auto; border-radius: 0;
 }
 .modal-inner-header h2 { font-size: 1.2rem; font-weight: 500; margin: 0 0 12px 0; color: var(--text-primary); }
 .modal-inner-header p { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin: 0; }
 .modal-footer { margin-top: 40px; display: flex; justify-content: flex-end; gap: 16px; }
 .cancel-btn { background: none; border: none; color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; padding: 10px 20px; transition: color 0.3s; }
 .cancel-btn:hover { color: var(--text-primary); }
-.confirm-btn { background: var(--accent-color); color: var(--on-accent); border: none; font-size: 0.85rem; cursor: pointer; padding: 10px 28px; border-radius: var(--radius-sm); transition: background 0.3s; }
+.confirm-btn { background: var(--accent-color); color: var(--on-accent); border: none; font-size: 0.85rem; cursor: pointer; padding: 10px 28px; border-radius: 0; transition: background 0.3s; }
 .confirm-btn:hover { background: var(--text-primary); }
 
 .task-list-enter-from, .task-list-leave-to { opacity: 0; transform: scale(0.95); }

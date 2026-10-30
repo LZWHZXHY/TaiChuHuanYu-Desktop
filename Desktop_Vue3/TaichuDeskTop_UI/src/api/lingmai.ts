@@ -1,6 +1,7 @@
 // src/api/lingmai.ts
 import request from '../utils/request'; 
 import { nanoid } from 'nanoid';
+import { upgradeLegacyImages } from '../utils/legacyContent';
 
 // --- 1. 类型定义 ---
 export interface FlatBlock {
@@ -94,7 +95,8 @@ export const lingmaiApi = {
     const res: any = await request.get(`/LingMai/${noteId}`);
     return {
       ...res,
-      tiptapContent: rebuildTiptapJson(res.blocks)
+      // 旧版 Markdown 图片在打开时还原为图片节点，保存后即成为正常图片块。
+      tiptapContent: upgradeLegacyImages(rebuildTiptapJson(res.blocks))
     };
   },
   getNotePreview: (id: string) => request.get(`/LingMai/notes/${id}/preview`),

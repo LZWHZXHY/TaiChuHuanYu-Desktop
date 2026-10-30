@@ -103,5 +103,18 @@ export const adminUserApi = {
   punish(userId: string, deduction: number): Promise<void> {
     // 采用 POST 语义更符合此类动作型请求，通过 query 或 body 传参均可
     return request.post(`/admin/users/${userId}/punish`, { deduction });
-  }
-};
+  },
+
+  /** 头衔：这个人拥有的头衔、正在戴的 */
+  titles(userId: string) {
+    return request.get<{ titles: { title: string; source: string; at: string }[]; equipped: string | null }>(`/admin/users/${userId}/titles`, { silentError: true });
+  },
+  /** 授予头衔（equip = 直接帮他戴上；note = 为什么给，会写进通知） */
+  grantTitle(userId: string, body: { title: string; equip: boolean; note?: string }) {
+    return request.post<{ message: string }>(`/admin/users/${userId}/titles`, body, { silentError: true });
+  },
+  /** 收回头衔（正戴着会一起取下） */
+  revokeTitle(userId: string, title: string) {
+    return request.delete<{ message: string }>(`/admin/users/${userId}/titles`, { params: { title }, silentError: true });
+  },
+};

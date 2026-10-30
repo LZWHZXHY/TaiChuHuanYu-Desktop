@@ -62,8 +62,8 @@
     <Teleport to="body">
       <Transition name="md-fade">
         <div v-if="isModalOpen" class="md-modal-overlay" @click.self="closeModal">
-          <div class="md-modal-card workbench-skin">
-            <h2 class="modal-header">{{ editingId ? '编辑内容' : '撰写新动态' }}</h2>
+          <div class="md-modal-card workbench-skin editor-surface community-surface tone-admin">
+            <h2 class="modal-header studio-heading">{{ editingId ? '编辑内容' : '撰写新动态' }}</h2>
             
             <div class="md-form">
               <div class="md-input-group">
@@ -300,7 +300,7 @@ const impLabel = (v: string | undefined) =>
 
 .md-fab-button {
   background: var(--accent-color); color: var(--on-accent); border: none;
-  padding: 14px 28px; border-radius: var(--radius-sm); cursor: pointer;
+  padding: 14px 28px; border-radius: 0; cursor: pointer;
   display: flex; align-items: center; gap: 10px; font-weight: 600;
   transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
@@ -354,7 +354,7 @@ const impLabel = (v: string | undefined) =>
   background: var(--paper-card);
   color: var(--text-primary);
   border: 1px solid var(--border-line);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   box-shadow: 0 20px 60px rgba(0, 0, 0, .18);
 }
 .modal-header { font-size: 24px; font-weight: 650; margin-bottom: 24px; letter-spacing: -.03em; }
@@ -362,7 +362,7 @@ const impLabel = (v: string | undefined) =>
 .md-input-group { display: flex; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid var(--border-line); padding-bottom: 12px; margin-bottom: 18px; }
 .md-select { border: none; background: none; font-weight: 700; outline: none; font-size: 1.1rem; cursor: pointer; }
 .md-importance-hint { font-size: 0.75rem; color: var(--text-secondary); align-self: center; }
-.imp-tag { border-radius: 3px; padding: 1px 6px; }
+.imp-tag { border-radius: 0; padding: 1px 6px; }
 .imp-tag.imp-normal { color: var(--text-secondary); background: var(--bg-sub); }
 .imp-tag.imp-important { color: var(--warning); background: var(--warning-soft); }
 .imp-tag.imp-urgent { color: var(--danger); background: var(--danger-soft); }
@@ -376,15 +376,15 @@ const impLabel = (v: string | undefined) =>
 .md-upload-zone { margin-bottom: 50px; }
 .md-upload-label { padding: 12px 24px; border: 1px dashed var(--border-line); font-size: 0.8rem; cursor: pointer; color: var(--text-secondary); }
 .md-preview-container { position: relative; display: inline-block; }
-.md-preview-img { max-height: 200px; border-radius: 4px; }
+.md-preview-img { max-height: 200px; border-radius: 0; }
 .md-icon-btn {
   position: absolute; top: -10px; right: -10px; background: var(--accent-color); color: var(--on-accent);
-  border: none; border-radius: 50%; width: 24px; height: 24px; cursor: pointer;
+  border: none; border-radius: 0; width: 24px; height: 24px; cursor: pointer;
 }
 
 .md-modal-actions { margin-top: 60px; display: flex; justify-content: flex-end; gap: 30px; }
 .md-btn-flat { background: none; border: none; font-weight: 700; cursor: pointer; color: var(--text-secondary); font-size: 1rem; }
-.md-btn-primary { background: var(--accent-color); color: var(--on-accent); border: none; padding: 12px 24px; font-weight: 700; cursor: pointer; border-radius: 4px; }
+.md-btn-primary { background: var(--accent-color); color: var(--on-accent); border: none; padding: 12px 24px; font-weight: 700; cursor: pointer; border-radius: 0; }
 
 /* 动画效果 */
 .md-fade-enter-active, .md-fade-leave-active { transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1); }

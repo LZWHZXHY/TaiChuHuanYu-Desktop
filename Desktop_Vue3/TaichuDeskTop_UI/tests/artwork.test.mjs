@@ -182,3 +182,44 @@ test('comment content renders as text and all modified SFC templates compile', (
     assert.ok(compileScript(parsed.descriptor, { id: file }))
   }
 })
+
+test('exhibition navigation keeps bounds, respects explicit layouts and ignores typing', async t => {
+  const env = setup(t), props = vue.reactive({ id: 1, mode: 'carousel' })
+  const previous = globalThis.document
+  globalThis.document = { body: { style: { overflow: '' } } }
+  t.after(() => { globalThis.document = previous })
+  const c = mount(t, 'views/画廊展厅/ArtworkDetail.vue', props, {
+    ...shared(env), '@/components/SectionTrace.vue': {},
+    '../../api/artwork': { artworkApi: { getDetail: async id => ({ ...stats(id), title: '展品', images: [{url:'/one.png',caption:'第一幅'}, {url:'/two.png',caption:'第二幅'}] }) } },
+    '../../components/InteractActions.vue': { default: {} }, './ArtworkComments.vue': { default: {} }, './ArtworkPublishModal.vue': { default: {} }
+  })
+  await settle()
+  assert.equal(c.state.displayMode.value, 'carousel')
+  assert.equal(c.state.activeMode.value, 'carousel')
+  c.state.changeSlide(-1); assert.equal(c.state.currentCarouselIndex.value, 0)
+  c.state.changeSlide(1); c.state.changeSlide(1)
+  assert.equal(c.state.currentStep.value.description, '第二幅')
+  assert.equal(c.state.currentCarouselIndex.value, 1)
+  let prevented = 0
+  c.state.onDialogKey({key:'ArrowLeft',target:{closest:()=>({})},preventDefault(){prevented++}})
+  assert.equal(c.state.currentCarouselIndex.value, 1); assert.equal(prevented, 0)
+  c.state.onDialogKey({key:'ArrowLeft',target:{closest:()=>null},preventDefault(){prevented++}})
+  assert.equal(c.state.currentCarouselIndex.value, 0); assert.equal(prevented, 1)
+  props.mode = 'timeline'; await settle(); assert.equal(c.state.activeMode.value, 'timeline')
+  c.state.onDialogKey({key:'ArrowRight',target:{closest:()=>null},preventDefault(){prevented++}})
+  assert.equal(c.state.currentCarouselIndex.value, 0)
+  c.state.openImage(1); await settle()
+  assert.equal(c.state.viewerIndex.value, 1)
+  c.state.onDialogKey({key:'ArrowLeft',target:{closest:()=>null},preventDefault(){}})
+  assert.equal(c.state.viewerIndex.value, 0)
+  assert.equal(c.state.currentCarouselIndex.value, 0)
+  c.state.onDialogKey({key:'Escape',target:{closest:()=>null},preventDefault(){}})
+  assert.equal(c.state.viewerIndex.value, null)
+  assert.equal(c.state.artwork.value.id, 1)
+  props.mode = 'auto'; await settle(); assert.equal(c.state.activeMode.value, 'timeline')
+  props.mode = 'timeline'; c.state.openImage(1)
+  c.state.changeSlide(1); props.id = 2; await settle()
+  assert.equal(c.state.viewerIndex.value, null)
+  assert.equal(c.state.currentCarouselIndex.value, 0); assert.equal(c.state.activeMode.value, 'timeline')
+  c.unmount()
+})

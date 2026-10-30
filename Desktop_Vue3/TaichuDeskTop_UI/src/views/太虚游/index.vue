@@ -1,45 +1,25 @@
 <template>
   <div class="game-hub content-page community-surface tone-play">
-    <header class="content-header"><SectionTrace /><div><h1>太虚游</h1><p class="intro">玩游戏，也分享游戏里的故事。</p></div><RouterLink v-if="currentGameKey !== 'MinecraftServer'" class="game-discussion" to="/stream?tag=我的世界">我的世界讨论 →</RouterLink><span v-if="currentGameKey === 'Gobang'" class="connection-status" :class="isConnected ? 'online' : 'offline'">{{ isConnected ? '● 联机服务已连接' : '○ 联机服务未连接' }}</span></header>
+    <header class="content-header"><SectionTrace :particles="currentGameKey === 'MinecraftServer' ? 'minecraft' : 'games'" /><div><h1>太虚游</h1><p class="intro">太初寰宇的游戏区：我们自己做的游戏、社区服务器和小游戏。</p></div><div class="hub-tools"><PotatoWallet compact /><button type="button" class="game-discussion" :class="{ on: currentGameKey === 'Records' }" @click="loadGame('Records')">📊 我的战绩</button></div></header>
     <div class="hub-body">
-      <!-- 左侧导航 – 分类分组 -->
-      <aside v-if="currentGameKey" class="hub-sidebar">
-        <nav class="game-nav" aria-label="游戏分类">
-          <button class="nav-item" :class="{ active: !currentGameKey }" @click="loadGame(null)">全部游戏</button>
-          <div v-for="(group, groupKey) in groupedModules" :key="groupKey" class="nav-group">
-            <div class="nav-group-title">{{ group.label }}</div>
-            <button type="button"
-              v-for="item in group.items"
-              :key="item.key"
-              class="nav-item"
-              :class="{ active: currentGameKey === item.key }"
-              @click="loadGame(item.key)"
-            >
-              <span class="nav-icon">{{ item.icon }}</span>
-              <span class="nav-label">{{ item.label }}</span>
-              <span v-if="item.isNew" class="badge-new">新</span>
-            </button>
-          </div>
-        </nav>
-
-        <!-- 侧边统计信息 -->
-        <div class="sidebar-stats">
-          <div class="stat-item">
-            <span class="stat-value">{{ gameCount }}</span>
-            <span class="stat-label">游戏总数</span>
-          </div>
-
-        </div>
-      </aside>
-
       <!-- 主内容区 -->
       <main class="hub-main">
-        <div v-if="!currentGameComponent" class="welcome-placeholder">
-          <h2>选择你的下一场冒险</h2><p>按兴趣挑选游戏；联机功能需要连接服务器。</p>
-          <div class="game-cards"><button v-for="(game, key) in gameModules" :key="key" class="game-card" @click="loadGame(key)"><span class="game-card-icon" aria-hidden="true">{{ game.icon }}</span><strong>{{ game.label }}</strong><small>{{ game.description }}</small><span class="game-status">{{ game.status }}</span></button></div>
-        </div>
+        <!-- 游戏大厅：主推 Steam 游戏、我们的游戏、MC 服务器、社区小游戏 -->
+        <GameLobby v-if="!currentGameComponent" :modules="gameModules" :category-map="categoryMap" @select="loadGame" />
 
-        <Suspense v-else>
+        <template v-else>
+        <!-- 游戏页顶栏：返回大厅、当前游戏、快速切换（取代原来的左侧分类栏） -->
+        <div class="game-bar">
+          <button type="button" class="back-lobby" @click="loadGame(null)">← 游戏大厅</button>
+          <div class="current-game">
+            <b>{{ gameModules[currentGameKey].label }}</b>
+            <small>{{ gameModules[currentGameKey].description }}</small>
+          </div>
+          <nav class="quick-switch" aria-label="切换游戏">
+            <button v-for="item in switchList" :key="item.key" type="button" :class="{ on: currentGameKey === item.key }" :aria-current="currentGameKey === item.key ? 'page' : undefined" @click="loadGame(item.key)">{{ item.label }}</button>
+          </nav>
+        </div>
+        <Suspense>
           <component
             ref="currentGameRef"
             :is="currentGameComponent"
@@ -52,6 +32,8 @@
             </div>
           </template>
         </Suspense>
+        <StudioStrip @lobby="loadGame(null)" />
+        </template>
       </main>
     </div>
 
@@ -65,6 +47,9 @@
 
 <script setup>
 import SectionTrace from '@/components/SectionTrace.vue'
+import GameLobby from './GameLobby.vue'
+import StudioStrip from './StudioStrip.vue'
+import PotatoWallet from './PotatoWallet.vue'
 import { useUserStore } from '@/stores/user'
 import { ref, shallowRef, defineAsyncComponent, onMounted, onUnmounted, provide, computed, watch } from 'vue'
 import { useRoute, useRouter, onBeforeRouteUpdate, onBeforeRouteLeave } from 'vue-router'
@@ -88,7 +73,7 @@ const gameModules = {
     label: '五子棋',
     category: 'chess',
     icon: '⬛',
-    description: '经典五子棋对弈，支持多人联机',
+    description: '联机五子棋，房间列表、快速匹配、计入战绩',
     status: '已上线',
     component: defineAsyncComponent(() => import('./games/Gobang/index.vue'))
   },
@@ -96,7 +81,7 @@ const gameModules = {
     label: '围棋',
     category: 'chess',
     icon: '⚫',
-    description: '9 路围棋，提子、禁自杀，支持对局记录',
+    description: '9 / 13 / 19 路围棋，联机对战或本地双人，点目、中国规则数子',
     status: '已上线',
     isNew: true,
     component: defineAsyncComponent(() => import('./games/Go/index.vue'))
@@ -105,10 +90,30 @@ const gameModules = {
     label: '象棋',
     category: 'chess',
     icon: '♟️',
-    description: '中国象棋，完整走法，支持对局记录',
+    description: '中国象棋，联机对战或本地双人，完整规则与中文棋谱',
     status: '已上线',
     isNew: true,
     component: defineAsyncComponent(() => import('./games/Xiangqi/index.vue'))
+  },
+  // ----- 牌类 -----
+  Doudizhu: {
+    label: '斗地主',
+    category: 'card',
+    icon: '🃏',
+    description: '三人叫分抢地主，用土豆结算，人不够可以加电脑',
+    status: '已上线',
+    isNew: true,
+    component: defineAsyncComponent(() => import('./games/Doudizhu/index.vue'))
+  },
+  // ----- 我的战绩（不在游戏列表里显示，从页头进入） -----
+  Records: {
+    label: '我的战绩',
+    category: 'me',
+    icon: '📊',
+    description: '所有游戏的对局记录、胜率和土豆收支',
+    status: '已上线',
+    hidden: true,
+    component: defineAsyncComponent(() => import('./Records.vue'))
   },
   // ----- 经典小游戏 -----
   Tetris: {
@@ -152,6 +157,7 @@ const gameModules = {
 const categoryMap = {
   server: { label: 'MC服务器', order: 1 }, // 调整到最前或合适的位置
   chess: { label: '棋类对弈', order: 2 },
+  card: { label: '牌类', order: 2.5 },
   classic: { label: '经典小游戏', order: 3 },
   test: { label: '测试问卷', order: 4 },
   custom: { label: '自定义工坊', order: 5 }
@@ -267,12 +273,19 @@ const initSignalR = async () => {
   })
   connection.value.on('Error', (data) => {
     console.error('❌ 服务器错误：', data)
-    alert(data.message || '发生错误')
+    // 游戏界面自己显示错误时会拦下这个事件；没人处理才弹窗
+    const handled = !window.dispatchEvent(new CustomEvent('game-error', { detail: data, cancelable: true }))
+    if (!handled) alert(data?.message || '发生错误')
   })
   connection.value.on('PlayerLeft', (data) => {
     console.log('👋 玩家离开：', data)
-    alert('对手已离开房间')
     window.dispatchEvent(new CustomEvent('player-left', { detail: data }))
+  })
+  connection.value.on('GameOver', (data) => {
+    window.dispatchEvent(new CustomEvent('game-over', { detail: data }))
+  })
+  connection.value.on('TurnChanged', (data) => {
+    window.dispatchEvent(new CustomEvent('turn-changed', { detail: data }))
   })
 
   try {
@@ -312,6 +325,9 @@ watch(() => route.query.game, key => {
   currentGameComponent.value = mod?.component || null
 }, { immediate: true })
 
+// 顶栏快速切换：已上线的游戏（开发中的不放）
+const switchList = computed(() => Object.entries(gameModules).filter(([, m]) => m.status !== '开发中' && !m.hidden).map(([key, m]) => ({ key, label: m.label })))
+
 // ===== 统计信息 =====
 const gameCount = computed(() => Object.keys(gameModules).length)
 
@@ -331,30 +347,43 @@ onUnmounted(() => {
 
 <style scoped>
 .game-hub { font-family: var(--font-sans); }
-.game-discussion { color: var(--accent-color); text-decoration: none; padding: 10px 14px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); }
+.game-discussion { color: var(--accent-color); text-decoration: none; padding: 10px 14px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); }
 .connection-status { font-size: 12px; color: var(--text-secondary); }
+.hub-tools { position: relative; z-index: 1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.game-discussion { font: inherit; font-size: 14px; cursor: pointer; }
+.game-discussion.on { border-color: var(--accent-color); }
 .connection-status.online { color: var(--success); }
 .hub-body { display: flex; gap: 24px; align-items: flex-start; }
-.hub-sidebar { width: 190px; flex-shrink: 0; padding: 16px 10px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 12px; }
+.hub-sidebar { width: 190px; flex-shrink: 0; padding: 16px 10px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 0; }
 .nav-group { margin-bottom: 18px; }
 .nav-group-title { font-size: 11px; color: var(--text-secondary); padding: 6px 10px; margin-bottom: 6px; }
-.nav-item { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; border: 0; padding: 10px; border-radius: 8px; font-size: 13px; background: transparent; color: var(--text-primary); }
+.nav-item { width: 100%; display: flex; align-items: center; gap: 8px; text-align: left; border: 0; padding: 10px; border-radius: 0; font-size: 13px; background: transparent; color: var(--text-primary); }
 .nav-item:hover { background: var(--bg-sub); }
 .nav-item.active { background: var(--accent-soft); color: var(--accent-color); }
 .nav-icon { width: 20px; text-align: center; }
-.badge-new { margin-left: auto; background: var(--accent-soft); color: var(--accent-color); padding: 1px 5px; border-radius: 5px; font-size: 10px; }
+.badge-new { margin-left: auto; background: var(--accent-soft); color: var(--accent-color); padding: 1px 5px; border-radius: 0; font-size: 10px; }
 .sidebar-stats { border-top: 1px solid var(--border-line); padding: 14px 10px 0; }
 .stat-value { font-size: 22px; margin-right: 8px; }
 .stat-label { font-size: 11px; color: var(--text-secondary); }
 .hub-main { flex: 1; min-width: 0; }
+.game-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-bottom: 20px; padding: 12px 14px; border: 1px solid var(--border-line); border-left: 3px solid var(--accent-color); background: var(--paper-card); }
+.back-lobby { padding: 8px 12px; border: 1px solid var(--border-line); background: transparent; color: var(--text-primary); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.back-lobby:hover { border-color: var(--accent-color); color: var(--accent-color); }
+.current-game { display: grid; gap: 2px; min-width: 0; }
+.current-game b { font-size: 16px; }
+.current-game small { color: var(--text-secondary); font-size: 12px; }
+.quick-switch { display: flex; gap: 6px; margin-left: auto; overflow-x: auto; max-width: 100%; }
+.quick-switch button { flex: none; padding: 5px 10px; border: 1px solid var(--border-line); background: transparent; color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.quick-switch button.on { border-color: var(--accent-color); background: var(--accent-soft); color: var(--accent-color); }
+@media (max-width: 760px) { .quick-switch { margin-left: 0; } }
 .welcome-placeholder h2 { font-size: 22px; margin: 0 0 10px; }
 .welcome-placeholder p { font-size: 14px; color: var(--text-secondary); }
 .game-cards { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin-top: 24px; }
-.game-card { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 10px; padding: 24px; border: 1px solid var(--border-line); border-radius: 12px; color: var(--text-primary); background: var(--paper-card); }
+.game-card { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 10px; padding: 24px; border: 1px solid var(--border-line); color: var(--text-primary); }
 .game-card:hover { border-color: var(--accent-color); }
 .game-card-icon { font-size: 28px; }
 .game-card small { color: var(--text-secondary); line-height: 1.7; flex: 1; }
-.game-status { color: var(--accent-color); background: var(--accent-soft); border-radius: 6px; padding: 3px 8px; font-size: 12px; }
+.game-status { color: var(--accent-color); background: var(--accent-soft); border-radius: 0; padding: 3px 8px; font-size: 12px; }
 .loading-state { display: grid; place-content: center; gap: 16px; padding: 64px; color: var(--text-secondary); }
 .loading-spinner { width: 30px; height: 30px; border: 2px solid var(--border-line); border-top-color: var(--accent-color); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }

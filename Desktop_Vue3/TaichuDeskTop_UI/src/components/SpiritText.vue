@@ -22,7 +22,7 @@
     <!-- 🌟 搜索菜单：笔记 + 块 -->
     <transition name="menu-pop">
       <div v-if="showLinkSelector" class="spirit-floating-menu" :style="menuStyle">
-        <div class="menu-header">关联灵脉碎片...</div>
+        <div class="menu-header">引用其他笔记</div>
         <div class="menu-scroll-area">
 
           <template v-if="searchResults.notes.length > 0">
@@ -35,7 +35,7 @@
             >
               <div class="item-icon">📄</div>
               <div class="item-text">
-                <div class="main-title">{{ note.title || '无标题碎片' }}</div>
+                <div class="main-title">{{ note.title || '未命名笔记' }}</div>
               </div>
             </div>
           </template>
@@ -59,7 +59,7 @@
           <div
             v-if="searchResults.notes.length === 0 && searchResults.blocks.length === 0"
             class="menu-empty"
-          >未找到相关碎片</div>
+          >没有找到相关笔记</div>
 
         </div>
       </div>
@@ -501,7 +501,7 @@ defineExpose({
 
 <style scoped>
 .editor-tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.editor-tools button { padding: 8px 12px; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-primary); border-radius: 6px; cursor: pointer; }
+.editor-tools button { padding: 8px 12px; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-primary); border-radius: 0; cursor: pointer; }
 [role=alert] { color: var(--accent-color); }
 .spirit-editor-wrapper {
   position: relative;
@@ -523,7 +523,7 @@ defineExpose({
 :deep(img[alt^="spirit_img_loading_"]) {
   width: 100%;
   height: 180px; 
-  border-radius: 12px;
+  border-radius: 0;
   background: linear-gradient(90deg, var(--bg-sub) 25%, var(--bg-sub) 37%, var(--bg-sub) 63%);
   background-size: 400% 100%;
   animation: spiritSkeletonShimmer 1.4s ease infinite;
@@ -557,7 +557,7 @@ defineExpose({
   background: var(--paper-card);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 14px;
+  border-radius: 0;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
   padding: 8px;
   z-index: 9999;
@@ -596,7 +596,7 @@ defineExpose({
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -617,7 +617,7 @@ defineExpose({
   width: 28px;
   height: 28px;
   background: var(--bg-sub);
-  border-radius: 8px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -688,7 +688,7 @@ defineExpose({
   background: var(--paper-card);
   backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 12px;
+  border-radius: 0;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
   padding: 14px 16px;
   pointer-events: auto;
@@ -720,7 +720,7 @@ defineExpose({
   font-size: 14px;
   cursor: pointer;
   padding: 2px 4px;
-  border-radius: 4px;
+  border-radius: 0;
   transition: background 0.15s;
   flex-shrink: 0;
 }

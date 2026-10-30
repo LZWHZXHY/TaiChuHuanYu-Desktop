@@ -1,7 +1,7 @@
 <template>
   <div class="world-index community-surface tone-world" :class="{ 'detail-mode': !isListPage, 'content-page': isListPage }">
     <template v-if="isListPage">
-      <header class="world-heading content-header"><SectionTrace />
+      <header class="world-heading content-header"><SectionTrace particles="world" />
         <div><p class="eyebrow">共同想象 · 世界观</p><h1>世界观</h1><p>{{ userStore.isLoggedIn ? '从一个人物、一处地点开始，慢慢写出你的世界。' : '走进创作者的世界，阅读人物、地点与故事设定。' }}</p></div>
         <div class="world-heading-actions content-actions">
           <RouterLink to="/novels" class="ghost-link">📖 小说书架</RouterLink>
@@ -27,27 +27,29 @@
           </div>
         </div>
       </div>
+      <MyCreationPanel v-if="userStore.isLoggedIn && activeMenu === 'projects' && !searchQuery.trim()" />
       <section :aria-busy="loading" aria-label="世界观列表">
         <div v-if="loadError" class="empty-state" role="alert"><p>世界观加载失败，已有内容仍然保留。</p><button @click="loadData">重新加载</button></div>
         <p v-else-if="loading && !displayProjects.length" class="empty-state">正在加载世界观…</p>
         <div v-if="displayProjects.length" class="world-grid">
           <article v-for="p in displayProjects" :key="p.id" class="world-card">
             <RouterLink class="world-link" :to="`/world/project/${p.id}`">
-              <div class="world-cover">
+              <div class="world-cover" data-depth>
                 <img v-if="p.coverImage" :src="p.coverImage" :alt="p.name" loading="lazy" />
                 <span v-else class="world-mark" aria-hidden="true">{{ p.name.slice(0, 1) }}</span>
               </div>
               <h2>{{ p.name }}</h2><p>{{ p.description || '这个世界的故事，正等待被写下。' }}</p>
             </RouterLink>
             <footer><span>{{ p.cardCount || 0 }} 个条目 · {{ formatTime(p.updatedAt) }}</span>
-              <button v-if="activeMenu === 'projects'" :disabled="Boolean(togglingId)" :aria-label="`${p.name}：${p.isPublic ? '改为私有' : '改为公开'}`" @click="togglePublic(p)">{{ togglingId === p.id ? '保存中…' : p.isPublic ? '公开' : '私有' }}</button>
-              <span v-else>{{ p.ownerName || '创作者' }}</span>
+              <span v-if="activeMenu === 'projects' && isShared(p)" class="collab-tag" :title="`${p.ownerName || '创作者'} 的世界`">{{ p.myRole === 'editor' ? '协作编写' : '只读成员' }} · <UserLink :id="p.ownerId" :name="p.ownerName || '创作者'" /></span>
+              <button v-else-if="activeMenu === 'projects'" :disabled="Boolean(togglingId)" :aria-label="`${p.name}：${p.isPublic ? '改为私有' : '改为公开'}`" @click="togglePublic(p)">{{ togglingId === p.id ? '保存中…' : p.isPublic ? '公开' : '私有' }}</button>
+              <UserLink v-else :id="p.ownerId" :name="p.ownerName || '创作者'" />
             </footer>
           </article>
         </div>
         <div v-else-if="!loading && !loadError" class="empty-state">
           <h2>{{ activeMenu === 'projects' ? '你的世界，从一个想法开始' : '还没有公开的世界' }}</h2>
-          <p>{{ activeMenu === 'projects' ? '先起个名字，设定可以随时补充。默认只有你自己可见。' : '创作者公开世界后，就可以在这里阅读。' }}</p>
+          <p>{{ activeMenu === 'projects' ? '先起个名字，设定可以随时补充。默认只有你自己可见，也可以邀请朋友一起编写。' : '创作者公开世界后，就可以在这里阅读。' }}</p>
           <button v-if="activeMenu === 'projects'" @click="router.push('/world/create')">创建第一个世界</button>
         </div>
       </section>
@@ -57,7 +59,9 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import SectionTrace from '@/components/SectionTrace.vue'
+import MyCreationPanel from './世界观组件/MyCreationPanel.vue'
 import { ref, computed, watch, onScopeDispose } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -117,6 +121,8 @@ function goToCard(result: WorldSearchResult) {
   clearSearch()
   router.push(`/world/project/${result.projectId}/card/${result.cardId}`)
 }
+// 别人拉我进去协作的世界：显示身份和创建者，不能改公开状态
+const isShared = (p: WorldProject) => Boolean(p.myRole && p.myRole !== 'owner')
 const togglingId = ref<string | null>(null)
 async function togglePublic(project: WorldProject) {
   if (togglingId.value) return
@@ -145,7 +151,7 @@ onScopeDispose(() => { clearTimeout(searchTimer); searchVersion++; loadVersion++
 h1 { font-size: clamp(26px, 3vw, 36px); margin: 0 0 10px; }
 .world-heading p, .empty-state p { color: var(--text-secondary); margin: 0; line-height: 1.7; }
 button, input { font: inherit; }
-button { cursor: pointer; border: 1px solid var(--border-line); border-radius: var(--radius-sm); padding: 9px 16px; background: var(--paper-card); color: var(--text-primary); }
+button { cursor: pointer; border: 1px solid var(--border-line); border-radius: 0; padding: 9px 16px; background: var(--paper-card); color: var(--text-primary); }
 button:disabled { cursor: wait; opacity: .6; }
 button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
 .primary { background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color); white-space: nowrap; }
@@ -154,28 +160,29 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .world-toolbar nav button { border-color: transparent; background: transparent; }
 .world-toolbar button[aria-pressed=true] { background: var(--inverse-bg); color: var(--inverse-text); }
 .global-search { position: relative; width: min(360px, 100%); }
-.global-search input { box-sizing: border-box; width: 100%; padding: 11px 14px; border: 1px solid var(--border-line); border-radius: var(--radius-sm); background: var(--paper-card); color: var(--text-primary); }
-.search-dropdown { position: absolute; inset: calc(100% + 6px) 0 auto; z-index: 20; max-height: 360px; overflow: auto; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); box-shadow: 0 12px 30px #0002; }
+.global-search input { box-sizing: border-box; width: 100%; padding: 11px 14px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); }
+.search-dropdown { position: absolute; inset: calc(100% + 6px) 0 auto; z-index: 20; max-height: 360px; overflow: auto; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 0; box-shadow: 0 12px 30px #0002; }
 .search-dropdown button { display: grid; gap: 4px; width: 100%; text-align: left; border: 0; border-radius: 0; }
 .search-dropdown button:hover { background: var(--bg-sub); }
 .search-dropdown span, .search-dropdown p { color: var(--text-secondary); font-size: 13px; }
 .search-dropdown p { padding: 12px; }
 .world-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 20px; }
-.world-card { min-width: 0; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); overflow: hidden; }
+.world-card { min-width: 0; background: var(--paper-card); border: 0; border-bottom: 2px solid var(--border-line); border-radius: 0; overflow: hidden; }
 .world-card:hover { border-color: var(--accent-color); }
-.world-link { display: block; padding: 16px 16px 20px; text-decoration: none; color: inherit; }
-.world-cover { aspect-ratio: 16 / 9; border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-sub); display: grid; place-items: center; margin-bottom: 16px; }
+.world-link { display: block; padding: 0 0 20px; text-decoration: none; color: inherit; }
+.world-cover { aspect-ratio: 16 / 9; border-radius: 0; overflow: hidden; background: var(--bg-sub); display: grid; place-items: center; margin-bottom: 16px; }
 .world-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.world-mark { display: grid; place-items: center; width: 44px; height: 44px; border-radius: var(--radius-sm); background: var(--accent-soft); color: var(--accent-color); font-size: 22px; }
-.world-link h2 { font-size: 19px; margin: 0 0 8px; overflow-wrap: anywhere; }
-.world-link p { color: var(--text-secondary); line-height: 1.8; height: 3.6em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin: 0; }
+.world-mark { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 0; background: var(--accent-soft); color: var(--accent-color); font-size: 22px; }
+.world-link h2 { padding-inline: 20px; font-size: 19px; margin: 0 0 8px; overflow-wrap: anywhere; }
+.world-link p { padding-inline: 20px; color: var(--text-secondary); line-height: 1.8; height: 3.6em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin: 0; }
 .world-card footer { padding: 12px 24px; border-top: 1px solid var(--border-line); color: var(--text-secondary); font-size: 12px; flex-wrap: wrap; }
 .world-card footer button { padding: 3px 10px; font-size: 12px; }
-.empty-state { padding: 56px 20px; text-align: center; border: 1px dashed var(--border-line); border-radius: var(--radius-sm); margin-bottom: 20px; }
+.collab-tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--accent-color); color: var(--accent-color); font-size: 12px; }
+.empty-state { padding: 56px 20px; text-align: center; border: 1px dashed var(--border-line); border-radius: 0; margin-bottom: 20px; }
 .empty-state h2 { font-size: 21px; }.empty-state button { margin-top: 20px; }
 .detail-mode { padding: 0; max-width: none; }
 @media(max-width: 600px) { .world-heading { align-items: flex-start; flex-direction: column; gap: 20px; }.global-search { width: 100%; } }
 .world-heading-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.ghost-link { padding: 9px 18px; border: 1px solid var(--border-line); border-radius: var(--radius-sm); background: var(--paper-card); color: var(--text-primary); text-decoration: none; font-size: .85rem; white-space: nowrap; }
+.ghost-link { padding: 9px 18px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); text-decoration: none; font-size: .85rem; white-space: nowrap; }
 .ghost-link:hover { border-color: var(--accent-color); color: var(--accent-color); }
 </style>

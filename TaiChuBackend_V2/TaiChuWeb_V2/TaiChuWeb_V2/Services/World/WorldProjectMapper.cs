@@ -13,7 +13,8 @@ internal static class WorldProjectMapper
         GraphPositions = project.GraphPositions,
         IsPublic = project.IsPublic, CreatedAt = project.CreatedAt, UpdatedAt = project.UpdatedAt,
         CardCount = project.Cards.Count, OwnerName = project.Owner != null ? project.Owner.Username : null,
-        OwnerId = project.OwnerId
+        OwnerId = project.OwnerId,
+        CollaboratorCount = project.Collaborators.Count
     };
     public static readonly Func<WorldProject, ProjectResponseDto> FromEntity = Projection.Compile();
 }

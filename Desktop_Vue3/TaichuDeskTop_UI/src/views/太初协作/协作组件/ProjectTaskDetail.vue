@@ -1,8 +1,8 @@
 <template>
   <Transition name="fade">
     <div v-if="isOpen" class="modal-overlay drawer-overlay" @click.self="closeDrawer">
-      <div class="task-detail-drawer" role="dialog" aria-modal="true" aria-label="任务详情">
-        <header class="drawer-header">
+      <div class="task-detail-drawer workbench-skin editor-surface community-surface tone-collab" role="dialog" aria-modal="true" aria-label="任务详情">
+        <header class="drawer-header studio-heading"><SectionTrace />
           <div class="header-left-meta">
             <span class="task-id-large">#{{ localTask.id?.substring(0, 8) }}</span>
             <span class="points-badge" title="灵脉意图贡献点">⚡ {{ localTask.points ?? 1 }} 点</span>
@@ -143,6 +143,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, watch, computed } from 'vue';
 import projectService from '../../../api/projectService';
 import request from '@/utils/request';
@@ -319,14 +320,14 @@ const handleDelete = async () => {
   border: 1px solid var(--border-line); 
   box-shadow: 0 40px 100px rgba(0,0,0,0.1); 
 
-  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
+  max-height: 90dvh; overflow-y: auto; border-radius: 0;
 }
 .modal-inner-header h2 { font-size: 1.2rem; font-weight: 500; margin: 0 0 12px 0; color: var(--text-primary); }
 .modal-inner-header p { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin: 0; }
 .modal-footer { margin-top: 40px; display: flex; justify-content: flex-end; gap: 16px; }
 .cancel-btn { background: none; border: none; color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; padding: 10px 20px; transition: color 0.3s; }
 .cancel-btn:hover { color: var(--text-primary); }
-.confirm-btn { background: var(--accent-color); color: var(--on-accent); border: none; font-size: 0.85rem; cursor: pointer; padding: 10px 28px; border-radius: 2px; transition: background 0.3s; }
+.confirm-btn { background: var(--accent-color); color: var(--on-accent); border: none; font-size: 0.85rem; cursor: pointer; padding: 10px 28px; border-radius: 0; transition: background 0.3s; }
 .confirm-btn:hover { background: var(--text-primary); }
 
 .task-detail-drawer {
@@ -342,7 +343,7 @@ const handleDelete = async () => {
 .header-left-meta { display: flex; align-items: center; gap: 14px; }
 .task-id-large { font-family: monospace; color: var(--text-secondary); font-size: 1.1rem; }
 .points-badge {
-  background: var(--accent-soft); color: var(--accent-color); font-size: 0.8rem; padding: 5px 10px; border-radius: 20px;
+  background: var(--accent-soft); color: var(--accent-color); font-size: 0.8rem; padding: 5px 10px; border-radius: 0;
   letter-spacing: 0.5px;
 }
 .close-btn { background: none; border: none; font-size: 2rem; line-height: 1; color: var(--text-secondary); cursor: pointer; transition: color 0.3s;}
@@ -363,7 +364,7 @@ const handleDelete = async () => {
 }
 .prop-item label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; }
 .prop-item select, .prop-item input {
-  width: 100%; padding: 10px 12px; border: 1px solid var(--border-line); border-radius: 8px;
+  width: 100%; padding: 10px 12px; border: 1px solid var(--border-line); border-radius: 0;
   background: var(--bg-main); font-size: 0.95rem; color: var(--text-primary); cursor: pointer;
 }
 .prop-item select:disabled {
@@ -376,7 +377,7 @@ const handleDelete = async () => {
   background: var(--bg-main);
   border: 1px solid var(--border-line);
   padding: 24px;
-  border-radius: var(--radius-md);
+  border-radius: 0;
   margin-bottom: 24px;
 }
 .section-label-bar {
@@ -418,7 +419,7 @@ const handleDelete = async () => {
 }
 .quant-input {
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--paper-card);
   padding: 8px 10px;
   font-size: 0.95rem;
@@ -443,14 +444,14 @@ const handleDelete = async () => {
 .tags-section { margin-bottom: 24px; }
 .tags-section label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px; }
 .tags-container { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.editable-tag { background: var(--bg-sub); padding: 6px 12px; font-size: 0.8rem; color: var(--text-primary); border-radius: 4px; display: flex; align-items: center; gap: 6px; }
+.editable-tag { background: var(--bg-sub); padding: 6px 12px; font-size: 0.8rem; color: var(--text-primary); border-radius: 0; display: flex; align-items: center; gap: 6px; }
 .tag-remove { cursor: pointer; color: var(--text-secondary); transition: color 0.2s; }
 .tag-remove:hover { color: var(--danger); }
 .tag-input { border: none; background: transparent; font-size: 0.85rem; outline: none; border-bottom: 1px dashed var(--border-line); padding: 4px; width: 120px; }
 
 .desc-section label { display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px; }
 .desc-section textarea {
-  width: 100%; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); padding: 16px;
+  width: 100%; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); padding: 16px;
   font-size: 0.95rem; color: var(--text-primary); outline: none; resize: vertical; line-height: 1.6; transition: border-color 0.3s;
 }
 .desc-section textarea:focus { border-color: var(--border-line); background: var(--paper-card); }
@@ -459,7 +460,7 @@ const handleDelete = async () => {
   padding: 16px clamp(16px, 3vw, 32px); border-top: 1px solid var(--border-line); display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 12px;
 }
 .save-status { font-size: 0.8rem; color: var(--text-secondary); }
-.save-btn { background: var(--accent-color); color: var(--on-accent); border: none; border-radius: 8px; padding: 12px 24px; font-size: 0.9rem; cursor: pointer; transition: background 0.3s; }
+.save-btn { background: var(--accent-color); color: var(--on-accent); border: none; border-radius: 0; padding: 12px 24px; font-size: 0.9rem; cursor: pointer; transition: background 0.3s; }
 .save-btn:disabled { opacity: .65; cursor: wait; }
 .save-btn:hover { background: var(--text-primary); }
 

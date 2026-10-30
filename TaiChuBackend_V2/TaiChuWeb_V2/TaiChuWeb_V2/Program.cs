@@ -16,6 +16,8 @@ using TaiChuWeb_V2.Services.Project;
 using TaiChuWeb_V2.Services.Publish;
 using TaiChuWeb_V2.Services.Trade;
 using TaiChuWeb_V2.Services.World;
+using TaiChuWeb_V2.Services.Analytics;
+using TaiChuWeb_V2.Services.Chat;
 using TaiChuWeb_V2.Services.Project;
 var builder = WebApplication.CreateBuilder(args);
 
@@ -68,7 +70,51 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<SystemConfigService>();
 builder.Services.AddScoped<IWorldQuotaService, WorldQuotaService>();
 builder.Services.AddScoped<WorldRestoreService>();
+builder.Services.AddScoped<WorldHistoryService>(); // 世界观条目修改记录（查看 / 撤销）
 builder.Services.AddHostedService<WorldRestoreCleanup>();
+// 世界观协作者表（启动时自动创建）
+builder.Services.AddHostedService<WorldCollaboratorSchema>();
+// 我的世界服务器「世界任务」：启动时建表；结算（完成、发奖励、开启下一个）
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Quest.ServerQuestSchema>();
+builder.Services.AddScoped<TaiChuWeb_V2.Services.Quest.ServerQuestService>();
+// 岁月史书：启动时建表
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.CommunityHistory.CommunityHistorySchema>();
+// 旧博客补列表封面（正文有图但没设封面的，取第一张图）
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Publish.BlogCoverBackfill>();
+
+// 社区数据分析：在线人数、每日活跃、在线快照（启动时自动建表，见 Services/Analytics）
+builder.Services.AddSingleton<PresenceTracker>();
+builder.Services.AddSingleton<AnalyticsStore>();
+builder.Services.AddHostedService<AnalyticsWorker>();
+
+// 社区聊天室：频道/消息/AI 人格（启动后首次使用时自动建表，见 Services/Chat）
+builder.Services.AddSingleton<ChatStore>();
+builder.Services.AddSingleton<ChatAiQueue>();
+builder.Services.AddScoped<ChatService>();
+builder.Services.AddSingleton<BotGateway>();
+
+// 太虚游 · Steam 游戏展示（首次使用时自动建表，见 Services/Games）
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Games.GameShowcaseService>();
+
+// 太虚游 · 土豆（娱乐积分）、战绩记录、斗地主（数据表首次使用时自动创建）
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Games.PotatoService>();
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Games.MatchRecordService>();
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Games.Doudizhu.DdzManager>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<TaiChuWeb_V2.Services.Games.Doudizhu.DdzManager>());
+// 联机象棋
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Games.Xiangqi.XqManager>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<TaiChuWeb_V2.Services.Games.Xiangqi.XqManager>());
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Games.Go.GoManager>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<TaiChuWeb_V2.Services.Games.Go.GoManager>());
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Paint.PaintManager>();
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Paint.PaintBrushService>();
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Shop.ShopService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<TaiChuWeb_V2.Services.Paint.PaintManager>());
+// 网站背景（官方背景 / 自定义背景）与赞助特权（数据表首次使用时自动创建）
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Personalization.UserAppearanceService>();
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Personalization.SponsorPerkService>();
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Personalization.ProfileDecorService>();
+builder.Services.AddHostedService<ChatAiWorker>();
 
 // 爱发电同步（订单→财政、赞助者→赞助墙）
 builder.Services.AddScoped<TaiChuWeb_V2.Services.Afdian.AfdianService>();
@@ -172,10 +218,19 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection(); // 1. HTTPS 重定向最先处理
 app.UseRouting();          // 2. 路由
 app.UseCors("AllowAll");   // 3. CORS 必须放在 UseRouting 和 UseAuthentication 之间
+app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) }); // 聊天室机器人接入用
 app.UseAuthentication();   // 4. 认证
+app.UseActivityTracking(); //    记录登录用户的在线与活跃（仅内存操作）
 app.UseAuthorization();    // 5. 授权
 
 app.MapControllers();
 app.MapHub<GameHub>("/signalr/game");
+app.MapHub<ChatHub>("/signalr/chat");
+app.MapHub<DdzHub>("/signalr/ddz");
+app.MapHub<XiangqiHub>("/signalr/xiangqi");
+app.MapHub<GoHub>("/signalr/go");
+app.MapHub<PaintHub>("/signalr/paint");
+// 外部机器人接入（太初机器人协议）：放在 /signalr 下，复用已经为 SignalR 配好的 WebSocket 反向代理
+app.MapGet(BotGateway.Path, (HttpContext context, BotGateway gateway) => gateway.HandleAsync(context));
 
 app.Run();

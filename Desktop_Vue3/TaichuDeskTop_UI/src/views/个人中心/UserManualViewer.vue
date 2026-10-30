@@ -134,7 +134,7 @@ onMounted(() => {
   display: flex;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   min-height: 480px;
   max-height: 700px;
@@ -165,7 +165,7 @@ onMounted(() => {
 .article-list { list-style: none; padding: 0; margin: 0; }
 .article-item {
   padding: 8px 10px;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 0.85rem;
   color: var(--text-secondary);
   cursor: pointer;
@@ -212,7 +212,7 @@ onMounted(() => {
 :deep(.doc-body a) { color: var(--accent-color); text-decoration: underline; }
 :deep(.manual-img) {
   max-width: 100%;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 4px 12px rgba(0,0,0,0.06);
   margin: 12px 0;
   display: block;

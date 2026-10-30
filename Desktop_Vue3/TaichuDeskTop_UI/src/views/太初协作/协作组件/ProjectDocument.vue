@@ -156,12 +156,12 @@ onUnmounted(() => { listVersion++; detailVersion++; });
 <style scoped>
 .project-document-root { color: var(--text-primary); min-width: 0; }
 .doc-workspace-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; align-items: start; }
-.doc-sidebar, .doc-viewer-content { border: 1px solid var(--border-line); border-radius: var(--radius-lg); background: var(--paper-card); min-width: 0; }
+.doc-sidebar, .doc-viewer-content { border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); min-width: 0; }
 .doc-sidebar { position: sticky; top: 0; padding: 16px; }
 .sidebar-header { display: flex; align-items: center; justify-content: space-between; padding: 4px 0 16px; font-weight: 600; }
 .doc-count { color: var(--text-secondary); font-size: 13px; }
 .doc-list-flat { display: grid; gap: 8px; max-height: 65vh; overflow-y: auto; }
-.doc-list-item { display: grid; gap: 8px; padding: 12px; width: 100%; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); text-align: left; cursor: pointer; }
+.doc-list-item { display: grid; gap: 8px; padding: 12px; width: 100%; border: 1px solid transparent; border-radius: 0; background: transparent; color: var(--text-primary); text-align: left; cursor: pointer; }
 .doc-list-item:hover { background: var(--bg-sub); }
 .doc-list-item.active { background: var(--accent-soft); border-color: var(--accent-color); }
 .doc-title { display: block; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; }
@@ -174,10 +174,10 @@ onUnmounted(() => { listVersion++; detailVersion++; });
 .reader-title { font-size: clamp(24px, 3vw, 34px); margin: 16px 0; overflow-wrap: anywhere; }
 .reader-body { font-size: 16px; line-height: 1.8; }
 .rich-paragraph { margin-bottom: 20px; overflow-wrap: anywhere; }
-.rich-image-wrapper img { max-width: 100%; height: auto; border-radius: 8px; }
+.rich-image-wrapper img { max-width: 100%; height: auto; border-radius: 0; }
 .img-caption { color: var(--text-secondary); text-align: center; font-size: 13px; }
 .doc-state-loading, .layout-placeholder-inner { min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 12px; color: var(--text-secondary); }
-.doc-state-loading button { padding: 8px 16px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-sub); color: var(--text-primary); }
+.doc-state-loading button { padding: 8px 16px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-sub); color: var(--text-primary); }
 .placeholder-content p { max-width: 440px; line-height: 1.7; }
 .loading-pulse { width: 32px; height: 4px; background: var(--accent-color); }
 @media (max-width: 760px) { .doc-workspace-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; } .doc-sidebar { position: static; } .doc-list-flat { max-height: 220px; } }

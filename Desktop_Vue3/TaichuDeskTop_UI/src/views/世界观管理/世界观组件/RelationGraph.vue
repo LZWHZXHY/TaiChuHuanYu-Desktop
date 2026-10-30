@@ -3,21 +3,28 @@
     <header class="graph-toolbar">
       <div><strong>关系图谱</strong><span class="graph-count">{{ displayedNodes.length }} 个条目 · {{ displayedEdges.length }} 条关系</span></div>
       <div class="graph-actions">
-        <button @click="renderer?.resetCamera()">适应画布</button>
+        <div class="view-switch" role="radiogroup" aria-label="图谱视图">
+          <button type="button" role="radio" :aria-checked="!spatial" :class="{ on: !spatial }" @click="setSpatial(false)">平面</button>
+          <button type="button" role="radio" :aria-checked="spatial" :class="{ on: spatial }" title="粒子星图：每个条目是一团发光粒子，可以切换星系、星球、关系网、螺旋几种阵型" @click="setSpatial(true)">3D 星图</button>
+        </div>
+        <span v-if="saveStatus && !spatial" class="graph-save" role="status">{{ saveStatus === 'saving' ? '正在保存位置…' : saveStatus === 'conflict' ? '布局已在其他页面更新' : saveStatus === 'error' ? '位置保存失败' : '位置已保存' }}</span>
+        <button v-if="saveStatus === 'error'" @click="$emit('retry-save')">重试保存</button>
+        <button @click="renderer?.resetCamera(focusNodeId ? 'selection' : 'all')">适应画布</button>
       </div>
     </header>
+    <p v-if="saveStatus === 'conflict'" class="graph-message graph-conflict" role="alert">本页调整尚未保存，已停止覆盖其他页面的新位置。载入最新布局会放弃本页的位置调整。<button @click="$emit('reload-positions')">载入最新布局</button></p>
     <div class="graph-filter-bar">
       <input v-model="searchQuery" type="search" placeholder="搜索条目名称" aria-label="搜索图谱条目" />
       <select v-model="typeFilter" aria-label="筛选条目类型" @change="exitFocus"><option value="">全部类型</option><option v-for="type in availableTypes" :key="type" :value="type">{{ getTypeLabel(type) }}</option></select>
       <button v-if="focusNodeId" @click="showAll">返回全部关系</button>
     </div>
     <p v-if="error" role="alert" class="graph-message">{{ error }} <button @click="refresh">重试</button></p>
-    <p v-else class="graph-message" role="status">{{ detailsLoading ? '正在读取引用连线…' : focusNodeId ? `正在查看「${focusNodeTitle}」的直接关系` : '拖动画布，滚轮缩放；点击条目查看相关内容。' }}</p>
+    <p v-else class="graph-message" role="status">{{ detailsLoading ? '正在读取引用连线…' : focusNodeId ? `正在查看「${focusNodeTitle}」的直接关系${spatial ? '，点空白处返回全部' : ''}` : spatial ? '拖动旋转视角，滚轮缩放；点击一个星团，粒子会重新聚成以它为中心的星环；有封面的条目还会变成粒子画像。' : `${canSave ? '拖动节点自动保存位置' : '拖动仅调整当前视图'}；悬停突出关联，点击聚焦；滚轮缩放查看完整名称。` }}</p>
     <div class="graph-body">
-      <div class="graph-canvas"><component :is="spatial ? SpatialWorldGraph : FlatWorldGraph" ref="renderer" :data="filteredData" :positions="positions" @select="selectNode" @update:positions="$emit('update:positions', $event)" />
+      <div class="graph-canvas"><component :key="projectId" :is="spatial ? SpatialWorldGraph : FlatWorldGraph" ref="renderer" :data="spatial ? spatialData : filteredData" :layout-data="graphData" :focus-id="focusNodeId" :world-title="worldTitle" :project-id="projectId" :covers="covers" :type-label="spatialTypeLabel" :shapes="{ novel: 'disc' }" :positions="positions" @select="selectNode" @update:positions="$emit('update:positions', $event)" />
       <p v-if="!displayedNodes.length" class="graph-empty">没有匹配的条目</p></div>
       <aside v-if="selectedNode" class="node-popup">
-        <div class="popup-heading"><span>{{ getTypeLabel(selectedNode.type) }}</span><button aria-label="关闭条目预览" @click="selectedNode = null">×</button></div>
+        <div class="popup-heading"><span>{{ getTypeLabel(selectedNode.type) }}</span><button aria-label="关闭条目预览" @click="showAll">×</button></div>
         <strong>{{ selectedNode.title }}</strong>
         <p>{{ getNodePreview(selectedNode.id) || '选择查看详情，阅读完整设定。' }}</p>
         <div class="popup-tags"><span v-for="tag in getNodeTags(selectedNode.id)" :key="tag">#{{ tag }}</span></div>
@@ -31,17 +38,41 @@
 import { computed, ref, watch, defineAsyncComponent } from 'vue'
 import { useWorldStore } from '@/stores/world'
 import type { CardSummary, CardDetail } from '@/api/types/world'
-import { getCardTypeLabel as getTypeLabel, parseStringArray } from '@/utils/worldPresentation'
+import { getCardTypeLabel as getTypeLabel, parseCoverImage, parseStringArray } from '@/utils/worldPresentation'
 import { buildWorldGraph } from '@/utils/worldGraph'
+import { worldNovelApi, type NovelBrief } from '@/api/worldNovel'
+import { useRouter } from 'vue-router'
 import FlatWorldGraph from './FlatWorldGraph.vue'
 const SpatialWorldGraph = defineAsyncComponent(() => import('./SpatialWorldGraph.vue'))
 
-const props = defineProps<{ projectId: string; positions?: Record<string, { x: number; y: number }> }>()
-const emit = defineEmits<{ select: [id: string]; 'update:positions': [positions: Record<string, { x: number; y: number }>] }>()
+const props = defineProps<{ projectId: string; canSave?: boolean; saveStatus?: '' | 'saving' | 'saved' | 'error' | 'conflict'; positions?: Record<string, { x: number; y: number }> }>()
+const emit = defineEmits<{ select: [id: string]; 'retry-save': []; 'reload-positions': []; 'update:positions': [positions: Record<string, { x: number; y: number }>] }>()
 const store = useWorldStore()
 const selectedNode = ref<CardSummary | null>(null)
-const spatial = ref(false)
-const renderer = ref<{ resetCamera: () => void } | null>(null)
+// 平面 / 3D 星图，记住上次选的
+const SPATIAL_KEY = 'taichu.world.graph3d'
+const spatial = ref((() => { try { return localStorage.getItem(SPATIAL_KEY) === '1' } catch { return false } })())
+function setSpatial(on: boolean) {
+  spatial.value = on
+  try { localStorage.setItem(SPATIAL_KEY, on ? '1' : '0') } catch { /* 隐私模式 */ }
+}
+const worldTitle = computed(() => store.currentProject?.name ?? '')
+const router = useRouter()
+// 3D 星图里，本世界的小说作为「故事」出现在最后一层（脉络的输出）
+const novels = ref<NovelBrief[]>([])
+watch([() => props.projectId, spatial], async ([id, on]) => {
+  if (!on || !id) return
+  try { novels.value = await worldNovelApi.list({ projectId: id }) } catch { novels.value = [] }
+}, { immediate: true })
+const spatialTypeLabel = (t: string) => (t === 'novel' ? '小说' : getTypeLabel(t))
+// 条目封面：3D 星图聚焦时把封面变成粒子画像
+const covers = computed(() => {
+  const out: Record<string, string> = {}
+  for (const card of store.cards) { const url = parseCoverImage(card.coverImage); if (url) out[card.id] = url }
+  for (const n of novels.value) if (n.coverUrl) out[`novel:${n.id}`] = n.coverUrl
+  return out
+})
+const renderer = ref<{ resetCamera: (scope?: 'all' | 'selection') => void } | null>(null)
 const references = ref<Record<string, string[]>>({})
 const detailsLoading = ref(false)
 const error = ref('')
@@ -65,6 +96,7 @@ const graphData = computed(() => buildWorldGraph(store.cards, store.allRelations
 const typeFilter = ref<string>('')
 const searchQuery = ref('')
 const focusNodeId = ref<string>('')
+watch(() => props.projectId, () => { focusNodeId.value = ''; searchQuery.value = ''; typeFilter.value = '' })
 const availableTypes = computed(() => [...new Set(graphData.value.nodes.map(n => n.type))])
 const filteredData = computed(() => {
   let nodes = graphData.value.nodes
@@ -88,12 +120,9 @@ const filteredData = computed(() => {
     links: graphData.value.links.filter(l => allowed.has(l.source) && allowed.has(l.target))
   }
 })
-function toggleTypeFilter(type: string) {
-  typeFilter.value = typeFilter.value === type ? '' : type
-  focusNodeId.value = ''
-}
 function showAll() { searchQuery.value = ''; typeFilter.value = ''; selectedNode.value = null; exitFocus() }
 function exitFocus() {
+  selectedNode.value = null
   focusNodeId.value = ''
 }
 
@@ -109,7 +138,15 @@ watch(displayedNodes, nodes => {
   if (selectedNode.value && !nodes.some(node => node.id === selectedNode.value?.id)) selectedNode.value = null
 })
 
+/** 3D 星图的数据：全部条目时再加上小说 */
+const spatialData = computed(() => {
+  const d = filteredData.value
+  if (focusNodeId.value || searchQuery.value.trim() || (typeFilter.value && typeFilter.value !== 'novel') || !novels.value.length) return d
+  return { nodes: [...d.nodes, ...novels.value.map(n => ({ id: `novel:${n.id}`, title: `《${n.title}》`, type: 'novel', color: '#f472b6' }))], links: d.links }
+})
+
 function selectNode(id: string) {
+  if (id.startsWith('novel:')) { void router.push(`/novels/${id.slice(6)}`); return }
   selectedNode.value = store.getCardById(id, props.projectId) ?? null
   focusNodeId.value = id || ''
   if (id) void store.loadCardDetail(props.projectId, id).catch(() => {
@@ -127,8 +164,10 @@ defineExpose({ refresh })
 </script>
 <style scoped>
 .relation-graph-wrapper{height:100%;min-height:480px;display:flex;flex-direction:column;background:var(--paper-card);color:var(--text-primary);position:relative}
-.graph-toolbar,.graph-filter-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px 0;flex-wrap:wrap}.graph-toolbar strong{font-size:16px}.graph-count{margin-left:12px;color:var(--text-secondary);font-size:12px}.graph-actions{display:flex;gap:8px}
-button,select,input{font:inherit;font-size:13px;border:1px solid var(--border-line);background:var(--paper-card);color:var(--text-primary);border-radius:6px;padding:8px 10px}button,select{cursor:pointer}button:hover{background:var(--bg-sub)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent-color);outline-offset:2px}
+.graph-conflict{padding:10px 12px;border-left:3px solid var(--accent-color);background:var(--accent-soft);display:flex;align-items:center;gap:12px;flex-wrap:wrap}.graph-conflict button{flex-shrink:0}
+.graph-toolbar,.graph-filter-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px 0;flex-wrap:wrap}.graph-toolbar strong{font-size:16px}.graph-count{margin-left:12px;color:var(--text-secondary);font-size:12px}.graph-actions{display:flex;gap:8px;align-items:center}.graph-save{font-size:12px;color:var(--text-secondary)}
+button,select,input{font:inherit;font-size:13px;border:1px solid var(--border-line);background:var(--paper-card);color:var(--text-primary);border-radius:0;padding:8px 10px}button,select{cursor:pointer}button:hover{background:var(--bg-sub)}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent-color);outline-offset:2px}
+.view-switch{display:inline-flex;border:1px solid var(--border-line)}.view-switch button{border:0;padding:6px 12px;color:var(--text-secondary)}.view-switch button+button{border-left:1px solid var(--border-line)}.view-switch button.on{background:var(--accent-soft, rgb(45 212 191 / 12%));color:var(--accent-color);font-weight:600}
 .graph-filter-bar{justify-content:flex-start;padding-top:12px}.graph-filter-bar input{width:min(240px,100%);box-sizing:border-box}.graph-message{font-size:12px;line-height:1.6;color:var(--text-secondary);margin:10px 20px}.graph-body{display:flex;position:relative;flex:1;min-height:320px;overflow:hidden;border-top:1px solid var(--border-line)}.graph-canvas{position:relative;flex:1;min-width:0}.graph-empty{position:absolute;top:40%;width:100%;text-align:center;pointer-events:none;color:var(--text-secondary)}
 .node-popup{width:240px;flex-shrink:0;max-height:100%;box-sizing:border-box;overflow:auto;padding:16px;background:var(--paper-card);border:1px solid var(--border-line);border-radius:0;box-shadow:none}.popup-heading{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;color:var(--text-secondary);font-size:12px}.popup-heading button{border:0;padding:0 4px;font-size:20px}.node-popup strong{overflow-wrap:anywhere}.node-popup p{font-size:13px;line-height:1.7;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}.popup-tags{display:flex;flex-wrap:wrap;gap:6px;font-size:12px;color:var(--text-secondary)}.detail-button{margin-top:14px;width:100%}.graph-legend{display:flex;flex-wrap:wrap;gap:16px;padding:10px 20px;border-top:1px solid var(--border-line);color:var(--text-secondary);font-size:11px}
 @media(max-width:600px){.relation-graph-wrapper{height:auto;min-height:65dvh}.has-selection .graph-body{height:560px}.graph-toolbar,.graph-filter-bar{padding-left:12px;padding-right:12px}.graph-count{display:block;margin:4px 0 0}.graph-message{margin-left:12px;margin-right:12px}.graph-body{flex:none;flex-direction:column;height:380px;min-height:380px}.graph-canvas{min-height:260px}.node-popup{width:100%;max-height:210px;border-width:1px 0 0}.graph-filter-bar input{flex:1;min-width:120px;width:120px}}

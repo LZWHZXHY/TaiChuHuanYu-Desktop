@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authorization;
 using System.Reflection;
 using Microsoft.AspNetCore.Mvc;
@@ -82,6 +82,18 @@ static class WorldDraftChecks
         Check((await service.GetCardsByIdsAsync(pid, new[] { id, foreign.Id }, Guid.Empty)).Select(c => c.Id).SequenceEqual(new[] { id }), "batch export stays within the readable project");
         card.ContentBlocks = "broken legacy JSON";
         Check((await service.GetReferencesAsync(pid, owner))[id].Contains(target.Id), "malformed legacy blocks do not suppress valid inline references");
+        // 图谱旧客户端与权限失败必须在数据库写入之前被拦截。
+        var graphController = new WorldProjectsController(null!, db) {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
+        graphController.HttpContext.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+            new[] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, owner.ToString()) }, "test"));
+        Check(await graphController.SaveGraphPositions(pid, new GraphPositionsDto { Positions = "{}" }) is ObjectResult { StatusCode: 428 }, "legacy graph client must refresh before writing");
+        Check(await graphController.SaveGraphPositions(pid, new GraphPositionsDto { ExpectedPositions = "{}" }) is BadRequestObjectResult, "null graph payload cannot clear saved layout");
+        Check(await graphController.SaveGraphPositions(Guid.NewGuid(), new GraphPositionsDto { Positions = "{}", ExpectedPositions = "{}" }) is NotFoundObjectResult, "missing graph cannot be saved");
+        graphController.HttpContext.User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+            new[] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "test"));
+        Check(await graphController.SaveGraphPositions(pid, new GraphPositionsDto { Positions = "{}", ExpectedPositions = "{}" }) is ForbidResult, "non-owner cannot save graph or receive conflicting positions");
         return checks;
     }
 }

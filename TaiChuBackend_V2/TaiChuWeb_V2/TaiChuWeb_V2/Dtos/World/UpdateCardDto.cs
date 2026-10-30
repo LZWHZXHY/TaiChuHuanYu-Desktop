@@ -34,6 +34,9 @@ namespace TaiChuWeb_V2.Dtos.World
 
         public string? Content { get; set; }
 
+        /// <summary>区块排列 JSON；省略时不改，传空字符串表示恢复默认排列</summary>
+        public string? Layout { get; set; }
+
         public string? CoverImage { get; set; }
 
         // 省略时保留既有关系；传空数组时清空出向关系。

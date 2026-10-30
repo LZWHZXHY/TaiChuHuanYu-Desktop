@@ -31,11 +31,9 @@ namespace TaiChuWeb_V2.Controllers.World
             {
                 usedWorldCount = stats.UsedWorldCount,
                 maxWorldCount = stats.MaxWorldCount,
-                remainingWorldCount = stats.MaxWorldCount - stats.UsedWorldCount,
+                remainingWorldCount = Math.Max(0, stats.MaxWorldCount - stats.UsedWorldCount),
                 maxCardsPerWorld = stats.MaxCardsPerWorld,
-                experience = stats.Experience,
-                expCostPerWorldSlot = WorldQuotaConstants.EXP_COST_PER_WORLD_SLOT,
-                expCostPer10Cards = WorldQuotaConstants.EXP_COST_PER_10_CARDS
+                experience = stats.Experience
             });
         }
 
@@ -75,36 +73,10 @@ namespace TaiChuWeb_V2.Controllers.World
             });
         }
 
-        /// <summary>
-        /// 用经验扩容配额
-        /// </summary>
+        // 扩容统一走交易行（额度类商品：MaxWorldCount / MaxCardsPerWorld），这里不再单独扣经验。
         [HttpPost("upgrade")]
-        public async Task<IActionResult> UpgradeQuota([FromBody] UpgradeQuotaRequest request)
-        {
-            var userId = CurrentUserId;
-            var result = await _quotaService.UpgradeQuotaAsync(userId, request.UpgradeType);
-
-            if (!result.Success)
-            {
-                return BadRequest(new
-                {
-                    success = false,
-                    message = result.Message,
-                    remainingExp = result.RemainingExp
-                });
-            }
-
-            return Ok(new
-            {
-                success = true,
-                message = result.Message,
-                newValue = result.NewValue,
-                previousValue = result.PreviousValue,
-                costExp = result.CostExp,
-                remainingExp = result.RemainingExp,
-                upgradeType = result.UpgradeTypeName
-            });
-        }
+        public IActionResult UpgradeQuota() =>
+            StatusCode(StatusCodes.Status410Gone, new { success = false, message = "世界观扩容已移到交易行，请到交易行兑换" });
 
         /// <summary>
         /// 获取扩容历史

@@ -127,7 +127,7 @@ const groupedEntries = computed(() => {
   background: rgba(255, 255, 255, 0.6);
   backdrop-filter: blur(10px);
   border: 1px solid var(--c-border);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 24px;
   cursor: pointer;
   overflow: hidden;
@@ -189,7 +189,7 @@ const groupedEntries = computed(() => {
   color: var(--c-text-light);
   background: #f4f4f5;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .card-footer svg {

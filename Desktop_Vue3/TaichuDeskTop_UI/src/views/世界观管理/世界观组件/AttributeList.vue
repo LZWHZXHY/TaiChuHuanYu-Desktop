@@ -120,7 +120,7 @@ watch(() => props.modelValue, (val) => {
 .add-btn {
   padding: 2px 12px;
   border: 1px dashed var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
@@ -145,7 +145,7 @@ watch(() => props.modelValue, (val) => {
 .attr-key {
   flex: 1;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 4px 8px;
   font-size: 13px;
   background: var(--paper-card);
@@ -158,7 +158,7 @@ watch(() => props.modelValue, (val) => {
 .attr-value {
   flex: 2;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 4px 8px;
   font-size: 13px;
   background: var(--paper-card);
@@ -182,7 +182,7 @@ watch(() => props.modelValue, (val) => {
 .bool-btn {
   padding: 4px 16px;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--paper-card);
   cursor: pointer;
   font-size: 13px;
@@ -199,7 +199,7 @@ watch(() => props.modelValue, (val) => {
 .attr-type {
   flex: 0 0 80px;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 4px 6px;
   font-size: 12px;
   background: var(--paper-card);

@@ -81,11 +81,11 @@ onMounted(load)
 .form { display: grid; gap: 18px; max-width: 520px; }
 .field { display: grid; gap: 6px; font-size: .85rem; }
 .field span { font-weight: 500; color: var(--text-primary); }
-.field input { padding: 10px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); color: var(--text-primary); font-size: .9rem; }
+.field input { padding: 10px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); font-size: .9rem; }
 .field input:focus { outline: none; border-color: var(--accent-color); }
 .field small { color: var(--text-secondary); font-size: .74rem; line-height: 1.6; }
 .actions { display: flex; align-items: center; gap: 14px; }
-.btn { padding: 9px 20px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .85rem; }
+.btn { padding: 9px 20px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .85rem; }
 .btn.primary { background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color); }
 .btn:disabled { opacity: .5; cursor: default; }
 .saved { color: var(--success); font-size: .82rem; }

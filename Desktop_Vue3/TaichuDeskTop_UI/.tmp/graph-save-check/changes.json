@@ -1,0 +1,42 @@
+[
+  {
+    "file": "tests\\world-components.test.mjs",
+    "added": 128,
+    "removed": 1
+  },
+  {
+    "file": "src\\api\\worldApi.ts",
+    "added": 3,
+    "removed": 0
+  },
+  {
+    "file": "src\\stores\\world.ts",
+    "added": 41,
+    "removed": 0
+  },
+  {
+    "file": "src\\utils\\worldGraph.ts",
+    "added": 18,
+    "removed": 0
+  },
+  {
+    "file": "src\\utils\\worldGraphLayout.ts",
+    "added": 18,
+    "removed": 16
+  },
+  {
+    "file": "src\\views\\世界观管理\\ProjectDetail.vue",
+    "added": 32,
+    "removed": 16
+  },
+  {
+    "file": "src\\views\\世界观管理\\世界观组件\\FlatWorldGraph.vue",
+    "added": 33,
+    "removed": 18
+  },
+  {
+    "file": "src\\views\\世界观管理\\世界观组件\\RelationGraph.vue",
+    "added": 8,
+    "removed": 6
+  }
+]

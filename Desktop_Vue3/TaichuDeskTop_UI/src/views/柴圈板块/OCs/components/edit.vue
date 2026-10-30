@@ -1,6 +1,6 @@
 <template>
-  <div class="community-detail edit-page">
-    <div class="page-header">
+  <div class="community-detail edit-page workbench-skin editor-surface community-surface tone-chai">
+    <div class="page-header studio-heading"><SectionTrace />
       <h1 class="page-title">✎ 编辑 OC</h1>
       <p class="page-subtitle">修改「{{ character?.title || '角色' }}」的设定</p>
     </div>
@@ -20,6 +20,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { computed, ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useStickmanStore } from '../stickman_store.ts'

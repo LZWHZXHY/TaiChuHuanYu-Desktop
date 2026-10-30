@@ -45,7 +45,7 @@ defineExpose({ getDocument: () => editorRef.value?.getSnapshot() });
   <div class="editor-scroll-body">
     <div v-if="props.isContentLoading" class="content-loading-state">
       <div class="mini-spinner"></div>
-      <p>正在感应灵脉碎片...</p>
+      <p>正在打开笔记…</p>
     </div>
 
     <template v-else-if="props.displayNote">

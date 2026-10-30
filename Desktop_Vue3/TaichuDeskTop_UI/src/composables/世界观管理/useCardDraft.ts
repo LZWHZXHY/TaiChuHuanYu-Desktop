@@ -1,6 +1,7 @@
 import { computed, onScopeDispose, ref, watch, type Ref } from 'vue'
 import { useUserStore } from '@/stores/user'
 import type { CardForm } from './useCardForm'
+import { defaultLayout, normalizeLayout } from '@/utils/worldLayout'
 
 type Draft = { version: 1; key: string; updatedAt: number; baseline: string; form: CardForm }
 type Candidate = Draft & { storageKey: string; raw: string }
@@ -34,6 +35,9 @@ export function useCardDraft(form: Ref<CardForm>) {
     const draft = JSON.parse(raw) as Draft
       // 严格检查表单字段和集合，损坏或不同版本的数据不能进入编辑器。
       const candidate = draft.form
+      // 旧版草稿（没有别名和区块排列）：补上默认值
+      if (candidate && !Array.isArray(candidate.aliases)) candidate.aliases = []
+      if (candidate) candidate.layout = normalizeLayout(candidate.layout) ?? defaultLayout(candidate)
       const strings = ['title', 'type', 'coverImage', 'description'] as const
       const lists = ['galleryImages', 'attributes', 'tags', 'relations', 'contentBlocks', 'timelineEvents'] as const
       if (draft.version !== 1 || draft.key !== baseKey || !Number.isFinite(draft.updatedAt) || typeof draft.baseline !== 'string'

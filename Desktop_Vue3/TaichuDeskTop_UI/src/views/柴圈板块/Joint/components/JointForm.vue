@@ -390,7 +390,7 @@ function handleSubmit() {
 .upload-area {
   border: 1px dashed var(--line-raw);
   padding: 16px;
-  border-radius: 4px;
+  border-radius: 0;
   background: var(--paper-sub);
   min-height: 120px;
   display: flex;
@@ -409,7 +409,7 @@ function handleSubmit() {
   width: 100%;
   aspect-ratio: 16/9;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 0;
   border: 1px solid var(--line-raw);
 }
 
@@ -419,7 +419,7 @@ function handleSubmit() {
   right: -8px;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
+  border-radius: 0;
   border: none;
   background: rgba(44, 42, 41, 0.8);
   color: var(--text-primary);

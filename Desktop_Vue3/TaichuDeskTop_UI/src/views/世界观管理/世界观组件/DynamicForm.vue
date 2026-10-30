@@ -252,7 +252,7 @@ watch(
 .df-textarea {
   width: 100%;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 6px 10px;
   font-size: 13px;
   font-family: inherit;
@@ -279,7 +279,7 @@ watch(
 .df-button {
   padding: 4px 14px;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--paper-card);
   cursor: pointer;
   font-size: 13px;
@@ -307,7 +307,7 @@ watch(
 .df-tags-input input {
   flex: 1;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 4px 8px;
   font-size: 13px;
   background: var(--paper-card);
@@ -320,7 +320,7 @@ watch(
 .df-tags-input button {
   padding: 4px 12px;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--paper-card);
   cursor: pointer;
   font-size: 13px;
@@ -341,7 +341,7 @@ watch(
   padding: 2px 8px 2px 10px;
   background: var(--accent-soft);
   color: var(--accent-color);
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 12px;
 }
 .df-tag-remove {
@@ -370,7 +370,7 @@ watch(
 .df-custom-placeholder {
   padding: 12px;
   border: 1px dashed var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   text-align: center;
   color: var(--text-secondary);
   font-size: 13px;

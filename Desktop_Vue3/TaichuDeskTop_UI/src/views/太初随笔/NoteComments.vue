@@ -21,9 +21,9 @@
     <div v-else-if="!items.length && !loadError" class="comment-state"><strong>还没有评论</strong><p>你的感受，也许就是创作者期待的回应。</p></div>
     <ol class="comment-list">
       <li v-for="item in items" :key="item.id" :class="{ 'is-reply': item.parentId, 'is-deleted': item.isDeleted }">
-        <div class="comment-avatar" aria-hidden="true"><span>{{ item.authorName?.[0] || '访' }}</span><img v-if="item.avatar" :src="item.avatar" alt="" loading="lazy" @error="($event.target as HTMLImageElement).hidden = true" /></div>
+        <AvatarFrame :user-id="item.isDeleted ? null : item.userId" size="sm" class="comment-frame"><UserLink class="comment-avatar" :id="item.isDeleted ? null : item.userId" :name="item.authorName"><span aria-hidden="true">{{ item.authorName?.[0] || '访' }}</span><img v-if="item.avatar" :src="item.avatar" alt="" loading="lazy" @error="($event.target as HTMLImageElement).hidden = true" /></UserLink></AvatarFrame>
         <div class="comment-body">
-          <div class="comment-meta"><strong>{{ item.authorName || '社区用户' }}</strong><time :datetime="item.createdAt" :title="new Date(item.createdAt).toLocaleString()">{{ formatDate(item.createdAt) }}</time></div>
+          <div class="comment-meta"><UserLink :id="item.isDeleted ? null : item.userId" :name="item.authorName"><strong>{{ item.authorName || '社区用户' }}</strong></UserLink><UserTitle v-if="!item.isDeleted" :user-id="item.userId" /><time :datetime="item.createdAt" :title="new Date(item.createdAt).toLocaleString()">{{ formatDate(item.createdAt) }}</time></div>
           <p v-if="item.replyToAuthor" class="reply-context">回复 <span>{{ item.replyToAuthor }}</span></p>
           <p class="comment-content">{{ item.isDeleted ? '这条评论已删除，回复仍然保留。' : item.content }}</p>
           <div v-if="!item.isDeleted" class="comment-actions">
@@ -41,6 +41,9 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
+import AvatarFrame from '@/components/AvatarFrame.vue'
+import UserTitle from '@/components/UserTitle.vue'
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { notePublishApi, type NoteComment } from '../../api/NotePublish'
 import { useUserStore } from '../../stores/user'
@@ -134,22 +137,23 @@ onUnmounted(() => { generation++; request++ })
 .comments { margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--border-line); color: var(--text-primary); text-align: left; }
 .comments-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
 .comments-heading h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 1.1rem; }
-.comments-heading h2 span { min-width: 24px; padding: 2px 7px; border-radius: 6px; background: var(--bg-sub); font-size: .75rem; text-align: center; }
+.comments-heading h2 span { min-width: 24px; padding: 2px 7px; border-radius: 0; background: var(--bg-sub); font-size: .75rem; text-align: center; }
 .comments-heading > span, .form-actions, .comment-meta time, .reply-context, .delete-hint { color: var(--text-secondary); font-size: .75rem; }
 .comment-composer, .comment-list li { display: flex; align-items: flex-start; gap: 12px; }
-.comment-avatar { position: relative; display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; overflow: hidden; border-radius: 50%; color: var(--text-secondary); background: var(--bg-sub); font-size: .85rem; }
+.comment-frame { align-self: flex-start; margin: 3px; }
+.comment-avatar { position: relative; display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; overflow: hidden; border-radius: 0; color: var(--text-secondary); background: var(--bg-sub); font-size: .85rem; }
 .comment-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .composer-body, .comment-body { flex: 1; min-width: 0; }
-.composer-field { border: 1px solid var(--border-line); border-radius: 12px; background: var(--bg-sub); overflow: hidden; }
+.composer-field { border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-sub); overflow: hidden; }
 .composer-field:focus-within { border-color: var(--accent-color); background: var(--paper-card); }
 textarea { display: block; width: 100%; min-height: 90px; box-sizing: border-box; resize: vertical; padding: 14px; font: inherit; font-size: .9rem; line-height: 1.7; color: inherit; background: transparent; border: 0; }
 textarea:focus { outline: 0; } textarea::placeholder { color: var(--text-secondary); }
 button { font: inherit; cursor: pointer; } button:disabled { opacity: .5; cursor: default; }
 button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
 .form-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 12px 12px 14px; font-variant-numeric: tabular-nums; }
-.submit-comment { padding: 8px 16px; border: 0; border-radius: 8px; background: var(--accent-color); color: var(--on-accent); font-size: .8rem; font-weight: 600; }
+.submit-comment { padding: 8px 16px; border: 0; border-radius: 0; background: var(--accent-color); color: var(--on-accent); font-size: .8rem; font-weight: 600; }
 .submit-comment:disabled { color: var(--text-secondary); background: var(--paper-card); opacity: 1; }
-.reply-preview { padding: 10px 12px; margin-bottom: 10px; border-left: 2px solid var(--accent-color); background: var(--accent-soft); border-radius: 0 8px 8px 0; font-size: .8rem; }
+.reply-preview { padding: 10px 12px; margin-bottom: 10px; border-left: 2px solid var(--accent-color); background: var(--accent-soft); border-radius: 0; font-size: .8rem; }
 .reply-preview > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .reply-preview p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; color: var(--text-secondary); margin: 4px 0 0; line-height: 1.6; }
 .comment-list { padding: 0; margin: 20px 0 0; list-style: none; }
@@ -157,6 +161,8 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3
 .comment-list li + li { border-top: 1px solid var(--border-line); }
 .comment-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
 .comment-meta strong { font-size: .85rem; overflow-wrap: anywhere; }
+.comment-meta .comment-author { font-size: .85rem; font-weight: 600; color: var(--text-primary); text-decoration: none; overflow-wrap: anywhere; }
+.comment-meta .comment-author:hover { color: var(--accent-color); text-decoration: underline; }
 .comment-meta time { margin-left: auto; }
 .comment-content { margin: 8px 0; font-size: .9rem; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.85; }
 .reply-context { margin: 8px 0 0; padding-left: 9px; border-left: 2px solid var(--border-line); }
@@ -169,7 +175,7 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3
 .comment-error { padding: 12px; font-size: .85rem; border-left: 2px solid currentColor; background: var(--accent-soft); }
 .comment-state { padding: 28px 12px; margin: 12px 0 0; text-align: center; color: var(--text-secondary); font-size: .85rem; }
 .comment-state strong { color: var(--text-primary); font-weight: 500; } .comment-state p { margin: 8px 0 0; line-height: 1.7; }
-.load-comments { display: block; margin: 12px auto 0; padding: 10px 20px; color: var(--text-secondary); background: var(--bg-sub); border: 1px solid var(--border-line); border-radius: 8px; font-size: .8rem; }
+.load-comments { display: block; margin: 12px auto 0; padding: 10px 20px; color: var(--text-secondary); background: var(--bg-sub); border: 1px solid var(--border-line); border-radius: 0; font-size: .8rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 @media (max-width: 520px) {
   .comment-composer > .comment-avatar { display: none; }

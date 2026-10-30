@@ -35,7 +35,7 @@ const deleteSelf = () => {
 .pdf-embed-wrapper {
   margin: 16px 0;
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--paper-card);
 }
@@ -60,7 +60,7 @@ const deleteSelf = () => {
 .pdf-actions { display: flex; gap: 8px; }
 .pdf-btn {
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 12px;
   font-weight: 500;
   text-decoration: none;

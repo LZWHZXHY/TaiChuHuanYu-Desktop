@@ -78,7 +78,7 @@ onUnmounted(() => {
   right: 24px;
   z-index: 10000;
   background: var(--paper-card);
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 6px 16px -8px rgba(0,0,0,0.08), 0 9px 28px 0 rgba(0,0,0,0.05), 0 12px 48px 16px rgba(0,0,0,0.03);
   padding: 16px;
   width: min(380px, calc(100vw - 32px));
@@ -121,7 +121,7 @@ onUnmounted(() => {
 .error-details {
   margin-top: 8px;
   border: 1px solid var(--border-line);
-  border-radius: 4px;
+  border-radius: 0;
   background: var(--paper-card);
 }
 .error-details summary {

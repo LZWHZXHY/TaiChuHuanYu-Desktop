@@ -1,6 +1,7 @@
 // src/composables/世界观管理/useCardForm.ts
 import { ref } from 'vue'
-import type { CardDetail } from '@/api/types/world'
+import type { CardDetail, TimelineEvent } from '@/api/types/world'
+import { defaultLayout, resolveLayout, type CardLayout } from '@/utils/worldLayout'
 import type { CardType, AttributeItem, ContentBlock } from '@/views/世界观管理/card_type'
 
 function createEmptyCardForm() {
@@ -15,7 +16,10 @@ function createEmptyCardForm() {
     tags: [] as string[],
     relations: [] as { targetCardId: string; relationType: string }[],
     contentBlocks: [] as ContentBlock[],
-    timelineEvents: [] as { date: string; era?: string | null; title: string; description: string | null }[],
+    timelineEvents: [] as TimelineEvent[],
+    aliases: [] as string[],
+    /** 区块排列（背景、性格这类文本块的内容也在这里） */
+    layout: defaultLayout({}) as CardLayout,
   }
 }
 
@@ -49,12 +53,15 @@ export function cardToForm(card: CardDetail): CardForm {
     description: card.description || '', content, tags: Array.isArray(card.tags) ? card.tags : [],
     relations: (card.outRelations || []).map(r => ({ targetCardId: r.targetCardId, relationType: r.relationType })),
     contentBlocks: card.contentBlocks || [], timelineEvents: card.timelineEvents || [],
+    aliases: Array.isArray(card.aliases) ? card.aliases : [],
+    layout: resolveLayout(card.layout, card),
   }))
 }
 
 export const cardFieldLabels: Record<keyof CardForm, string> = {
   title: '名称', type: '条目类型', coverImage: '封面', galleryImages: '图库', attributes: '自定义属性',
   description: '正文', content: '类型属性', tags: '标签', relations: '设定关系', contentBlocks: '引用设定', timelineEvents: '时间线',
+  aliases: '别名', layout: '区块（文本块、图片块和排列）',
 }
 const stable = (value: unknown): string => JSON.stringify(value, (_key, item) => item && typeof item === 'object' && !Array.isArray(item)
   ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]])) : item)

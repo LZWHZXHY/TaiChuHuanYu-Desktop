@@ -38,7 +38,7 @@ namespace TaiChuWeb_V2.Services.Publish
                 using var transaction = await _context.Database.BeginTransactionAsync();
                 try
                 {
-                    var defaultTitles = new[] { "默认标题", "新灵感碎片", "灵感碎片" };
+                    var defaultTitles = new[] { "默认标题", "新灵感碎片", "灵感碎片", "未命名笔记" };
                     var title = string.IsNullOrWhiteSpace(note.Title) || defaultTitles.Contains(note.Title)
                         ? (excerpt.Length > 15 ? excerpt[..15] + "..." : excerpt)
                         : note.Title;

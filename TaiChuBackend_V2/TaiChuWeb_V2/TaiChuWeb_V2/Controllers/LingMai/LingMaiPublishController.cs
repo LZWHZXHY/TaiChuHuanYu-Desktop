@@ -52,6 +52,15 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 return BadRequest(new { message = "普通随笔碎片属于私密草稿，无法直接发布" });
             }
 
+            // 「服务器公告」小类只允许管理员发布。前端发布前会先把分区标签写入草稿，这里同时检查草稿标签和请求标签。
+            var draftTags = await _context.Notes.AsNoTracking().Where(n => n.Id == id).Select(n => n.Tags).FirstOrDefaultAsync();
+            if (HasTag(draftTags, AnnouncementTag) || (req.tags?.Contains(AnnouncementTag) ?? false))
+            {
+                var publisherId = Guid.Parse(CurrentUserId!);
+                if (!await _context.UserPermissions.AnyAsync(p => p.UserId == publisherId))
+                    return StatusCode(403, new { message = "「服务器公告」只有管理员可以发布，请换一个小类" });
+            }
+
             // 🌟 纯粹的多态派发：前端发布面板传来什么 type (例如 "doc")，大厅直接交由对应的 Handler 处理
             if (!_publishHandlers.TryGetValue(req.type, out var handler))
             {
@@ -133,6 +142,24 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
         #endregion
 
+        private const string AnnouncementTag = "服务器公告";
+
+        // 标签以 JSON 数组保存；兼容旧数据中的逗号分隔字符串。
+        private static bool HasTag(string? tags, string tag)
+        {
+            if (string.IsNullOrWhiteSpace(tags)) return false;
+            try { return JsonSerializer.Deserialize<string[]>(tags)?.Contains(tag) == true; }
+            catch (JsonException) { return tags.Split(',', StringSplitOptions.TrimEntries).Contains(tag); }
+        }
+
+        // 使用发布时的标签快照筛选，兼容 Unicode 转义和未转义的旧 JSON。
+        private static IQueryable<PublishedNote> WhereTag(IQueryable<PublishedNote> query, string tag)
+        {
+            var encoded = JsonSerializer.Serialize(tag);
+            var literal = JsonSerializer.Serialize(tag, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+            return query.Where(pn => pn.Tags != null && (pn.Tags.Contains(encoded) || pn.Tags.Contains(literal) || pn.Tags == tag));
+        }
+
         private async Task<IActionResult?> CheckOwnerAsync(Guid id, string? type = null)
         {
             var note = await _context.Notes.AsNoTracking().FirstOrDefaultAsync(n => n.Id == id);
@@ -178,9 +205,19 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             [FromQuery] string? type,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 20,
-            [FromQuery] string? tag = null)
+            [FromQuery] string? tag = null,
+            [FromQuery] string? sub = null,
+            [FromQuery] Guid? author = null)
         {
             var query = PublicNotes();
+
+            // 个人主页：只看某位用户发布的内容（发布快照通过所在空间归属到作者）。
+            // spaces 与 PublishedNotes 两表排序规则不同，不能在 SQL 里直接比较两列，先取出作者的空间 ID 再筛选。
+            if (author is Guid authorId)
+            {
+                var authorSpaceIds = await AuthorSpaceIds(_context, authorId);
+                query = query.Where(pn => authorSpaceIds.Contains(pn.SpaceId));
+            }
 
             if (string.IsNullOrEmpty(type)) //[cite: 1]
             {
@@ -192,21 +229,20 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 query = query.Where(pn => pn.Type == type); //[cite: 1]
             }
 
-            if (!string.IsNullOrWhiteSpace(tag))
+            // tag 是分区（如「我的世界」），sub 是分区内的小类（如「作品分享」），两者同时满足。
+            foreach (var value in new[] { tag, sub })
             {
-                tag = tag.Trim();
-                if (tag.Length > 50) return BadRequest(new { message = "分类标签不能超过 50 字" });
-                // 使用发布时的标签快照，兼容 Unicode 转义和未转义的旧 JSON。
-                var encoded = JsonSerializer.Serialize(tag);
-                var literal = JsonSerializer.Serialize(tag, new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
-                query = query.Where(pn => pn.Tags != null && (pn.Tags.Contains(encoded) || pn.Tags.Contains(literal) || pn.Tags == tag));
+                if (string.IsNullOrWhiteSpace(value)) continue;
+                var trimmed = value.Trim();
+                if (trimmed.Length > 50) return BadRequest(new { message = "分类标签不能超过 50 字" });
+                query = WhereTag(query, trimmed);
             }
 
             var safePageSize = Math.Clamp(pageSize, 1, 50);
             page = Math.Clamp(page, 1, int.MaxValue / safePageSize);
             var skipCount = (page - 1) * safePageSize;
 
-            var stream = await query
+            var rows = await query
                 .OrderByDescending(pn => pn.PublishedAt)
                 .Skip(skipCount)
                 .Take(safePageSize)
@@ -220,6 +256,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                     pn.Resonance,
                     pn.AuthorName,
                     pn.ExtraData,
+                    pn.Tags,
                     // 🌟 评论数：评论锚定在发布内容的源草稿 Note 上。
                     //    comments.NoteId 与 PublishedNotes.OriginalNoteId 两列排序规则不同，
                     //    必须用 Collate 显式对齐，否则 MySQL 会抛「Illegal mix of collations」。
@@ -230,6 +267,30 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                     Excerpt = pn.Excerpt ?? "灵脉深处暂无回响..."
                 })
                 .ToListAsync();
+
+            // 作者 ID 用于点击作者名进入个人主页。两表排序规则不同，单独查一次空间归属再在内存里对应。
+            var spaceIds = rows.Select(r => r.SpaceId).Distinct().ToList();
+            var owners = (await _context.Spaces.AsNoTracking()
+                    .Where(s => spaceIds.Contains(s.Id))
+                    .Select(s => new { s.Id, s.UserId })
+                    .ToListAsync())
+                .GroupBy(s => s.Id).ToDictionary(g => g.Key, g => g.First().UserId);
+
+            var stream = rows.Select(r => new
+            {
+                r.Id,
+                r.Title,
+                r.Type,
+                r.SpaceId,
+                r.PublishedAt,
+                r.Resonance,
+                r.AuthorName,
+                AuthorId = owners.TryGetValue(r.SpaceId, out var owner) ? owner : null,
+                r.ExtraData,
+                r.Tags,
+                r.CommentsCount,
+                r.Excerpt
+            }).ToList();
 
             return Ok(stream);
         }
@@ -283,7 +344,17 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             });
         }
 
-        private IQueryable<PublishedNote> PublicNotes() => _context.PublishedNotes.AsNoTracking().Where(p => p.OriginalNoteId == null || !_context.Notes.Any(n => n.Id.ToString() == EF.Functions.Collate(p.OriginalNoteId.ToString(), "utf8mb4_general_ci")) || _context.Notes.Any(n => n.Id.ToString() == EF.Functions.Collate(p.OriginalNoteId.ToString(), "utf8mb4_general_ci") && n.IsPublic && n.Status != 2));
+        private IQueryable<PublishedNote> PublicNotes() => VisiblePublishedNotes(_context);
+
+        /// <summary>某位用户拥有的全部空间 ID，用来筛选其发布内容（避免跨表比较排序规则不同的列）。</summary>
+        public static Task<List<Guid>> AuthorSpaceIds(AppDbContext context, Guid userId)
+        {
+            var key = userId.ToString();
+            return context.Spaces.AsNoTracking().Where(s => s.UserId == key).Select(s => s.Id).ToListAsync();
+        }
+
+        // 对外可见的发布内容：源笔记已删除，或源笔记仍公开且未下架。个人主页统计也用它，口径保持一致。
+        public static IQueryable<PublishedNote> VisiblePublishedNotes(AppDbContext _context) => _context.PublishedNotes.AsNoTracking().Where(p => p.OriginalNoteId == null || !_context.Notes.Any(n => n.Id.ToString() == EF.Functions.Collate(p.OriginalNoteId.ToString(), "utf8mb4_general_ci")) || _context.Notes.Any(n => n.Id.ToString() == EF.Functions.Collate(p.OriginalNoteId.ToString(), "utf8mb4_general_ci") && n.IsPublic && n.Status != 2));
 
         [HttpGet("blog/{id:guid}")]
         public async Task<IActionResult> GetPublicBlog(Guid id)
@@ -292,6 +363,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
 
             if (publishedNote == null) return NotFound(new { message = "内容不存在" });
 
+            var authorId = await _context.Spaces.Where(s => s.Id == publishedNote.SpaceId).Select(s => s.UserId).FirstOrDefaultAsync();
             var canEdit = publishedNote.OriginalNoteId != null && await _context.Notes.AnyAsync(n => n.Id == publishedNote.OriginalNoteId && _context.Spaces.Any(s => s.Id == n.SpaceId && s.UserId == CurrentUserId));
             // 在内存中先转化为标准格式的字符串（全小写），确保 SQL 查询能完美命中
             string ownerIdStr = id.ToString().ToLower();
@@ -316,7 +388,7 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 title = publishedNote.Title,
                 type = publishedNote.Type,
                 publishedAt = publishedNote.PublishedAt,
-                authorName = publishedNote.AuthorName, tags = publishedNote.Tags, canEdit, originalNoteId = canEdit ? publishedNote.OriginalNoteId : null,
+                authorName = publishedNote.AuthorName, authorId, tags = publishedNote.Tags, canEdit, originalNoteId = canEdit ? publishedNote.OriginalNoteId : null,
                 blocks = blocksList
             });
         }

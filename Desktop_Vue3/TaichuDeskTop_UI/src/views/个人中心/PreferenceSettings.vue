@@ -109,7 +109,7 @@ onMounted(() => {
 .preference-panel {
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 24px;
   animation: fadeIn 0.4s ease;
 }
@@ -153,7 +153,7 @@ onMounted(() => {
   color: var(--on-accent);
   border: none;
   padding: 8px 24px;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   font-weight: 600;
   transition: opacity 0.3s;
@@ -179,7 +179,7 @@ onMounted(() => {
   top: 0; left: 0; right: 0; bottom: 0;
   background-color: var(--bg-sub);
   transition: .4s;
-  border-radius: 24px;
+  border-radius: 0;
 }
 .toggle-slider:before {
   position: absolute;

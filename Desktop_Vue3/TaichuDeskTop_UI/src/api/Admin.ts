@@ -13,9 +13,45 @@ export interface IStoreItem {
   baseWeight: number;
   benefit: string;
   description: string;
-  staticPayload?: string;
+  staticPayload?: string | null;
   isActive: boolean;
+  sortOrder?: number;
   createdAt?: string;
+  /** 土豆价；null = 不能用土豆买（发卡密 / 链接的商品只能用经验） */
+  potatoCost: number | null;
+  /** 效果：title 头衔 / frame 头像框 / bg 网站背景 / pbg 主页横幅或整页背景 / avatar 官方头像（值是素材 Id）/ rename 改名卡 */
+  effect: 'title' | 'frame' | 'bg' | 'pbg' | 'avatar' | 'rename' | null;
+  effectValue: string | null;
+  /** 以下只读：卡密总数 / 未发出、累计售出 */
+  secretsTotal?: number;
+  secretsUnused?: number;
+  sold?: number;
+}
+
+/** 后台上传的图片头像框 */
+export interface IFrameDef {
+  id: number;
+  key: string;
+  name: string;
+  url: string;
+  scale: number;
+  sortOrder: number;
+  enabled: boolean;
+  authorId: string | null;
+  authorName: string | null;
+}
+export interface IFrameDefSave { name: string; url: string; scale: number; authorId: string | null; sortOrder: number; enabled: boolean }
+
+/** 官方头像 */
+export interface IAvatarDef { id: number; name: string; url: string; animated: boolean; sortOrder: number; enabled: boolean; authorId: string | null; authorName: string | null }
+export interface IAvatarDefSave { name: string; url: string; animated: boolean; authorId: string | null; sortOrder: number; enabled: boolean }
+
+export interface IStoreSecret {
+  id: number;
+  code: string;
+  isUsed: boolean;
+  assignedAt: string | null;
+  assignedTo: string | null;
 }
 
 // 🌟 定义状态切换的返回结构
@@ -31,19 +67,46 @@ export const TradeApi = {
 
   /** 上架新资源 - 返回创建成功的对象 */
   createItem: (data: Partial<IStoreItem>) => 
-    request.post<IStoreItem>('/admin/trade/items', data),
+    request.post<IStoreItem>('/admin/trade/items', data, { silentError: true }),
 
   /** 更新资源详情 */
   updateItem: (id: number, data: Partial<IStoreItem>) => 
-    request.put<IStoreItem>(`/admin/trade/items/${id}`, data),
+    request.put<IStoreItem>(`/admin/trade/items/${id}`, data, { silentError: true }),
 
   /** 快速切换状态 - 返回 IToggleResponse */
   toggleStatus: (id: number) => 
     request.patch<IToggleResponse>(`/admin/trade/items/${id}/toggle`),
 
-  /** 核心补货逻辑 */
-  restockSecrets: (itemId: number, secrets: string[]) => 
-    request.post<any>(`/admin/trade/items/${itemId}/restock`, { secrets }),
+  /** 补卡密（一行一个） */
+  restockSecrets: (itemId: number, secrets: string[]) =>
+    request.post<{ added: number; skipped: number; unused: number }>(`/admin/trade/items/${itemId}/restock`, { secrets }, { silentError: true }),
+
+  /** 卡密明细（打码显示） */
+  secrets: (itemId: number) =>
+    request.get<IStoreSecret[]>(`/admin/trade/items/${itemId}/secrets`),
+
+  /** 图片头像框素材 */
+  frames: () => request.get<IFrameDef[]>('/admin/trade/frames'),
+  saveFrame: (body: IFrameDefSave, id?: number) =>
+    request.put<{ id: number; key: string }>('/admin/trade/frames', body, { params: id ? { id } : undefined, silentError: true }),
+  deleteFrame: (id: number) => request.delete(`/admin/trade/frames/${id}`, { silentError: true }),
+  /** 官方头像素材 */
+  avatars: () => request.get<IAvatarDef[]>('/admin/trade/avatars'),
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return request.post<{ url: string; animated: boolean }>('/admin/trade/avatars/upload', form, { silentError: true });
+  },
+  saveAvatar: (body: IAvatarDefSave, id?: number) =>
+    request.put<{ id: number }>('/admin/trade/avatars', body, { params: id ? { id } : undefined, silentError: true }),
+  deleteAvatar: (id: number) => request.delete(`/admin/trade/avatars/${id}`, { silentError: true }),
+
+  /** 按用户名找账号（填原作者） */
+  findUsers: (q: string) => request.get<{ userId: string; name: string }[]>('/admin/trade/users', { params: { q }, silentError: true }),
+
+  /** 删除一个还没发出去的卡密 */
+  deleteSecret: (itemId: number, secretId: number) =>
+    request.delete<{ ok: boolean }>(`/admin/trade/items/${itemId}/secrets/${secretId}`, { silentError: true }),
 };
 
 
@@ -131,4 +194,4 @@ export const wikiReviewApi = {
   /** 修正：添加 /api 前缀 */
   rollbackArticle: (articleId: string, targetRevisionId: number) => 
     request.post(`/wiki/governance/articles/${articleId}/rollback/${targetRevisionId}`, {}),
-};
+};

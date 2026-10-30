@@ -98,7 +98,7 @@ const rawHtml = computed(() => {
 
   } catch (e: any) {
     console.error('【灵脉高级清洗失败】:', e);
-    return `<div style="color: #ff3b30; font-size: 13px; padding: 10px; border: 1px dashed #ff3b30; border-radius: 4px;">
+    return `<div style="color: #ff3b30; font-size: 13px; padding: 10px; border: 1px dashed #ff3b30; border-radius: 0;">
               ⚠️ 百科词条局部发生极强磁场干扰 ，请尝试重新加载
             </div>`;
   }

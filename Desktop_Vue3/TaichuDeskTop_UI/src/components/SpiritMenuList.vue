@@ -77,7 +77,7 @@ defineExpose({ onKeyDown })
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(0, 0, 0, 0.08);
-  border-radius: 14px;
+  border-radius: 0;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
   padding: 8px;
   z-index: 9999;
@@ -108,7 +108,7 @@ defineExpose({ onKeyDown })
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -129,7 +129,7 @@ defineExpose({ onKeyDown })
   width: 32px;
   height: 32px;
   background: #f2f2f7;
-  border-radius: 8px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;

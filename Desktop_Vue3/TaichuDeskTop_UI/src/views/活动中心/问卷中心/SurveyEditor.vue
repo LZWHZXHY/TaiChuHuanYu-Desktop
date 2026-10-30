@@ -1,7 +1,7 @@
 <template>
-  <div v-if="!loading" class="survey-editor-container">
+  <div v-if="!loading" class="survey-editor-container workbench-skin editor-surface community-surface tone-library">
     <div class="form-card">
-      <div class="form-header">
+      <div class="form-header studio-heading"><SectionTrace />
         <h2>
           <i :class="isEditMode ? 'fas fa-edit' : 'fas fa-plus-circle'"></i>
           {{ isEditMode ? '编辑问卷' : '创建问卷' }}
@@ -338,6 +338,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import draggable from 'vuedraggable'
@@ -723,7 +724,7 @@ onMounted(() => {
 }
 .form-card {
   background: var(--paper-card);
-  border-radius: 16px;
+  border-radius: 0;
   padding: 32px 40px;
   border: 1px solid var(--border-line);
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
@@ -766,7 +767,7 @@ onMounted(() => {
   color: var(--text-secondary);
   background: var(--bg-sub);
   padding: 2px 12px;
-  border-radius: 12px;
+  border-radius: 0;
 }
 .form-group {
   margin-bottom: 16px;
@@ -785,7 +786,7 @@ onMounted(() => {
   width: 100%;
   padding: 10px 14px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 0.95rem;
   font-family: inherit;
   transition: border 0.2s;
@@ -823,7 +824,7 @@ onMounted(() => {
   padding: 40px 20px;
   color: var(--text-secondary);
   border: 2px dashed var(--border-line);
-  border-radius: 12px;
+  border-radius: 0;
 }
 .empty-questions i {
   font-size: 2.5rem;
@@ -841,9 +842,9 @@ onMounted(() => {
 .question-item {
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 16px 20px;
-  transition: all 0.2s;
+  transition: border-color .2s, background-color .2s;
 }
 .question-item:hover {
   border-color: var(--border-line);
@@ -873,7 +874,7 @@ onMounted(() => {
   background: var(--bg-sub);
   color: var(--text-secondary);
   padding: 2px 10px;
-  border-radius: 12px;
+  border-radius: 0;
   white-space: nowrap;
 }
 .q-title-input {
@@ -881,11 +882,11 @@ onMounted(() => {
   min-width: 150px;
   padding: 6px 12px;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 0.95rem;
   font-weight: 500;
   background: transparent;
-  transition: all 0.2s;
+  transition: border-color .2s, background-color .2s;
   color: var(--text-primary);
 }
 .q-title-input:hover {
@@ -921,9 +922,9 @@ onMounted(() => {
   background: none;
   border: none;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color .2s, background-color .2s;
   color: var(--text-secondary);
 }
 .btn-copy:hover { background: var(--bg-sub); color: var(--info); }
@@ -967,7 +968,7 @@ onMounted(() => {
   flex: 1;
   padding: 6px 12px;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 0.9rem;
   background: var(--paper-card);
   transition: border 0.2s;
@@ -981,12 +982,12 @@ onMounted(() => {
 .btn-remove-option {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
+  border-radius: 0;
   border: 1px solid var(--border-line);
   background: var(--paper-card);
   color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color .2s, background-color .2s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1000,12 +1001,12 @@ onMounted(() => {
 .btn-add-option {
   padding: 6px 16px;
   border: 1px dashed var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
   color: var(--text-secondary);
   font-size: 0.8rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color .2s, background-color .2s;
   margin-top: 4px;
 }
 .btn-add-option:hover:not(:disabled) {
@@ -1019,7 +1020,7 @@ onMounted(() => {
   padding: 12px 16px;
   background: var(--bg-main);
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   color: var(--success);
   font-size: 0.9rem;
 }
@@ -1044,7 +1045,7 @@ onMounted(() => {
   width: 60px;
   padding: 6px 10px;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   text-align: center;
 }
 .rating-range input:focus { outline: none; border-color: var(--info); }
@@ -1054,7 +1055,7 @@ onMounted(() => {
   gap: 4px;
   padding: 8px 12px;
   background: var(--paper-card);
-  border-radius: 8px;
+  border-radius: 0;
 }
 .rating-preview i {
   color: var(--text-secondary);
@@ -1070,7 +1071,7 @@ onMounted(() => {
 .sort-options .sort-item {
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 4px 12px;
 }
 .sort-icon {
@@ -1104,14 +1105,14 @@ onMounted(() => {
   flex: 1;
   padding: 6px 10px;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 0.85rem;
 }
 .matrix-item input:focus { outline: none; border-color: var(--info); }
 .btn-remove-matrix {
   width: 24px;
   height: 24px;
-  border-radius: 50%;
+  border-radius: 0;
   border: 1px solid var(--border-line);
   background: var(--paper-card);
   color: var(--text-secondary);
@@ -1130,12 +1131,12 @@ onMounted(() => {
   margin-top: 4px;
   padding: 4px 14px;
   border: 1px dashed var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
   color: var(--text-secondary);
   font-size: 0.75rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color .2s, background-color .2s;
 }
 .btn-add-matrix:hover:not(:disabled) {
   border-color: var(--info);
@@ -1153,12 +1154,12 @@ onMounted(() => {
 .add-question-btn {
   padding: 8px 16px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--paper-card);
   color: var(--text-primary);
   font-size: 0.8rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color .2s, background-color .2s;
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -1181,34 +1182,34 @@ onMounted(() => {
 .btn-cancel {
   padding: 10px 24px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--paper-card);
   color: var(--text-secondary);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color .2s, background-color .2s;
 }
 .btn-cancel:hover { background: var(--bg-sub); border-color: var(--border-line); }
 .btn-save-draft {
   padding: 10px 24px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--paper-card);
   color: var(--text-primary);
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color .2s, background-color .2s;
 }
 .btn-save-draft:hover:not(:disabled) { background: var(--bg-sub); border-color: var(--border-line); }
 .btn-publish {
   padding: 10px 32px;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   background: linear-gradient(135deg, var(--info), var(--accent-color));
   color: var(--on-accent);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: border-color .2s, background-color .2s;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -1241,4 +1242,7 @@ onMounted(() => {
   .form-actions { flex-direction: column; }
   .btn-cancel, .btn-save-draft, .btn-publish { width: 100%; justify-content: center; }
 }
+.rating-range input,.matrix-item input { background: var(--paper-card); color: var(--text-primary); min-width: 0; box-sizing: border-box; }
+.form-group input,.form-group textarea,.option-input,.q-desc-input { box-sizing: border-box; min-width: 0; }.question-item { border-left: 3px solid var(--surface-edge); border-radius: 0; }
+@media(prefers-reduced-motion:reduce) { * { transition: none !important; transform: none !important; } }
 </style>

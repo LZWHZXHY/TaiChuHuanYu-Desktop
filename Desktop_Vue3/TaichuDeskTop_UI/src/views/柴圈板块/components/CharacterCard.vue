@@ -1,6 +1,6 @@
 <template>
   <div class="oc-card" @click="emit('click', character.id)">
-    <div class="oc-canvas-box">
+    <div class="oc-canvas-box" data-depth>
       <img
         v-if="character.coverUrl"
         :src="withThumbnail(character.coverUrl, 400)"
@@ -29,7 +29,7 @@
 
     <div class="oc-name">{{ character.title }}</div>
     <div class="oc-meta">
-      <span>作者：{{ character.authorName }}</span>
+      <span>作者：<UserLink nested :id="character.authorId" :name="character.authorName" /></span>
       <span v-if="firstTag" style="color: var(--accent-color);">
         {{ firstTag }}
       </span>
@@ -45,6 +45,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { computed } from 'vue'
 import type { StickmanCharacter } from '../OCs/stickman'
 import { withThumbnail } from '@/utils/imageThumb'

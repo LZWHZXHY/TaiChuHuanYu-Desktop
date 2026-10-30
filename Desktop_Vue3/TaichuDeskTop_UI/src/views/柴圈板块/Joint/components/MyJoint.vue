@@ -203,7 +203,7 @@ onMounted(() => {
   color: var(--ink-light);
   background: var(--paper-sub);
   padding: 0 8px;
-  border-radius: 10px;
+  border-radius: 0;
 }
 
 .tab-btn.active .tab-count {

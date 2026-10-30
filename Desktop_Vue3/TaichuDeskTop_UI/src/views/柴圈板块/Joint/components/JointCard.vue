@@ -218,7 +218,7 @@ function formatDate(dateStr: string): string {
   font-size: 11px;
   letter-spacing: 0.1em;
   color: var(--text-primary);
-  border-radius: 2px;
+  border-radius: 0;
 }
 
 /* 左上角：来源标签 */

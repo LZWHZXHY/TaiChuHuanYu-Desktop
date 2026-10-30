@@ -25,10 +25,11 @@ export function worldImageUrls(project: Pick<WorldProject, 'description'>, cards
     if (Array.isArray(value)) { value.forEach(v => scan(v, key)); return }
     if (value && typeof value === 'object') { Object.entries(value).forEach(([k,v]) => scan(v,k)); return }
     if (typeof value !== 'string') return
-    if (key === 'coverImage' || key === 'content') {
+    if (key === 'coverImage' || key === 'content' || key === 'layout') {
       try { scan(JSON.parse(value), key === 'coverImage' ? 'galleryImages' : ''); return } catch { /* 旧封面直接保存 URL */ }
     }
-    if (key === 'coverImage' || key === 'galleryImages') { add(value); return }
+    // images：区块里的图片块；image：时间线事件的配图
+    if (key === 'coverImage' || key === 'galleryImages' || key === 'images' || key === 'image') { add(value); return }
     if (/^(https?:\/\/|\/[^/]|\.\/images\/|data:image\/)/i.test(value) && /(?:\.(png|jpe?g|gif|webp|svg|avif|bmp|ico)(?:[?#].*)?$|^data:image\/)/i.test(value)) add(value)
     for (const m of value.matchAll(/!\[(?:\\.|[^\]\\])*\]\(\s*(?:<([^>]+)>|([^\s)]+))(?:\s+["'][^"']*["'])?\s*\)/g)) add(m[1] || m[2])
     for (const m of value.matchAll(/<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi)) add(m[1]?.replace(/&amp;/g,'&'))

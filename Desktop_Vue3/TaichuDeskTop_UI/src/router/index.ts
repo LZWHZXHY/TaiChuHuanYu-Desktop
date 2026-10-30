@@ -17,18 +17,32 @@ const router = createRouter({
     { path: '/', name: 'root', component: () => import('../views/推送首页/index.vue') },
     { path: '/community', name: 'ChaiCommunity', component: () => import('../views/柴圈板块/index.vue') },
     { path: '/honor', name: 'CommunityHonor', component: () => import('../views/荣誉墙/index.vue') },
+    { path: '/awards', name: 'AwardsHall', component: () => import('../views/年度最佳/index.vue') },
     { path: '/games', name: 'GameHub', component: () => import('../views/太虚游/index.vue') },
+    // 交易行：原来只靠后台插件表动态注册，没配插件时整个页面都打不开，这里固定注册
+    { path: '/trade', name: '交易行', component: () => import('../views/交易行/index.vue'), meta: { requiresAuth: true } },
     { path: '/gallery', name: 'GalleryHome', component: () => import('../views/画廊展厅/index.vue') },
+    // 茶绘：多人同屏绘画（未登录可看大厅，进画室需要登录，页面内处理）
+    { path: '/gallery/paint', name: 'PaintStudio', component: () => import('../views/画廊展厅/茶绘/index.vue') },
     { path: '/stream', alias: '/posts', name: 'CommunityStream', component: () => import('../views/太初随笔/index.vue') },
     { path: '/posts/:id', redirect: to => ({ name: 'CommunityStream', query: { ...to.query, post: String(to.params.id) } }) },
     { path: '/knowledge', name: 'KnowledgeHome', component: () => import('../views/知识库/index.vue') },
     { path: '/codex', redirect: to => ({ name: 'KnowledgeHome', query: { ...to.query, type: 'wiki' } }) },
+    // 我的世界服务器「世界任务」：未登录可以看，提交贡献需要登录（页面内处理）
+    // 世界任务在论坛「我的世界」版块的「世界任务」页签里；旧地址（通知、动态里的链接）跳过去
+    { path: '/quests', name: 'ServerQuests', redirect: to => ({ name: 'CommunityStream', query: { tag: '我的世界', view: 'quests', ...(typeof to.query.tab === 'string' ? { tab: to.query.tab } : {}) } }) },
     { path: '/dev-progress', name: 'DevProgress', component: () => import('@/views/开发进度/index.vue') },
     { path: '/dev-progress/:id', name: 'DevReportDetail', component: () => import('@/views/开发进度/ReportDetail.vue') },
     { path: '/sponsors', name: 'Sponsors', component: () => import('@/views/赞助墙/index.vue') },
     { path: '/must-eat', name: 'MustEat', component: () => import('@/views/必吃榜/index.vue') },
     { path: '/changelog', name: 'Changelog', component: () => import('@/views/版本更新/index.vue') },
     { path: '/rules', name: 'CommunityRules', component: () => import('@/views/社区规则/index.vue') },
+    // 聊天室：未登录可旁观，发言和接入 AI 人格需要登录（页面内处理）
+    { path: '/chat', name: 'ChatRoom', component: () => import('@/views/聊天室/index.vue') },
+    // 社区成员：所有成员，在线的排在最前面；不用登录也能看
+    { path: '/members', name: 'Members', component: () => import('@/views/社区成员/index.vue') },
+    // 岁月史书：社区日常（群聊名场面、截图、生活、成果进步）；谁都能看，登录后谁都能记
+    { path: '/history', name: 'CommunityHistory', component: () => import('@/views/岁月史书/index.vue') },
 
     {
       path: '/toolBox',
@@ -114,10 +128,10 @@ const router = createRouter({
 
     // ===== 个人中心 =====
     {
+      // 看自己是个人中心，看别人是公开主页；公开主页无需登录。
       path: '/user/:id',
       name: 'UserCenter',
-      component: () => import('../views/个人中心/index.vue'),
-      meta: { requiresAuth: true },
+      component: () => import('../views/个人中心/UserPage.vue'),
       props: true
     },
 

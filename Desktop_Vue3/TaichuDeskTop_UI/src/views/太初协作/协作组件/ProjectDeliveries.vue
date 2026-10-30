@@ -69,8 +69,8 @@
     <!-- 登记验收记录弹窗 -->
     <Transition name="fade">
       <div v-if="showModal" class="modal-overlay" @click.self="showModal = false">
-        <div class="minimal-modal">
-          <header class="modal-inner-header">
+        <div role="dialog" aria-modal="true" aria-label="交付验收" class="minimal-modal workbench-skin editor-surface community-surface tone-collab">
+          <header class="modal-inner-header studio-heading">
             <h2>登记交付验收</h2>
             <p>如实记录该成员本次协作的履约表现（支持检索全站用户）</p>
           </header>
@@ -344,7 +344,7 @@ const formatDate = (dateStr: string) => {
 .deliveries-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 32px; border-bottom: 1px solid var(--border-line); padding-bottom: 24px; }
 .header-info h3 { font-size: 1.2rem; font-weight: 500; margin: 0 0 8px 0; color: var(--text-primary); }
 .header-info p { font-size: 0.85rem; color: var(--text-secondary); margin: 0; }
-.btn-create { background: var(--accent-color); color: var(--on-accent); border: none; padding: 10px 24px; font-size: 0.85rem; cursor: pointer; border-radius: 2px; transition: background 0.3s; }
+.btn-create { background: var(--accent-color); color: var(--on-accent); border: none; padding: 10px 24px; font-size: 0.85rem; cursor: pointer; border-radius: 0; transition: background 0.3s; }
 .btn-create:hover { background: var(--text-primary); }
 
 .loading-state { height: 120px; display: flex; align-items: center; justify-content: center; }
@@ -358,7 +358,7 @@ const formatDate = (dateStr: string) => {
 
 .card-left { flex: 0 0 200px; }
 .member-info { display: flex; gap: 12px; align-items: flex-start; }
-.avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--text-primary); color: var(--paper-card); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: bold; flex-shrink: 0; }
+.avatar { width: 36px; height: 36px; border-radius: 0; background: var(--text-primary); color: var(--paper-card); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; font-weight: bold; flex-shrink: 0; }
 .name-block { display: flex; flex-direction: column; gap: 4px; }
 .name-block .name { font-size: 1rem; font-weight: 500; color: var(--text-primary); }
 /* 🌟 新增：曾用名警告色样式 */
@@ -368,7 +368,7 @@ const formatDate = (dateStr: string) => {
 
 .card-middle { flex: 1; display: flex; flex-direction: column; gap: 12px; border-left: 1px dashed var(--border-line); padding-left: 24px; }
 .eval-tags { display: flex; gap: 8px; flex-wrap: wrap; }
-.eval-tag { font-size: 0.7rem; padding: 3px 8px; border-radius: 2px; font-weight: 500; }
+.eval-tag { font-size: 0.7rem; padding: 3px 8px; border-radius: 0; font-weight: 500; }
 .eval-tag.success { background: var(--success-soft); color: var(--success); }
 .eval-tag.warning { background: var(--warning-soft); color: var(--warning); }
 .eval-tag.danger { background: var(--bg-sub); color: var(--danger); }
@@ -385,7 +385,7 @@ const formatDate = (dateStr: string) => {
 
 .modal-overlay { position: fixed; inset: 0; background: var(--overlay); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .minimal-modal { background: var(--paper-card); width: 100%; max-width: 600px; padding: 40px; border: 1px solid var(--border-line); box-shadow: 0 40px 100px rgba(0,0,0,0.05); 
-  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
+  max-height: 90dvh; overflow-y: auto; border-radius: 0;
 }
 .modal-inner-header { margin-bottom: 32px; }
 .modal-inner-header h2 { font-size: 1.3rem; margin: 0 0 8px 0; }
@@ -403,12 +403,12 @@ textarea.clean-input { resize: vertical; }
 .user-pill { font-weight: 500; color: var(--text-primary); }
 .clear-user-btn { background: none; border: none; color: var(--text-secondary); font-size: 0.75rem; cursor: pointer; transition: color 0.2s; }
 .clear-user-btn:hover { color: var(--danger); }
-.search-dropdown { position: absolute; top: calc(100% - 10px); left: 0; right: 0; background: var(--paper-card); border: 1px solid var(--border-line); box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; z-index: 10; border-radius: 2px; }
+.search-dropdown { position: absolute; top: calc(100% - 10px); left: 0; right: 0; background: var(--paper-card); border: 1px solid var(--border-line); box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; z-index: 10; border-radius: 0; }
 .dropdown-hint { padding: 12px; font-size: 0.8rem; color: var(--text-secondary); text-align: center; }
 .candidate-list { list-style: none; padding: 0; margin: 0; }
 .candidate-list li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--border-line); transition: background 0.2s; }
 .candidate-list li:hover { background: var(--paper-card); }
-.avatar-mini { width: 24px; height: 24px; border-radius: 50%; background: var(--text-primary); color: var(--paper-card); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; }
+.avatar-mini { width: 24px; height: 24px; border-radius: 0; background: var(--text-primary); color: var(--paper-card); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; }
 .user-info-mini { display: flex; flex-direction: column; }
 .u-name { font-size: 0.85rem; color: var(--text-primary); }
 .u-email { font-size: 0.7rem; color: var(--text-secondary); }
@@ -420,4 +420,8 @@ textarea.clean-input { resize: vertical; }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pulse { 0% { transform: scaleX(0.5); opacity: 0.2; } 50% { transform: scaleX(1.5); opacity: 1; } 100% { transform: scaleX(0.5); opacity: 0.2; } }
+.editor-surface { box-sizing: border-box; max-height: calc(100dvh - 32px); overflow-y: auto; }
+.editor-surface .clean-input { color: var(--text-primary); background: var(--paper-card); min-width: 0; }
+.editor-surface .form-row > * { min-width: 0; }
+@media(max-width:640px) { .editor-surface { padding: 16px; }.editor-surface .form-row { flex-direction: column; }.editor-surface .w-120 { width: 100%; }.editor-surface :is(.modal-foot,.modal-footer) { flex-wrap: wrap; gap: 12px; } }
 </style>

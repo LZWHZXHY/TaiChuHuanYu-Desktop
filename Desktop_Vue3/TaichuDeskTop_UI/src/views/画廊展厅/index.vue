@@ -2,7 +2,7 @@
   <article class="gallery-container content-page community-surface tone-gallery">
     <p v-if="publishMessage" class="publish-message" role="status">{{ publishMessage }}</p>
     <header class="gallery-nav content-header">
-      <SectionTrace />
+      <SectionTrace particles="gallery" />
       <div class="nav-left">
         <div><p class="eyebrow">社区创作 · 画廊</p><h1 class="brand-title">太初艺术馆</h1><p class="intro">分享作品与练习，用标签发现同好。</p></div>
 
@@ -10,6 +10,7 @@
 
       <!-- 右侧：直接在画布布展发布作品入口 -->
       <div class="nav-right content-actions">
+        <RouterLink class="upload-link chahui-link" to="/gallery/paint" title="多人同屏绘画，最多 4 人一间">茶绘 · 一起画</RouterLink>
         <button class="upload-link" @click="handleUpload">
           发布作品
         </button>
@@ -161,11 +162,14 @@ const onArtworkPublished = (createdArtwork: ArtworkWriteResult) => {
 </script>
 
 <style scoped>
+.nav-right { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.content-actions .chahui-link { display: inline-flex; align-items: center; text-decoration: none; background: transparent !important; color: var(--accent-color) !important; box-shadow: inset 0 0 0 1px var(--accent-color); }
+
 
 .gallery-container { min-height: 70vh; }
 .gallery-search { display: flex; gap: 10px; margin: 0 0 28px; }
 .gallery-search input { flex: 1; min-width: 0; }
-.gallery-search input, .gallery-search button { padding: 10px 14px; color: var(--text-primary); background: var(--paper-bg); border: 1px solid var(--border-line); border-radius: var(--radius-sm); }
+.gallery-search input, .gallery-search button { padding: 10px 14px; color: var(--text-primary); background: var(--paper-bg); border: 1px solid var(--border-line); border-radius: 0; }
 .publish-message { color: var(--accent-color); padding: 12px 0; }
 .nav-left { display: flex; flex-wrap: wrap; align-items: center; gap: 28px; }
 .view-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }

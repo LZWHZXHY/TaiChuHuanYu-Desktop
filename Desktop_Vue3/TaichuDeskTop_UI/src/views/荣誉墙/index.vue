@@ -1,7 +1,7 @@
 <!-- index.vue -->
 <template>
-  <div class="honor-wall-root content-page">
-    <header class="content-header">
+  <div class="honor-wall-root content-page community-surface tone-profile">
+    <header class="content-header surface-heading"><SectionTrace particles="honor" />
       <div class="header-title-area">
         <p class="eyebrow">社区共建</p><h1>排行榜 · 荣誉墙</h1>
         <p>致敬所有为「太初寰宇」世界观、开源工具与社区生态注入心血的同行者</p>
@@ -9,6 +9,13 @@
       <button class="btn-line" :disabled="isLoading" @click="loadHonorData">{{ isLoading ? '正在加载…' : '刷新榜单' }}</button>
     </header>
 
+    <!-- 榜单切换：经验榜（原有）、土豆榜、常胜将军榜、常败将军榜 -->
+    <nav class="board-tabs" role="tablist" aria-label="榜单">
+      <button v-for="b in BOARDS" :key="b.key" type="button" role="tab" :aria-selected="board === b.key" :class="{ on: board === b.key }" @click="board = b.key">{{ b.label }}</button>
+    </nav>
+    <GameBoards v-if="board !== 'exp'" :board="board" />
+
+    <template v-else>
     <div v-if="loadError" class="content-state" role="alert">榜单加载失败，请点击上方刷新重试。</div>
     <div class="honor-content" v-if="!isLoading && !loadError">
       <!-- 宏观统计总览 -->
@@ -44,7 +51,7 @@
             :class="'is-' + slot.cls"
           >
             <span class="podium-medal" :class="'is-' + slot.cls" aria-hidden="true">{{ slot.badge }}</span>
-            <h4 class="podium-name">@{{ slot.user.name || slot.user.username }}</h4>
+            <h4 class="podium-name"><UserLink :id="slot.user.id" :name="slot.user.name || slot.user.username">@{{ slot.user.name || slot.user.username }}</UserLink></h4>
             <span class="podium-title">{{ slot.user.title || '社区共建者' }}</span>
             <div class="podium-metrics">
               <span class="metric exp">✨ {{ slot.user.totalExp ?? 0 }} exp</span>
@@ -63,7 +70,7 @@
           >
             <div class="rank-badge">{{ String(restStart + index).padStart(2, '0') }}</div>
             <div class="user-info">
-              <h4 class="user-name">@{{ user.name || user.username }}</h4>
+              <h4 class="user-name"><UserLink :id="user.id" :name="user.name || user.username">@{{ user.name || user.username }}</UserLink></h4>
               <span class="user-title">{{ user.title || '社区共建者' }}</span>
             </div>
             <div class="metrics-area">
@@ -79,12 +86,24 @@
     <div v-if="isLoading" class="honor-loading" role="status" aria-label="加载榜单">
       <div class="loading-bar"></div>
     </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
+import SectionTrace from '@/components/SectionTrace.vue'
+import GameBoards from './GameBoards.vue'
 import { ref, computed, onMounted } from 'vue';
 import request from '@/utils/request';
+
+const BOARDS = [
+  { key: 'exp', label: '✨ 经验榜' },
+  { key: 'potato', label: '🥔 土豆榜' },
+  { key: 'wins', label: '🏅 常胜将军榜' },
+  { key: 'losses', label: '🫠 常败将军榜' },
+] as const;
+const board = ref<'exp' | 'potato' | 'wins' | 'losses'>('exp');
 
 const isLoading = ref(true);
 const loadError = ref(false);
@@ -131,8 +150,11 @@ onMounted(loadHonorData);
 </script>
 
 <style scoped>
+.board-tabs { display: flex; flex-wrap: wrap; gap: 0; margin-bottom: 24px; border-bottom: 1px solid var(--border-line); }
+.board-tabs button { padding: 10px 18px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--text-secondary); font: inherit; font-size: 15px; cursor: pointer; }
+.board-tabs button.on { border-bottom-color: var(--accent-color); color: var(--accent-color); font-weight: 600; }
 .overview-banner { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 16px; margin-bottom: 32px; }
-.overview-item { display: grid; gap: 12px; padding: 24px; border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); }
+.overview-item { display: grid; gap: 12px; padding: 24px; border: 0; border-left: 2px solid var(--signal-mint); border-radius: 0; background: var(--paper-card); }
 .label { font-size: 12px; color: var(--text-secondary); }
 .value { font-size: clamp(18px,2vw,26px); font-weight: 650; }
 .section-title { margin-bottom: 20px; }
@@ -154,15 +176,15 @@ onMounted(loadHonorData);
   gap: 10px;
   padding: 28px 16px 22px;
   border: 1px solid var(--border-line);
-  border-radius: 14px;
+  border-radius: 0;
   background: var(--paper-card);
   text-align: center;
   transition: transform .2s, box-shadow .2s;
 }
-.podium-card:hover { transform: translateY(-4px); }
-.podium-card.is-gold { padding-top: 40px; border-color: #d4af37; box-shadow: 0 12px 34px rgba(212, 175, 55, .20); }
-.podium-card.is-silver { border-color: #aeb7c2; }
-.podium-card.is-bronze { border-color: #b87333; }
+.podium-card:hover { border-bottom-color: var(--signal-mint); }
+.podium-card.is-gold { padding-top: 40px; border-color: var(--accent-color); background: linear-gradient(145deg,var(--accent-soft),var(--paper-card) 75%); }
+.podium-card.is-silver { border-color: var(--border-line); }
+.podium-card.is-bronze { border-color: var(--accent-mint); }
 
 .podium-medal {
   position: absolute;
@@ -174,7 +196,7 @@ onMounted(loadHonorData);
   display: grid;
   place-items: center;
   padding: 0 6px;
-  border-radius: 17px;
+  border-radius: 0;
   font-size: .9rem;
   font-weight: 700;
   color: #fff;
@@ -189,17 +211,17 @@ onMounted(loadHonorData);
 .podium-card.is-gold .podium-name { font-size: 1.3rem; }
 .podium-title { font-size: .78rem; color: var(--text-secondary); }
 .podium-metrics { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin-top: 4px; }
-.metric { padding: 4px 9px; border-radius: 6px; font-size: 12px; color: var(--text-secondary); background: var(--bg-sub); }
+.metric { padding: 4px 9px; border-radius: 0; font-size: 12px; color: var(--text-secondary); background: var(--bg-sub); }
 .metric.exp { color: var(--accent-color); background: var(--accent-soft); }
 
 /* ===== 4~10 名 ===== */
 .honor-grid { display: grid; gap: 10px; }
-.honor-card { display: grid; grid-template-columns: 48px minmax(0,1fr) auto; align-items: center; gap: 16px; padding: 16px 24px; border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); }
+.honor-card { display: grid; grid-template-columns: 48px minmax(0,1fr) auto; align-items: center; gap: 16px; padding: 20px 24px; border: 0; border-bottom: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); }
 .rank-badge { font: 600 15px var(--font-mono); color: var(--text-secondary); text-align: center; }
 .user-name { font-size: 15px; overflow-wrap: anywhere; margin: 0; }
 .user-title { display: block; font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 .metrics-area { display: flex; flex-wrap: wrap; gap: 8px; }
-.metric-pill { padding: 5px 10px; border-radius: 6px; font-size: 12px; color: var(--text-secondary); background: var(--bg-sub); }
+.metric-pill { padding: 5px 10px; border-radius: 0; font-size: 12px; color: var(--text-secondary); background: var(--bg-sub); }
 .metric-pill.exp { color: var(--accent-color); background: var(--accent-soft); }
 
 .honor-loading { padding: 64px; text-align: center; }

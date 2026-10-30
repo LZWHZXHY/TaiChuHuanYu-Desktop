@@ -45,6 +45,8 @@ namespace TaiChuWeb_V2.Controllers
         public string Title { get; set; } = string.Empty;
         public string? Content { get; set; }
         public List<string> Images { get; set; } = new();
+        /// <summary>写这条日志时的项目进度（0-100），可为空</summary>
+        public int? Progress { get; set; }
     }
 
     public class DevProjectDto

@@ -36,5 +36,8 @@ namespace TaiChuWeb_V2.Models.World
         public virtual UserEntity? Owner { get; set; }
 
         public virtual ICollection<WorldCard> Cards { get; set; } = new List<WorldCard>();
+
+        /// <summary>协作者（创建者本人不在这里）</summary>
+        public virtual ICollection<WorldCollaborator> Collaborators { get; set; } = new List<WorldCollaborator>();
     }
 }

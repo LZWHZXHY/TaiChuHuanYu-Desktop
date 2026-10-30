@@ -89,8 +89,10 @@ foreach (var failure in new Exception[] { new DbUpdateConcurrencyException("conc
 {
     var (db, c) = Create(); db.SaveFailure = failure;
     var result = await Save(c, Payload());
-    Check(db.Rollbacks == 1 && db.Commits == 0, failure.Message + " rollback");
-    Check(failure is InvalidOperationException ? result is ObjectResult { StatusCode: 500 } : result is OkObjectResult, failure.Message + " HTTP contract");
+    // 并发、死锁、主键冲突会重试 3 次，仍失败返回 409；其他异常不重试，返回 500。都不能报成成功。
+    var retryable = failure is not InvalidOperationException;
+    Check(db.Rollbacks == (retryable ? 3 : 1) && db.Commits == 0, failure.Message + " rollback");
+    Check(retryable ? result is ObjectResult { StatusCode: 409 } : result is ObjectResult { StatusCode: 500 }, failure.Message + " HTTP contract");
     trace[failure.Message] = Response(result);
 }
 foreach (var scenario in new[] { "default", "at-limit", "over-limit", "below-limit" })

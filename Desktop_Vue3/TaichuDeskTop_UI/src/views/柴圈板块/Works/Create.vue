@@ -1,6 +1,6 @@
 <template>
-  <div class="create-page content-page">
-    <header class="content-header">
+  <div class="create-page content-page workbench-skin editor-surface community-surface tone-chai">
+    <header class="content-header studio-heading"><SectionTrace />
       <RouterLink to="/works">← 返回作品</RouterLink>
       <h1>上传作品</h1>
       <p class="intro">上传火柴人动画（视频）或单张作品图，分享给柴圈同好。</p>
@@ -56,6 +56,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCos } from '@/composables/useCos'
@@ -139,22 +140,22 @@ async function submit(publish: boolean) {
 .content-header a { color: var(--accent-color); text-decoration: none; font-size: .85rem; }
 .content-header h1 { margin: 10px 0 6px; }
 .intro { color: var(--text-secondary); }
-.form-panel { max-width: 680px; margin: 20px 0; padding: 24px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 12px; display: grid; gap: 18px; }
+.form-panel { max-width: 680px; margin: 20px 0; padding: 24px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 0; display: grid; gap: 18px; }
 .form-group { display: grid; gap: 8px; }
 .form-group label { font-size: .85rem; color: var(--text-secondary); }
 .required { color: var(--accent-color); }
-.text-input { width: 100%; padding: 10px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); font-size: .9rem; box-sizing: border-box; resize: vertical; }
-.upload-box { padding: 24px; border: 1px dashed var(--border-line); border-radius: 10px; background: var(--paper-sub); color: var(--text-secondary); cursor: pointer; font-size: .9rem; }
+.text-input { width: 100%; padding: 10px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); font-size: .9rem; box-sizing: border-box; resize: vertical; }
+.upload-box { padding: 24px; border: 1px dashed var(--border-line); border-radius: 0; background: var(--paper-sub); color: var(--text-secondary); cursor: pointer; font-size: .9rem; }
 .upload-box:hover { border-color: var(--accent-color); color: var(--accent-color); }
 .hidden-input { display: none; }
 .upload-hint { color: var(--accent-color); font-size: .85rem; }
 .media-preview { display: grid; gap: 10px; }
-.preview-media { width: 100%; max-height: 320px; border-radius: 8px; object-fit: contain; background: #000; }
+.preview-media { width: 100%; max-height: 320px; border-radius: 0; object-fit: contain; background: #000; }
 .cover-preview { display: grid; gap: 10px; }
-.cover-preview img { width: 160px; height: 90px; object-fit: cover; border-radius: 8px; }
+.cover-preview img { width: 160px; height: 90px; object-fit: cover; border-radius: 0; }
 .error-text { color: var(--accent-color); font-size: .85rem; }
 .actions { display: flex; gap: 12px; justify-content: flex-end; }
-.btn-line { padding: 9px 16px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; }
-.btn-primary { padding: 9px 22px; border: none; border-radius: 8px; background: var(--accent-color); color: var(--on-accent); cursor: pointer; }
+.btn-line { padding: 9px 16px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; }
+.btn-primary { padding: 9px 22px; border: none; border-radius: 0; background: var(--accent-color); color: var(--on-accent); cursor: pointer; }
 .btn-primary:disabled, .btn-line:disabled { opacity: .5; cursor: default; }
 </style>

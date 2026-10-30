@@ -1,8 +1,10 @@
 <template>
   <div class="musteat-page content-page">
     <header class="me-header">
+      <SectionTrace particles="food" />
       <div>
-        <h1>🍽 必吃榜</h1>
+        <span class="me-eyebrow">社区精选 · 值得一试</span>
+        <h1>必吃榜</h1>
         <p class="sub">游戏、动漫、小说、视频……我们觉得值得一试的资源推荐</p>
       </div>
       <div class="me-header-actions">
@@ -32,7 +34,7 @@
     </div>
 
     <div class="cat-tabs">
-      <button v-for="c in categories" :key="c.key" class="cat-tab" :class="{ active: filterCategory === c.key }" @click="filterCategory = c.key">{{ c.label }}</button>
+      <button v-for="c in categories" :key="c.key" class="cat-tab" :class="{ active: filterCategory === c.key }" :aria-pressed="filterCategory === c.key" @click="filterCategory = c.key">{{ c.label }}</button>
     </div>
 
     <p v-if="loading" class="me-empty">加载中…</p>
@@ -40,21 +42,22 @@
 
     <div v-else class="me-grid">
       <article v-for="item in filtered" :key="item.id" class="me-card">
-        <button class="me-cover" @click="openDetail(item)" :aria-label="'查看 ' + item.title">
+        <button class="me-cover" data-depth @click="openDetail(item)" :aria-label="'查看 ' + item.title">
           <img v-if="item.coverImage" :src="item.coverImage" :alt="item.title" loading="lazy" referrerpolicy="no-referrer" @error="($event.target as HTMLImageElement).style.display='none'" />
-          <div v-else class="me-cover-placeholder">{{ categoryIcon(item.category) }}</div>
+          <div v-else class="me-cover-placeholder" aria-hidden="true"><span>{{ categoryLabel(item.category) }}</span></div>
+          <span class="me-cover-action" aria-hidden="true">查看推荐 ↗</span>
         </button>
         <div class="me-body">
+          <div class="me-card-meta"><span class="me-cat">{{ categoryLabel(item.category) }}</span><span v-if="item.source" class="me-source">{{ item.source }}</span></div>
           <div class="me-title-row">
-            <h2 class="me-title" @click="openDetail(item)">{{ item.title }}</h2>
-            <span class="me-cat">{{ categoryLabel(item.category) }}</span>
+            <h2 class="me-title"><button @click="openDetail(item)">{{ item.title }}</button></h2>
           </div>
           <p v-if="item.description" class="me-desc">{{ item.description }}</p>
           <p v-if="item.creator" class="me-creator">创作：{{ item.creator }}</p>
           <div class="me-rating-row">
-            <span class="stars">{{ starText(item.averageScore) }}</span>
-            <span class="me-rating-num">{{ item.averageScore > 0 ? item.averageScore : '暂无' }}</span>
-            <span v-if="item.ratingCount" class="me-rating-count">({{ item.ratingCount }})</span>
+            <span class="stars" aria-hidden="true">{{ starText(item.averageScore) }}</span>
+            <span v-if="item.averageScore > 0" class="me-rating-num">{{ item.averageScore }}</span>
+            <span class="me-rating-count">{{ item.ratingCount ? `${item.ratingCount} 人评分` : '暂未评分' }}</span>
           </div>
           <div class="me-footer">
             <a v-if="item.link" class="me-link" :href="item.link" target="_blank" rel="noopener noreferrer" @click.prevent="openLink(item.link!)">查看资源 →</a>
@@ -69,14 +72,15 @@
 
     <!-- 详情弹窗：打分 + 评论/讨论 -->
     <div v-if="viewing" class="me-mask" @click.self="viewing = null">
-      <div class="me-detail">
+      <div class="me-detail" role="dialog" aria-modal="true" aria-labelledby="me-detail-title">
+        <button class="me-close" aria-label="关闭推荐详情" @click="viewing = null">×</button>
         <div class="me-detail-cover">
           <img v-if="viewing.coverImage" :src="viewing.coverImage" :alt="viewing.title" referrerpolicy="no-referrer" />
-          <div v-else class="me-cover-placeholder">{{ categoryIcon(viewing.category) }}</div>
+          <div v-else class="me-cover-placeholder" aria-hidden="true"><span>{{ categoryLabel(viewing.category) }}</span></div>
         </div>
         <div class="me-detail-body">
           <div class="me-detail-head">
-            <h2>{{ viewing.title }}</h2>
+            <h2 id="me-detail-title">{{ viewing.title }}</h2>
             <span class="me-cat">{{ categoryLabel(viewing.category) }}</span>
           </div>
           <p v-if="viewing.description" class="me-detail-desc">{{ viewing.description }}</p>
@@ -108,7 +112,7 @@
             <ul class="comment-list">
               <li v-for="c in comments" :key="c.id" class="comment-item" :class="{ reply: !!c.parentId }">
                 <div class="comment-meta">
-                  <strong>{{ c.userName }}</strong>
+                  <UserLink :id="c.userId" :name="c.userName"><strong>{{ c.userName }}</strong></UserLink>
                   <time>{{ formatTime(c.createdAt) }}</time>
                   <button v-if="isMine(c)" class="mini-btn danger" @click="deleteComment(c)">删除</button>
                 </div>
@@ -165,11 +169,13 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { ref, computed, onMounted } from 'vue'
 import request from '@/utils/request'
 import { mustEatApi, type MustEatItem, type MustEatPayload, type MustEatRatingInfo } from '@/api/mustEat'
 import { useUserStore } from '@/stores/user'
 import { useCos } from '@/composables/useCos'
+import SectionTrace from '@/components/SectionTrace.vue'
 
 const userStore = useUserStore()
 const items = ref<MustEatItem[]>([])
@@ -201,15 +207,14 @@ const replyParent = ref<CommentItem | null>(null)
 
 const categories = [
   { key: '', label: '全部' },
-  { key: '游戏', label: '🎮 游戏' },
-  { key: '动漫', label: '📺 动漫' },
-  { key: '小说', label: '📖 小说' },
-  { key: '视频', label: '🎬 视频' },
-  { key: '柴圈', label: '◎ 柴圈' },
-  { key: '其他', label: '🍽 其他' },
+  { key: '游戏', label: '游戏' },
+  { key: '动漫', label: '动漫' },
+  { key: '小说', label: '小说' },
+  { key: '视频', label: '视频' },
+  { key: '柴圈', label: '柴圈' },
+  { key: '其他', label: '其他' },
 ]
 const categoryLabel = (k: string) => ({ 游戏: '游戏', 动漫: '动漫', 小说: '小说', 视频: '视频', 柴圈: '柴圈', 其他: '其他' } as Record<string, string>)[k] || '其他'
-const categoryIcon = (k: string) => ({ 游戏: '🎮', 动漫: '📺', 小说: '📖', 视频: '🎬', 柴圈: '◎' } as Record<string, string>)[k] || '🍽'
 
 const filtered = computed(() => filterCategory.value ? items.value.filter(x => x.category === filterCategory.value) : items.value)
 
@@ -376,34 +381,42 @@ onMounted(load)
 
 <style scoped>
 .musteat-page { max-width: 1100px; margin: 0 auto; padding: 0 0 48px; }
-.me-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding: 24px 0 20px; }
+.me-header { position: relative; isolation: isolate; overflow: hidden; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding: 28px; margin-bottom: 24px; border-block: 1px solid var(--border-line); border-top: 2px solid var(--accent-color); background: linear-gradient(115deg,var(--paper-card) 40%,var(--accent-soft)); }
+.me-header > div { position: relative; z-index: 1; }
+.me-eyebrow { display: block; margin-bottom: 10px; color: var(--accent-color); font-size: .72rem; letter-spacing: .16em; }
 .me-header h1 { margin: 0; font-size: clamp(1.7rem, 3.4vw, 2.3rem); }
 .me-header .sub { margin: 8px 0 0; color: var(--text-secondary); font-size: .9rem; }
 .me-header-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-.pending-panel { margin-bottom: 20px; padding: 16px; border: 1px solid var(--accent-color); border-radius: 12px; background: var(--accent-soft); }
+.pending-panel { margin-bottom: 20px; padding: 16px; border: 1px solid var(--accent-color); border-radius: 0; background: var(--accent-soft); }
 .pending-list { display: grid; gap: 10px; }
-.pending-item { display: flex; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 8px; background: var(--paper-card); border: 1px solid var(--border-line); }
+.pending-item { display: flex; justify-content: space-between; gap: 12px; padding: 12px; border-radius: 0; background: var(--paper-card); border: 1px solid var(--border-line); }
 .pending-info { min-width: 0; flex: 1; display: grid; gap: 6px; }
 .pending-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pending-desc { margin: 0; font-size: .82rem; color: var(--text-secondary); line-height: 1.5; }
 .pending-actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
 .cat-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
-.cat-tab { padding: 7px 16px; border: 1px solid var(--border-line); border-radius: 18px; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: .82rem; }
-.cat-tab.active { background: var(--text-primary); color: var(--paper-card); border-color: var(--text-primary); }
+.cat-tab { padding: 7px 16px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .82rem; }
+.cat-tab.active { background: var(--accent-soft); color: var(--accent-color); border-color: var(--accent-color); box-shadow: inset 3px 0 var(--signal-mint); }
 .me-empty { text-align: center; color: var(--text-secondary); padding: 32px 0; }
-.me-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
-.me-card { display: flex; flex-direction: column; border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); overflow: hidden; }
-.me-cover { aspect-ratio: 16 / 9; background: var(--bg-sub); display: flex; align-items: center; justify-content: center; overflow: hidden; border: none; padding: 0; cursor: pointer; }
+.me-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 24px; }
+.me-card { position: relative; min-width: 0; display: flex; flex-direction: column; border: 1px solid var(--border-line); border-top: 2px solid var(--accent-color); border-radius: 0; background: var(--paper-card); overflow: hidden; }
+.me-cover { position: relative; width: 100%; flex-shrink: 0; aspect-ratio: 16 / 9; background: var(--bg-sub); display: flex; align-items: center; justify-content: center; overflow: hidden; border: none; padding: 0; cursor: pointer; }
 .me-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.me-cover-placeholder { font-size: 2.4rem; }
-.me-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.me-cover-placeholder { width: 100%; height: 100%; min-height: 130px; display: grid; place-items: center; position: relative; overflow: hidden; background: linear-gradient(135deg,var(--accent-soft),var(--paper-card) 60%,color-mix(in srgb,var(--signal-mint) 14%,var(--paper-card))); color: var(--accent-color); }
+.me-cover-placeholder::before { content: ''; position: absolute; width: 100px; height: 100px; border: 1px solid var(--signal-mint); transform: rotate(45deg); box-shadow: 0 0 0 18px color-mix(in srgb,var(--signal-mint) 8%,transparent); }
+.me-cover-placeholder span { z-index: 1; letter-spacing: .3em; font-size: .85rem; }
+.me-cover-action { position: absolute; right: 12px; bottom: 12px; padding: 6px 10px; font-size: .72rem; background: var(--inverse-bg); color: var(--inverse-text); border-left: 2px solid var(--signal-mint); }
+.me-body { padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1; background: linear-gradient(135deg,var(--paper-card) 72%,color-mix(in srgb,var(--signal-mint) 6%,var(--paper-card))); }
+.me-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.me-card-meta .me-source { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .me-title-row { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
-.me-title { margin: 0; font-size: 1.02rem; overflow-wrap: anywhere; cursor: pointer; }
+.me-title { margin: 0; font-size: 1.15rem; line-height: 1.45; overflow-wrap: anywhere; }
+.me-title button { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 650; text-align: left; cursor: pointer; }
 .me-title:hover { color: var(--accent-color); }
-.me-cat { flex-shrink: 0; font-size: .68rem; padding: 1px 8px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-color); }
-.me-desc { margin: 0; font-size: .84rem; color: var(--text-secondary); line-height: 1.6; flex: 1; }
-.me-rating-row { display: flex; align-items: center; gap: 6px; font-size: .82rem; }
-.stars { color: #f0a500; letter-spacing: 1px; }
+.me-cat { flex-shrink: 0; font-size: .7rem; padding: 3px 8px; border-left: 2px solid var(--signal-mint); background: var(--accent-soft); color: var(--accent-color); }
+.me-desc { margin: 0; font-size: .84rem; color: var(--text-secondary); line-height: 1.75; min-height: 3.5em; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.me-rating-row { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border-line); display: flex; align-items: center; gap: 6px; font-size: .82rem; }
+.stars { color: var(--accent-mint); letter-spacing: 1px; }
 .me-rating-num { font-weight: 600; color: var(--text-primary); }
 .me-rating-count { color: var(--text-secondary); font-size: .74rem; }
 .me-source { margin: 0; font-size: .74rem; color: var(--text-secondary); }
@@ -412,11 +425,11 @@ onMounted(load)
 .me-link { color: var(--accent-color); font-size: .84rem; font-weight: 600; text-decoration: none; }
 .me-link:hover { text-decoration: underline; }
 .me-admin { display: flex; gap: 6px; }
-.mini-btn { padding: 3px 9px; border: 1px solid var(--border-line); border-radius: 6px; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .72rem; }
+.mini-btn { padding: 3px 9px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .72rem; }
 .mini-btn.danger { color: var(--danger); }
 /* 详情 */
-.me-mask { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
-.me-detail { width: min(640px, 100%); max-height: 90vh; overflow-y: auto; background: var(--paper-card); border-radius: 14px; }
+.me-mask { position: fixed; inset: 0; z-index: 100; background: var(--overlay); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.me-detail { position: relative; border: 1px solid var(--border-line); border-top: 2px solid var(--signal-mint); box-shadow: var(--shadow-md); width: min(760px, 100%); max-height: 90vh; overflow-y: auto; background: var(--paper-card); border-radius: 0; }
 .me-detail-cover { aspect-ratio: 21 / 9; background: var(--bg-sub); display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .me-detail-cover img { width: 100%; height: 100%; object-fit: cover; }
 .me-detail-body { padding: 20px 24px 24px; display: grid; gap: 12px; }
@@ -424,12 +437,12 @@ onMounted(load)
 .me-detail-head h2 { margin: 0; font-size: 1.25rem; }
 .me-detail-desc { margin: 0; font-size: .9rem; color: var(--text-secondary); line-height: 1.7; }
 /* 打分 */
-.rate-box { border: 1px solid var(--border-line); border-radius: 10px; padding: 14px; display: grid; gap: 8px; }
+.rate-box { background: linear-gradient(110deg,var(--accent-soft),color-mix(in srgb,var(--signal-mint) 8%,var(--paper-card))); border: 1px solid var(--border-line); border-radius: 0; padding: 14px; display: grid; gap: 8px; }
 .rate-head { display: flex; align-items: baseline; gap: 8px; font-size: .85rem; color: var(--text-secondary); }
 .rate-head strong { font-size: 1.1rem; color: var(--text-primary); }
-.rate-stars { display: flex; align-items: center; gap: 4px; }
+.rate-stars { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .star-btn { background: none; border: none; font-size: 1.5rem; color: var(--border-line); cursor: pointer; padding: 0 2px; line-height: 1; }
-.star-btn.on { color: #f0a500; }
+.star-btn.on { color: var(--accent-mint); }
 .star-btn:disabled { opacity: .5; cursor: default; }
 .my-score { margin-left: 10px; font-size: .78rem; color: var(--text-secondary); }
 .my-score.muted { opacity: .7; }
@@ -437,9 +450,9 @@ onMounted(load)
 .comment-box { border-top: 1px dashed var(--border-line); padding-top: 14px; display: grid; gap: 10px; }
 .comment-title { margin: 0; font-size: .95rem; }
 .comment-input { display: grid; gap: 8px; }
-.comment-input textarea { padding: 10px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); color: var(--text-primary); font-size: .85rem; font-family: inherit; resize: vertical; }
+.comment-input textarea { padding: 10px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); font-size: .85rem; font-family: inherit; resize: vertical; }
 .comment-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.comment-item { padding: 10px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); }
+.comment-item { padding: 10px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); }
 .comment-item.reply { margin-left: 24px; }
 .comment-meta { display: flex; align-items: center; gap: 10px; font-size: .78rem; color: var(--text-secondary); }
 .comment-meta strong { color: var(--text-primary); }
@@ -447,19 +460,40 @@ onMounted(load)
 .reply-btn { background: none; border: none; color: var(--accent-color); font-size: .75rem; cursor: pointer; padding: 0; }
 .reply-hint { margin: 0; font-size: .78rem; color: var(--text-secondary); }
 /* 编辑器 */
-.me-editor { width: min(560px, 100%); max-height: 90vh; overflow-y: auto; background: var(--paper-card); border-radius: 12px; padding: 24px; display: grid; gap: 14px; }
+.me-editor { width: min(560px, 100%); max-height: 90vh; overflow-y: auto; background: var(--paper-card); border-radius: 0; padding: 24px; display: grid; gap: 14px; }
 .me-editor-title { margin: 0; font-size: 1.15rem; }
 .field { display: grid; gap: 6px; font-size: .8rem; color: var(--text-secondary); }
-.field input, .field select, .field textarea { padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); color: var(--text-primary); font-size: .88rem; font-family: inherit; }
+.field input, .field select, .field textarea { padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); font-size: .88rem; font-family: inherit; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .cover-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .link-row { display: flex; gap: 8px; align-items: center; }
 .link-row input { flex: 1; min-width: 0; }
-.cover-preview { width: 120px; height: 68px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-line); }
+.cover-preview { width: 120px; height: 68px; object-fit: cover; border-radius: 0; border: 1px solid var(--border-line); }
 .check { display: flex; align-items: center; gap: 6px; font-size: .85rem; cursor: pointer; }
 .me-editor-actions { display: flex; justify-content: flex-end; gap: 10px; }
-.btn { padding: 8px 18px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
+.btn { padding: 8px 18px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
 .btn.primary { background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color); }
 .btn:disabled { opacity: .5; cursor: default; }
-@media (max-width: 560px) { .me-grid { grid-template-columns: 1fr; } }
+/* 动态反馈不改变正文排版；装饰不截获点击。 */
+.me-card::after { content: ''; position: absolute; inset: auto 0 0; height: 2px; background: linear-gradient(90deg,var(--accent-color),var(--signal-mint)); transform: scaleX(0); transform-origin: left; pointer-events: none; }
+.me-card:is(:hover,:focus-within) { border-color: var(--accent-color); box-shadow: var(--shadow-md); }
+.me-card:is(:hover,:focus-within)::after { transform: scaleX(1); }
+.me-close { position: sticky; top: 12px; float: right; z-index: 2; width: 36px; height: 36px; margin: 12px 12px -48px 0; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-primary); font-size: 1.4rem; cursor: pointer; }
+.musteat-page :is(button,a,input,select,textarea):focus-visible { outline: 2px solid var(--accent-color); outline-offset: 3px; }
+.musteat-page :is(.cat-tab,.mini-btn,.btn,.me-close):hover:not(:disabled) { border-color: var(--accent-color); }
+@media (prefers-reduced-motion: no-preference) {
+  .me-card, .me-card::after, .me-cover img, .me-cover-action { transition: transform .25s ease, border-color .25s, box-shadow .25s; }
+  .me-cover:is(:hover,:focus-visible) img { transform: scale(1.035); }
+  .me-cover:is(:hover,:focus-visible) .me-cover-action { transform: translate(-3px,-3px); }
+  .star-btn { transition: transform .15s, color .15s; }
+  .star-btn:hover:not(:disabled) { transform: translateY(-2px); color: var(--accent-mint); }
+}
+@media (max-width: 560px) {
+  .me-grid { grid-template-columns: 1fr; gap: 16px; }
+  .me-header { padding: 20px 16px; }
+  .me-body, .me-detail-body, .me-editor { padding: 16px; }
+  .me-mask { padding: 12px; }
+  .field-row { grid-template-columns: 1fr; }
+  .me-detail-head, .rate-head, .comment-meta { flex-wrap: wrap; }
+}
 </style>

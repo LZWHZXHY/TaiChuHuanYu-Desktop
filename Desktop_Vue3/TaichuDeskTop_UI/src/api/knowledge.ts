@@ -1,5 +1,5 @@
 import request from '@/utils/request';
-export const knowledgeTypes = { all: '全部资料', blog: '博客与文章', post: '帖子', artwork: '画廊作品', resource: '下载资源', world: '公开世界观', character: '柴圈人设', document: '图谱资料', wiki: '公共知识 · Wiki' } as const;
+export const knowledgeTypes = { all: '全部资料', blog: '博客与文章', post: '帖子', artwork: '画廊作品', work: '柴圈作品', resource: '下载资源', brush: '茶绘笔刷', world: '公开世界观', setting: '世界观设定', novel: '世界观小说', character: '柴圈人设', document: '图谱资料', wiki: '公共知识 · Wiki' } as const;
 export type KnowledgeType = keyof typeof knowledgeTypes;
 export interface KnowledgeItem {
     id: string;
@@ -22,6 +22,14 @@ export function knowledgeRoute(item: Pick<KnowledgeItem, 'type' | 'id'>) {
     if (item.type === 'world') return { name: 'ProjectDetail', params: { id: item.id } };
     if (item.type === 'character') return { path: '/ocs/' + encodeURIComponent(item.id) };
     if (item.type === 'resource') return { name: 'KnowledgeHome', query: { type: 'resource', q: item.id } };
+    if (item.type === 'novel') return { path: '/novels/' + encodeURIComponent(item.id) };
+    if (item.type === 'work') return { path: '/works/' + encodeURIComponent(item.id) };
+    // 世界观设定条目的 id 是「世界ID:条目ID」
+    if (item.type === 'setting') {
+        const [projectId, cardId] = item.id.split(':');
+        return { path: `/world/project/${encodeURIComponent(projectId ?? '')}/card/${encodeURIComponent(cardId ?? '')}` };
+    }
+    if (item.type === 'brush') return { name: 'KnowledgeHome', query: { type: 'brush', q: item.id } };
     return { name: 'KnowledgeHome', query: { detail: item.id, detailType: item.type } };
 }
 export const knowledgeApi = {

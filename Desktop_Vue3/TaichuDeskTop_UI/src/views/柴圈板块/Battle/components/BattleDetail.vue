@@ -54,7 +54,7 @@
           :class="{ challenger: index === 0, opponent: index > 0 }"
         >
           <span class="role">{{ p.teamNumber ? `队伍 ${p.teamNumber === 1 ? 'A' : 'B'}` : (index === 0 ? '发起方' : `参与者 ${index + 1}`) }}</span>
-          <strong>{{ p.userName }}</strong>
+          <UserLink :id="p.userId" :name="p.userName"><strong>{{ p.userName }}</strong></UserLink>
           <span class="oc-name">（{{ p.ocNames?.join('、') || '未知OC' }}）</span>
         </div>
         <div v-if="battle.participants.length < 2" class="combatant open-slot">
@@ -179,7 +179,7 @@
             :key="p.id"
             class="participant-item"
           >
-            <span class="participant-name">{{ p.userName }}</span>
+            <UserLink class="participant-name" :id="p.userId" :name="p.userName" />
             <span class="participant-oc">{{ p.ocNames?.join('、') || '无OC' }}</span>
             <span class="participant-status" :class="p.status">
               {{ participantStatusLabel(p.status) }}
@@ -214,7 +214,7 @@
           >
             <div class="submission-info">
               <span class="sub-title">{{ sub.title }}</span>
-              <span class="sub-author">by {{ sub.participant?.userName || '未知' }}</span>
+              <span class="sub-author">by <UserLink :id="sub.participant?.userId" :name="sub.participant?.userName || '未知'" /></span>
             </div>
             <a :href="sub.contentUrl" target="_blank" class="sub-link">查看作品 →</a>
           </div>
@@ -324,6 +324,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
@@ -686,7 +687,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.register-oc { display: flex; gap: 12px; align-items: center; padding: 14px; margin-bottom: 8px; border: 1px solid var(--border-line); border-radius: 10px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; }
+.register-oc { display: flex; gap: 12px; align-items: center; padding: 14px; margin-bottom: 8px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; }
 .register-oc.selected { border-color: var(--accent-color); background: var(--bg-soft); }
 .register-oc input { width: 18px; height: 18px; accent-color: var(--accent-color); }
 .register-oc span { overflow-wrap: anywhere; }
@@ -1256,7 +1257,7 @@ onUnmounted(() => {
   padding: 2px 10px;
   background: var(--bg-sub);
   border: 1px solid var(--border-line);
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 12px;
   color: var(--text-primary);
 }

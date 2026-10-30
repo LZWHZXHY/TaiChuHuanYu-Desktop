@@ -35,9 +35,9 @@ function updateType(index: number, relationType: string) {
 <style scoped>
 .relation-selector { display: grid; gap: 12px; }
 .relation-hint { margin: 0; color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
-.relation-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-main); border: 1px solid var(--border-line); border-radius: 8px; }
+.relation-item { display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-main); border: 1px solid var(--border-line); border-radius: 0; }
 .rel-target { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
-.relation-item input { flex: 2; min-width: 0; padding: 8px 10px; border: 1px solid var(--border-line); border-radius: 6px; background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: 13px; }
+.relation-item input { flex: 2; min-width: 0; padding: 8px 10px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: 13px; }
 .relation-item button { border: 0; background: none; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
 .relation-item button:hover { color: var(--danger); }
 @media(max-width:600px) { .relation-item { flex-wrap: wrap; }.rel-target { flex-basis: 100%; } }

@@ -1,8 +1,8 @@
 <template>
-  <div class="custom-studio">
+  <div class="custom-studio workbench-skin editor-surface community-surface tone-play">
     <!-- ========== 列表视图 ========== -->
     <template v-if="view === 'list'">
-      <header class="studio-header">
+      <header class="studio-header studio-heading">
   <div class="header-left">
     <h2>✏️ 自定义工坊</h2>
     <p>在这里，你可以创作、编辑和管理自己的专属游戏</p>
@@ -59,24 +59,24 @@
     <!-- ========== 选择类型视图 ========== -->
     <template v-else-if="view === 'select-type'">
       <div class="select-type">
-        <header class="select-header">
+        <header class="select-header studio-heading">
           <button class="btn-back" @click="view = 'list'">← 返回</button>
           <h2>选择游戏类型</h2>
           <p>目前支持以下类型，请选择一项</p>
         </header>
         <div class="type-grid">
-          <div
+          <button type="button"
             v-for="type in availableTypes"
             :key="type.value"
             class="type-card"
-            :class="{ 'coming-soon': type.comingSoon }"
+            :class="{ 'coming-soon': type.comingSoon }" :disabled="type.comingSoon"
             @click="!type.comingSoon && selectType(type.value)"
           >
             <div class="type-icon">{{ type.icon }}</div>
             <h3 class="type-title">{{ type.label }}</h3>
             <p class="type-desc">{{ type.desc }}</p>
             <span v-if="type.comingSoon" class="type-badge">即将支持</span>
-          </div>
+          </button>
         </div>
       </div>
     </template>
@@ -364,7 +364,7 @@ onMounted(() => {
   max-width: 960px;
   margin: 0 auto;
   padding: 24px;
-  font-family: var(--font-family, 'Noto Serif SC', serif);
+  font-family: inherit;
 }
 
 /* ===== 列表视图 ===== */
@@ -381,7 +381,7 @@ onMounted(() => {
 .header-left h2 {
   font-size: 26px;
   font-weight: 400;
-  letter-spacing: 0.2em;
+  letter-spacing: .02em;
   color: var(--ink-black, var(--text-primary));
   margin: 0 0 4px;
 }
@@ -408,14 +408,14 @@ onMounted(() => {
   gap: 6px;
   padding: 6px 16px;
   border: 1px solid var(--line-raw, var(--border-line));
-  border-radius: 30px;
+  border-radius: 0;
   background: var(--paper-card, var(--bg-main));
   font-size: 14px;
   white-space: nowrap;
   transition: border-color 0.3s, background 0.3s;
 }
 .exp-display:hover {
-  border-color: var(--cinnabar, var(--danger));
+  border-color: var(--accent-color);
 }
 .exp-icon {
   font-size: 18px;
@@ -423,7 +423,7 @@ onMounted(() => {
 }
 .exp-value {
   font-weight: 600;
-  color: var(--cinnabar, var(--danger));
+  color: var(--accent-color);
   font-variant-numeric: tabular-nums;
 }
 .exp-label {
@@ -445,7 +445,7 @@ onMounted(() => {
 
 /* ===== 创建按钮 ===== */
 .btn-create {
-  background: var(--cinnabar, var(--danger));
+  background: var(--accent-color);
   color: var(--on-accent);
   border: none;
   padding: 8px 28px;
@@ -455,7 +455,7 @@ onMounted(() => {
   cursor: pointer;
   transition: background 0.3s, transform 0.15s;
   flex-shrink: 0;
-  border-radius: 30px;
+  border-radius: 0;
 }
 .btn-create:hover {
   background: var(--danger);
@@ -468,13 +468,13 @@ onMounted(() => {
 .loading-state {
   text-align: center;
   padding: 60px 0;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
 }
 .loading-spinner {
   width: 36px;
   height: 36px;
-  border: 2px solid var(--line-raw);
-  border-top-color: var(--cinnabar);
+  border: 2px solid var(--border-line);
+  border-top-color: var(--accent-color);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   margin: 0 auto 12px;
@@ -485,7 +485,7 @@ onMounted(() => {
 .empty-state {
   text-align: center;
   padding: 60px 0;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
 }
 .empty-icon {
   font-size: 64px;
@@ -494,7 +494,7 @@ onMounted(() => {
 .empty-state h3 {
   font-size: 22px;
   font-weight: 400;
-  color: var(--ink-black);
+  color: var(--text-primary);
   margin: 0 0 8px;
 }
 .empty-state p {
@@ -515,10 +515,10 @@ onMounted(() => {
   transition: border-color 0.3s, box-shadow 0.3s, transform 0.2s;
   display: flex;
   flex-direction: column;
-  border-radius: 8px;
+  border-radius: 0;
 }
 .game-card:hover {
-  border-color: var(--cinnabar);
+  border-color: var(--accent-color);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
   transform: translateY(-2px);
 }
@@ -535,10 +535,10 @@ onMounted(() => {
 .game-status {
   font-size: 11px;
   padding: 0 10px;
-  border: 1px solid var(--line-raw);
-  border-radius: 12px;
+  border: 1px solid var(--border-line);
+  border-radius: 0;
   letter-spacing: 0.1em;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   line-height: 20px;
 }
 .status-published {
@@ -553,12 +553,12 @@ onMounted(() => {
   font-size: 18px;
   font-weight: 400;
   letter-spacing: 0.15em;
-  color: var(--ink-black);
+  color: var(--text-primary);
   margin: 0 0 6px;
 }
 .game-desc {
   font-size: 13px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   letter-spacing: 0.1em;
   line-height: 1.6;
   margin: 0 0 10px;
@@ -566,7 +566,7 @@ onMounted(() => {
 }
 .card-meta {
   font-size: 11px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   opacity: 0.6;
   letter-spacing: 0.05em;
   margin-bottom: 12px;
@@ -581,7 +581,7 @@ onMounted(() => {
 .btn-line {
   background: none;
   border: 1px solid var(--line-raw, var(--border-line));
-  color: var(--ink-black);
+  color: var(--text-primary);
   padding: 4px 12px;
   font-family: inherit;
   font-size: 12px;
@@ -590,12 +590,12 @@ onMounted(() => {
   transition: all 0.2s;
   flex: 1;
   text-align: center;
-  border-radius: 4px;
+  border-radius: 0;
   min-width: 50px;
 }
 .btn-line:hover {
-  border-color: var(--cinnabar);
-  color: var(--cinnabar);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 .btn-edit:hover {
   border-color: var(--border-line);
@@ -628,13 +628,13 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   margin-bottom: 24px;
-  border-bottom: 1px solid var(--line-raw);
+  border-bottom: 1px solid var(--border-line);
   padding-bottom: 12px;
 }
 .btn-back {
   background: none;
   border: none;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   font-family: inherit;
   font-size: 14px;
   cursor: pointer;
@@ -642,18 +642,18 @@ onMounted(() => {
   transition: color 0.3s;
 }
 .btn-back:hover {
-  color: var(--cinnabar);
+  color: var(--accent-color);
 }
 .select-header h2 {
   font-size: 22px;
   font-weight: 400;
-  letter-spacing: 0.2em;
-  color: var(--ink-black);
+  letter-spacing: .02em;
+  color: var(--text-primary);
   margin: 0;
 }
 .select-header p {
   font-size: 14px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   letter-spacing: 0.1em;
   margin: 0 0 0 auto;
 }
@@ -663,17 +663,17 @@ onMounted(() => {
   gap: 20px;
 }
 .type-card {
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   padding: 24px 20px;
   background: var(--paper-card);
   text-align: center;
   cursor: pointer;
   transition: all 0.3s;
   position: relative;
-  border-radius: 8px;
+  border-radius: 0;
 }
 .type-card:hover:not(.coming-soon) {
-  border-color: var(--cinnabar);
+  border-color: var(--accent-color);
   transform: translateY(-4px);
   box-shadow: 0 4px 12px rgba(0,0,0,0.04);
 }
@@ -684,7 +684,7 @@ onMounted(() => {
 }
 .type-card.coming-soon:hover {
   transform: none;
-  border-color: var(--line-raw);
+  border-color: var(--border-line);
   box-shadow: none;
 }
 .type-icon {
@@ -696,12 +696,12 @@ onMounted(() => {
   font-size: 18px;
   font-weight: 400;
   letter-spacing: 0.15em;
-  color: var(--ink-black);
+  color: var(--text-primary);
   margin: 0 0 6px;
 }
 .type-desc {
   font-size: 13px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   letter-spacing: 0.1em;
   margin: 0;
 }
@@ -709,11 +709,11 @@ onMounted(() => {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: var(--cinnabar);
+  background: var(--accent-color);
   color: var(--text-primary);
   font-size: 10px;
   padding: 0 8px;
-  border-radius: 10px;
+  border-radius: 0;
   line-height: 18px;
   letter-spacing: 0.05em;
 }
@@ -732,14 +732,14 @@ onMounted(() => {
 }
 .modal-content {
   background: var(--paper-bg, var(--bg-sub));
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   max-width: 800px;
   width: 92%;
   max-height: 90vh;
   overflow-y: auto;
   padding: 24px 30px 30px;
   position: relative;
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 8px 32px rgba(0,0,0,0.12);
 }
 .modal-close {
@@ -749,13 +749,13 @@ onMounted(() => {
   background: none;
   border: none;
   font-size: 24px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: color 0.3s;
   padding: 0 4px;
 }
 .modal-close:hover {
-  color: var(--cinnabar);
+  color: var(--accent-color);
 }
 
 /* ===== 响应式适配 ===== */
@@ -815,4 +815,6 @@ onMounted(() => {
     font-size: 16px;
   }
 }
+.custom-studio { box-sizing: border-box; }.type-card { font: inherit; text-align: left; color: var(--text-primary); }.type-card:disabled { cursor: default; }
+@media(max-width:640px) { .custom-studio { padding: 12px; }.header-right { width: 100%; }.exp-display { flex-wrap: wrap; white-space: normal; }.type-grid { grid-template-columns: 1fr; } }
 </style>

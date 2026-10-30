@@ -53,7 +53,7 @@
               <a v-if="e.link" :href="e.link" target="_blank" rel="noopener noreferrer">{{ e.title }}</a>
               <span v-else>{{ e.title }}</span>
             </h3>
-            <p class="entry-author">{{ e.authorName }}</p>
+            <p class="entry-author"><UserLink :id="e.userId" :name="e.authorName" /></p>
             <p v-if="e.description" class="entry-desc">{{ e.description }}</p>
             <a v-if="e.fileUrl" class="entry-file" :href="e.fileUrl" target="_blank" rel="noopener noreferrer">📎 {{ e.fileName || '附件' }}</a>
             <button class="vote-btn" :class="{ voted: detail.myVote === e.id }" @click="vote(e.id)">
@@ -123,12 +123,13 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { ref, computed, watch, onMounted } from 'vue'
 import request from '@/utils/request'
 import { useUserStore } from '@/stores/user'
 import { useCos } from '@/composables/useCos'
 
-interface Entry { id: number; authorName: string; title: string; coverUrl: string | null; link: string | null; fileUrl: string | null; fileName: string | null; description: string | null; votes: number }
+interface Entry { id: number; userId?: string; authorName: string; title: string; coverUrl: string | null; link: string | null; fileUrl: string | null; fileName: string | null; description: string | null; votes: number }
 interface Match { id: number; round: number; slot: number; sideA: string | null; sideB: string | null; scoreA: number | null; scoreB: number | null; winner: string | null; status: string }
 interface Detail {
   id: number; title: string; rules: string | null; kind: string; status: string
@@ -259,27 +260,27 @@ watch(() => props.activityId, load)
 </script>
 
 <style scoped>
-.competition { margin: 24px 0; padding: 22px 24px; border: 1px solid var(--border-line); border-radius: 14px; background: var(--paper-card); }
+.competition { margin: 24px 0; padding: 22px 24px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); }
 .comp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .comp-head h2 { margin: 0; font-size: 1.15rem; }
 .comp-sub { font-size: .78rem; color: var(--text-secondary); }
 .comp-timeline { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.comp-timeline span { font-size: .75rem; color: var(--text-secondary); border: 1px solid var(--border-line); border-radius: 999px; padding: 3px 12px; }
+.comp-timeline span { font-size: .75rem; color: var(--text-secondary); border: 1px solid var(--border-line); border-radius: 0; padding: 3px 12px; }
 .comp-rules { margin: 14px 0 0; font-size: .86rem; line-height: 1.8; color: var(--text-secondary); white-space: pre-wrap; }
 .comp-error { color: var(--danger); font-size: .8rem; }
 .comp-empty { padding: 30px 0; text-align: center; color: var(--text-secondary); font-size: .86rem; }
 .comp-result { margin: 18px 0 0; padding-top: 14px; border-top: 1px dashed var(--border-line); font-size: .88rem; }
 
 .entry-toolbar { display: flex; align-items: center; gap: 12px; margin: 18px 0 0; }
-.btn { padding: 8px 16px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
+.btn { padding: 8px 16px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
 .btn.primary { background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color); }
 .btn:disabled { opacity: .5; cursor: default; }
-.entry-form { display: grid; gap: 8px; margin-top: 14px; padding: 14px; border: 1px solid var(--border-line); border-radius: 10px; background: var(--bg-main); }
-.entry-form input, .entry-form textarea { padding: 8px 11px; border: 1px solid var(--border-line); border-radius: 7px; background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: .85rem; }
+.entry-form { display: grid; gap: 8px; margin-top: 14px; padding: 14px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); }
+.entry-form input, .entry-form textarea { padding: 8px 11px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: .85rem; }
 .form-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
 .entry-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 16px; margin-top: 18px; }
-.entry-card { border: 1px solid var(--border-line); border-radius: 12px; overflow: hidden; background: var(--bg-main); }
+.entry-card { border: 1px solid var(--border-line); border-radius: 0; overflow: hidden; background: var(--bg-main); }
 .entry-cover { position: relative; aspect-ratio: 4 / 3; background: var(--bg-sub); display: grid; place-items: center; overflow: hidden; }
 .entry-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .entry-cover.no-img span { font-size: 2rem; font-weight: 700; color: var(--accent-color); }
@@ -290,13 +291,13 @@ watch(() => props.activityId, load)
 .entry-title a:hover { color: var(--accent-color); }
 .entry-author { margin: 0; font-size: .75rem; color: var(--text-secondary); }
 .entry-desc { margin: 0; font-size: .78rem; color: var(--text-secondary); line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.vote-btn { justify-self: start; padding: 6px 14px; border: 1px solid var(--accent-color); border-radius: 999px; background: transparent; color: var(--accent-color); cursor: pointer; font-size: .8rem; }
+.vote-btn { justify-self: start; padding: 6px 14px; border: 1px solid var(--accent-color); border-radius: 0; background: transparent; color: var(--accent-color); cursor: pointer; font-size: .8rem; }
 .vote-btn.voted { background: var(--accent-color); color: var(--on-accent); }
 
 .match-rounds { display: grid; gap: 22px; margin-top: 18px; }
 .round-title { margin: 0 0 10px; font-size: .95rem; }
 .match-list { display: grid; gap: 8px; }
-.match-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid var(--border-line); border-radius: 10px; background: var(--bg-main); font-size: .88rem; }
+.match-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 12px 16px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); font-size: .88rem; }
 .match-row.done { border-color: var(--accent-color); }
 .match-row .side { text-align: left; }
 .match-row .side.right { text-align: right; }
@@ -306,18 +307,18 @@ watch(() => props.activityId, load)
 .upload-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .file-name { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--text-secondary); }
 .link-btn { border: 0; background: none; color: var(--danger); cursor: pointer; font-size: .75rem; padding: 0 2px; }
-.cover-preview { max-width: 160px; border-radius: 8px; border: 1px solid var(--border-line); }
+.cover-preview { max-width: 160px; border-radius: 0; border: 1px solid var(--border-line); }
 .entry-file { font-size: .76rem; color: var(--accent-color); text-decoration: none; overflow-wrap: anywhere; }
 .entry-file:hover { text-decoration: underline; }
 
 .match-admin { margin-top: 22px; padding-top: 16px; border-top: 1px dashed var(--border-line); }
 .match-admin-title { margin: 0 0 10px; font-size: .9rem; color: var(--text-secondary); }
 .match-edit-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 8px; }
-.match-edit-row input, .match-edit-row select { padding: 6px 9px; border: 1px solid var(--border-line); border-radius: 6px; background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: .8rem; min-width: 0; }
+.match-edit-row input, .match-edit-row select { padding: 6px 9px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: .8rem; min-width: 0; }
 .match-edit-row input { flex: 1 1 110px; }
 .match-edit-row select { flex: 0 0 auto; }
 .me-round { font-size: .72rem; color: var(--text-secondary); flex: 0 0 auto; }
 .me-score { flex: 0 0 64px !important; width: 64px; }
-.mini-btn { padding: 5px 11px; border: 1px solid var(--border-line); border-radius: 6px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .76rem; flex: 0 0 auto; }
+.mini-btn { padding: 5px 11px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .76rem; flex: 0 0 auto; }
 .mini-btn.danger { color: var(--danger); border-color: var(--danger); }
 </style>

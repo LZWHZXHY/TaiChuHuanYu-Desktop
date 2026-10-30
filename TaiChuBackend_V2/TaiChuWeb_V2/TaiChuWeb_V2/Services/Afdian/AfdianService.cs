@@ -72,9 +72,19 @@ namespace TaiChuWeb_V2.Services.Afdian
             return JsonDocument.Parse(body);
         }
 
-        public async Task<List<AfdianOrderDto>> QueryOrdersAsync(string userId, string token, int page, CancellationToken ct = default)
+        public Task<List<AfdianOrderDto>> QueryOrdersAsync(string userId, string token, int page, CancellationToken ct = default)
+            => QueryOrdersCoreAsync(userId, token, new { page }, ct);
+
+        /// <summary>按订单号查询单笔订单（用户绑定爱发电账号时用来核实订单归属）</summary>
+        public async Task<AfdianOrderDto?> QueryOrderAsync(string userId, string token, string outTradeNo, CancellationToken ct = default)
         {
-            using var doc = await QueryRawAsync("/query-order", userId, token, new { page }, ct);
+            var list = await QueryOrdersCoreAsync(userId, token, new { out_trade_no = outTradeNo }, ct);
+            return list.FirstOrDefault(o => o.OutTradeNo == outTradeNo);
+        }
+
+        private async Task<List<AfdianOrderDto>> QueryOrdersCoreAsync(string userId, string token, object paramsObj, CancellationToken ct)
+        {
+            using var doc = await QueryRawAsync("/query-order", userId, token, paramsObj, ct);
             var root = doc.RootElement;
             if (!root.TryGetProperty("ec", out var ec) || ec.GetInt32() != 200)
                 throw new InvalidOperationException("爱发电返回错误：" + (root.TryGetProperty("em", out var em) ? em.GetString() : "未知"));

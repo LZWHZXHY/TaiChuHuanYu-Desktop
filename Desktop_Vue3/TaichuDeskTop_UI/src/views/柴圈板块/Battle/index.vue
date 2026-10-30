@@ -149,7 +149,7 @@
           <div class="card-meta">
             <span>◈ {{ item.participantCount || 0 }} 人</span>
             <span>◈ {{ item.submissionCount || 0 }} 作品</span>
-           <span>◈ 发起人：{{ item.participants?.[0]?.userName || '未知' }}</span>
+           <span>◈ 发起人：<UserLink nested :id="item.participants?.[0]?.userId" :name="item.participants?.[0]?.userName || '未知'" /></span>
             <span class="meta-time">◈ {{ formatTime(item.createdAt) }}</span>
           </div>
         </div>
@@ -170,6 +170,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { battleApi, type Battle } from './battle_api'
@@ -399,7 +400,7 @@ onMounted(fetchList)
   width: 24px;
   height: 24px;
   border: 1px solid var(--accent-color);
-  border-radius: 50%;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -478,7 +479,7 @@ onMounted(fetchList)
   padding: 8px 14px;
   border: 1px solid var(--border-line);
   background: var(--paper-card);
-  border-radius: 2px;
+  border-radius: 0;
   font-family: inherit;
   font-size: 13px;
   outline: none;

@@ -95,7 +95,7 @@ watch(() => props.modelValue, (val) => {
 .tag-input-row input {
   flex: 1;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 4px 8px;
   font-size: 13px;
 }
@@ -106,7 +106,7 @@ watch(() => props.modelValue, (val) => {
 .add-btn {
   padding: 4px 12px;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--paper-card);
   cursor: pointer;
   font-size: 13px;
@@ -127,7 +127,7 @@ watch(() => props.modelValue, (val) => {
   background: var(--accent-soft);
   color: var(--accent-color);
   padding: 2px 8px 2px 10px;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 12px;
 }
 .remove-btn {

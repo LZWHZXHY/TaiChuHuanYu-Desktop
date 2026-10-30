@@ -7,7 +7,7 @@
         <span class="feed-icon">{{ icon(item.type) }}</span>
         <span class="feed-body">
           <strong>{{ item.title }}</strong>
-          <small>@{{ item.authorName }} · {{ relTime(item.createdAt) }}</small>
+          <small><UserLink nested :id="item.authorId" :name="item.authorName">@{{ item.authorName }}</UserLink> · {{ relTime(item.createdAt) }}</small>
         </span>
       </li>
     </ul>
@@ -17,6 +17,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { chaiFeedApi, type ChaiFeedItem } from '@/api/chaiFeed'
@@ -64,11 +65,11 @@ onMounted(load)
 </script>
 
 <style scoped>
-.chai-feed { border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); padding: 16px; }
+.chai-feed { border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); padding: 16px; }
 .feed-title { margin: 0 0 12px; font-size: .9rem; }
 .feed-state { color: var(--text-secondary); font-size: .85rem; text-align: center; padding: 12px 0; }
 .feed-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.feed-list li { display: flex; gap: 10px; align-items: center; padding: 8px 6px; border-radius: 8px; cursor: pointer; }
+.feed-list li { display: flex; gap: 10px; align-items: center; padding: 8px 6px; border-radius: 0; cursor: pointer; }
 .feed-list li:hover { background: var(--bg-sub); }
 .feed-icon { font-size: 1rem; }
 .feed-body { min-width: 0; }

@@ -53,15 +53,15 @@
 
       <a
         class="link-item sponsor"
-        :href="AFDIAN_URL"
+        :href="AZZ_URL"
         target="_blank"
         rel="noopener noreferrer"
-        @click.prevent="openExternal(AFDIAN_URL)"
+        @click.prevent="openExternal(AZZ_URL)"
       >
         <span class="link-emoji" aria-hidden="true">💛</span>
         <div class="link-body">
           <strong>赞助支持</strong>
-          <p>爱发电 · 支持太初寰宇继续创造</p>
+          <p>爱赞助 · 支持太初寰宇继续创造</p>
         </div>
         <span class="link-arrow" aria-hidden="true">↗</span>
       </a>
@@ -76,8 +76,8 @@ import { bilibiliApi } from '@/api/bilibili'
 // 🌟 社区对外入口：OOPZ 语音房 + QQ 外群
 const OOPZ_URL = 'https://oopz.cn/i/iZDd74'
 const QQ_GROUP_URL = 'https://qm.qq.com/q/D8EaBjOygo'
-// 💛 爱发电赞助入口
-const AFDIAN_URL = 'https://ifdian.net/a/taichuhuanyu'
+// 💛 赞助入口：爱发电审核一直没过，首页推荐爱赞助（爱发电入口在赞助墙页面保留）
+const AZZ_URL = 'https://azz.ee/taichuhuanyu'
 // 📺 B 站官号
 const BILIBILI_URL = 'https://space.bilibili.com/zh-Hans/3546736970696727'
 
@@ -115,7 +115,7 @@ function openExternal(url: string) {
 .link-list { display: grid; gap: 10px; }
 .link-item {
   display: flex; align-items: center; gap: 12px;
-  padding: 12px; border: 1px solid var(--border-line); border-radius: var(--radius-sm);
+  padding: 12px; border: 1px solid var(--border-line); border-radius: 0;
   background: var(--bg-sub); text-decoration: none; color: inherit;
   transition: border-color .2s, background .2s, transform .2s;
 }

@@ -1,6 +1,6 @@
 <template>
-  <div class="create-questionnaire">
-    <header class="create-header">
+  <div class="create-questionnaire workbench-skin editor-surface community-surface tone-play">
+    <header class="create-header studio-heading">
       <button class="btn-back" @click="$emit('cancel')">← 返回</button>
       <h2>📋 {{ isEditMode ? '编辑问卷测试' : '创建问卷测试' }}</h2>
       <p>{{ isEditMode ? '修改已有游戏的配置' : '支持多种题型，可配图，自由组合' }}</p>
@@ -47,7 +47,7 @@
               <option value="likert">量表题</option>
               <option value="multiple">多选题</option>
             </select>
-            <button type="button" class="btn-remove" @click="removeQuestion(qIdx)">✕</button>
+            <button type="button" class="btn-remove" @click="removeQuestion(qIdx)" aria-label="删除当前项">✕</button>
           </div>
 
           <input v-model="q.text" class="q-text" placeholder="请输入题目内容" required />
@@ -92,7 +92,7 @@
                 <input v-model="opt.label" placeholder="选项文字" />
                 <input v-model.number="opt.value" type="number" placeholder="分值" step="1" />
                 <input v-model="opt.image" placeholder="选项配图链接（可选）" />
-                <button type="button" class="btn-remove-opt" @click="removeOption(qIdx, oIdx)">✕</button>
+                <button type="button" class="btn-remove-opt" @click="removeOption(qIdx, oIdx)" aria-label="删除当前项">✕</button>
               </div>
               <button type="button" class="btn-add-opt" @click="addOption(qIdx)">+ 添加选项</button>
             </template>
@@ -110,7 +110,7 @@
         <div v-for="(r, rIdx) in form.results" :key="rIdx" class="result-item">
           <div class="result-header">
             <span>结果 {{ rIdx + 1 }}</span>
-            <button type="button" class="btn-remove" @click="removeResult(rIdx)">✕</button>
+            <button type="button" class="btn-remove" @click="removeResult(rIdx)" aria-label="删除当前项">✕</button>
           </div>
           <div class="result-row">
             <input v-model.number="r.min" type="number" placeholder="最低分" />
@@ -393,13 +393,13 @@ function submitForm() {
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 24px;
-  border-bottom: 1px solid var(--line-raw);
+  border-bottom: 1px solid var(--border-line);
   padding-bottom: 12px;
 }
 .btn-back {
   background: none;
   border: none;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   font-family: inherit;
   font-size: 14px;
   cursor: pointer;
@@ -407,18 +407,18 @@ function submitForm() {
   transition: color 0.3s;
 }
 .btn-back:hover {
-  color: var(--cinnabar);
+  color: var(--accent-color);
 }
 .create-header h2 {
   font-size: 24px;
   font-weight: 400;
-  letter-spacing: 0.2em;
-  color: var(--ink-black);
+  letter-spacing: .02em;
+  color: var(--text-primary);
   margin: 0;
 }
 .create-header p {
   font-size: 14px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   letter-spacing: 0.1em;
   margin: 0 0 0 auto;
 }
@@ -437,28 +437,28 @@ function submitForm() {
 .form-group label {
   font-size: 14px;
   letter-spacing: 0.1em;
-  color: var(--ink-black);
+  color: var(--text-primary);
 }
 .required {
-  color: var(--cinnabar);
+  color: var(--accent-color);
   margin-left: 4px;
 }
 .form-group input,
 .form-group textarea,
 .form-group select {
   padding: 8px 12px;
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   background: var(--paper-card);
   font-family: inherit;
   font-size: 14px;
-  color: var(--ink-black);
+  color: var(--text-primary);
   transition: border-color 0.3s;
 }
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
   outline: none;
-  border-color: var(--cinnabar);
+  border-color: var(--accent-color);
 }
 .form-group textarea {
   resize: vertical;
@@ -470,7 +470,7 @@ function submitForm() {
 /* ===== 题目区域 ===== */
 .questions-group,
 .results-group {
-  border-top: 1px dashed var(--line-raw);
+  border-top: 1px dashed var(--border-line);
   padding-top: 16px;
 }
 .group-header {
@@ -484,10 +484,10 @@ function submitForm() {
 
 /* ===== 单个题目 ===== */
 .question-item {
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   padding: 14px 16px;
   margin-bottom: 14px;
-  background: var(--paper-sub);
+  background: var(--bg-sub);
 }
 .question-header {
   display: flex;
@@ -497,21 +497,21 @@ function submitForm() {
 }
 .q-number {
   font-size: 14px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 .q-type-select {
   padding: 4px 8px;
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   background: var(--paper-card);
   font-family: inherit;
   font-size: 13px;
-  color: var(--ink-black);
+  color: var(--text-primary);
 }
 .q-text {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   background: var(--paper-card);
   font-family: inherit;
   font-size: 14px;
@@ -525,14 +525,14 @@ function submitForm() {
 .q-image-group input {
   flex: 1;
   padding: 6px 10px;
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   background: var(--paper-card);
   font-family: inherit;
   font-size: 13px;
 }
 .image-preview {
   font-size: 13px;
-  color: var(--cinnabar);
+  color: var(--accent-color);
 }
 
 /* ===== 选项配置 ===== */
@@ -552,12 +552,12 @@ function submitForm() {
 }
 .yesno-config .option-item span {
   font-size: 14px;
-  color: var(--ink-black);
+  color: var(--text-primary);
 }
 .yesno-config .option-item input {
   width: 60px;
   padding: 4px 8px;
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   background: var(--paper-card);
 }
 
@@ -569,18 +569,18 @@ function submitForm() {
 }
 .likert-labels label {
   font-size: 13px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
 }
 .likert-labels input {
   width: 100%;
   padding: 6px 10px;
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   background: var(--paper-card);
   margin-top: 4px;
 }
 .hint {
   font-size: 12px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   opacity: 0.6;
 }
 .likert-preview {
@@ -594,13 +594,13 @@ function submitForm() {
   align-items: center;
   gap: 4px;
   padding: 4px 10px;
-  border: 1px dashed var(--line-raw);
+  border: 1px dashed var(--border-line);
   background: var(--paper-card);
   font-size: 13px;
 }
 .scale-value {
   font-size: 11px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
 }
 
 /* 选项列表（单选/多选） */
@@ -651,28 +651,28 @@ function submitForm() {
 .btn-add-question,
 .btn-add-result {
   background: none;
-  border: 1px dashed var(--line-raw);
+  border: 1px dashed var(--border-line);
   padding: 6px 14px;
   font-family: inherit;
   font-size: 13px;
   cursor: pointer;
   transition: border-color 0.3s, color 0.3s;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   align-self: flex-start;
 }
 .btn-add-opt:hover,
 .btn-add-question:hover,
 .btn-add-result:hover {
-  border-color: var(--cinnabar);
-  color: var(--cinnabar);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 
 /* ===== 结果 ===== */
 .result-item {
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   padding: 12px 14px;
   margin-bottom: 12px;
-  background: var(--paper-sub);
+  background: var(--bg-sub);
 }
 .result-header {
   display: flex;
@@ -680,7 +680,7 @@ function submitForm() {
   align-items: center;
   margin-bottom: 8px;
   font-size: 14px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
 }
 .result-row {
   display: flex;
@@ -691,14 +691,14 @@ function submitForm() {
 .result-row input {
   width: 80px;
   padding: 4px 8px;
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   background: var(--paper-card);
 }
 .result-item > input {
   width: 100%;
   padding: 6px 10px;
   margin-bottom: 4px;
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   background: var(--paper-card);
 }
 
@@ -707,7 +707,7 @@ function submitForm() {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
-  border-top: 1px solid var(--line-raw);
+  border-top: 1px solid var(--border-line);
   padding-top: 16px;
 }
 .btn-cancel,
@@ -717,17 +717,17 @@ function submitForm() {
   font-size: 14px;
   letter-spacing: 0.1em;
   cursor: pointer;
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   background: none;
   transition: all 0.3s;
 }
 .btn-cancel:hover {
-  border-color: var(--ink-gray);
+  border-color: var(--text-secondary);
 }
 .btn-submit {
-  background: var(--cinnabar);
+  background: var(--accent-color);
   color: var(--text-primary);
-  border-color: var(--cinnabar);
+  border-color: var(--accent-color);
 }
 .btn-submit:hover {
   background: var(--danger);
@@ -755,4 +755,10 @@ function submitForm() {
     align-items: stretch;
   }
 }
+.create-questionnaire .btn-submit { color: var(--on-accent); background: var(--accent-color); }
+.create-form > .form-group:not(.questions-group):not(.results-group) { padding: 0 16px; }
+.question-item,.result-item { border-left: 3px solid var(--accent-color); border-radius: 0; }
+.form-actions { position: sticky; bottom: 0; background: var(--paper-card); padding: 16px; border-top: 1px solid var(--border-line); }
+input,select,textarea { min-width: 0; box-sizing: border-box; }
+@media(max-width:640px) { .option-item { flex-wrap: wrap; }.option-item input:first-child,.option-item input:nth-child(3) { flex: 1 1 100%; width: 100%; }.question-header,.group-header { flex-wrap: wrap; gap: 8px; }.create-header p { margin-left: 0; }.result-row input { width: 40%; }.q-image-group { flex-wrap: wrap; } }
 </style>

@@ -32,10 +32,11 @@ public sealed class AdminAccessFilter(AppDbContext db) : IAsyncAuthorizationFilt
         if (permissions.Contains(AdminPermission.SuperAdmin)) return;
         AdminPermission? required = action.ControllerName switch
         {
-            "AdminTrade" or "AdminProduct" => AdminPermission.Trade_Manage,
+            "AdminTrade" or "AdminProduct" or "AdminShowcase" => AdminPermission.Trade_Manage,
             "AdminUser" when action.ActionName != "UpdatePermissions" => AdminPermission.User_Audit,
+            "AdminChat" => AdminPermission.User_Audit,
             "AdminWiki" => AdminPermission.Wiki_Editor,
-            "AdminData" => AdminPermission.System_Monitor,
+            "AdminData" or "AdminAnalytics" => AdminPermission.System_Monitor,
             _ => null
         };
         var canNavigate = action.ControllerName == "Admin" && permissions.Any(p => p is AdminPermission.Trade_Manage or AdminPermission.User_Audit or AdminPermission.Wiki_Editor or AdminPermission.System_Monitor);

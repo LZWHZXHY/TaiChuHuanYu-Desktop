@@ -28,6 +28,11 @@ namespace TaiChuWeb_V2.Services.World
                 await _context.SaveChangesAsync();
             }
 
+            // 「已用世界数」以实际拥有的世界为准：老数据（迁移过来、早于计数器的世界）计数器可能是 0。
+            // 这里只改内存里的值，由调用方决定是否保存；读取时总能拿到正确数字。
+            var realCount = await _context.WorldProjects.AsNoTracking().CountAsync(p => p.OwnerId == userId);
+            if (stats.UsedWorldCount != realCount) stats.UsedWorldCount = realCount;
+
             return stats;
         }
 
@@ -39,10 +44,10 @@ namespace TaiChuWeb_V2.Services.World
 
             if (used >= max)
             {
-                return (false, $"已创建 {used} 个世界观（上限 {max} 个），可用经验扩容", used, max);
+                return (false, $"已创建 {used} 个世界观（上限 {max} 个），可以去交易行扩容", used, max);
             }
 
-            return (true, $"还可创建 {max - used} 个世界观", used, max);
+            return (true, $"还可创建 {Math.Max(0, max - used)} 个世界观", used, max);
         }
 
         public async Task<(bool CanAdd, string Message, int CurrentCount, int MaxCount)> CanAddCardAsync(Guid projectId, Guid userId)
@@ -55,12 +60,13 @@ namespace TaiChuWeb_V2.Services.World
                 return (false, "项目不存在", 0, 0);
             }
 
-            if (!WorldAccess.IsOwner(project.OwnerId, userId))
+            if (!await WorldAccess.CanEditProjectAsync(_context, projectId, userId))
             {
                 return (false, "无权操作此项目", 0, 0);
             }
 
-            var stats = await GetUserStatsAsync(userId);
+            // 词条上限按世界创建者的额度算（协作者帮忙写也占创建者的额度）
+            var stats = await GetUserStatsAsync(project.OwnerId);
             var cardCount = await _context.WorldCards
                 .CountAsync(c => c.ProjectId == projectId);
 
@@ -68,7 +74,7 @@ namespace TaiChuWeb_V2.Services.World
 
             if (cardCount >= maxCards)
             {
-                return (false, $"词条已达上限（{maxCards} 张/世界观），可用经验扩容", cardCount, maxCards);
+                return (false, $"这个世界的节点已达上限（每个世界最多 {maxCards} 个，所有世界通用），可以去交易行扩容，所有世界的上限一起提高", cardCount, maxCards);
             }
 
             return (true, $"还可添加 {maxCards - cardCount} 张词条", cardCount, maxCards);
@@ -76,15 +82,15 @@ namespace TaiChuWeb_V2.Services.World
 
         public async Task IncrementUsedWorldCountAsync(Guid userId)
         {
-            var stats = await GetUserStatsAsync(userId);
-            stats.UsedWorldCount++;
+            // 新世界已经保存，按实际数量同步即可（不再 +1，避免重复计数）
+            await GetUserStatsAsync(userId);
             await _context.SaveChangesAsync();
         }
 
         public async Task DecrementUsedWorldCountAsync(Guid userId)
         {
-            var stats = await GetUserStatsAsync(userId);
-            stats.UsedWorldCount = Math.Max(0, stats.UsedWorldCount - 1);
+            // 世界已经删除，按实际数量同步
+            await GetUserStatsAsync(userId);
             await _context.SaveChangesAsync();
         }
 

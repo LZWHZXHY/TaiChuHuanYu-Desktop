@@ -244,7 +244,7 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
   padding: 8px 16px;
-  border-radius: 20px;
+  border-radius: 0;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 1000;
   
@@ -266,7 +266,7 @@ onUnmounted(() => {
   background: #1d1d1f;
   color: white;
   border: none;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 12px;
   font-weight: bold;
   cursor: pointer;
@@ -308,7 +308,7 @@ onUnmounted(() => {
   margin-bottom: 4px;
   padding: 4px 8px;
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 12px;
   font-weight: 600;
   color: #1d1d1f;

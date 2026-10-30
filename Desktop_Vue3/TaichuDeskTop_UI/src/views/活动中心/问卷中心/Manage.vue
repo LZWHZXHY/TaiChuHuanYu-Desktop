@@ -288,7 +288,7 @@ onMounted(loadSurveys)
 .btn-create {
   padding: 10px 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--info);
   color: var(--on-accent);
   font-weight: 500;
@@ -311,7 +311,7 @@ onMounted(loadSurveys)
 
 .stat-card {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 16px 20px;
   border: 1px solid var(--border-line);
   text-align: center;
@@ -338,7 +338,7 @@ onMounted(loadSurveys)
 
 .filter-tab {
   padding: 6px 16px;
-  border-radius: 20px;
+  border-radius: 0;
   border: none;
   background: transparent;
   font-size: 0.85rem;
@@ -360,7 +360,7 @@ onMounted(loadSurveys)
 
 .table-wrapper {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   border: 1px solid var(--border-line);
   overflow: hidden;
 }
@@ -403,7 +403,7 @@ onMounted(loadSurveys)
 
 .status-badge {
   padding: 2px 12px;
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 0.7rem;
   font-weight: 500;
   color: var(--text-primary);
@@ -430,7 +430,7 @@ onMounted(loadSurveys)
 .action-buttons button {
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border-radius: 0;
   border: none;
   cursor: pointer;
   transition: all 0.2s;
@@ -486,7 +486,7 @@ onMounted(loadSurveys)
   margin-top: 12px;
   padding: 10px 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--info);
   color: var(--on-accent);
   font-weight: 500;
@@ -505,7 +505,7 @@ onMounted(loadSurveys)
   padding: 16px 20px;
   border-top: 1px solid var(--border-line);
   background: var(--paper-card);
-  border-radius: 0 0 6px 6px;
+  border-radius: 0;
 }
 
 .page-info {
@@ -524,7 +524,7 @@ onMounted(loadSurveys)
   border: 1px solid var(--border-line);
   padding: 6px 14px;
   font-size: 0.8rem;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   transition: 0.2s;
 }

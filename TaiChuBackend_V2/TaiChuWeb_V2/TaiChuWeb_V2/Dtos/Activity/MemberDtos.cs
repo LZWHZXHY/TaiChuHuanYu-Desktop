@@ -5,6 +5,7 @@ public class MemberDto
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public Guid UserId { get; set; } // 点击成员进入个人主页
     public DateTime JoinedAt { get; set; }
     public List<RecordDto> Records { get; set; } = new();
 }

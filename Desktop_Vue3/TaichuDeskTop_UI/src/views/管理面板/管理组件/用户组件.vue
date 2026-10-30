@@ -62,7 +62,7 @@
               
               <td>
                 <div class="user-base-info">
-                  <span class="username">{{ user.username }}</span>
+                  <span class="username">{{ user.username }}<span v-if="user.stats?.title" class="user-title-chip" title="正在戴的头衔">{{ user.stats.title }}</span></span>
                   <span class="email" v-if="user.email">{{ user.email }}</span>
                   <span class="date-hint">{{ formatDate(user.createdAt) }} 注册</span>
                 </div>
@@ -114,6 +114,7 @@
               <td class="text-right actions">
                 <button class="btn-action edit" @click="handleOpenGovernance(user)">微调参数</button>
                 <button class="btn-action danger" @click="handlePunishReputation(user)">违规扣分</button>
+                <button class="btn-action edit" title="授予 / 收回头衔" @click="titleUser = user">头衔</button>
               </td>
             </tr>
           </tbody>
@@ -132,8 +133,8 @@
 
     <Teleport to="body">
       <div v-if="showGovModal" class="modal-mask" @click.self="closeModal">
-        <div class="modal-container scroll-y workbench-skin">
-          <header class="modal-header">
+        <div class="modal-container scroll-y workbench-skin editor-surface community-surface tone-admin">
+          <header class="modal-header studio-heading">
             <div>
               <h3>太初域用户深度治理中枢</h3>
               <p class="mono font-sm">GUID: {{ targetUser?.id }}</p>
@@ -206,12 +207,14 @@
         </div>
       </div>
     </Teleport>
+    <TitleGrantDialog v-if="titleUser" :user="titleUser" @close="titleUser = null" @changed="onTitleChanged" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { adminUserApi, type UserDto } from '@/api/Admin/AdminUser';
+import TitleGrantDialog from './TitleGrantDialog.vue';
 
 const PERMISSION_MAP: Record<string, string> = {
   SuperAdmin: '核心中枢 (所有权限)',
@@ -226,6 +229,12 @@ const PERMISSION_MAP: Record<string, string> = {
 const loading = ref(false);
 const submitting = ref(false);
 const showGovModal = ref(false);
+// 头衔：给谁授予 / 收回
+const titleUser = ref<UserDto | null>(null);
+function onTitleChanged(equipped: string | null) {
+  const u = titleUser.value;
+  if (u?.stats) u.stats.title = equipped;
+}
 
 const userList = ref<UserDto[]>([]);
 const targetUser = ref<UserDto | null>(null);
@@ -383,15 +392,15 @@ const formatDate = (dateStr: string) => {
 .search-bar { flex: 2; }
 
 /* 统一太初扁平化输入框 */
-.ink-input, .ink-select { border: 1px solid var(--border-line); padding: 10px 14px; border-radius: 4px; font-size: 0.85rem; outline: none; background: var(--paper-card); transition: 0.25s; }
+.ink-input, .ink-select { border: 1px solid var(--border-line); padding: 10px 14px; border-radius: 0; font-size: 0.85rem; outline: none; background: var(--paper-card); transition: 0.25s; }
 .ink-input:focus, .ink-select:focus { border-color: var(--border-line); }
 .ink-select { cursor: pointer; flex: 1; }
 
-.btn-refresh { background: var(--paper-card); border: 1px solid var(--border-line); padding: 10px 20px; border-radius: 4px; color: var(--text-secondary); cursor: pointer; font-weight: 500; font-size: 0.85rem; }
+.btn-refresh { background: var(--paper-card); border: 1px solid var(--border-line); padding: 10px 20px; border-radius: 0; color: var(--text-secondary); cursor: pointer; font-weight: 500; font-size: 0.85rem; }
 .btn-refresh:hover { border-color: var(--border-line); color: var(--text-primary); }
 
 /* 线条极简高留白表格结构 */
-.table-card { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); box-shadow: 0 4px 20px rgba(0,0,0,0.01); }
+.table-card { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.01); }
 .table-responsive { width: 100%; overflow-x: auto; }
 .ink-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
 .ink-table th { padding: 16px; background: var(--paper-card); color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid var(--border-line); }
@@ -410,10 +419,10 @@ const formatDate = (dateStr: string) => {
 .user-base-info .date-hint { font-size: 0.7rem; color: var(--text-secondary); }
 
 .level-badge-group { display: flex; align-items: center; gap: 8px; }
-.level-tag { background: var(--text-primary); color: var(--paper-card); font-size: 0.7rem; font-weight: 800; padding: 2px 6px; border-radius: 2px; font-family: monospace; }
+.level-tag { background: var(--text-primary); color: var(--paper-card); font-size: 0.7rem; font-weight: 800; padding: 2px 6px; border-radius: 0; font-family: monospace; }
 .exp-value { color: var(--text-secondary); font-size: 0.8rem; }
 
-.reputation-text { font-weight: 600; font-size: 0.85rem; padding: 4px 8px; border-radius: 4px; }
+.reputation-text { font-weight: 600; font-size: 0.85rem; padding: 4px 8px; border-radius: 0; }
 .reputation-good { background: var(--success-soft); color: var(--success); }
 .reputation-bad { background: var(--danger-soft); color: var(--danger); font-weight: 800; }
 
@@ -422,7 +431,7 @@ const formatDate = (dateStr: string) => {
 .quota-item b { color: var(--text-primary); }
 
 .permission-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.p-badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 3px; font-weight: 600; background: var(--bg-sub); color: var(--text-secondary); }
+.p-badge { font-size: 0.7rem; padding: 2px 6px; border-radius: 0; font-weight: 600; background: var(--bg-sub); color: var(--text-secondary); }
 .p-badge.superadmin { background: var(--bg-sub); color: var(--danger); border: 1px solid var(--danger-soft); }
 .p-badge.wiki_editor { background: var(--success-soft); color: var(--success); }
 .p-badge.trade_manage { background: var(--bg-main); color: var(--accent-color); }
@@ -435,10 +444,10 @@ const formatDate = (dateStr: string) => {
 .empty-cell { text-align: center; padding: 60px !important; color: var(--text-secondary); font-style: italic; }
 
 /* 分页器样式 */
-.pagination-footer { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-top: 1px solid var(--border-line); background: var(--bg-main); border-radius: 0 0 6px 6px; }
+.pagination-footer { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-top: 1px solid var(--border-line); background: var(--bg-main); border-radius: 0; }
 .page-info { font-size: 0.8rem; color: var(--text-secondary); }
 .page-controls { display: flex; align-items: center; gap: 12px; }
-.btn-page { background: var(--paper-card); border: 1px solid var(--border-line); padding: 6px 14px; font-size: 0.8rem; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+.btn-page { background: var(--paper-card); border: 1px solid var(--border-line); padding: 6px 14px; font-size: 0.8rem; border-radius: 0; cursor: pointer; transition: 0.2s; }
 .btn-page:not(:disabled):hover { border-color: var(--border-line); color: var(--text-primary); }
 .btn-page:disabled { opacity: 0.4; cursor: not-allowed; background: var(--bg-sub); }
 .current-page { font-size: 0.85rem; font-family: monospace; font-weight: 600; color: var(--text-primary); }
@@ -446,7 +455,7 @@ const formatDate = (dateStr: string) => {
 /* 沉浸式治理弹窗容器 */
 .modal-mask { position: fixed; inset: 0; background: var(--overlay); backdrop-filter: blur(12px); z-index: 9999; display: flex; justify-content: center; align-items: center; }
 .modal-container { background: var(--paper-card); border: 1px solid var(--border-line); width: 100%; max-width: 650px; padding: 40px; box-shadow: 25px 25px 0 rgba(0,0,0,0.05); 
-  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
+  max-height: 90dvh; overflow-y: auto; border-radius: 0;
 }
 .modal-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; border-bottom: 1px solid var(--border-line); padding-bottom: 16px; }
 .modal-header h3 { font-size: 1.4rem; font-weight: 200; margin: 0; letter-spacing: 0.5px; }
@@ -456,7 +465,7 @@ const formatDate = (dateStr: string) => {
 .scroll-y { max-height: 85vh; overflow-y: auto; }
 
 /* 治理专用表单组 */
-.gov-fieldset { border: 1px solid var(--border-line); margin-bottom: 24px; padding: 20px; border-radius: 4px; }
+.gov-fieldset { border: 1px solid var(--border-line); margin-bottom: 24px; padding: 20px; border-radius: 0; }
 .gov-fieldset legend { font-size: 0.75rem; text-transform: uppercase; font-weight: 800; color: var(--text-secondary); padding: 0 8px; letter-spacing: 0.5px; }
 
 .profile-grid-readonly { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 0.85rem; }
@@ -476,7 +485,7 @@ const formatDate = (dateStr: string) => {
 .permission-checkbox-group { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .checkbox-label { cursor: pointer; position: relative; }
 .checkbox-label input { position: absolute; opacity: 0; width: 0; height: 0; }
-.custom-checkbox-box { border: 1px solid var(--border-line); padding: 12px; border-radius: 4px; display: flex; flex-direction: column; gap: 2px; transition: 0.2s; }
+.custom-checkbox-box { border: 1px solid var(--border-line); padding: 12px; border-radius: 0; display: flex; flex-direction: column; gap: 2px; transition: 0.2s; }
 .checkbox-label input:checked + .custom-checkbox-box { border-color: var(--border-line); background: var(--bg-main); box-shadow: inset 0 0 0 1px var(--accent-color); }
 .custom-checkbox-box .p-title { font-size: 0.85rem; font-weight: 700; color: var(--text-primary); }
 .custom-checkbox-box .p-key { color: var(--text-secondary); }
@@ -492,4 +501,5 @@ const formatDate = (dateStr: string) => {
 .font-xs { font-size: 0.7rem; }
 
 @keyframes slideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-</style>
+.user-title-chip { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid var(--accent-color); color: var(--accent-color); font-size: 11px; font-weight: 600; line-height: 16px; vertical-align: middle; }
+</style>

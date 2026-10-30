@@ -14,11 +14,13 @@ namespace TaiChuWeb_V2.Services.World
     {
         private readonly AppDbContext _context;
         private readonly IMemoryCache _cache;  // 🆕 新增缓存
+        private readonly WorldHistoryService _history;
 
-        public WorldRelationService(AppDbContext context, IMemoryCache cache)
+        public WorldRelationService(AppDbContext context, IMemoryCache cache, WorldHistoryService history)
         {
             _context = context;
             _cache = cache;  // 🆕
+            _history = history;
         }
 
         // ============================================================
@@ -33,7 +35,7 @@ namespace TaiChuWeb_V2.Services.World
                 .Include(c => c.Project)
                 .FirstOrDefaultAsync();
 
-            if (sourceInfo == null || !WorldAccess.IsOwner(sourceInfo.Project?.OwnerId ?? Guid.Empty, userId))
+            if (sourceInfo == null || !await WorldAccess.CanEditProjectAsync(_context, sourceInfo.ProjectId, userId))
                 throw new WorldOperationException(WorldErrorKind.Forbidden, "源卡片不存在或无权限");
 
             // 2. 验证目标卡片存在且在同一项目（只取 ProjectId）
@@ -57,6 +59,8 @@ namespace TaiChuWeb_V2.Services.World
             if (exists)
                 throw new WorldOperationException(WorldErrorKind.Invalid, "该关联已存在");
 
+            await _history.EnsureBaselineAsync(sourceInfo.ProjectId, sourceCardId);
+
             // 4. 创建新关系
             var relation = new WorldRelation
             {
@@ -73,6 +77,7 @@ namespace TaiChuWeb_V2.Services.World
 
             WorldCache.InvalidateCards(_cache, new[] { sourceCardId, dto.TargetCardId });
             WorldCache.InvalidateProject(_cache, sourceInfo.ProjectId, sourceInfo.Project?.OwnerId ?? Guid.Empty);
+            await _history.RecordAsync(sourceInfo.ProjectId, sourceCardId, userId, WorldHistoryService.Update, "添加关联");
 
             return await _context.WorldRelations.AsNoTracking()
                 .Where(item => item.Id == relation.Id)
@@ -92,12 +97,13 @@ namespace TaiChuWeb_V2.Services.World
             if (relation == null)
                 return false;
 
-            if (relation.SourceCard?.Project == null || !WorldAccess.IsOwner(relation.SourceCard.Project.OwnerId, userId))
+            if (relation.SourceCard?.Project == null || !await WorldAccess.CanEditProjectAsync(_context, relation.SourceCard.ProjectId, userId))
                 return false;
 
             var projectId = relation.SourceCard!.ProjectId;
             var sourceCardId = relation.SourceCardId;
             var targetCardId = relation.TargetCardId;
+            await _history.EnsureBaselineAsync(projectId, sourceCardId);
 
             relation.SourceCard.AdvanceVersion();
             _context.WorldRelations.Remove(relation);
@@ -105,6 +111,7 @@ namespace TaiChuWeb_V2.Services.World
 
             WorldCache.InvalidateCards(_cache, new[] { sourceCardId, targetCardId });
             WorldCache.InvalidateProject(_cache, projectId, userId);
+            await _history.RecordAsync(projectId, sourceCardId, userId, WorldHistoryService.Update, "删除关联");
 
             return true;
         }

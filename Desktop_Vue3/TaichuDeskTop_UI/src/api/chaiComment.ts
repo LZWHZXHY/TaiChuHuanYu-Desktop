@@ -4,6 +4,7 @@ export interface ChaiComment {
   id: string;
   userId: string;
   userName: string;
+  avatar?: string | null;
   content: string;
   parentId: string | null;
   createdAt: string;

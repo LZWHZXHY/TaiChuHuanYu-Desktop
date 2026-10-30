@@ -163,7 +163,7 @@ onMounted(loadSurveys)
 .btn-edit {
   padding: 6px 16px;
   border: none;
-  border-radius: 20px;
+  border-radius: 0;
   background: var(--bg-sub);
   color: var(--info);
   font-weight: 500;
@@ -205,7 +205,7 @@ onMounted(loadSurveys)
 .btn-create {
   padding: 10px 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--info);
   color: var(--on-accent);
   font-weight: 500;
@@ -233,7 +233,7 @@ onMounted(loadSurveys)
 
 .filter-tab {
   padding: 6px 16px;
-  border-radius: 20px;
+  border-radius: 0;
   border: none;
   background: transparent;
   font-size: 0.85rem;
@@ -273,7 +273,7 @@ onMounted(loadSurveys)
 
 .survey-card {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   border: 1px solid var(--border-line);
   cursor: pointer;
@@ -298,7 +298,7 @@ onMounted(loadSurveys)
 
 .status-badge {
   padding: 4px 14px;
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 0.7rem;
   font-weight: 500;
   color: var(--text-primary);
@@ -372,7 +372,7 @@ onMounted(loadSurveys)
 .btn-fill {
   padding: 6px 16px;
   border: none;
-  border-radius: 20px;
+  border-radius: 0;
   background: var(--bg-sub);
   font-weight: 500;
   font-size: 0.8rem;
@@ -407,7 +407,7 @@ onMounted(loadSurveys)
   margin-top: 12px;
   padding: 10px 24px;
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--info);
   color: var(--on-accent);
   font-weight: 500;

@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><title>几何主题窄屏检查</title>
+<style>body{margin:16px;background:#dce4e8;font:14px sans-serif}nav{margin-bottom:12px}iframe{width:390px;height:640px;border:1px solid #8c9ca5;margin-right:12px;background:white}main{display:flex}</style>
+<nav>390px 实际页面 · <button onclick="setGroup(0)">世界观、协作、游戏</button> <button onclick="setGroup(1)">世界观详情、协作详情、柴圈</button></nav><main><iframe title="窄屏页面一"></iframe><iframe title="窄屏页面二"></iframe><iframe title="窄屏页面三"></iframe></main>
+<script>
+const groups=[['/world','/Project','/games'],['/world/project/a550e279-fc4a-4954-b29b-3fc0b0aa0ea1','/Project/project/9a716d5c-fbea-46d7-a068-60d724d4fbff','/community']];
+function setGroup(i){document.querySelectorAll('iframe').forEach((frame,n)=>frame.src='/#'+groups[i][n])}setGroup(0);
+</script>
+

@@ -16,6 +16,13 @@ const NODE_THEMES: Record<string, NodeTheme> = {
     // 在 useKnowledgeGraphData.ts 的 NODE_THEMES 中追加或修改：
     folder: { color: '#f59e0b', emissive: '#d97706', label: '#fef3c7', typeLabel: 'DIRECTORY' },
     file: { color: '#0ea5e9', emissive: '#0284c7', label: '#e0f2fe', typeLabel: 'DATA_FILE' },
+    // 全站公开内容
+    author: { color: '#e2b04a', emissive: '#a16207', label: '#fde68a', typeLabel: '创作者' },
+    artwork: { color: '#2dd4bf', emissive: '#0f766e', label: '#99f6e4', typeLabel: '画廊作品' },
+    world: { color: '#a78bfa', emissive: '#6d28d9', label: '#ddd6fe', typeLabel: '世界观' },
+    novel: { color: '#f9a8d4', emissive: '#be185d', label: '#fce7f3', typeLabel: '小说' },
+    work: { color: '#fb923c', emissive: '#c2410c', label: '#fed7aa', typeLabel: '柴圈作品' },
+    oc: { color: '#4ade80', emissive: '#15803d', label: '#bbf7d0', typeLabel: '柴圈人设' },
     default: { color: '#94a3b8', emissive: '#334155', label: '#e2e8f0', typeLabel: 'NODE' }
   }
 
@@ -49,8 +56,12 @@ const NODE_THEMES: Record<string, NodeTheme> = {
 
   const fetchData = async (): Promise<GraphDataResponse> => {
     try {
-      const res = await request.get<GraphDataResponse>('/knowledge-base/Graph/space/00000000-0000-0000-0000-000000000000')
-      return res
+      // 全站公开内容图谱（博客、作品、世界观、小说、人设……）；旧后端没有这个接口时退回只看图谱资料
+      try {
+        return await request.get<GraphDataResponse>('/knowledge-base/Graph/public', { silentError: true })
+      } catch {
+        return await request.get<GraphDataResponse>('/knowledge-base/Graph/space/00000000-0000-0000-0000-000000000000')
+      }
     } catch (error) {
       console.error('3D 星图数据拉取失败：', error)
       return { nodes: [], edges: [] }
@@ -64,4 +75,4 @@ const NODE_THEMES: Record<string, NodeTheme> = {
     escapeHtml,
     hexToRgba
   }
-}
+}

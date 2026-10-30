@@ -21,6 +21,7 @@ public class PostResponseDto
 {
     public int Id { get; set; }
     public string Author { get; set; } = string.Empty;
+    public Guid AuthorId { get; set; } // 点击作者进入个人主页
     public string Content { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public int ReplyCount { get; set; }
@@ -32,6 +33,7 @@ public class ReplyResponseDto
 {
     public int Id { get; set; }
     public string Author { get; set; } = string.Empty;
+    public Guid AuthorId { get; set; } // 点击作者进入个人主页
     public string Content { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 }

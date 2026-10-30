@@ -31,7 +31,7 @@
             “{{ getAttr('昵称') || getAttr('绰号') }}”
           </p>
           <p class="char-author">
-            作者：{{ character.authorName }}
+            作者：<UserLink :id="character.authorId" :name="character.authorName" />
             <button v-if="!isOwner" class="follow-btn" :class="{ active: following }" @click="toggleFollow">{{ following ? '已关注' : '关注' }}</button>
           </p>
 
@@ -147,6 +147,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -306,7 +307,7 @@ function goBattle() {
 .stat-lose { color: var(--danger); font-weight: 500; }
 .stat-draw { color: var(--warning); font-weight: 500; }
 .battle-extra { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; font-size: 12px; color: var(--ink-gray); }
-.tier-badge { color: #d4af37; background: rgba(212,175,55,.12); padding: 2px 10px; border-radius: 10px; font-weight: 600; }
+.tier-badge { color: #d4af37; background: rgba(212,175,55,.12); padding: 2px 10px; border-radius: 0; font-weight: 600; }
 .points, .win-rate { color: var(--ink-gray); }
 
 .detail-page {
@@ -419,7 +420,7 @@ function goBattle() {
   background: none;
   color: var(--accent-color);
   padding: 2px 12px;
-  border-radius: 12px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 12px;
 }
@@ -497,7 +498,7 @@ function goBattle() {
   background: var(--paper-sub);
   padding: 16px 20px;
   border-left: 3px solid var(--accent-color);
-  border-radius: 0 4px 4px 0;
+  border-radius: 0;
   white-space: pre-wrap;
   word-break: break-word;
 }

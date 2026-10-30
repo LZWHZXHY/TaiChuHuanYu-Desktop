@@ -11,6 +11,8 @@
         public bool CanInteract { get; set; }
         public bool CanEdit { get; set; }
         public Guid? OriginalNoteId { get; set; }
+        /// <summary>只给作者看：public 公开中 / withdrawn 自己下架了 / reviewing 审核中 / hidden 被管理员隐藏 / rejected 没通过</summary>
+        public string? OwnerState { get; set; }
         public AuthorDto? Author { get; set; }
         public List<ArtworkImageDto> Images { get; set; } = new();
 
@@ -36,6 +38,7 @@
 
     public class AuthorDto
     {
+        public Guid Id { get; set; } // 点击作者进入个人主页
         public string Username { get; set; } = string.Empty;
         public string? Avatar { get; set; }
         public string? Bio { get; set; }

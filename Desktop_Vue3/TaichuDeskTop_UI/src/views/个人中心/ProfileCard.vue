@@ -223,26 +223,26 @@ const formatDate = (dateStr?: string) => {
 .profile-card {
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 24px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.02);
 }
 
 .label { font-size: 0.8rem; color: var(--text-secondary); display: block; margin-bottom: 5px; }
 
-.mood-header { margin-bottom: 20px; padding: 12px; background: var(--paper-card); border-radius: 8px; border-left: 4px solid var(--border-line); }
+.mood-header { margin-bottom: 20px; padding: 12px; background: var(--paper-card); border-radius: 0; border-left: 4px solid var(--border-line); }
 .mood-val { font-style: italic; color: var(--text-primary); margin: 0; }
 
 .info-list { list-style: none; padding: 0; margin-bottom: 20px; }
 .info-list li { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-line); font-size: 0.9rem; }
 
 .bio-box { margin-bottom: 20px; }
-.bio-box p { background: var(--bg-main); padding: 10px; border-radius: 6px; font-size: 0.9rem; line-height: 1.5; color: var(--text-secondary); }
-.config-text { background: var(--text-primary); color: var(--paper-card); padding: 10px; border-radius: 6px; font-size: 0.8rem; overflow-x: auto; }
+.bio-box p { background: var(--bg-main); padding: 10px; border-radius: 0; font-size: 0.9rem; line-height: 1.5; color: var(--text-secondary); }
+.config-text { background: var(--text-primary); color: var(--paper-card); padding: 10px; border-radius: 0; font-size: 0.8rem; overflow-x: auto; }
 
 .social-box { margin-bottom: 25px; }
 .links-grid { display: flex; gap: 8px; flex-wrap: wrap; }
-.tag { padding: 4px 12px; background: var(--text-primary); color: var(--paper-card); border-radius: 20px; font-size: 0.8rem; text-decoration: none; }
+.tag { padding: 4px 12px; background: var(--text-primary); color: var(--paper-card); border-radius: 0; font-size: 0.8rem; text-decoration: none; }
 
 .edit-container h3 { margin-bottom: 20px; }
 .input-row { display: flex; gap: 15px; }
@@ -250,7 +250,7 @@ const formatDate = (dateStr?: string) => {
 .input-group { margin-bottom: 15px; }
 .input-group label { display: block; font-size: 0.85rem; margin-bottom: 6px; font-weight: 600; }
 .input-group input, .input-group textarea {
-  width: 100%; padding: 8px 12px; border: 1px solid var(--border-line); border-radius: 6px; font-size: 0.9rem; transition: all 0.2s;
+  width: 100%; padding: 8px 12px; border: 1px solid var(--border-line); border-radius: 0; font-size: 0.9rem; transition: all 0.2s;
 }
 .input-group input:focus, .input-group textarea:focus { border-color: var(--border-line); outline: none; box-shadow: 0 0 0 3px rgba(36, 41, 47, 0.1); }
 
@@ -258,15 +258,15 @@ const formatDate = (dateStr?: string) => {
 .link-edit-row .short { width: 80px; }
 .link-edit-row .long { flex: 1; }
 .del-row { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 1.2rem; }
-.add-row-btn { background: none; border: 1px dashed var(--border-line); width: 100%; padding: 8px; cursor: pointer; color: var(--text-secondary); border-radius: 4px; font-size: 0.8rem; }
+.add-row-btn { background: none; border: 1px dashed var(--border-line); width: 100%; padding: 8px; cursor: pointer; color: var(--text-secondary); border-radius: 0; font-size: 0.8rem; }
 
 .btn-footer { display: flex; gap: 10px; margin-top: 20px; }
-.save-btn { flex: 1; background: var(--accent-color); color: var(--on-accent); border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+.save-btn { flex: 1; background: var(--accent-color); color: var(--on-accent); border: none; padding: 10px; border-radius: 0; cursor: pointer; font-weight: 600; }
 .save-btn:disabled { background: var(--border-line); }
-.cancel-btn { flex: 1; background: var(--bg-sub); border: none; padding: 10px; border-radius: 6px; cursor: pointer; }
+.cancel-btn { flex: 1; background: var(--bg-sub); border: none; padding: 10px; border-radius: 0; cursor: pointer; }
 
-.edit-btn { width: 100%; background: var(--accent-color); color: var(--on-accent); border: none; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
-.outline-btn.danger { width: 100%; background: transparent; border: 1px solid var(--danger); padding: 8px; border-radius: 6px; cursor: pointer; color: var(--danger); }
+.edit-btn { width: 100%; background: var(--accent-color); color: var(--on-accent); border: none; padding: 10px; border-radius: 0; font-weight: 600; cursor: pointer; margin-bottom: 10px; }
+.outline-btn.danger { width: 100%; background: transparent; border: 1px solid var(--danger); padding: 8px; border-radius: 0; cursor: pointer; color: var(--danger); }
 .input-group, .link-edit-row input { min-width: 0; }
 @media(max-width:600px) { .input-row { flex-direction: column; } .link-edit-row { flex-wrap: wrap; } .link-edit-row .short, .link-edit-row .long { width: 100%; flex: 1 1 100%; } }
 </style>

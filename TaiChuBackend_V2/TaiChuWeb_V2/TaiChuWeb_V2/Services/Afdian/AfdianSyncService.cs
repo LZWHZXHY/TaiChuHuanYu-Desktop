@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Models.Community;
 using TaiChuWeb_V2.Models.Financial;
+using TaiChuWeb_V2.Services.Personalization;
 
 namespace TaiChuWeb_V2.Services.Afdian
 {
@@ -11,12 +12,14 @@ namespace TaiChuWeb_V2.Services.Afdian
         private readonly AppDbContext _context;
         private readonly AfdianService _afdian;
         private readonly IConfiguration _config;
+        private readonly SponsorPerkService _perks;
 
-        public AfdianSyncService(AppDbContext context, AfdianService afdian, IConfiguration config)
+        public AfdianSyncService(AppDbContext context, AfdianService afdian, IConfiguration config, SponsorPerkService perks)
         {
             _context = context;
             _afdian = afdian;
             _config = config;
+            _perks = perks;
         }
 
         private string EncryptionSecret => _config["Ai:EncryptionKey"] ?? _config["Jwt:Key"] ?? "TaichuAiDefaultSecret";
@@ -77,6 +80,15 @@ namespace TaiChuWeb_V2.Services.Afdian
                 created++;
             }
             if (created > 0 || corrected > 0) await _context.SaveChangesAsync(ct);
+
+            // 已绑定网站账号的赞助者：新订单自动开通 / 顺延赞助特权（失败不影响财政和赞助墙同步）
+            try
+            {
+                var tierByUser = sponsors.Where(s => !string.IsNullOrWhiteSpace(s.UserId) && !string.IsNullOrWhiteSpace(s.TierName))
+                    .GroupBy(s => s.UserId).ToDictionary(g => g.Key, g => g.First().TierName);
+                await _perks.ApplyOrdersAsync(orders, tierByUser, ct);
+            }
+            catch (Exception) { /* 下次同步会重试，订单按订单号去重 */ }
 
             // 订单留言（remark）→ 每个用户取最新一条，回填到赞助墙
             var remarkByUser = orders

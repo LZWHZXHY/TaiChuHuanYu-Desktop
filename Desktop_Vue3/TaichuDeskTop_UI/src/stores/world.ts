@@ -43,6 +43,8 @@ export const useWorldStore = defineStore('world', () => {
   const dirtyProjects = new Set<string>()
   const references = reactive(new Map<string, Record<string, string[]>>())
   const details = reactive(new Map<string, CardDetail>())
+  const graphSaves = reactive(new Map<string, { positions: string; saved: string; status: 'saving' | 'saved' | 'error' | 'conflict' }>())
+  const graphJobs = new Map<string, Promise<void>>()
   let sessionVersion = 0
 
   const projectKey = (id: string) => `project:${id}:`
@@ -64,6 +66,8 @@ export const useWorldStore = defineStore('world', () => {
     publicProjects.value = []
     cardTypes.value = []
     snapshots.clear()
+    graphSaves.clear()
+    graphJobs.clear()
     references.clear()
     dirtyProjects.clear()
     details.clear()
@@ -110,6 +114,9 @@ export const useWorldStore = defineStore('world', () => {
       ])
       return { project, cards, relations }
     }, snapshot => {
+      const graph = graphSaves.get(projectId)
+      if (graph && graph.status !== 'saved') snapshot.project.graphPositions = graph.positions
+      else graphSaves.delete(projectId)
       snapshots.set(projectId, snapshot)
       dirtyProjects.delete(projectId)
       syncProjectLists(snapshot.project)
@@ -222,6 +229,33 @@ export const useWorldStore = defineStore('world', () => {
     })
   }
 
+  // 删除整个世界（只有创建者能删）：成功后从各列表和缓存里移除
+  async function deleteProject(projectId: string) {
+    return requests.track('saving', async () => {
+      await worldApi.deleteProject(projectId)
+      requests.invalidate('projects')
+      requests.invalidate('publicProjects')
+      invalidateProject(projectId)
+      projects.value = projects.value.filter(p => p.id !== projectId)
+      publicProjects.value = publicProjects.value.filter(p => p.id !== projectId)
+      snapshots.delete(projectId)
+      graphSaves.delete(projectId)
+      graphJobs.delete(projectId)
+      dirtyProjects.delete(projectId)
+      if (activeProjectId.value === projectId) { activeProjectId.value = ''; selectedDetailKey.value = '' }
+    })
+  }
+
+  // 只改本地显示用的字段（例如协作者人数），不发请求
+  function patchProject(projectId: string, patch: Partial<WorldProject>) {
+    const target = snapshots.get(projectId)?.project
+    if (target) Object.assign(target, patch)
+    for (const list of [projects.value, publicProjects.value]) {
+      const item = list.find(p => p.id === projectId)
+      if (item && item !== target) Object.assign(item, patch)
+    }
+  }
+
   async function updateProject(projectId: string, payload: UpdateProjectPayload) {
     const version = sessionVersion
     return mutateProject(projectId, async () => {
@@ -229,6 +263,61 @@ export const useWorldStore = defineStore('world', () => {
       if (version === sessionVersion) syncProjectLists(project)
       return project
     })
+  }
+
+  // 每次松手立即排队：目标固定，后一次写入等待前一次结束，避免迟到回包覆盖新坐标。
+  function saveGraphPositions(projectId: string, positions: string) {
+    const version = sessionVersion
+    const target = snapshots.get(projectId)?.project
+    if (!target) return Promise.resolve()
+    const previous = graphSaves.get(projectId)
+    // 冲突后保留本页调整供查看，但不再向服务器提交旧布局。
+    if (previous?.status === 'conflict') {
+      previous.positions = positions
+      target.graphPositions = positions
+      return Promise.resolve()
+    }
+    const state = { positions, saved: previous?.saved ?? target.graphPositions ?? '{}', status: 'saving' as const }
+    graphSaves.set(projectId, state)
+    target.graphPositions = positions
+    const job = (graphJobs.get(projectId) || Promise.resolve()).then(async () => {
+      if (version !== sessionVersion || graphSaves.get(projectId)?.status === 'conflict') return
+      try {
+        await worldApi.saveGraphPositions(projectId, positions, graphSaves.get(projectId)!.saved)
+        if (version !== sessionVersion) return
+        const latest = graphSaves.get(projectId)
+        if (latest) {
+          latest.saved = positions
+          if (graphJobs.get(projectId) === job) latest.status = 'saved'
+        }
+      } catch (error) {
+        if (version !== sessionVersion) return
+        const latest = graphSaves.get(projectId)
+        const response = (error as { response?: { status: number; data?: { positions?: string } } }).response
+        if (latest && response?.status === 409) {
+          latest.status = 'conflict'
+          latest.saved = response.data?.positions ?? latest.saved
+        } else if (latest && graphJobs.get(projectId) === job) latest.status = 'error'
+      }
+    }).finally(() => { if (graphJobs.get(projectId) === job) graphJobs.delete(projectId) })
+    graphJobs.set(projectId, job)
+    return job
+  }
+  const waitForGraphSave = (id: string) => graphJobs.get(id) || Promise.resolve()
+  async function reloadGraphPositions(id: string) {
+    const version = sessionVersion
+    await waitForGraphSave(id)
+    const fresh = await worldApi.getProject(id)
+    if (version !== sessionVersion) return false
+    const target = snapshots.get(id)?.project
+    if (target) target.graphPositions = fresh.graphPositions
+    graphSaves.delete(id)
+    return true
+  }
+  function discardGraphSave(id: string) {
+    const state = graphSaves.get(id), target = snapshots.get(id)?.project
+    if (target && state) target.graphPositions = state.saved
+    graphSaves.delete(id)
   }
 
   async function createCard(projectId: string, payload: CreateCardPayload) {
@@ -267,7 +356,8 @@ export const useWorldStore = defineStore('world', () => {
   return {
     projects, publicProjects, currentProject, cards, currentCard, cardTypes, allRelations,
     loading: requests.loading, loadingProjects, loadingPublicProjects, loadingCards, loadingDetails, saving,
-    fetchProjects, fetchPublicProjects, fetchCardTypes, createProject, updateProject,
+    fetchProjects, fetchPublicProjects, fetchCardTypes, createProject, updateProject, patchProject, deleteProject,
+    graphSaves, saveGraphPositions, waitForGraphSave, discardGraphSave, reloadGraphPositions,
     loadReferences, fetchCards, fetchCardDetail, loadCardDetail, fetchCardsByIds,
     createCard, updateCard, deleteCard, addRelation, removeRelation,
     getCardById, getCardDetailById, reset,

@@ -116,8 +116,8 @@ namespace TaiChuWeb_V2.Controllers
         public async Task<IActionResult> OrganizeWorld([FromBody] OrganizeWorldDto dto)
         {
             if (!CurrentUserId.HasValue) return Unauthorized();
-            // 公开项目任何人可总结；私有项目仅作者
-            if (!await _context.WorldProjects.AsNoTracking().AnyAsync(p => p.Id == dto.ProjectId && (p.IsPublic || p.OwnerId == CurrentUserId.Value)))
+            // 公开项目任何人可总结；私有项目仅作者和协作者
+            if (!await _context.WorldProjects.AsNoTracking().ReadableBy(CurrentUserId.Value).AnyAsync(p => p.Id == dto.ProjectId))
                 return NotFound(new { message = "项目不存在或无权访问" });
 
             var cfg = await _context.UserAiConfigs.FirstOrDefaultAsync(c => c.UserId == CurrentUserId.Value);
@@ -153,9 +153,9 @@ namespace TaiChuWeb_V2.Controllers
         public async Task<IActionResult> ImportWorld([FromBody] ImportWorldDto dto)
         {
             if (!CurrentUserId.HasValue) return Unauthorized();
-            // 导入只允许自己的项目
-            if (!await _context.WorldProjects.AsNoTracking().AnyAsync(p => p.Id == dto.ProjectId && p.OwnerId == CurrentUserId.Value))
-                return NotFound(new { message = "只能导入到自己的项目" });
+            // 导入只允许创建者和编写者
+            if (!await _context.WorldProjects.AsNoTracking().EditableBy(CurrentUserId.Value).AnyAsync(p => p.Id == dto.ProjectId))
+                return NotFound(new { message = "只能导入到你能编写的世界" });
             if (string.IsNullOrWhiteSpace(dto.Text)) return BadRequest(new { message = "请先粘贴设定文字" });
 
             var (apiKey, baseUrl, model, err) = await GetAiCredentialsAsync(CurrentUserId.Value);
@@ -184,8 +184,8 @@ namespace TaiChuWeb_V2.Controllers
         public async Task<IActionResult> ConfirmImport([FromBody] ConfirmImportDto dto)
         {
             if (!CurrentUserId.HasValue) return Unauthorized();
-            if (!await _context.WorldProjects.AsNoTracking().AnyAsync(p => p.Id == dto.ProjectId && p.OwnerId == CurrentUserId.Value))
-                return NotFound(new { message = "只能导入到自己的项目" });
+            if (!await _context.WorldProjects.AsNoTracking().EditableBy(CurrentUserId.Value).AnyAsync(p => p.Id == dto.ProjectId))
+                return NotFound(new { message = "只能导入到你能编写的世界" });
             if (dto.Cards == null || dto.Cards.Count == 0) return BadRequest(new { message = "没有要创建的卡片" });
 
             var created = 0;

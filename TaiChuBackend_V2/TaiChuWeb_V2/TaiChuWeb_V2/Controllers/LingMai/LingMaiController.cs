@@ -677,9 +677,13 @@ namespace TaiChuWeb_V2.Controllers.LingMai
         [HttpDelete("notes/{id:guid}")]
         public async Task<IActionResult> DeleteNote(Guid id)
         {
+            if (string.IsNullOrEmpty(CurrentUserId)) return Unauthorized();
             // 1. 仅查询 Note 本身（去掉会报错的 Include）
             var note = await _context.Notes.FirstOrDefaultAsync(n => n.Id == id);
-            if (note == null) return NotFound();
+            if (note == null) return NotFound(new { message = "未找到该碎片，可能已经删除了" });
+            // 只能删自己空间里的笔记（以前没检查，知道编号就能删别人的）
+            var isOwner = await _context.Spaces.AnyAsync(s => s.Id == note.SpaceId && s.UserId == CurrentUserId);
+            if (!isOwner) return Forbid();
 
             // 2. 🌟 核心修改：手动查询关联的多态 Blocks (将 Guid 转为 string 进行匹配)
             var noteIdStr = id.ToString();
@@ -706,8 +710,10 @@ namespace TaiChuWeb_V2.Controllers.LingMai
             // 4. 物理删除：从数据库中彻底移除 Note 本身
             // 删除原稿时同时撤回发布快照，避免产生新的孤立公开内容。
             var publications = await _context.PublishedNotes.Where(p => p.OriginalNoteId == id).ToListAsync();
-            var publicationIds = publications.Select(p => p.Id.ToString()).ToArray();
-            var publishedBlocks = await _context.PublishedBlocks.Where(b => publicationIds.Contains(b.OwnerId)).ToListAsync();
+            // 用 List 而不是数组：新版 C# 里「数组.Contains」会被当成 Span 的方法，EF 翻译不了，
+            // 报「An exception was thrown while attempting to evaluate a LINQ query parameter expression」，笔记就删不掉
+            var publicationIds = publications.Select(p => p.Id.ToString()).ToList();
+            var publishedBlocks = publicationIds.Count == 0 ? new List<PublishedBlock>() : await _context.PublishedBlocks.Where(b => publicationIds.Contains(b.OwnerId)).ToListAsync();
             _context.PublishedBlocks.RemoveRange(publishedBlocks);
             _context.PublishedNotes.RemoveRange(publications);
             _context.Notes.Remove(note);
@@ -777,9 +783,10 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 {
                     LingMaiService.NoteSaveResult.NotFound => NotFound(new { message = "未找到对应的笔记" }),
                     LingMaiService.NoteSaveResult.Forbidden => Forbid(),
-                    LingMaiService.NoteSaveResult.DeadlockIgnored => Ok(new { success = true, message = "并发重叠已由新版本覆盖" }),
-                    LingMaiService.NoteSaveResult.DuplicateIgnored => Ok(new { success = true, message = "主键冲突已忽略，下次保存将覆盖" }),
-                    LingMaiService.NoteSaveResult.ConcurrencyIgnored => Ok(new { success = true, message = "并发重叠已无痕覆盖" }),
+                    // 冲突在服务内已重试；仍失败时明确返回 409，前端会提示并稍后重试，不再把未保存报成成功。
+                    LingMaiService.NoteSaveResult.Conflict or LingMaiService.NoteSaveResult.DeadlockIgnored
+                        or LingMaiService.NoteSaveResult.DuplicateIgnored or LingMaiService.NoteSaveResult.ConcurrencyIgnored
+                        => StatusCode(409, new { success = false, message = "保存冲突：这篇笔记刚好在别处同时保存，本次没有存上，请稍后重试。" }),
                     _ => Ok(new { success = true })
                 };
             }

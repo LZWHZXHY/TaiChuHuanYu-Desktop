@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { createServer } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { createPinia, setActivePinia } from 'pinia'
-import { createSSRApp, h, effectScope, ref, nextTick } from 'vue'
+import { createSSRApp, createRenderer, reactive, h, effectScope, ref, nextTick } from 'vue'
 import { renderToString } from '@vue/server-renderer'
 import { createRouter, createMemoryHistory } from 'vue-router'
 
@@ -804,4 +804,215 @@ test('embedded reference previews show entry names instead of internal IDs',asyn
   const html=await render('EmbeddedCard',{projectId:'a',card:card('one','a',{description:'认识 {CARD:two} 与 {CARD:missing}'})})
   assert.match(html,/认识 「two」 与 「不可用的条目」/)
   assert.doesNotMatch(html,/\{CARD:/)
+})
+
+test('camera fits actual moved coordinates around their bounds and focuses a single node', () => {
+  const points=[{x:-12000,y:8000},{x:5000,y:3000},{x:400,y:15000}]
+  for (const [width,height] of [[900,500],[280,300]]) {
+    const fit=graphLayout.fitWorldGraph(points,width,height)
+    const screen=points.map(p=>({x:p.x*fit.zoom+fit.offset.x,y:p.y*fit.zoom+fit.offset.y}))
+    assert.ok(screen.every(p=>p.x>=63 && p.x<=width-63 && p.y>=49 && p.y<=height-49))
+    assert.ok(Math.abs((Math.min(...screen.map(p=>p.x))+Math.max(...screen.map(p=>p.x)))/2-width/2)<.001)
+    assert.ok(Math.abs((Math.min(...screen.map(p=>p.y))+Math.max(...screen.map(p=>p.y)))/2-height/2)<.001)
+    const single=graphLayout.fitWorldGraph([points[0]],width,height)
+    assert.equal(single.zoom,1)
+    assert.equal(points[0].x*single.zoom+single.offset.x,width/2)
+    assert.equal(points[0].y*single.zoom+single.offset.y,height/2)
+  }
+  assert.equal(graphLayout.fitWorldGraph([{x:NaN,y:1}],900,500),null)
+  assert.equal(graphLayout.fitWorldGraph(points,0,500),null)
+})
+
+
+test('graph saves serialize writes, retain local layout across project switches and preserve the latest cache', async () => {
+  const store = useWorldStore(), first = deferred(), calls = []
+  worldApi.saveGraphPositions = async (id, positions, expected) => { calls.push([id, positions, expected]); if (calls.length === 1) await first.promise }
+  await store.fetchCards('a')
+  const p1 = store.saveGraphPositions('a', '{"one":{"x":10,"y":20}}')
+  const p2 = store.saveGraphPositions('a', '{"one":{"x":30,"y":40}}')
+  await settle()
+  assert.equal(calls.length, 1)
+  assert.equal(store.graphSaves.get('a').status, 'saving')
+  assert.equal(JSON.parse(store.currentProject.graphPositions).one.x, 30)
+  await store.fetchCards('b')
+  first.resolve(); await Promise.all([p1, p2])
+  assert.deepEqual(calls.map(c => c[0]), ['a', 'a'])
+  assert.deepEqual(calls.map(c => c[2]), ['{}', calls[0][1]])
+  assert.equal(store.currentProject.id, 'b')
+  await store.fetchCards('a')
+  assert.equal(JSON.parse(store.currentProject.graphPositions).one.x, 30)
+  assert.equal(store.graphSaves.get('a').status, 'saved')
+})
+
+test('graph save failures remain retryable and cannot overwrite the next session', async () => {
+  const store = useWorldStore()
+  await store.fetchCards('a')
+  worldApi.saveGraphPositions = async () => { throw new Error('offline') }
+  await store.saveGraphPositions('a', '{}')
+  assert.equal(store.graphSaves.get('a').status, 'error')
+  worldApi.saveGraphPositions = async () => {}
+  await store.saveGraphPositions('a', '{}')
+  assert.equal(store.graphSaves.get('a').status, 'saved')
+  const pending = deferred(), calls = []
+  worldApi.saveGraphPositions = async id => { calls.push(id); await pending.promise }
+  const one = store.saveGraphPositions('a', '{"x":1}')
+  const two = store.saveGraphPositions('a', '{"x":2}')
+  await settle(); store.reset(); pending.resolve(); await Promise.all([one, two])
+  assert.deepEqual(calls, ['a'])
+  assert.equal(store.graphSaves.size, 0)
+  assert.equal(store.currentProject, null)
+})
+
+test('reloading project data while graph save is pending preserves local positions; discard restores last confirmed write', async () => {
+  const store = useWorldStore(), pending = deferred()
+  worldApi.saveGraphPositions = () => pending.promise
+  await store.fetchCards('a')
+  const task = store.saveGraphPositions('a', '{"one":{"x":5,"y":6}}')
+  await store.fetchCards('a', true)
+  assert.equal(JSON.parse(store.currentProject.graphPositions).one.x, 5)
+  pending.reject(new Error('offline')); await task
+  store.discardGraphSave('a')
+  assert.equal(store.currentProject.graphPositions, '{}')
+  assert.equal(store.graphSaves.has('a'), false)
+})
+
+test('relation text avoids node labels, dots and other relation text', () => {
+  const occupied = [{left:140,top:90,width:120,height:30}]
+  const a={x:20,y:100}, b={x:380,y:100}, c={x:200,y:100}
+  const first = graph.placeEdgeLabel(a,b,c,50,400,220,occupied)
+  assert.ok(first)
+  assert.ok(!graph.graphBoxesOverlap(first.box, occupied[0]))
+  const second=graph.placeEdgeLabel(a,b,c,50,400,220,occupied)
+  assert.ok(second)
+  assert.ok(!graph.graphBoxesOverlap(first.box, second.box))
+  assert.equal(graph.placeEdgeLabel(a,b,c,400,400,220,occupied), null)
+})
+
+
+test('compact overview shows all 19 node labels without overlap at a desktop canvas size', () => {
+  const nodes = Array.from({ length: 19 }, (_, i) => ({ id: String(i), title: '测试条目'+i }))
+  const links = Array.from({ length: 14 }, (_, i) => ({ source: String(i), target: String(i+1) }))
+  const placed = graphLayout.layoutWorldGraph(nodes, links)
+  const camera = graphLayout.fitWorldGraph(placed, 740, 319)
+  const labels = graph.placeGraphLabels(placed.map(p => ({...p, x:p.x*camera.zoom+camera.offset.x, y:p.y*camera.zoom+camera.offset.y, z:0, width:176*camera.zoom})),740,319)
+  assert.equal(labels.length, 19)
+  for (const [i, label] of labels.entries()) for (const other of labels.slice(i+1))
+    assert.equal(graph.graphBoxesOverlap({...label,height:30},{...other,height:30}),false)
+})
+
+test('legacy malformed graph coordinates cannot crash rendering', () => {
+  for (const json of ['null','[]','broken','1']) assert.deepEqual(graphLayout.parseGraphPositions(json),{})
+  assert.deepEqual(graphLayout.parseGraphPositions('{"a":null,"b":{"x":"1","y":2},"c":{"x":2,"y":3}}'),{c:{x:2,y:3}})
+})
+
+
+test('dragged graph positions survive stale save echoes; overview fit ignores drag selection and focus fit targets the node', async t => {
+  const originals = Object.fromEntries(['window','ResizeObserver','MutationObserver','requestAnimationFrame','cancelAnimationFrame'].map(k => [k,globalThis[k]]))
+  globalThis.window = { addEventListener() {}, removeEventListener() {} }
+  globalThis.ResizeObserver = class { constructor(cb) { this.cb=cb } observe() { this.cb() } disconnect() {} }
+  globalThis.MutationObserver = class { observe() {} disconnect() {} }
+  globalThis.requestAnimationFrame = () => 1
+  globalThis.cancelAnimationFrame = () => {}
+  const oldDocument = globalThis.document
+  globalThis.document = { documentElement: {} }
+  const component = (await server.ssrLoadModule(componentPath+'FlatWorldGraph.vue')).default
+  const props = reactive({data:{nodes:[{id:'a',title:'A'},{id:'b',title:'B'},{id:'c',title:'C'}],links:[]},positions:{a:{x:0,y:0},b:{x:190,y:0}},focusId:''})
+  const emitted=[]
+  let state
+  const renderer=createRenderer({createComment:()=>({}),insert(){},remove(){},parentNode(){},nextSibling(){}})
+  const app=renderer.createApp({setup(){
+    state=component.setup(props,{expose(){},emit:(...args)=>emitted.push(args)})
+    state.container.value={clientWidth:900,clientHeight:500}
+    return ()=>null
+  }})
+  app.provide(Symbol.for('v-scx'), { modules: new Set() })
+  app.mount({})
+  t.after(()=>{app.unmount();Object.assign(globalThis,originals);globalThis.document=oldDocument})
+  state.resetCamera('all')
+  state.labelDown({clientX:100,clientY:100,preventDefault(){},stopPropagation(){}},{id:'a'})
+  state.onWindowMove({clientX:150,clientY:120})
+  state.onWindowUp()
+  const saved=emitted.find(e=>e[0]==='update:positions')[1]
+  assert.equal(Object.keys(saved).length,3)
+  assert.deepEqual(saved.a,{x:50,y:20})
+  props.positions={a:{x:0,y:0},b:{x:190,y:0}}
+  await settle()
+  assert.deepEqual(state.pinned.value.get('a'),saved.a)
+  state.resetCamera('all')
+  assert.equal(state.selected.value.size,0)
+  assert.deepEqual(state.offset.value,graphLayout.fitWorldGraph(state.worldNodes.value,900,500).offset)
+  props.focusId='a';await settle()
+  const focused=state.screen.value.find(n=>n.id==='a')
+  assert.equal(focused.x,450);assert.equal(focused.y,250)
+  state.labelDown({clientX:100,clientY:100,preventDefault(){},stopPropagation(){}},{id:'a'})
+  state.onWindowMove({clientX:180,clientY:160})
+  state.onWindowCancel()
+  assert.deepEqual(state.pinned.value.get('a'),saved.a)
+  assert.equal(emitted.filter(e=>e[0]==='update:positions').length,1)
+  props.focusId=''; props.data.nodes[0].title='非常长的中文世界观人物名称'; props.data.links=[{source:'a',target:'b'}]
+  state.hovered.value='a'; await settle()
+  assert.ok(state.neighbors.value.has('b'))
+  assert.ok(state.labels.value.find(label=>label.id==='a').width > 176)
+  state.zoom.value=.1
+  assert.ok(state.labels.value.some(label=>label.id==='a'), 'overview still retains the active title at tiny zoom')
+})
+
+test('two independent graph stores reject stale writes, stop queued retries, and resume only after loading current positions', async () => {
+  const first = useWorldStore(), second = useWorldStore(createPinia())
+  let saved = '{}', writes = 0
+  worldApi.getProject = async id => ({ ...project(id), graphPositions: saved })
+  worldApi.saveGraphPositions = async (id, positions, expected) => {
+    writes++
+    if (expected !== saved) throw { response: { status: 409, data: { positions: saved } } }
+    saved = positions
+  }
+  await first.fetchCards('a'); await second.fetchCards('a')
+  const one = '{"one":{"x":10,"y":20}}', two = '{"one":{"x":30,"y":40}}'
+  await first.saveGraphPositions('a', one)
+  await Promise.all([second.saveGraphPositions('a', two), second.saveGraphPositions('a', '{}')])
+  assert.equal(saved, one)
+  assert.equal(writes, 2)
+  assert.equal(second.graphSaves.get('a').status, 'conflict')
+  assert.equal(second.graphSaves.get('a').saved, one)
+  await second.saveGraphPositions('a', two)
+  assert.equal(writes, 2)
+  assert.equal(second.currentProject.graphPositions, two)
+  const secondPinia = createPinia(), reopened = useWorldStore(secondPinia)
+  await reopened.fetchCards('a')
+  assert.equal(reopened.currentProject.graphPositions, one)
+  await second.reloadGraphPositions('a')
+  assert.equal(second.currentProject.graphPositions, one)
+  assert.equal(second.graphSaves.has('a'), false)
+  await second.saveGraphPositions('a', two)
+  assert.equal(saved, two)
+  await first.saveGraphPositions('a', '{}')
+  assert.equal(first.graphSaves.get('a').status, 'conflict')
+  assert.equal(saved, two)
+})
+
+test('failed conflict reload retains local changes and account reset ignores late reloads', async () => {
+  const store = useWorldStore()
+  await store.fetchCards('a')
+  worldApi.saveGraphPositions = async () => { throw { response: { status: 409, data: { positions: '{"remote":{}}' } } } }
+  await store.saveGraphPositions('a', '{"local":{}}')
+  worldApi.getProject = async () => { throw new Error('offline') }
+  await assert.rejects(store.reloadGraphPositions('a'), /offline/)
+  assert.equal(store.graphSaves.get('a').status, 'conflict')
+  assert.equal(store.currentProject.graphPositions, '{"local":{}}')
+  const pending = deferred()
+  worldApi.getProject = () => pending.promise
+  const reload = store.reloadGraphPositions('a')
+  await settle(); store.reset(); pending.resolve(project('a'))
+  assert.equal(await reload, false)
+  assert.equal(store.currentProject, null)
+})
+
+test('refresh after a successful graph save updates the base for the next conditional write', async () => {
+  const store = useWorldStore(), bases = []
+  worldApi.saveGraphPositions = async (_id, _positions, expected) => { bases.push(expected) }
+  await store.fetchCards('a'); await store.saveGraphPositions('a', '{"first":{}}')
+  worldApi.getProject = async id => ({...project(id), graphPositions:'{"remote":{}}'})
+  await store.fetchCards('a', true)
+  await store.saveGraphPositions('a', '{"next":{}}')
+  assert.deepEqual(bases, ['{}','{"remote":{}}'])
 })

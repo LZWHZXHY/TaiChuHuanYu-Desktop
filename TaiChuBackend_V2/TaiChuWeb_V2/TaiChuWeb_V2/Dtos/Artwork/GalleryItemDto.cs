@@ -7,6 +7,7 @@
         public string Title { get; set; } = string.Empty;
         public string? CoverImageUrl { get; set; }
         public string AuthorName { get; set; } = string.Empty;
+        public Guid AuthorId { get; set; } // 点击作者进入个人主页
         public string? AuthorAvatar { get; set; }
         public DateTime UploadAt { get; set; }
         public int ImageCount { get; set; }

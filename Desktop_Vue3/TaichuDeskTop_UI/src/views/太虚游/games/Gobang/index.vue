@@ -1,274 +1,349 @@
+<!-- 联机五子棋：大厅（快速匹配 / 开房 / 房间列表 / 房间号加入）→ 等待房间 → 对局。莱茵生命实验室风格。 -->
 <template>
-  <div class="gobang-box">
-
-    <!-- 大厅 -->
-    <div v-if="pageStatus === 'lobby'">
-      <h2>🏠 五子棋大厅</h2>
-      <div class="button-group">
-        <button @click="pageStatus = 'createForm'">🏠 自定义房间</button>
-        <button @click="quickMatch">🎯 快速匹配</button>
+  <div class="gomoku">
+    <header class="gm-head">
+      <div>
+        <p class="eyebrow">GOMOKU · ONLINE MATCH / 联机五子棋</p>
+        <h2>五子棋</h2>
       </div>
+      <span class="link-state" :class="{ on: connected }"><i aria-hidden="true"></i>{{ connected ? '已连接对战服务器' : '正在连接对战服务器…' }}</span>
+    </header>
 
-      <!-- 加入房间区域 -->
-      <div class="join-room-area">
-        <p>或输入房间ID加入：</p>
-        <div class="join-input-group">
-          <input v-model="joinRoomId" placeholder="请输入房间ID（如 a1b2c3d4）" />
-          <button @click="handleJoinRoom" style="background: #17a2b8;">🔗 加入房间</button>
+    <p v-if="notice" class="gm-notice" :class="noticeKind" role="status">{{ notice }}<button type="button" aria-label="关闭提示" @click="notice = ''">×</button></p>
+
+    <!-- ===== 大厅 ===== -->
+    <div v-if="view === 'lobby'" class="lobby">
+      <section class="panel start-panel">
+        <p class="panel-tag">ENTRY / 开始对局</p>
+        <button type="button" class="quick" :disabled="!connected || busy" @click="quickMatch">
+          <span class="quick-title">快速匹配</span>
+          <span class="quick-sub">有人在等就直接对战，没有就开房等人 · 15 路 · 每步 30 秒</span>
+        </button>
+
+        <form class="create" @submit.prevent="createRoom">
+          <h3>自定义房间</h3>
+          <label>房间名称<input v-model.trim="form.name" maxlength="30" :placeholder="defaultRoomName" /></label>
+          <label>每步时限
+            <select v-model.number="form.timeLimit"><option :value="15">15 秒 · 快棋</option><option :value="30">30 秒</option><option :value="60">60 秒</option><option :value="120">120 秒 · 慢棋</option></select>
+          </label>
+          <button type="submit" class="btn primary" :disabled="!connected || busy">开房间</button>
+        </form>
+
+        <form class="join" @submit.prevent="joinById">
+          <h3>输入房间号</h3>
+          <div class="join-row">
+            <input v-model.trim="joinId" maxlength="16" placeholder="例如 a1b2c3d4" autocomplete="off" />
+            <button type="submit" class="btn" :disabled="!connected || busy || !joinId">加入</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel rooms-panel">
+        <div class="rooms-head">
+          <p class="panel-tag">ROOMS / 等待对手的房间</p>
+          <button type="button" class="btn small" :disabled="!connected || loadingRooms" @click="loadRooms">{{ loadingRooms ? '刷新中…' : '刷新' }}</button>
         </div>
-      </div>
+        <ul v-if="rooms.length" class="rooms">
+          <li v-for="r in rooms" :key="r.roomId">
+            <div class="room-main">
+              <b>{{ r.roomName }}</b>
+              <small>{{ r.ownerName }} · {{ r.boardSize }} 路 · 每步 {{ r.timeLimit }} 秒 · {{ ago(r.createdAt) }}</small>
+            </div>
+            <button type="button" class="btn small primary" :disabled="busy" @click="join(r.roomId)">加入</button>
+          </li>
+        </ul>
+        <div v-else class="rooms-empty">
+          <p>{{ loadingRooms ? '读取中…' : '现在没有人在等。' }}</p>
+          <small v-if="!loadingRooms">点「快速匹配」开一个房间，其他人进大厅就能看到。</small>
+        </div>
+        <ul class="rules">
+          <li>黑方（房主）先行，横、竖、斜任意方向连成五子获胜。</li>
+          <li>超时、认输或中途离开都判负，结果会记入「我的战绩」和常胜 / 常败将军榜。</li>
+        </ul>
+      </section>
     </div>
 
-    <!-- 创建房间 -->
-    <CreateRoom
-      v-else-if="pageStatus === 'createForm'"
-      @create="handleCreateRoom"
-      @back="pageStatus = 'lobby'"
-    />
+    <!-- ===== 等待房间 ===== -->
+    <section v-else-if="view === 'waiting' && room" class="panel waiting">
+      <div class="waiting-head">
+        <div>
+          <p class="panel-tag">ROOM / 等待开局</p>
+          <h3>{{ room.roomName }}</h3>
+        </div>
+        <button type="button" class="room-id" :title="'复制房间号发给朋友'" @click="copyId">
+          <small>房间号</small><b>{{ room.roomId }}</b><span>{{ copied ? '已复制' : '复制' }}</span>
+        </button>
+      </div>
 
-    <!-- 等待房间 -->
-    <WaitingRoom
-      v-else-if="pageStatus === 'waitingRoom'"
-      :room-name="roomName"
-      :room-mode="roomMode"
-      :room-id="currentRoomId"
-      :is-owner="isRoomOwner"
-      @cancel="cancelWaiting"
-      @startGame="handleStartGame"
-    />
+      <div class="seats">
+        <div v-for="seat in seats" :key="seat.color" class="seat" :class="{ filled: !!seat.player, me: seat.player && isMe(seat.player.id) }">
+          <span class="stone" :class="seat.color === 1 ? 'black' : 'white'" aria-hidden="true"></span>
+          <div>
+            <small>{{ seat.color === 1 ? '黑方 · 先手 · 房主' : '白方 · 后手' }}</small>
+            <b>{{ seat.player ? seat.player.name : '等待对手加入…' }}<em v-if="seat.player && isMe(seat.player.id)">你</em></b>
+          </div>
+        </div>
+      </div>
 
-    <!-- 棋盘对局 -->
-    <GameBoard
-      v-else-if="pageStatus === 'playing'"
-      :board-size="roomBoardSize"
-      :first-player="roomFirstPlayer"
-      :mode="roomMode"
-      :room-name="roomName"
-      :room-id="currentRoomId"
-      :is-owner="isRoomOwner"
-      :time-limit="roomTimeLimit"
-      @endGame="endGame"
-    />
+      <p class="waiting-meta">{{ room.boardSize }} 路棋盘 · 每步 {{ room.timeLimit }} 秒</p>
 
+      <div class="waiting-actions">
+        <button type="button" class="btn" :disabled="busy" @click="leave">离开房间</button>
+        <button v-if="amOwner" type="button" class="btn primary" :disabled="busy || room.players.length < 2" @click="start">{{ room.players.length < 2 ? '等待对手…' : '开始对局' }}</button>
+        <span v-else class="waiting-tip">等待房主开始</span>
+      </div>
+    </section>
+
+    <!-- ===== 对局 ===== -->
+    <GobangMatch
+      v-else-if="view === 'playing' && room && startInfo"
+      :key="matchKey"
+      ref="matchRef"
+      :room="room"
+      :start="startInfo"
+      :my-id="myId"
+      @rematch="start"
+      @leave="leave"
+      @error="say($event, 'error')"
+    />
   </div>
 </template>
 
-<script setup>
-import { ref, inject, onMounted, onUnmounted } from 'vue'
-import CreateRoom from './components/CreateRoom.vue'
-import WaitingRoom from './components/WaitingRoom.vue'
-import GameBoard from './components/GameBoard.vue'
+<script setup lang="ts">
+import { computed, inject, onMounted, onUnmounted, reactive, ref, watch, type Ref } from 'vue'
+import { useUserStore } from '@/stores/user'
+import GobangMatch from './GobangMatch.vue'
+import type { GobangPlayer, GobangRoom, GobangStart } from './gobangTypes'
 
-// ===== 注入 SignalR =====
-const signalR = inject('signalR', null)
-const { createRoom, joinRoom, startGame, makeMove, isConnected } = signalR || {}
+interface SignalRApi { connection: Ref<{ invoke: (method: string, ...args: unknown[]) => Promise<unknown> } | null>; isConnected: Ref<boolean> }
+interface RoomSummary { roomId: string; roomName: string; ownerName: string; boardSize: number; timeLimit: number; createdAt: string }
 
-// ===== 页面状态 =====
-const pageStatus = ref('lobby')
+const signalR = inject<SignalRApi | null>('signalR', null)
+const user = useUserStore()
+const myId = computed(() => String(user.userId || ''))
+const isMe = (id: string) => id.toLowerCase() === myId.value.toLowerCase()
+const connected = computed(() => Boolean(signalR?.isConnected.value))
 
-// ===== 房间数据 =====
-const roomName = ref('')
-const roomMode = ref('classic')
-const roomFirstPlayer = ref('random')
-const roomBoardSize = ref(15)
-const currentRoomId = ref(null)
-const isRoomOwner = ref(false)
-const roomTimeLimit = ref(30)
+const view = ref<'lobby' | 'waiting' | 'playing'>('lobby')
+const room = ref<GobangRoom | null>(null)
+const startInfo = ref<GobangStart | null>(null)
+const matchKey = ref(0)
+const matchRef = ref<InstanceType<typeof GobangMatch> | null>(null)
+const rooms = ref<RoomSummary[]>([])
+const loadingRooms = ref(false)
+const busy = ref(false)
+const joinId = ref('')
+const copied = ref(false)
+const notice = ref(''), noticeKind = ref<'info' | 'error'>('info')
+const form = reactive({ name: '', timeLimit: 30 })
+const defaultRoomName = computed(() => `${user.userInfo?.username || '我'} 的房间`)
+const amOwner = computed(() => !!room.value && isMe(room.value.ownerId))
 
-// ===== 加入房间的输入 =====
-const joinRoomId = ref('')
+const seats = computed(() => {
+  const r = room.value
+  if (!r) return []
+  const owner = r.players.find(p => p.id === r.ownerId) ?? null
+  const guest = r.players.find(p => p.id !== r.ownerId) ?? null
+  return [{ color: 1, player: owner }, { color: 2, player: guest }] as { color: number; player: GobangPlayer | null }[]
+})
 
-// ===== 事件监听器引用 =====
-let eventListeners = []
-
-// ===== 快速匹配 =====
-const quickMatch = () => {
-  if (!isConnected?.value) {
-    alert('未连接到游戏服务器')
-    return
-  }
-  const name = '快速匹配_' + Date.now()
-  roomName.value = name
-  roomMode.value = 'classic'
-  roomFirstPlayer.value = 'random'
-  roomBoardSize.value = 15
-  isRoomOwner.value = true
-  roomTimeLimit.value = 30
-  pageStatus.value = 'waitingRoom'
-  createRoom(name, 'classic', 15, 30)
+let noticeTimer = 0
+function say(text: string, kind: 'info' | 'error' = 'info') {
+  notice.value = text
+  noticeKind.value = kind
+  window.clearTimeout(noticeTimer)
+  noticeTimer = window.setTimeout(() => { notice.value = '' }, 6000)
 }
 
-// ===== 创建房间 =====
-const handleCreateRoom = (data) => {
-  if (!isConnected?.value) {
-    alert('未连接到游戏服务器')
-    return
-  }
-  roomName.value = data.roomName
-  roomMode.value = data.mode
-  roomFirstPlayer.value = 'random'
-  roomBoardSize.value = 15
-  isRoomOwner.value = true
-  roomTimeLimit.value = data.timeLimit || 30
-  pageStatus.value = 'waitingRoom'
-  createRoom(data.roomName, data.mode, 15, roomTimeLimit.value)
+async function invoke<T = unknown>(method: string, ...args: unknown[]): Promise<T | undefined> {
+  const conn = signalR?.connection.value
+  if (!conn || !connected.value) { say('还没连上对战服务器，请稍等几秒再试', 'error'); return undefined }
+  try { return await conn.invoke(method, ...args) as T }
+  catch (e) { say(`操作失败：${(e as Error)?.message || '请稍后再试'}`, 'error'); return undefined }
 }
 
-// ===== 加入房间 =====
-const handleJoinRoom = () => {
-  if (!isConnected?.value) {
-    alert('未连接到游戏服务器')
-    return
-  }
-  const roomId = joinRoomId.value.trim()
-  if (!roomId) {
-    alert('请输入房间ID')
-    return
-  }
-  currentRoomId.value = roomId
-  joinRoom(roomId)
-  roomName.value = ''
-  roomMode.value = 'classic'
-  isRoomOwner.value = false
-  roomTimeLimit.value = 30
-  pageStatus.value = 'waitingRoom'
-  joinRoomId.value = ''
+const ago = (iso: string) => {
+  const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000))
+  return s < 60 ? '刚刚' : s < 3600 ? `${Math.floor(s / 60)} 分钟前` : `${Math.floor(s / 3600)} 小时前`
 }
 
-// ===== 取消等待 =====
-const cancelWaiting = () => {
-  roomName.value = ''
-  roomMode.value = 'classic'
-  isRoomOwner.value = false
-  pageStatus.value = 'lobby'
+async function loadRooms() {
+  loadingRooms.value = true
+  try { rooms.value = (await invoke<RoomSummary[]>('ListRooms')) ?? [] } finally { loadingRooms.value = false }
 }
 
-// ===== 开始游戏 =====
-const handleStartGame = (config) => {
-  roomFirstPlayer.value = config.firstPlayer
-  roomBoardSize.value = config.boardSize
-  roomTimeLimit.value = config.timeLimit || 30
-  if (currentRoomId.value) {
-    startGame(currentRoomId.value)
-  } else {
-    alert('房间 ID 丢失，无法开始游戏')
-  }
+async function quickMatch() {
+  busy.value = true
+  try { await invoke('QuickMatch') } finally { busy.value = false }
+}
+async function createRoom() {
+  busy.value = true
+  try { await invoke('CreateRoom', form.name || defaultRoomName.value, 'classic', 15, form.timeLimit) } finally { busy.value = false }
+}
+async function join(roomId: string) {
+  busy.value = true
+  try { await invoke('JoinRoom', roomId) } finally { busy.value = false }
+}
+const joinById = () => join(joinId.value)
+async function start() {
+  if (!room.value) return
+  busy.value = true
+  try { await invoke('StartGame', room.value.roomId) } finally { busy.value = false }
+}
+async function leave() {
+  await invoke('LeaveRoom')
+  room.value = null
+  startInfo.value = null
+  view.value = 'lobby'
+  void loadRooms()
+}
+async function copyId() {
+  if (!room.value) return
+  try { await navigator.clipboard.writeText(room.value.roomId); copied.value = true; window.setTimeout(() => { copied.value = false }, 1500) } catch { say(`房间号：${room.value.roomId}`) }
 }
 
-// ===== 返回大厅 =====
-const endGame = () => {
-  roomName.value = ''
-  roomMode.value = 'classic'
-  roomFirstPlayer.value = 'random'
-  roomBoardSize.value = 15
-  currentRoomId.value = null
-  isRoomOwner.value = false
-  roomTimeLimit.value = 30
-  pageStatus.value = 'lobby'
-  console.log('🏠 已返回大厅，数据已清空')
+// ===== 服务器事件（由太虚游页面统一转发成 window 事件） =====
+type Detail = Record<string, unknown>
+const toRoom = (d: Detail): GobangRoom => ({
+  roomId: String(d.roomId ?? room.value?.roomId ?? ''),
+  roomName: String(d.roomName ?? room.value?.roomName ?? '五子棋房间'),
+  boardSize: Number(d.boardSize ?? room.value?.boardSize ?? 15),
+  timeLimit: Number(d.timeLimit ?? room.value?.timeLimit ?? 30),
+  ownerId: String(d.ownerId ?? room.value?.ownerId ?? ''),
+  players: Array.isArray(d.players) ? (d.players as GobangPlayer[]).filter(p => p && typeof p === 'object' && 'id' in p) : room.value?.players ?? [],
+})
+
+const handlers: Record<string, (d: Detail) => void> = {
+  'room-created': d => { room.value = toRoom(d); view.value = 'waiting' },
+  'player-joined': d => {
+    room.value = toRoom(d)
+    if (view.value === 'lobby') view.value = 'waiting'
+    else if (view.value === 'waiting' && amOwner.value && room.value.players.length === 2) say('对手已加入，可以开始了')
+  },
+  'player-left': d => {
+    if (!room.value) return
+    room.value = { ...room.value, ownerId: String(d.ownerId ?? room.value.ownerId), players: Array.isArray(d.players) ? d.players as GobangPlayer[] : room.value.players.filter(p => p.id !== d.playerId) }
+    if (view.value === 'waiting') say(`${String(d.name ?? '对手')} 离开了房间`)
+  },
+  'game-started': d => {
+    if (!room.value) return
+    const list = Array.isArray(d.playerList) ? d.playerList as GobangPlayer[] : room.value.players
+    room.value = { ...room.value, players: list, ownerId: String(d.ownerId ?? room.value.ownerId), boardSize: Number(d.boardSize ?? 15), timeLimit: Number(d.timeLimit ?? 30) }
+    startInfo.value = { currentTurn: String(d.currentTurn ?? room.value.ownerId), startedAt: Date.now() }
+    matchKey.value++
+    view.value = 'playing'
+  },
 }
-
-// ===== 监听后端事件 =====
-const setupEventListeners = () => {
-  const onRoomCreated = (event) => {
-    const data = event.detail
-    currentRoomId.value = data.roomId
-    console.log('✅ 房间创建成功，RoomId:', data.roomId)
-  }
-  window.addEventListener('room-created', onRoomCreated)
-  eventListeners.push({ event: 'room-created', handler: onRoomCreated })
-
-  const onGameStarted = (event) => {
-    const data = event.detail
-    console.log('🎮 游戏开始事件：', data)
-    pageStatus.value = 'playing'
-  }
-  window.addEventListener('game-started', onGameStarted)
-  eventListeners.push({ event: 'game-started', handler: onGameStarted })
-
-  const onPlayerLeft = (event) => {
-    alert('对手已离开房间')
-    pageStatus.value = 'lobby'
-  }
-  window.addEventListener('player-left', onPlayerLeft)
-  eventListeners.push({ event: 'player-left', handler: onPlayerLeft })
+const listeners = Object.entries(handlers).map(([name, fn]) => [name, (e: Event) => fn(((e as CustomEvent).detail ?? {}) as Detail)] as const)
+// 服务器报错：在这里显示，不弹窗
+const onError = (e: Event) => {
+  const msg = ((e as CustomEvent).detail as { message?: string } | undefined)?.message
+  if (msg) { e.preventDefault(); say(msg, 'error') }
 }
 
 onMounted(() => {
-  setupEventListeners()
+  listeners.forEach(([name, fn]) => window.addEventListener(name, fn))
+  window.addEventListener('game-error', onError)
+  if (connected.value) void loadRooms()
 })
-
 onUnmounted(() => {
-  eventListeners.forEach(({ event, handler }) => {
-    window.removeEventListener(event, handler)
-  })
-  eventListeners = []
+  listeners.forEach(([name, fn]) => window.removeEventListener(name, fn))
+  window.removeEventListener('game-error', onError)
+  window.clearTimeout(noticeTimer)
+  if (room.value) void signalR?.connection.value?.invoke('LeaveRoom').catch(() => undefined)
 })
+watch(connected, ok => { if (ok && view.value === 'lobby') void loadRooms() })
+// 在大厅时每 15 秒自动刷新房间列表
+let poll = 0
+watch(view, v => {
+  window.clearInterval(poll)
+  if (v === 'lobby') poll = window.setInterval(() => { if (connected.value) void loadRooms() }, 15000)
+}, { immediate: true })
+onUnmounted(() => window.clearInterval(poll))
+
+/** 切换游戏 / 离开页面前确认（太虚游页面会调用） */
+async function handleBeforeLeave() {
+  if (view.value === 'playing' && matchRef.value?.inProgress) {
+    if (!window.confirm('对局还没结束，离开会判负。确定离开吗？')) return false
+  }
+  if (room.value) await invoke('LeaveRoom')
+  return true
+}
+defineExpose({ handleBeforeLeave })
 </script>
 
 <style scoped>
-.gobang-box {
-  padding: 40px;
-  text-align: center;
-  border: 2px dashed #ccc;
-  min-height: 300px;
-  background: #fafafa;
-  border-radius: 16px;
-  max-width: 700px;
-  margin: 0 auto;
+.gomoku { display: grid; gap: 18px; color: var(--text-primary); }
+.gm-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 10px 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border-line); position: relative; }
+.gm-head::after { content: ''; position: absolute; left: 0; bottom: -1px; width: 64px; height: 3px; background: var(--accent-color); }
+.eyebrow, .panel-tag { margin: 0 0 6px; font: 10px/1.2 var(--font-mono, monospace); letter-spacing: .16em; color: var(--accent-color); text-transform: uppercase; }
+.gm-head h2 { margin: 0; font-size: 26px; letter-spacing: .04em; }
+.link-state { display: inline-flex; align-items: center; gap: 8px; font: 11px var(--font-mono, monospace); letter-spacing: .06em; color: var(--text-secondary); }
+.link-state i { width: 7px; height: 7px; background: #d97706; }
+.link-state.on i { background: var(--signal-mint, #2dd4bf); box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal-mint, #2dd4bf) 25%, transparent); }
+.gm-notice { display: flex; justify-content: space-between; gap: 12px; margin: 0; padding: 10px 14px; border-left: 3px solid var(--accent-color); background: color-mix(in srgb, var(--accent-color) 8%, var(--paper-card)); font-size: 13px; }
+.gm-notice.error { border-left-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, var(--paper-card)); }
+.gm-notice button { border: 0; background: none; color: var(--text-secondary); cursor: pointer; font-size: 16px; line-height: 1; }
+
+.panel { position: relative; padding: 20px; border: 1px solid var(--border-line); background: var(--paper-card); }
+.panel::before { content: ''; position: absolute; top: -1px; right: -1px; width: 28px; height: 6px; background: var(--hazard-stripe, repeating-linear-gradient(135deg, #f59e0b 0 4px, #111 4px 8px)); }
+.lobby { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 18px; align-items: start; }
+.start-panel { display: grid; gap: 18px; }
+.quick { display: grid; gap: 6px; padding: 18px; border: 1px solid var(--accent-color); background: linear-gradient(135deg, var(--accent-color), color-mix(in srgb, var(--accent-color) 70%, #000)); color: var(--on-accent, #fff); text-align: left; font: inherit; cursor: pointer; }
+.quick:hover:not(:disabled) { filter: brightness(1.08); }
+.quick:disabled { opacity: .55; cursor: not-allowed; }
+.quick-title { font-size: 20px; font-weight: 700; letter-spacing: .08em; }
+.quick-sub { font-size: 12px; opacity: .85; }
+.create, .join { display: grid; gap: 10px; padding-top: 16px; border-top: 1px dashed var(--border-line); }
+h3 { margin: 0; font-size: 14px; }
+label { display: grid; gap: 5px; font-size: 12px; color: var(--text-secondary); }
+input, select { padding: 8px 10px; border: 1px solid var(--border-line); background: var(--bg-main); color: var(--text-primary); font: inherit; font-size: 14px; }
+.join-row { display: flex; gap: 8px; }
+.join-row input { flex: 1; min-width: 0; font-family: var(--font-mono, monospace); }
+.btn { padding: 8px 16px; border: 1px solid var(--border-line); background: transparent; color: var(--text-primary); font: inherit; font-size: 14px; cursor: pointer; }
+.btn.small { padding: 5px 12px; font-size: 13px; }
+.btn.primary { border-color: var(--accent-color); background: var(--accent-color); color: var(--on-accent, #fff); font-weight: 600; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.rooms-panel { display: grid; gap: 14px; }
+.rooms-head { display: flex; justify-content: space-between; align-items: center; }
+.rooms-head .panel-tag { margin: 0; }
+.rooms { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.rooms li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--border-line); border-left: 3px solid var(--accent-color); background: var(--bg-main); }
+.room-main { display: grid; gap: 3px; min-width: 0; }
+.room-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.room-main small { color: var(--text-secondary); font-size: 12px; }
+.rooms-empty { padding: 28px 16px; border: 1px dashed var(--border-line); text-align: center; color: var(--text-secondary); }
+.rooms-empty p { margin: 0 0 4px; color: var(--text-primary); }
+.rules { margin: 0; padding: 12px 0 0 18px; border-top: 1px solid var(--border-line); display: grid; gap: 4px; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+
+.waiting { display: grid; gap: 18px; max-width: 720px; width: 100%; margin: 0 auto; }
+.waiting-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.waiting-head h3 { font-size: 20px; }
+.room-id { display: inline-grid; grid-template-columns: auto auto; column-gap: 10px; align-items: baseline; padding: 8px 12px; border: 1px solid var(--border-line); background: var(--bg-main); color: var(--text-primary); font: inherit; cursor: pointer; }
+.room-id small { grid-column: 1 / -1; font-size: 11px; color: var(--text-secondary); text-align: left; }
+.room-id b { font: 600 18px var(--font-mono, monospace); letter-spacing: .12em; }
+.room-id span { font-size: 12px; color: var(--accent-color); }
+.seats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.seat { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px dashed var(--border-line); color: var(--text-secondary); }
+.seat.filled { border-style: solid; color: var(--text-primary); }
+.seat.me { border-color: var(--accent-color); box-shadow: inset 3px 0 0 var(--accent-color); }
+.seat small { display: block; margin-bottom: 4px; font-size: 11px; color: var(--text-secondary); }
+.seat b { font-size: 16px; }
+.seat em { margin-left: 8px; padding: 0 6px; background: var(--accent-color); color: var(--on-accent, #fff); font-size: 11px; font-style: normal; font-weight: 600; vertical-align: 2px; }
+.stone { flex-shrink: 0; width: 34px; height: 34px; border-radius: 50%; }
+.stone.black { background: radial-gradient(circle at 35% 32%, #4a5560, #07090c 75%); }
+.stone.white { background: radial-gradient(circle at 35% 30%, #fff, #c9d2d8 85%); border: 1px solid #8f9ba4; }
+.seat:not(.filled) .stone { opacity: .3; }
+.waiting-meta { margin: 0; font: 12px var(--font-mono, monospace); color: var(--text-secondary); letter-spacing: .04em; }
+.waiting-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; padding-top: 14px; border-top: 1px solid var(--border-line); }
+.waiting-tip { color: var(--text-secondary); font-size: 13px; }
+
+@media (max-width: 860px) {
+  .lobby { grid-template-columns: 1fr; }
 }
-.button-group {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  margin-top: 20px;
-  flex-wrap: wrap;
-}
-.join-room-area {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid #e0e0e0;
-}
-.join-input-group {
-  display: flex;
-  gap: 12px;
-  justify-content: center;
-  align-items: center;
-  margin-top: 8px;
-}
-.join-input-group input {
-  padding: 10px 16px;
-  font-size: 16px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  width: 200px;
-}
-.join-input-group button {
-  padding: 10px 24px;
-  font-size: 16px;
-  cursor: pointer;
-  border: none;
-  color: white;
-  border-radius: 8px;
-  transition: 0.2s;
-}
-button {
-  padding: 10px 24px;
-  font-size: 16px;
-  cursor: pointer;
-  border: none;
-  background: #0d6efd;
-  color: white;
-  border-radius: 8px;
-  transition: 0.2s;
-}
-button:hover {
-  background: #0b5ed7;
-}
-button:last-child {
-  background: #28a745;
-}
-button:last-child:hover {
-  background: #218838;
+@media (max-width: 520px) {
+  .seats { grid-template-columns: 1fr; }
+  .panel { padding: 16px; }
 }
 </style>

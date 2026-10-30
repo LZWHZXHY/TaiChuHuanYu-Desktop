@@ -1,6 +1,6 @@
 <template>
-  <div class="release-page content-page">
-    <header class="rel-header">
+  <div class="release-page content-page community-surface tone-library">
+    <header class="rel-header surface-heading"><SectionTrace />
       <div>
         <p class="eyebrow">CHANGELOG · 版本更新</p>
         <h1>太初寰宇 · 更新日志</h1>
@@ -72,6 +72,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted } from 'vue'
 import { releaseApi, type ReleaseItem, type ReleasePayload } from '@/api/release'
 import { useUserStore } from '@/stores/user'
@@ -200,28 +201,28 @@ onMounted(load)
 .rel-item { position: relative; padding-left: 34px; margin-bottom: 22px; }
 .rel-dot { position: absolute; left: 0; top: 18px; width: 16px; height: 16px; border-radius: 50%; background: var(--paper-card); border: 2px solid var(--border-line); }
 .rel-item.latest .rel-dot { border-color: var(--accent-color); background: var(--accent-color); box-shadow: 0 0 0 4px var(--accent-soft); }
-.rel-card { border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); padding: 18px 20px; }
-.rel-item.latest .rel-card { border-color: var(--accent-color); }
+.rel-card { border: 0; border-top: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); padding: 18px 20px; }
+.rel-item.latest .rel-card { border-top: 2px solid var(--accent-color); background: linear-gradient(115deg,var(--accent-soft),var(--paper-card) 65%); }
 .rel-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .rel-version-row { display: flex; align-items: center; gap: 8px; }
 .rel-version { font-size: 1.3rem; font-weight: 700; letter-spacing: -.5px; color: var(--text-primary); }
-.rel-badge { font-size: .68rem; padding: 1px 8px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-color); font-weight: 600; }
+.rel-badge { font-size: .68rem; padding: 1px 8px; border-radius: 0; background: var(--accent-soft); color: var(--accent-color); font-weight: 600; }
 .rel-badge.draft { background: var(--bg-sub); color: var(--text-secondary); }
 .rel-date { font-size: .78rem; color: var(--text-secondary); }
 .rel-title { margin: 10px 0 6px; font-size: 1.02rem; font-weight: 500; }
 .rel-content { margin: 0; font-size: .88rem; line-height: 1.8; color: var(--text-primary); white-space: pre-wrap; word-break: break-word; }
 .rel-admin { display: flex; gap: 8px; margin-top: 12px; }
-.mini-btn { padding: 3px 10px; border: 1px solid var(--border-line); border-radius: 6px; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .74rem; }
+.mini-btn { padding: 3px 10px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .74rem; }
 .mini-btn.danger { color: var(--danger); }
-.rel-mask { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 20px; }
-.rel-editor { width: min(640px, 100%); max-height: 90vh; overflow-y: auto; background: var(--paper-card); border-radius: 12px; padding: 24px; display: grid; gap: 14px; }
+.rel-mask { position: fixed; inset: 0; z-index: 100; background: var(--overlay); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.rel-editor { border-top: 2px solid var(--signal-mint); box-shadow: var(--shadow-md); width: min(640px, 100%); max-height: 90vh; overflow-y: auto; background: var(--paper-card); border-radius: 0; padding: 24px; display: grid; gap: 14px; }
 .rel-editor-title { margin: 0; font-size: 1.15rem; }
 .field { display: grid; gap: 6px; font-size: .8rem; color: var(--text-secondary); }
-.field input, .field textarea { padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); color: var(--text-primary); font-size: .88rem; font-family: inherit; }
+.field input, .field textarea { padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); font-size: .88rem; font-family: inherit; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .check { display: flex; align-items: center; gap: 6px; font-size: .85rem; cursor: pointer; }
 .rel-editor-actions { display: flex; justify-content: flex-end; gap: 10px; }
-.btn { padding: 8px 18px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
+.btn { padding: 8px 18px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
 .btn.primary { background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color); }
 .btn:disabled { opacity: .5; cursor: default; }
 </style>

@@ -1,6 +1,6 @@
 <template>
-  <div class="report-page content-page">
-    <header class="report-header">
+  <div class="report-page content-page community-surface tone-collab">
+    <header class="report-header surface-heading"><SectionTrace particles="dev" />
       <div>
         <h1>研发报告</h1>
         <p class="sub">天枢 AI · 我的世界 Mod · 虚幻游戏 · 世界观 · IP 动画——记录我们的研发进展</p>
@@ -52,6 +52,7 @@
                   <span class="dot">·</span>
                   <span>{{ formatDate(c.updatedAt) }}</span>
                 </div>
+                <p v-if="latestLog(c.logs)" class="report-latest"><b>最新</b>{{ latestLog(c.logs)!.date }} · {{ latestLog(c.logs)!.title }}<span v-if="c.logs.length > 1"> · 共 {{ c.logs.length }} 条日志</span></p>
               </div>
               <span class="report-arrow">→</span>
             </RouterLink>
@@ -75,6 +76,7 @@
               <span class="dot">·</span>
               <span>{{ formatDate(node.project.updatedAt) }}</span>
             </div>
+            <p v-if="latestLog(node.project.logs)" class="report-latest"><b>最新</b>{{ latestLog(node.project.logs)!.date }} · {{ latestLog(node.project.logs)!.title }}<span v-if="node.project.logs.length > 1"> · 共 {{ node.project.logs.length }} 条日志</span></p>
           </div>
           <span class="report-arrow">→</span>
         </RouterLink>
@@ -133,9 +135,40 @@
             </div>
           </section>
 
+          <!-- 开发日志：每次更新单独一条，页面上显示为时间线 -->
+          <section class="editor-section log-editor">
+            <h3 class="editor-section-title">🗓 {{ logLabel }} <small>每次有进展就写一条，按日期排列；详情页显示为时间线，旧的会自动折叠</small></h3>
+            <div class="log-actions">
+              <button type="button" class="btn primary" @click="addTodayLog">+ 写今天的{{ logLabel }}</button>
+              <button v-if="canSplitContent" type="button" class="btn" @click="splitContent">把「项目介绍」按小标题拆成日志</button>
+            </div>
+            <div class="row-list">
+              <details v-for="(l, i) in form.logs" :key="l.id" class="log-card" :open="i < 2 || !l.title">
+                <summary>
+                  <time>{{ l.date || '未填日期' }}</time>
+                  <strong>{{ l.title || '（未填标题）' }}</strong>
+                  <span v-if="l.progress != null" class="log-progress">{{ l.progress }}%</span>
+                </summary>
+                <div class="row-grid log-grid">
+                  <label class="field"><span>日期</span><input v-model="l.date" type="date" /></label>
+                  <label class="field span-2"><span>标题</span><input v-model="l.title" placeholder="这次做了什么 / 发现了什么" /></label>
+                  <label class="field"><span>当时进度 %</span><input v-model.number="l.progress" type="number" min="0" max="100" placeholder="可留空" /></label>
+                </div>
+                <textarea v-model="l.content" rows="6" placeholder="详细记录，支持 Markdown（## 小标题、- 列表、**加粗**、![图片](链接)）…"></textarea>
+                <div class="log-img-row">
+                  <img v-for="(img, j) in (l.images || [])" :key="j" :src="img" alt="" />
+                  <button type="button" class="mini-btn" @click="pickLogImage(i)">🖼 插入图片</button>
+                  <button type="button" class="mini-btn danger" @click="removeLog(i)">删除这条</button>
+                </div>
+              </details>
+              <p v-if="!form.logs.length" class="ms-empty">还没有日志。点「写今天的{{ logLabel }}」开始记录。</p>
+            </div>
+            <input ref="logFileInput" type="file" accept="image/*" hidden @change="onLogImagePicked" />
+          </section>
+
           <!-- 正文 -->
           <section class="editor-section">
-            <h3 class="editor-section-title">正文内容 <small>Markdown</small></h3>
+            <h3 class="editor-section-title">📄 项目介绍 <small>Markdown · 写长期不变的说明（目标、架构、玩法等）；按日期的进展请写在上面的日志里</small></h3>
             <div class="md-toolbar">
               <button type="button" class="tool-btn" title="二级标题" @click="insertAtCursor('## ', 3)">H2</button>
               <button type="button" class="tool-btn" title="加粗" @click="insertAtCursor('****', 2)"><b>B</b></button>
@@ -148,7 +181,7 @@
               <input ref="fileInput" type="file" accept="image/*" hidden @change="onImagePicked" />
             </div>
             <div class="md-split">
-              <textarea ref="contentInput" v-model="form.content" class="md-input" placeholder="撰写报告正文，支持 Markdown 语法…"></textarea>
+              <textarea ref="contentInput" v-model="form.content" class="md-input" placeholder="项目介绍，支持 Markdown 语法…"></textarea>
               <div class="md-preview-wrap">
                 <div class="md-preview-label">预览</div>
                 <div class="md-preview" v-html="previewHtml"></div>
@@ -208,27 +241,6 @@
             <button type="button" class="btn" @click="addDataPoint">+ 添加数据</button>
           </section>
 
-          <!-- 研究日志 -->
-          <section class="editor-section">
-            <h3 class="editor-section-title">🧪 研究日志 <small>过程记录</small></h3>
-            <div class="row-list">
-              <div v-for="(l, i) in form.logs" :key="l.id" class="row-card">
-                <div class="row-grid">
-                  <input v-model="l.date" type="date" />
-                  <input v-model="l.title" class="span-2" placeholder="今天做了什么 / 发现了什么" />
-                </div>
-                <textarea v-model="l.content" rows="3" placeholder="详细记录…"></textarea>
-                <div class="log-img-row">
-                  <img v-for="(img, j) in (l.images || [])" :key="j" :src="img" alt="" />
-                  <button type="button" class="mini-btn" @click="pickLogImage(i)">+ 配图</button>
-                </div>
-                <button type="button" class="mini-btn danger" @click="form.logs.splice(i, 1)">删除</button>
-              </div>
-              <p v-if="!form.logs.length" class="ms-empty">还没有日志</p>
-            </div>
-            <button type="button" class="btn" @click="addLog">+ 添加日志</button>
-            <input ref="logFileInput" type="file" accept="image/*" hidden @change="onLogImagePicked" />
-          </section>
         </div>
 
         <footer class="editor-foot">
@@ -256,11 +268,13 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { devProjectApi, type DevProject, type DevProjectPayload } from '@/api/devProject'
 import { useUserStore } from '@/stores/user'
 import { useCos } from '@/composables/useCos'
 import { renderMarkdown } from '@/utils/markdown'
+import { latestLog, sortLogs, splitContentToLogs } from '@/utils/devLogs'
 
 const userStore = useUserStore()
 const projects = ref<DevProject[]>([])
@@ -394,6 +408,8 @@ function closeEditor() { showEditor.value = false }
 async function saveProject() {
   if (!form.value.name.trim()) { alert('请填写报告标题'); return }
   saving.value = true
+  // 日志按日期从新到旧保存，清掉完全空白的日志
+  form.value.logs = sortLogs(form.value.logs.filter(l => l.title?.trim() || l.content?.trim()))
   try {
     if (editorId.value) await devProjectApi.update(editorId.value, form.value)
     else await devProjectApi.create(form.value)
@@ -437,7 +453,28 @@ let logImageIndex = -1
 const uid = () => Math.random().toString(36).slice(2, 10)
 function addReference() { form.value.references.push({ id: uid(), title: '', authors: '', venue: '', year: '', url: '', note: '' }) }
 function addDataPoint() { form.value.dataPoints.push({ id: uid(), name: '', value: '', unit: '', note: '' }) }
-function addLog() { form.value.logs.push({ id: uid(), date: new Date().toISOString().slice(0, 10), title: '', content: '', images: [] }) }
+const logLabel = computed(() => form.value.type === 'research' ? '研究日志' : '开发日志')
+const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+/** 新日志放在最上面，日期填今天，进度沿用项目当前进度。 */
+function addTodayLog() {
+  form.value.logs.unshift({ id: uid(), date: localToday(), title: '', content: '', images: [], progress: form.value.progress })
+}
+function removeLog(i: number) {
+  const log = form.value.logs[i]
+  if (log && (log.title || log.content) && !confirm(`删除日志「${log.title || log.date}」？`)) return
+  form.value.logs.splice(i, 1)
+}
+// 旧报告把所有进展都写在正文里：按小标题拆成一条条日志，正文只保留第一个小标题之前的介绍。
+const canSplitContent = computed(() => /^#{1,3}\s/m.test(form.value.content || ''))
+function splitContent() {
+  const { intro, logs } = splitContentToLogs(form.value.content || '', uid)
+  if (!logs.length) return
+  const dated = logs.filter(l => l.date).length
+  if (!confirm(`将拆出 ${logs.length} 条日志（其中 ${dated} 条从小标题里认出了日期）。\n项目介绍只保留第一个小标题之前的内容。\n拆完可以再检查、修改，点「保存报告」才会生效。继续吗？`)) return
+  form.value.logs = sortLogs([...logs, ...form.value.logs])
+  form.value.content = intro
+}
+// 日志配图：上传后以 Markdown 图片的形式插到这条日志的末尾。
 function pickLogImage(i: number) { logImageIndex = i; logFileInput.value?.click() }
 async function onLogImagePicked(e: Event) {
   const input = e.target as HTMLInputElement
@@ -446,11 +483,12 @@ async function onLogImagePicked(e: Event) {
   if (!file) return
   const target = form.value.logs[logImageIndex]
   if (!target) return
+  uploading.value = true
   try {
     const { url } = await uploadFile(file, 'devproject')
-    if (!target.images) target.images = []
-    target.images.push(url)
+    target.content = `${(target.content || '').trimEnd()}\n\n![${file.name}](${url})\n`
   } catch { alert('图片上传失败') }
+  finally { uploading.value = false }
 }
 
 onMounted(load)
@@ -458,14 +496,32 @@ onMounted(load)
 
 <style scoped>
 .report-page { max-width: 860px; margin: 0 auto; padding: 0 0 48px; }
+.report-latest { margin: 6px 0 0; font-size: .78rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.report-latest b { margin-right: 8px; padding: 1px 6px; background: var(--accent-soft); color: var(--accent-color); font-weight: 600; font-size: .7rem; }
+.log-editor { border-left: 3px solid var(--signal-mint); padding-left: 14px; }
+.log-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.log-card { border: 1px solid var(--border-line); background: var(--paper-card); padding: 0 12px; }
+.log-card[open] { padding-bottom: 12px; }
+.log-card summary { display: flex; align-items: center; gap: 10px; padding: 10px 0; cursor: pointer; list-style: none; }
+.log-card summary::-webkit-details-marker { display: none; }
+.log-card summary::before { content: '▸'; color: var(--text-secondary); transition: transform .2s; }
+.log-card[open] summary::before { transform: rotate(90deg); }
+.log-card summary time { font: 12px var(--font-mono, monospace); color: var(--accent-color); }
+.log-card summary strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; }
+.log-progress { font: 11px var(--font-mono, monospace); padding: 1px 6px; background: var(--bg-sub); }
+.log-card textarea { width: 100%; box-sizing: border-box; margin-top: 8px; }
+.row-grid.log-grid { grid-template-columns: 150px minmax(0, 2fr) 120px; align-items: end; }
+.log-card textarea { padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); font: inherit; font-size: .86rem; line-height: 1.7; resize: vertical; }
+.log-card .log-img-row { margin-top: 8px; }
+@media (max-width: 640px) { .row-grid.log-grid { grid-template-columns: 1fr; } .row-grid.log-grid .span-2 { grid-column: auto; } }
 .report-header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; padding: 24px 0 20px; border-bottom: 2px solid var(--text-primary); }
 .report-header h1 { margin: 0; font-size: clamp(1.7rem, 3.4vw, 2.3rem); letter-spacing: -.02em; font-weight: 700; }
 .report-header .sub { margin: 8px 0 0; color: var(--text-secondary); font-size: .9rem; line-height: 1.7; }
 .report-filters { display: flex; flex-direction: column; gap: 10px; margin: 18px 0 8px; }
 .cat-tabs, .status-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
-.cat-tab { padding: 6px 14px; border: 1px solid var(--border-line); border-radius: 18px; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: .8rem; }
+.cat-tab { padding: 6px 14px; border: 1px solid var(--border-line); border-radius: 0; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: .8rem; }
 .cat-tab.active { background: var(--text-primary); color: var(--paper-card); border-color: var(--text-primary); }
-.status-tab { padding: 3px 10px; border: 1px solid var(--border-line); border-radius: 8px; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: .74rem; }
+.status-tab { padding: 3px 10px; border: 1px solid var(--border-line); border-radius: 0; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: .74rem; }
 .status-tab.active { border-color: var(--accent-color); color: var(--accent-color); }
 .report-empty { color: var(--text-secondary); text-align: center; padding: 48px 0; }
 
@@ -477,7 +533,7 @@ onMounted(load)
 .report-title-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .report-title { margin: 0; font-size: 1.25rem; font-weight: 650; letter-spacing: -.01em; }
 .report-icon { margin-right: 6px; }
-.tag { font-size: .7rem; padding: 2px 10px; border-radius: 10px; }
+.tag { font-size: .7rem; padding: 2px 10px; border-radius: 0; }
 .tag.planning, .tag.paused { background: var(--bg-sub); color: var(--text-secondary); }
 .tag.ongoing { background: var(--accent-soft); color: var(--accent-color); }
 .tag.done { background: #e6f6ec; color: var(--success); }
@@ -489,13 +545,13 @@ onMounted(load)
 .report-item:hover .report-arrow { transform: translateX(4px); color: var(--accent-color); }
 
 /* 系列分组 */
-.series { margin-bottom: 8px; border: 1px solid var(--border-line); border-radius: 10px; overflow: hidden; }
+.series { margin-bottom: 8px; border: 1px solid var(--border-line); border-radius: 0; overflow: hidden; }
 .series-head { display: flex; align-items: center; gap: 12px; padding: 14px 16px; text-decoration: none; color: inherit; background: var(--bg-sub); }
 .series-icon { font-size: 1.4rem; }
 .series-name { margin: 0; font-size: 1.12rem; font-weight: 650; flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .series-summary { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.series-summary-bar { width: 60px; height: 6px; background: var(--bg-main); border-radius: 3px; overflow: hidden; }
-.series-summary-fill { display: block; height: 100%; background: linear-gradient(90deg, var(--accent-color), var(--success)); border-radius: 3px; }
+.series-summary-bar { width: 60px; height: 6px; background: var(--bg-main); border-radius: 0; overflow: hidden; }
+.series-summary-fill { display: block; height: 100%; background: linear-gradient(90deg, var(--accent-color), var(--success)); border-radius: 0; }
 .series-summary-text { font-size: .72rem; color: var(--text-secondary); white-space: nowrap; }
 .series-children { padding: 4px 8px 4px 16px; }
 .child-item { padding: 14px 4px; }
@@ -503,10 +559,10 @@ onMounted(load)
 
 /* ===== 编辑器 ===== */
 .editor-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.5); display: flex; align-items: flex-start; justify-content: center; padding: 4vh 20px; }
-.editor { width: min(960px, 100%); max-height: 92vh; background: var(--paper-card); border-radius: 14px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.25); }
+.editor { width: min(960px, 100%); max-height: 92vh; background: var(--paper-card); border-radius: 0; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.25); }
 .editor-head { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--border-line); }
 .editor-title { margin: 0; font-size: 1.15rem; font-weight: 650; }
-.editor-close { border: none; background: none; font-size: 1.5rem; line-height: 1; color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+.editor-close { border: none; background: none; font-size: 1.5rem; line-height: 1; color: var(--text-secondary); cursor: pointer; padding: 4px 8px; border-radius: 0; }
 .editor-close:hover { background: var(--bg-sub); color: var(--text-primary); }
 .editor-body { flex: 1; overflow-y: auto; padding: 20px 24px; display: grid; gap: 26px; }
 .editor-section { display: grid; gap: 14px; }
@@ -514,41 +570,41 @@ onMounted(load)
 .editor-section-title small { font-weight: 400; color: var(--text-secondary); margin-left: 6px; }
 .field { display: grid; gap: 6px; font-size: .8rem; color: var(--text-secondary); }
 .field span { font-weight: 500; }
-.field input, .field select { padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); color: var(--text-primary); font-size: .88rem; font-family: inherit; }
+.field input, .field select { padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); font-size: .88rem; font-family: inherit; }
 .field input:focus, .field select:focus { outline: none; border-color: var(--accent-color); }
 .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 /* Markdown 工具栏 + 分栏 */
 .md-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.tool-btn { padding: 5px 11px; border: 1px solid var(--border-line); border-radius: 6px; background: var(--bg-main); color: var(--text-primary); cursor: pointer; font-size: .78rem; }
+.tool-btn { padding: 5px 11px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); cursor: pointer; font-size: .78rem; }
 .tool-btn:hover { border-color: var(--accent-color); color: var(--accent-color); }
 .tool-btn:disabled { opacity: .5; cursor: default; }
 .md-split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; min-height: 300px; }
-.md-input { padding: 14px; border: 1px solid var(--border-line); border-radius: 10px; background: var(--bg-main); color: var(--text-primary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; line-height: 1.7; resize: vertical; }
+.md-input { padding: 14px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85rem; line-height: 1.7; resize: vertical; }
 .md-input:focus { outline: none; border-color: var(--accent-color); }
-.md-preview-wrap { border: 1px solid var(--border-line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
+.md-preview-wrap { border: 1px solid var(--border-line); border-radius: 0; overflow: hidden; display: flex; flex-direction: column; }
 .md-preview-label { font-size: .7rem; color: var(--text-secondary); padding: 7px 12px; background: var(--bg-sub); border-bottom: 1px solid var(--border-line); letter-spacing: .05em; }
 .md-preview { flex: 1; overflow-y: auto; padding: 14px; font-size: .9rem; line-height: 1.8; color: var(--text-primary); overflow-wrap: anywhere; }
 .md-preview :deep(p) { margin: 0 0 12px; }
-.md-preview :deep(img) { max-width: 100%; border-radius: 8px; display: block; margin: 8px 0; }
+.md-preview :deep(img) { max-width: 100%; border-radius: 0; display: block; margin: 8px 0; }
 .md-preview :deep(h1), .md-preview :deep(h2), .md-preview :deep(h3) { margin: 14px 0 6px; line-height: 1.4; }
 .md-preview :deep(ul), .md-preview :deep(ol) { margin: 0 0 12px; padding-left: 22px; }
 .md-preview :deep(a) { color: var(--accent-color); }
 .md-preview :deep(blockquote) { margin: 0 0 12px; padding: 6px 12px; border-left: 3px solid var(--accent-color); background: var(--bg-sub); color: var(--text-secondary); }
-.md-preview :deep(code) { background: var(--bg-sub); padding: 1px 5px; border-radius: 4px; font-size: .85em; }
-.md-preview :deep(pre) { background: var(--bg-sub); padding: 10px; border-radius: 8px; overflow-x: auto; }
+.md-preview :deep(code) { background: var(--bg-sub); padding: 1px 5px; border-radius: 0; font-size: .85em; }
+.md-preview :deep(pre) { background: var(--bg-sub); padding: 10px; border-radius: 0; overflow-x: auto; }
 /* 里程碑编辑 */
 .ms-list-edit { display: grid; gap: 8px; }
 .ms-edit-row { display: flex; align-items: center; gap: 10px; }
 .ms-edit-row input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
-.ms-edit-row input[type="text"] { flex: 1; padding: 8px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); color: var(--text-primary); font-size: .85rem; }
+.ms-edit-row input[type="text"] { flex: 1; padding: 8px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); font-size: .85rem; }
 .ms-edit-row input[type="text"]:focus { outline: none; border-color: var(--accent-color); }
 .ms-empty { margin: 0; font-size: .82rem; color: var(--text-secondary); }
 .editor-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 14px 24px; border-top: 1px solid var(--border-line); }
 .editor-hint { margin-right: auto; font-size: .78rem; color: var(--text-secondary); }
-.btn { padding: 8px 18px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
+.btn { padding: 8px 18px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
 .btn.primary { background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color); }
 .btn:disabled { opacity: .5; cursor: default; }
-.mini-btn { padding: 3px 9px; border: 1px solid var(--border-line); border-radius: 6px; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .74rem; }
+.mini-btn { padding: 3px 9px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .74rem; }
 .mini-btn.danger { color: var(--danger); }
 .preview-btn { margin-left: auto; }
 .clear-draft { border: none; background: none; color: var(--accent-color); cursor: pointer; font-size: .78rem; text-decoration: underline; padding: 0; margin-left: 8px; }
@@ -563,12 +619,12 @@ onMounted(load)
 .preview-body :deep(h1) { font-size: 1.6rem; margin: 34px 0 14px; }
 .preview-body :deep(h2) { font-size: 1.35rem; margin: 30px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border-line); }
 .preview-body :deep(h3) { font-size: 1.15rem; margin: 24px 0 10px; }
-.preview-body :deep(img) { max-width: 100%; border-radius: 10px; display: block; margin: 18px auto; }
+.preview-body :deep(img) { max-width: 100%; border-radius: 0; display: block; margin: 18px auto; }
 .preview-body :deep(ul), .preview-body :deep(ol) { margin: 0 0 18px; padding-left: 26px; }
 .preview-body :deep(a) { color: var(--accent-color); }
 .preview-body :deep(blockquote) { margin: 0 0 18px; padding: 12px 18px; border-left: 3px solid var(--accent-color); background: var(--bg-sub); color: var(--text-secondary); }
-.preview-body :deep(code) { background: var(--bg-sub); padding: 2px 6px; border-radius: 4px; font-size: .88em; }
-.preview-body :deep(pre) { background: var(--bg-sub); padding: 14px; border-radius: 10px; overflow-x: auto; }
+.preview-body :deep(code) { background: var(--bg-sub); padding: 2px 6px; border-radius: 0; font-size: .88em; }
+.preview-body :deep(pre) { background: var(--bg-sub); padding: 14px; border-radius: 0; overflow-x: auto; }
 .preview-body :deep(table) { border-collapse: collapse; width: 100%; margin: 0 0 18px; }
 .preview-body :deep(th), .preview-body :deep(td) { border: 1px solid var(--border-line); padding: 8px 12px; text-align: left; }
 .preview-body :deep(th) { background: var(--bg-sub); }
@@ -581,12 +637,12 @@ onMounted(load)
 @media (max-width: 560px) { .report-item { gap: 12px; } .report-num { min-width: 32px; font-size: 1.1rem; } }
 /* 研究内容编辑器 */
 .row-list { display: grid; gap: 12px; margin-bottom: 12px; }
-.row-card { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border-line); border-radius: 10px; background: var(--bg-main); }
-.row-card input, .row-card textarea { padding: 7px 10px; border: 1px solid var(--border-line); border-radius: 6px; background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: .84rem; }
+.row-card { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); }
+.row-card input, .row-card textarea { padding: 7px 10px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: .84rem; }
 .row-card textarea { resize: vertical; }
 .row-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
 .row-grid .span-2 { grid-column: span 2; }
 .row-card > .mini-btn { justify-self: start; }
 .log-img-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.log-img-row img { width: 72px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border-line); }
+.log-img-row img { width: 72px; height: 48px; object-fit: cover; border-radius: 0; border: 1px solid var(--border-line); }
 </style>

@@ -182,7 +182,7 @@ onMounted(() => {
 }
 .card {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   border: 1px solid var(--border-line);
   transition: transform 0.2s, border-color 0.2s;
@@ -207,13 +207,13 @@ onMounted(() => {
   backdrop-filter: blur(2px);
   color: var(--on-overlay);
   padding: 2px 10px;
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 0.6rem;
   font-weight: 500;
 }
 .status-badge {
   padding: 2px 10px;
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 0.6rem;
   font-weight: 500;
   color: var(--text-primary);
@@ -266,13 +266,13 @@ onMounted(() => {
   flex: 1;
   height: 6px;
   background: var(--bg-sub);
-  border-radius: 3px;
+  border-radius: 0;
   overflow: hidden;
 }
 .progress-fill {
   height: 100%;
   background: var(--info);
-  border-radius: 3px;
+  border-radius: 0;
   transition: width 0.3s;
 }
 .progress-text {
@@ -290,7 +290,7 @@ onMounted(() => {
 }
 .card-footer .action-btn {
   padding: 6px 14px;
-  border-radius: 20px;
+  border-radius: 0;
   border: none;
   background: var(--bg-sub);
   font-weight: 500;
@@ -328,7 +328,7 @@ onMounted(() => {
   color: var(--text-primary);
   border: none;
   padding: 10px 24px;
-  border-radius: 30px;
+  border-radius: 0;
   font-weight: 500;
   font-size: 0.9rem;
   cursor: pointer;

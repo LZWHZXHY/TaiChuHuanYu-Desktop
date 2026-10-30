@@ -64,6 +64,7 @@ namespace TaiChuWeb_V2.Controllers
                     CoverImageUrl = a.Images.Where(i => i.IsCover).Select(i => i.ImageUrl).FirstOrDefault()
                                     ?? a.Images.OrderBy(i => i.Id).Select(i => i.ImageUrl).FirstOrDefault(),
                     AuthorName = a.Uploader.Username,
+                    AuthorId = a.UploaderId,
                     AuthorAvatar = a.Uploader.Profile != null ? a.Uploader.Profile.Avatar : null,
                     ImageCount = a.Images.Count,
 
@@ -115,6 +116,7 @@ namespace TaiChuWeb_V2.Controllers
                     CoverImageUrl = a.Images.Where(i => i.IsCover).Select(i => i.ImageUrl).FirstOrDefault()
                                      ?? a.Images.OrderBy(i => i.Id).Select(i => i.ImageUrl).FirstOrDefault(),
                     AuthorName = a.Uploader.Username,
+                    AuthorId = a.UploaderId,
                     AuthorAvatar = a.Uploader.Profile != null ? a.Uploader.Profile.Avatar : null,
                     ImageCount = a.Images.Count,
                     ViewCount = a.ViewCount
@@ -155,9 +157,11 @@ namespace TaiChuWeb_V2.Controllers
                 CanInteract = artwork.IsApproved && (artwork.Status == "published" || artwork.Status == "" || artwork.Status == null),
                 CanEdit = artwork.UploaderId == CurrentUserId,
                 OriginalNoteId = artwork.UploaderId == CurrentUserId ? artwork.OriginalNoteId : null,
+                OwnerState = artwork.UploaderId == CurrentUserId ? OwnerStateOf(artwork.IsApproved, artwork.Status) : null,
                 UploadAt = artwork.UploadAt,
                 Author = new AuthorDto
                 {
+                    Id = artwork.UploaderId,
                     Username = artwork.Uploader.Username,
                     Avatar = artwork.Uploader.Profile?.Avatar,
                     Bio = artwork.Uploader.Profile?.Bio
@@ -195,6 +199,37 @@ namespace TaiChuWeb_V2.Controllers
             => CurrentUserId is Guid userId ? CommentResult(() => publication.EditAsync(id, userId, dto))
                 : Task.FromResult<IActionResult>(Unauthorized());
 
+        public sealed class VisibilityDto { public bool Visible { get; set; } }
+
+        /// <summary>作品现在对作者来说是什么状态</summary>
+        private static string OwnerStateOf(bool approved, string? status)
+        {
+            var published = string.IsNullOrEmpty(status) || status == "published";
+            if (published) return approved ? "public" : "withdrawn";
+            return status!; // reviewing / hidden / rejected……（管理员设的）
+        }
+
+        /// <summary>
+        /// 作者自己下架 / 重新上架作品。下架后画廊、排行、搜索、主页里都看不到，只有作者自己能打开；评论和点赞保留。
+        /// 被管理员隐藏或还在审核的作品不能自己上架。从灵脉发布的作品会同步原稿的公开状态。
+        /// </summary>
+        [Authorize, HttpPost("{id:int}/visibility")]
+        public async Task<IActionResult> SetVisibility(int id, [FromBody] VisibilityDto dto)
+        {
+            if (CurrentUserId is not Guid userId) return Unauthorized();
+            var artwork = await _context.Artworks.FirstOrDefaultAsync(a => a.Id == id);
+            if (artwork == null) return NotFound(new { message = "作品不存在" });
+            if (artwork.UploaderId != userId) return StatusCode(403, new { message = "只能下架自己的作品" });
+            var state = OwnerStateOf(artwork.IsApproved, artwork.Status);
+            if (state is not ("public" or "withdrawn")) return BadRequest(new { message = "这件作品正在审核或被管理员处理，暂时不能自己上架 / 下架" });
+            var note = artwork.OriginalNoteId is Guid noteId ? await _context.Notes.FirstOrDefaultAsync(n => n.Id == noteId) : null;
+            if (dto.Visible && note?.Status == 2) return BadRequest(new { message = "灵脉原稿已被下架，不能重新上架" });
+            artwork.IsApproved = dto.Visible;
+            if (note != null) { note.IsPublic = dto.Visible; note.UpdatedAt = DateTime.UtcNow; }
+            await _context.SaveChangesAsync();
+            return Ok(new { ownerState = OwnerStateOf(artwork.IsApproved, artwork.Status), message = dto.Visible ? "作品已重新上架" : "作品已下架，只有你自己能看到" });
+        }
+
         [HttpGet("{id:int}/comments")]
         public Task<IActionResult> GetComments(int id, [FromQuery] int offset = 0, [FromQuery] int limit = 20)
             => CommentResult(() => _engagement.GetCommentsAsync(id, CurrentUserId, offset, limit));
@@ -215,4 +250,4 @@ namespace TaiChuWeb_V2.Controllers
             catch (ArtworkRequestException ex) { return StatusCode(ex.Status, new { message = ex.Message }); }
         }
     }
-}
+}

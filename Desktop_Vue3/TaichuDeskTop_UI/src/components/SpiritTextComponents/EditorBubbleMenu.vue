@@ -94,7 +94,7 @@ const setWidth = (width: string) => {
   display: flex;
   align-items: center;
   background: var(--text-primary);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 6px 10px;
   gap: 8px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.15);
@@ -103,7 +103,7 @@ const setWidth = (width: string) => {
 /* 图片菜单容器 */
 .spirit-image-bubble {
   background: var(--text-primary);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 4px;
   display: flex;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
@@ -118,7 +118,7 @@ const setWidth = (width: string) => {
   padding: 6px 10px;
   font-size: 11px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 0;
   transition: all 0.2s;
 }
 

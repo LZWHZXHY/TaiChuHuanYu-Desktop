@@ -57,17 +57,17 @@ onMounted(load)
 </script>
 
 <style scoped>
-.achievements-card { border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); padding: 16px; }
+.achievements-card { border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); padding: 16px; }
 .card-title { margin: 0 0 12px; font-size: .9rem; display: flex; align-items: center; justify-content: space-between; }
 .unlocked-count { font-size: .75rem; color: var(--text-secondary); font-weight: 400; }
 .badges { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.badge { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 8px; background: var(--bg-sub); text-align: center; }
+.badge { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border-radius: 0; background: var(--bg-sub); text-align: center; }
 .badge.locked { opacity: .4; filter: grayscale(1); }
 .badge-icon { font-size: 1.2rem; }
 .badge-label { font-size: .68rem; color: var(--text-secondary); }
 .empty { color: var(--text-secondary); font-size: .82rem; padding: 8px 0; }
 .guide-title { margin-top: 20px; }
 .guide-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.guide-list a { color: var(--text-primary); text-decoration: none; font-size: .82rem; display: block; padding: 6px 8px; border-radius: 6px; }
+.guide-list a { color: var(--text-primary); text-decoration: none; font-size: .82rem; display: block; padding: 6px 8px; border-radius: 0; }
 .guide-list a:hover { background: var(--bg-sub); color: var(--accent-color); }
 </style>

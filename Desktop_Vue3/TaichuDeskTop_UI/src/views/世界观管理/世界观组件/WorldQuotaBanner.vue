@@ -6,20 +6,19 @@
       <span v-if="quotaInfo.remainingWorldCount <= 0" class="quota-warning">⚠️ 已满</span>
       <span v-else class="quota-remaining">剩余 {{ quotaInfo.remainingWorldCount }} 个</span>
     </div>
-    <div class="quota-item">
-      <span>💰 当前经验</span>
-      <span class="quota-num">{{ quotaInfo.experience }}</span>
+    <div class="quota-item" title="节点上限对你所有的世界观通用：扩容一次，每个世界观的上限都会提高">
+      <span>📝 每个世界的节点上限</span>
+      <span class="quota-num">{{ quotaInfo.maxCardsPerWorld }}</span>
+      <span class="quota-remaining">所有世界通用</span>
     </div>
-    <button class="quota-upgrade-btn" :disabled="upgrading" @click="$emit('upgrade')">
-      {{ upgrading ? '处理中…' : `扩充名额（${quotaInfo.expCostPerWorldSlot} 经验）` }}
-    </button>
+    <RouterLink class="quota-upgrade-btn" to="/trade" title="世界观数量和节点上限都在交易行扩容">去交易行扩容 →</RouterLink>
   </div>
 </template>
 
 <script setup lang="ts">
 import type { WorldQuota } from '@/api/types/world'
-defineProps<{ quotaInfo: WorldQuota | null; upgrading?: boolean }>()
-defineEmits<{ upgrade: [] }>()
+// 扩容统一在交易行：这里只展示额度，按钮跳过去
+defineProps<{ quotaInfo: WorldQuota | null }>()
 </script>
 
 <style scoped>
@@ -31,7 +30,7 @@ defineEmits<{ upgrade: [] }>()
   padding: 12px 20px;
   background: var(--bg-main);
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: 0;
   margin-bottom: 24px;
   font-size: 13px;
 }
@@ -56,17 +55,17 @@ defineEmits<{ upgrade: [] }>()
   font-weight: 600;
 }
 .quota-upgrade-btn {
+  margin-left: auto;
   padding: 4px 16px;
-  border: 1px solid var(--danger);
-  border-radius: 6px;
-  background: var(--danger-soft);
-  color: var(--danger);
+  border: 1px solid var(--accent-color);
+  border-radius: 0;
+  color: var(--accent-color);
   font-size: 13px;
-  cursor: pointer;
+  text-decoration: none;
   transition: all 0.2s;
 }
-.quota-upgrade-btn:hover {
-  background: var(--danger);
+.quota-upgrade-btn:hover, .quota-upgrade-btn:focus-visible {
+  background: var(--accent-color);
   color: var(--on-accent);
 }
 .quota-link {

@@ -145,6 +145,7 @@ public class ActivitiesController : ControllerBase
         {
             Id = m.Id,
             Name = m.User.Username,
+            UserId = m.UserId,
             JoinedAt = m.JoinedAt,
             Records = recordsByMember.TryGetValue(m.Id, out var recs)
                 ? recs.Select(r => new RecordDto

@@ -29,6 +29,8 @@ export interface ResearchLog {
   title: string
   content?: string | null
   images?: string[]
+  /** 写这条日志时的项目进度（可空） */
+  progress?: number | null
 }
 
 export interface DevProject {

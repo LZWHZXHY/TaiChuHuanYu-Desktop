@@ -86,7 +86,7 @@ onMounted(() => fetchLogs(1));
 
 .log-item { margin-bottom: 0; border-bottom: 1px solid var(--border-line); padding: 14px 0; }
 .log-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 0.8rem; }
-.avatar { width: 20px; height: 20px; border-radius: 50%; }
+.avatar { width: 20px; height: 20px; border-radius: 0; }
 .author-name { font-weight: 600; color: var(--text-primary); }
 .date { color: var(--text-secondary); }
 

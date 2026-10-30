@@ -5,6 +5,8 @@ export interface GraphNodeDto {
   size: number
   coverImage: string | null
   description?: string
+  /** 站内地址：全站内容节点用来「打开原内容」 */
+  route?: string | null
   _nasPath?: string // 👇 新增：用于存储 NAS 文件的真实路径
 }
 
@@ -28,6 +30,8 @@ export interface GraphNode {
   color: string
   coverImage: string | null
   description?: string
+  /** 站内地址：全站内容节点用来「打开原内容」 */
+  route?: string | null
   _nasPath?: string // 👇 新增：用于存储 NAS 文件的真实路径
   
   x?: number
@@ -51,4 +55,4 @@ export interface NodeTheme {
   emissive: string
   label: string
   typeLabel: string
-}
+}

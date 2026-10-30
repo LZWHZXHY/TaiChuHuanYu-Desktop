@@ -97,7 +97,7 @@ onScopeDispose(() => { loadVersion++ })
   color: var(--text-primary);
   padding: 6px 12px;
   background: var(--bg-sub);
-  border-radius: 8px;
+  border-radius: 0;
   display: inline-block;
 }
 .tl-list { list-style: none; margin: 0; padding: 0; }
@@ -120,7 +120,7 @@ onScopeDispose(() => { loadVersion++ })
   color: var(--accent-color);
   background: var(--accent-soft);
   padding: 2px 10px;
-  border-radius: 10px;
+  border-radius: 0;
   margin-bottom: 8px;
 }
 .tl-title { margin: 0 0 6px; font-size: 16px; font-weight: 600; }

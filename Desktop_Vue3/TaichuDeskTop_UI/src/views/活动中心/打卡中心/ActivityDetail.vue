@@ -81,11 +81,11 @@
       </section>
 
       <aside class="stream-section">
-        <div class="section-title"><i class="fas fa-stream"></i> {{ activeMember.name }} 的打卡轨迹</div>
+        <div class="section-title"><i class="fas fa-stream"></i> <UserLink :id="activeMember.userId" :name="activeMember.name" /> 的打卡轨迹</div>
         <div class="feed">
           <div v-for="log in filteredLogs" :key="log.id" class="log-card">
             <div class="log-header">
-              <span class="user"><i class="fas fa-user-circle"></i> {{ activeMember.name }}</span>
+              <UserLink class="user" :id="activeMember.userId" :name="activeMember.name"><i class="fas fa-user-circle"></i> {{ activeMember.name }}</UserLink>
               <span class="time">第 {{ log.day }} 天</span>
             </div>
             <p class="text">{{ log.text }}</p>
@@ -129,9 +129,9 @@
           <div class="form-group">
             <label>活动形态</label>
             <div class="type-tags">
-              <button type="button" :class="{ active: editForm.kind === 'general' }" @click="editForm.kind = 'general'" style="padding:7px 14px;border:1px solid var(--border-line);border-radius:8px;background:var(--paper-card);cursor:pointer">普通活动</button>
-              <button type="button" :class="{ active: editForm.kind === 'match' }" @click="editForm.kind = 'match'" style="padding:7px 14px;border:1px solid var(--border-line);border-radius:8px;background:var(--paper-card);cursor:pointer">对战赛</button>
-              <button type="button" :class="{ active: editForm.kind === 'contest' }" @click="editForm.kind = 'contest'" style="padding:7px 14px;border:1px solid var(--border-line);border-radius:8px;background:var(--paper-card);cursor:pointer">作品赛</button>
+              <button type="button" :class="{ active: editForm.kind === 'general' }" @click="editForm.kind = 'general'" style="padding:7px 14px;border:1px solid var(--border-line);border-radius:0;background:var(--paper-card);cursor:pointer">普通活动</button>
+              <button type="button" :class="{ active: editForm.kind === 'match' }" @click="editForm.kind = 'match'" style="padding:7px 14px;border:1px solid var(--border-line);border-radius:0;background:var(--paper-card);cursor:pointer">对战赛</button>
+              <button type="button" :class="{ active: editForm.kind === 'contest' }" @click="editForm.kind = 'contest'" style="padding:7px 14px;border:1px solid var(--border-line);border-radius:0;background:var(--paper-card);cursor:pointer">作品赛</button>
             </div>
           </div>
           <div v-if="editForm.kind !== 'general'" class="form-group">
@@ -188,6 +188,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import CheckInModal from './CheckInModal.vue';
@@ -207,6 +208,7 @@ interface RecordItem {
 interface Member {
   id: number;
   name: string;
+  userId?: string; // 成员的用户 ID，点击名字进入个人主页
   active: boolean;
   records: RecordItem[];
 }
@@ -344,6 +346,7 @@ const fetchMembers = async (id: number) => {
       members.value = data.map((member, index) => ({
         id: member.id,
         name: member.name,
+        userId: member.userId,
         active: index === 0,
         records: fillRecords(member.records || [])
       }));
@@ -643,7 +646,7 @@ watch(
   border: 1px solid var(--border-line);
   color: var(--text-primary);
   padding: 8px 16px;
-  border-radius: 30px;
+  border-radius: 0;
   font-weight: 500;
   font-size: 0.85rem;
   cursor: pointer;
@@ -671,7 +674,7 @@ watch(
 }
 .modal-card {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 28px 32px;
   width: 660px;
   max-width: 94%;
@@ -722,7 +725,7 @@ watch(
   width: 100%;
   padding: 10px 14px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 0.9rem;
   font-family: inherit;
   transition: border 0.2s;
@@ -750,7 +753,7 @@ watch(
 }
 .type-tag-option {
   padding: 4px 14px;
-  border-radius: 20px;
+  border-radius: 0;
   border: 1px solid var(--border-line);
   background: var(--paper-card);
   font-size: 0.75rem;
@@ -775,7 +778,7 @@ watch(
 .btn-cancel {
   padding: 8px 20px;
   border: 1px solid var(--border-line);
-  border-radius: 30px;
+  border-radius: 0;
   background: var(--paper-card);
   color: var(--text-primary);
   cursor: pointer;
@@ -785,7 +788,7 @@ watch(
 .btn-submit {
   padding: 8px 24px;
   border: none;
-  border-radius: 30px;
+  border-radius: 0;
   background: var(--info);
   color: var(--on-accent);
   font-weight: 500;
@@ -806,7 +809,7 @@ watch(
 .detail-page-container { max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
 .activity-hero {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 28px 32px;
   border: 1px solid var(--border-line);
   display: flex;
@@ -833,7 +836,7 @@ watch(
 .hero-content .meta i { margin-right: 4px; color: var(--text-secondary); }
 .status-badge {
   padding: 2px 12px;
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 0.7rem;
   font-weight: 500;
   color: var(--text-primary);
@@ -848,7 +851,7 @@ watch(
   color: var(--on-accent);
   border: none;
   padding: 10px 24px;
-  border-radius: 30px;
+  border-radius: 0;
   font-weight: 500;
   font-size: 0.9rem;
   cursor: pointer;
@@ -865,7 +868,7 @@ watch(
   border: 1px solid var(--border-line);
   color: var(--text-primary);
   padding: 8px 16px;
-  border-radius: 30px;
+  border-radius: 0;
   font-weight: 500;
   font-size: 0.85rem;
   cursor: pointer;
@@ -880,7 +883,7 @@ watch(
 }
 .stat-card {
   background: var(--paper-card);
-  border-radius: 10px;
+  border-radius: 0;
   padding: 16px 20px;
   border: 1px solid var(--border-line);
   text-align: center;
@@ -914,7 +917,7 @@ watch(
 }
 .member-tab {
   padding: 6px 16px;
-  border-radius: 20px;
+  border-radius: 0;
   border: 1px solid var(--border-line);
   background: var(--paper-card);
   cursor: pointer;
@@ -949,7 +952,7 @@ watch(
 }
 .cell {
   aspect-ratio: 1;
-  border-radius: 6px;
+  border-radius: 0;
   border: 1px solid var(--border-line);
   display: flex;
   align-items: center;
@@ -986,7 +989,7 @@ watch(
   display: inline-block;
   width: 12px;
   height: 12px;
-  border-radius: 3px;
+  border-radius: 0;
   margin-right: 4px;
   vertical-align: middle;
 }
@@ -996,7 +999,7 @@ watch(
 
 .stream-section {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   border: 1px solid var(--border-line);
   padding: 20px 22px;
   max-height: 600px;
@@ -1014,7 +1017,7 @@ watch(
 .stream-section .section-title i { color: var(--info); }
 .log-card {
   padding: 14px 16px;
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
   margin-bottom: 12px;
@@ -1045,7 +1048,7 @@ watch(
   height: 120px;
   background-size: cover;
   background-position: center;
-  border-radius: 8px;
+  border-radius: 0;
   margin-top: 6px;
   border: 1px solid var(--border-line);
 }
@@ -1061,8 +1064,8 @@ watch(
   color: var(--text-secondary);
 }
 .stream-section::-webkit-scrollbar { width: 4px; }
-.stream-section::-webkit-scrollbar-track { background: var(--bg-sub); border-radius: 4px; }
-.stream-section::-webkit-scrollbar-thumb { background: var(--bg-sub); border-radius: 4px; }
+.stream-section::-webkit-scrollbar-track { background: var(--bg-sub); border-radius: 0; }
+.stream-section::-webkit-scrollbar-thumb { background: var(--bg-sub); border-radius: 0; }
 
 @media (max-width: 1024px) {
   .main-body { grid-template-columns: 1fr; }

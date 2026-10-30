@@ -73,7 +73,7 @@ const cancel = () => {
   display: block;
   padding: 12px 16px;
   background: var(--paper-card);
-  border-radius: 8px;
+  border-radius: 0;
   border: 1px solid transparent;
   cursor: text;
   min-height: 40px;
@@ -93,7 +93,7 @@ const cancel = () => {
   padding: 12px 16px;
   background: var(--paper-card);
   border: 1px solid var(--accent-color);
-  border-radius: 8px;
+  border-radius: 0;
   box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.08);
 }
 .math-block-editor textarea {

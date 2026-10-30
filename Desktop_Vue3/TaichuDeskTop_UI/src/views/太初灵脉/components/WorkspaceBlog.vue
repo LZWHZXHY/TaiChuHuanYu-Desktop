@@ -190,16 +190,16 @@ defineExpose({ refreshEditor, editorKey });
 <style scoped>
 .workspace-blog-frame { max-width: 820px; margin: 0 auto; padding: 24px 24px 100px; background: var(--paper-card); }
 .blog-cover-wrapper { margin-bottom: 36px; }
-.blog-cover-area { position: relative; width: 100%; aspect-ratio: 21 / 9; border-radius: 20px; overflow: hidden; background: var(--bg-sub); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(0, 0, 0, 0.03); transition: box-shadow 0.3s ease; }
+.blog-cover-area { position: relative; width: 100%; aspect-ratio: 21 / 9; border-radius: 0; overflow: hidden; background: var(--bg-sub); display: flex; align-items: center; justify-content: center; border: 1px solid rgba(0, 0, 0, 0.03); transition: box-shadow 0.3s ease; }
 .blog-cover-area:hover { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); }
 .cover-image { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
 .blog-cover-area:hover .cover-image { transform: scale(1.01); }
 .cover-placeholder { display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--text-secondary); }
 .placeholder-tip { font-size: 13px; letter-spacing: 0.02em; }
-.cover-upload-btn { position: absolute; bottom: 16px; right: 16px; background: var(--paper-card); backdrop-filter: blur(16px); border: 1px solid rgba(0, 0, 0, 0.06); color: var(--text-primary); padding: 8px 16px; border-radius: 30px; font-size: 13px; font-weight: 500; cursor: pointer; opacity: 0; transform: translateY(4px); transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); z-index: 5; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); }
+.cover-upload-btn { position: absolute; bottom: 16px; right: 16px; background: var(--paper-card); backdrop-filter: blur(16px); border: 1px solid rgba(0, 0, 0, 0.06); color: var(--text-primary); padding: 8px 16px; border-radius: 0; font-size: 13px; font-weight: 500; cursor: pointer; opacity: 0; transform: translateY(4px); transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1); z-index: 5; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04); }
 .blog-cover-area:hover .cover-upload-btn, .cover-upload-btn:focus-within { opacity: 1; transform: translateY(0); }
 .cover-upload-btn:hover { background: var(--paper-card); color: var(--accent-color); }
-.remove-cover-btn { position: absolute; top: 16px; right: 16px; background: var(--overlay); backdrop-filter: blur(8px); border: none; color: var(--on-overlay); width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity 0.2s, background-color 0.2s; z-index: 5; }
+.remove-cover-btn { position: absolute; top: 16px; right: 16px; background: var(--overlay); backdrop-filter: blur(8px); border: none; color: var(--on-overlay); width: 32px; height: 32px; border-radius: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; opacity: 0; transition: opacity 0.2s, background-color 0.2s; z-index: 5; }
 .blog-cover-area:hover .remove-cover-btn { opacity: 1; }
 .remove-cover-btn:hover { background: rgba(229, 72, 77, 0.9); }
 .blog-header { margin-bottom: 40px; }

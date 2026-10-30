@@ -1,24 +1,24 @@
 <template>
-  <div class="workspace-schedule-frame">
-    <header class="schedule-header">
+  <div class="workspace-schedule-frame workbench-skin editor-surface community-surface tone-world">
+    <header class="schedule-header studio-heading">
       <input 
         :value="props.title" 
         @input="onTitleInput" 
         class="schedule-title-input" 
-        placeholder="未命名日程空间" 
+        aria-label="计划表标题" placeholder="未命名计划表" 
       />
-      <p class="schedule-subtitle">时间线与任务矩阵的自由流沙交织</p>
+      <p class="schedule-subtitle">在日历安排日期，在看板整理进度；拖动任务即可调整。</p>
     </header>
 
     <div class="schedule-main-stage">
       
       <section class="calendar-section">
         <div class="section-top-bar">
-          <span class="view-title">📅 时间演化星图</span>
+          <span class="view-title">日历</span>
           <div class="calendar-controls">
-            <button @click="adjustMonth(-1)" class="spirit-arrow-btn">◀</button>
+            <button aria-label="上个月" @click="adjustMonth(-1)" class="spirit-arrow-btn">◀</button>
             <span class="current-month-label">{{ currentYear }} . {{ String(currentMonth + 1).padStart(2, '0') }}</span>
-            <button @click="adjustMonth(1)" class="spirit-arrow-btn">▶</button>
+            <button aria-label="下个月" @click="adjustMonth(1)" class="spirit-arrow-btn">▶</button>
           </div>
         </div>
         
@@ -38,7 +38,7 @@
             >
               <div class="day-cell-header">
                 <span class="day-number">{{ day.dayNum }}</span>
-                <button @click="addNewItemIntoDate(day.dateStr)" class="quick-add-event-btn">+</button>
+                <button :aria-label="`在 ${day.dateStr} 添加日程`" @click="addNewItemIntoDate(day.dateStr)" class="quick-add-event-btn">+</button>
               </div>
               
               <div class="day-events-list">
@@ -49,7 +49,7 @@
                   :class="{ 'strip-done': item.isDone }"
                   :style="{ 
                     backgroundColor: item.themeColor + '0d', 
-                    color: item.themeColor, 
+                    color: 'var(--text-primary)', 
                     borderLeftColor: item.themeColor 
                   }"
                   draggable="true"
@@ -83,7 +83,7 @@
 
       <section class="kanban-section">
         <div class="section-top-bar">
-          <span class="view-title">📋 状态演化矩阵</span>
+          <span class="view-title">任务看板</span>
           <button @click="addNewColumn" class="spirit-mini-btn">+ 追加状态</button>
         </div>
 
@@ -137,7 +137,7 @@
                     @blur="onItemBlur(item)"
                     @keyup.enter="($event.target as HTMLInputElement).blur()"
                     class="card-inline-input"
-                    placeholder="新碎片内容..."
+                    placeholder="输入任务内容…"
                   />
                 </div>
                 
@@ -147,7 +147,7 @@
                 </div>
               </div>
               
-              <button @click="addNewItemIntoColumn(col.id)" class="add-card-btn">+ 新建碎片</button>
+              <button @click="addNewItemIntoColumn(col.id)" class="add-card-btn">+ 添加任务</button>
             </div>
           </div>
 
@@ -419,7 +419,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
 /* ================= 🌌 灵脉高级极简主义排版引擎 ================= */
 .workspace-schedule-frame { 
   width: 100%; 
-  height: 100vh; 
+  min-height: 100%; 
   display: flex; 
   flex-direction: column; 
   background: var(--paper-card); 
@@ -428,13 +428,13 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
 }
 
 .schedule-header { 
-  padding: 40px 48px 16px; 
+  padding: 20px 24px; 
   background: var(--paper-card); 
   flex-shrink: 0; 
 }
 .schedule-title-input { 
   width: 100%; 
-  font-size: 2.6rem; 
+  font-size: clamp(20px,3vw,30px); 
   font-weight: 800; 
   border: none; 
   background: transparent; 
@@ -443,7 +443,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   letter-spacing: -0.04em;
 }
 .schedule-subtitle { 
-  font-size: 11px; 
+  font-size: 13px; 
   color: var(--text-secondary); 
   margin-top: 6px; 
   letter-spacing: 0.05em;
@@ -454,7 +454,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   display: flex; 
   flex-direction: column; 
   gap: 32px; 
-  padding: 0 48px 40px; 
+  padding: 20px 24px 32px; 
   overflow-y: auto; 
 }
 
@@ -482,14 +482,14 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
 
 .calendar-controls { display: flex; align-items: center; gap: 8px; }
 .current-month-label { font-size: 13px; font-weight: 700; font-family: monospace; min-width: 70px; text-align: center; }
-.spirit-arrow-btn { background: transparent; border: none; font-size: 10px; color: var(--text-secondary); cursor: pointer; padding: 4px; transition: color 0.2s; }
+.spirit-arrow-btn { background: transparent; border: none; font-size: 12px; color: var(--text-secondary); cursor: pointer; padding: 4px; transition: color 0.2s; }
 .spirit-arrow-btn:hover { color: var(--accent-color); }
 
 .grid-header-row { 
   display: grid; 
   grid-template-columns: repeat(7, 1fr); 
   text-align: center; 
-  font-size: 11px; 
+  font-size: 13px; 
   font-weight: 600; 
   color: var(--text-secondary); 
   margin-bottom: 12px; 
@@ -504,7 +504,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
 
 .calendar-day-cell { 
   background: var(--paper-card); 
-  border-radius: 8px; 
+  border-radius: 0; 
   padding: 6px 8px; 
   display: flex; 
   flex-direction: column; 
@@ -517,12 +517,12 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   border-color: var(--border-line);
 }
 
-.calendar-day-cell.is-sibling-month { opacity: 0.25; }
+.calendar-day-cell.is-sibling-month { opacity: 0.6; }
 .calendar-day-cell.is-today { background: rgba(0, 102, 204, 0.03); border-color: rgba(0, 102, 204, 0.08); }
 .calendar-day-cell.is-today .day-number { color: var(--accent-color); font-weight: 800; }
 
 .day-cell-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
-.day-number { font-size: 11px; font-weight: 500; font-family: monospace; color: var(--text-secondary); }
+.day-number { font-size: 13px; font-weight: 500; font-family: monospace; color: var(--text-secondary); }
 
 .quick-add-event-btn { background: transparent; border: none; color: var(--text-secondary); font-size: 12px; cursor: pointer; opacity: 0; transition: opacity 0.2s; padding: 0; line-height: 1; }
 .calendar-day-cell:hover .quick-add-event-btn { opacity: 1; }
@@ -533,7 +533,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   font-size: 12px; 
   font-weight: 600; 
   padding: 4px 6px; 
-  border-radius: 5px; 
+  border-radius: 0; 
   cursor: grab; 
   overflow: hidden; 
   border-left: 3.5px solid var(--border-line); 
@@ -556,7 +556,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   height: 12px; width: 12px; 
   background-color: transparent; 
   border: 1.5px solid var(--border-line); 
-  border-radius: 50%; 
+  border-radius: 0; 
   transition: all 0.15s; 
   cursor: pointer; 
 }
@@ -643,7 +643,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   position: relative;
 }
 .column-drag-indicator {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--text-secondary);
   user-select: none;
   padding-right: 2px;
@@ -666,7 +666,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
 .column-actions-trigger { display: flex; align-items: center; gap: 6px; margin-left: auto; opacity: 0; transition: opacity 0.2s; }
 .column-header:hover .column-actions-trigger { opacity: 1; }
 .column-color-picker { border: none; background: transparent; width: 14px; height: 14px; cursor: pointer; padding: 0; }
-.del-col-btn { background: transparent; border: none; color: var(--danger); font-size: 10px; cursor: pointer; }
+.del-col-btn { background: transparent; border: none; color: var(--danger); font-size: 12px; cursor: pointer; }
 
 .kanban-cards-dropzone { 
   flex: 1; 
@@ -682,7 +682,7 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
 /* 看板卡片 */
 .schedule-card { 
   background: var(--paper-card); 
-  border-radius: 8px; 
+  border-radius: 0; 
   padding: 10px 12px; 
   border: 1px solid var(--border-line);
   border-left: 3px solid var(--border-line);
@@ -722,22 +722,27 @@ onUnmounted(() => { if (saveTimer) clearTimeout(saveTimer); });
   font-family: monospace;
   background: var(--bg-sub); 
   padding: 1px 4px; 
-  border-radius: 3px; 
+  border-radius: 0; 
 }
 
 /* 优雅小圆点复选框 */
 .custom-checkbox-wrapper { position: relative; display: inline-block; width: 14px; height: 14px; flex-shrink: 0; }
 .custom-checkbox-wrapper input { opacity: 0; width: 0; height: 0; }
-.checkmark { position: absolute; top: 0; left: 0; height: 14px; width: 14px; background-color: transparent; border: 1.5px solid var(--border-line); border-radius: 50%; transition: all 0.2s; cursor: pointer; }
+.checkmark { position: absolute; top: 0; left: 0; height: 14px; width: 14px; background-color: transparent; border: 1.5px solid var(--border-line); border-radius: 0; transition: all 0.2s; cursor: pointer; }
 .custom-checkbox-wrapper input:checked + .checkmark { background-color: var(--text-primary); border-color: var(--border-line); }
 
 /* 极简按钮 */
-.spirit-mini-btn { background: var(--text-primary); color: var(--paper-card); border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+.spirit-mini-btn { background: var(--text-primary); color: var(--paper-card); border: none; padding: 4px 10px; border-radius: 0; font-size: 13px; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
 .spirit-mini-btn:hover { opacity: 0.8; }
 
-.add-card-btn { background: transparent; border: none; color: var(--text-secondary); padding: 6px; font-size: 11px; font-weight: 600; cursor: pointer; text-align: left; width: 100%; opacity: 0; transition: opacity 0.2s; }
+.add-card-btn { background: transparent; border: none; color: var(--text-secondary); padding: 6px; font-size: 13px; font-weight: 600; cursor: pointer; text-align: left; width: 100%; opacity: 0; transition: opacity 0.2s; }
 .kanban-column:hover .add-card-btn { opacity: 1; }
 .add-card-btn:hover { color: var(--accent-color); }
 
-.empty-columns-placeholder, .empty-columns-placeholder span { font-size: 11px; color: var(--text-secondary); letter-spacing: 0.05em; text-align: center; margin-top: 24px; width: 100%; }
+.empty-columns-placeholder, .empty-columns-placeholder span { font-size: 13px; color: var(--text-secondary); letter-spacing: 0.05em; text-align: center; margin-top: 24px; width: 100%; }
+.calendar-day-cell:focus-within .quick-add-event-btn,.kanban-column:focus-within .add-card-btn,.column-header:focus-within .column-actions-trigger,.schedule-card:focus-within .mini-color-picker { opacity: 1; }
+.quick-add-event-btn { min-width: 24px; min-height: 24px; }.calendar-grid-box { overflow-x: auto; }.grid-header-row,.grid-days-container { min-width: 560px; }
+@media(hover:none) { .quick-add-event-btn,.add-card-btn,.column-actions-trigger,.mini-color-picker,.strip-mini-color-picker { opacity: 1; } }
+@media(max-width:640px) { .schedule-main-stage { padding: 16px 12px; }.section-top-bar { flex-wrap: wrap; gap: 12px; }.kanban-columns-container { display: flex; flex-wrap: nowrap; overflow-x: auto; }.kanban-column { min-width: 240px; flex: 0 0 240px; } }
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { transition: none !important; } }
 </style>

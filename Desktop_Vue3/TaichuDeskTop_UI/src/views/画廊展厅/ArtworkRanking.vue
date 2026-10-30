@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ParticleState from '@/components/ParticleState.vue'
+import UserLink from '@/components/UserLink.vue'
 import { ref, watch, onUnmounted, computed } from 'vue'
 import { artworkApi, type ArtworkItemDto } from '@/api/artwork'
 import { withThumbnail } from '@/utils/imageThumb'
@@ -47,7 +49,7 @@ onUnmounted(() => { version++ })
   <section aria-label="作品点赞榜">
     <p class="ranking-note">{{ period === '总' ? '按累计真实点赞排序' : '按最近一' + period + '收到的真实点赞排序' }} · 前 20 名</p>
 
-    <p v-if="loading" class="content-state" role="status">正在读取榜单…</p>
+    <ParticleState v-if="loading" class="content-state" text="正在读取榜单" />
     <div v-else-if="error" class="content-state" role="alert">{{ error }} <button @click="load">重试</button></div>
     <div v-else-if="!items.length" class="content-state">
       <h2>这个周期还没有点赞记录</h2>
@@ -66,13 +68,13 @@ onUnmounted(() => { version++ })
           @click="$emit('open', slot.item.id)"
         >
           <span class="podium-medal" :class="'is-' + slot.cls" aria-hidden="true">{{ slot.badge }}</span>
-          <div class="podium-cover">
+          <div class="podium-cover" data-depth>
             <img v-if="slot.item.coverImageUrl" :src="coverUrl(slot.item.coverImageUrl)" :alt="slot.item.title" loading="lazy" @error="($event.target as HTMLImageElement).hidden = true" />
             <span v-else class="podium-noimg">无封面</span>
           </div>
           <div class="podium-meta">
             <strong class="podium-title">{{ slot.item.title || '无标题作品' }}</strong>
-            <small class="podium-author">{{ slot.item.authorName }}</small>
+            <small class="podium-author"><UserLink nested :id="slot.item.authorId" :name="slot.item.authorName" /></small>
             <span class="podium-likes">{{ likes(slot.item) }} 赞</span>
           </div>
         </article>
@@ -84,7 +86,7 @@ onUnmounted(() => { version++ })
           <span class="rank-position">{{ restStart + index }}</span>
           <button class="rank-work" @click="$emit('open', item.id)">
             <img v-if="item.coverImageUrl" :src="coverUrl(item.coverImageUrl)" alt="" loading="lazy" @error="($event.target as HTMLImageElement).hidden = true" />
-            <span><strong>{{ item.title || '无标题作品' }}</strong><small>{{ item.authorName }}</small></span>
+            <span><strong>{{ item.title || '无标题作品' }}</strong><small><UserLink nested :id="item.authorId" :name="item.authorName" /></small></span>
           </button>
           <span class="rank-score">{{ likes(item) }}<small>点赞</small></span>
         </li>
@@ -112,7 +114,7 @@ onUnmounted(() => { version++ })
   gap: 12px;
   padding: 26px 14px 16px;
   border: 1px solid var(--border-line);
-  border-radius: 14px;
+  border-radius: 0;
   background: var(--paper-card);
   cursor: pointer;
   text-align: center;
@@ -132,7 +134,7 @@ onUnmounted(() => { version++ })
   height: 32px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
+  border-radius: 0;
   font-size: .95rem;
   font-weight: 700;
   color: #fff;
@@ -146,7 +148,7 @@ onUnmounted(() => { version++ })
 .podium-cover {
   width: 100%;
   aspect-ratio: 1 / 1;
-  border-radius: 10px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--paper-sub);
 }
@@ -174,7 +176,7 @@ onUnmounted(() => { version++ })
 .ranking-list li { display: flex; align-items: center; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--border-line); }
 .rank-position { width: 28px; text-align: center; font-size: 1.2rem; color: var(--accent-color); font-variant-numeric: tabular-nums; }
 .rank-work { display: flex; align-items: center; gap: 16px; flex: 1; min-width: 0; padding: 0; border: 0; color: var(--text-primary); background: none; text-align: left; cursor: pointer; }
-.rank-work img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; }
+.rank-work img { width: 72px; height: 72px; object-fit: cover; border-radius: 0; }
 .rank-work span { min-width: 0; }
 .rank-work strong { overflow-wrap: anywhere; }
 .rank-work small { display: block; margin-top: 6px; font-size: .75rem; color: var(--text-secondary); }
@@ -183,7 +185,7 @@ onUnmounted(() => { version++ })
 .rank-work:hover strong { color: var(--accent-color); }
 
 .content-state { padding: 24px 0; color: var(--text-secondary); text-align: center; }
-.content-state button { color: var(--accent-color); background: var(--paper-card); border: 1px solid var(--border-line); padding: 6px 14px; border-radius: 8px; cursor: pointer; }
+.content-state button { color: var(--accent-color); background: var(--paper-card); border: 1px solid var(--border-line); padding: 6px 14px; border-radius: 0; cursor: pointer; }
 
 @media (max-width: 560px) {
   .ranking-podium { gap: 8px; }

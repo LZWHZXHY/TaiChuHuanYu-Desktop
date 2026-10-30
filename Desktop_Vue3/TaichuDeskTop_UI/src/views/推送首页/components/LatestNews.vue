@@ -129,7 +129,7 @@ const fetchNews = async () => {
   loading.value = true;
   try {
     const data = await newsApi.getAllNews();
-    newsList.value = data.filter((item: any) => item.isPublished);
+    newsList.value = Array.isArray(data) ? data.filter((item: any) => item?.isPublished) : [];
   } catch (error) {
     console.error('Fetch News Failed', error);
   } finally {
@@ -193,7 +193,7 @@ const formatDisplayDate = (dateString: string) => {
   margin-bottom: 28px;
   padding: 24px 26px;
   border: 1px solid var(--accent-color);
-  border-radius: 12px;
+  border-radius: 0;
   background: linear-gradient(135deg, var(--accent-soft), var(--paper-card) 70%);
   cursor: pointer;
   overflow: hidden;
@@ -218,7 +218,7 @@ const formatDisplayDate = (dateString: string) => {
   color: var(--accent-color);
   background: var(--paper-card);
   border: 1px solid var(--accent-color);
-  border-radius: 20px;
+  border-radius: 0;
   padding: 3px 12px;
 }
 .pulse-dot {
@@ -241,7 +241,7 @@ const formatDisplayDate = (dateString: string) => {
 .featured-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .featured-meta { font-size: .8rem; color: var(--text-secondary); }
 .featured-cta { font-size: .85rem; font-weight: 600; color: var(--accent-color); white-space: nowrap; }
-.featured-img { width: 100%; max-height: 220px; object-fit: cover; border-radius: 8px; margin-top: 16px; display: block; }
+.featured-img { width: 100%; max-height: 220px; object-fit: cover; border-radius: 0; margin-top: 16px; display: block; }
 
 /* 列表项 */
 .md-news-item {
@@ -353,7 +353,7 @@ const formatDisplayDate = (dateString: string) => {
 .detail-title { font-size: 2.2rem; font-weight: 300; line-height: 1.3; margin: 0; letter-spacing: -0.5px; }
 
 .detail-hero { margin-bottom: 40px; }
-.detail-hero-img { width: 100%; border-radius: 4px; object-fit: cover; }
+.detail-hero-img { width: 100%; border-radius: 0; object-fit: cover; }
 
 /* 🌟 富文本正文 */
 .md-rich-text {
@@ -361,7 +361,7 @@ const formatDisplayDate = (dateString: string) => {
   white-space: pre-wrap; /* 保留后台录入的换行 */
   word-break: break-word;
 }
-.md-rich-text :deep(img) { max-width: 100%; height: auto; margin: 30px 0; border-radius: 6px; }
+.md-rich-text :deep(img) { max-width: 100%; height: auto; margin: 30px 0; border-radius: 0; }
 .md-rich-text :deep(p) { margin-bottom: 24px; }
 
 .detail-footer { margin-top: 80px; text-align: center; color: var(--border-line); }

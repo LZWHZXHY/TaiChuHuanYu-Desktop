@@ -1,0 +1,27 @@
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>必吃榜样式检查 · 样例数据</title>
+<style>html,body,#app{height:auto!important;overflow:auto!important}body{padding:24px}#check-tools{max-width:1100px;margin:0 auto 20px;display:flex;gap:12px;align-items:center;color:var(--text-secondary);font-size:12px}#check-tools button{padding:6px 12px;background:var(--paper-card);color:var(--text-primary);border:1px solid var(--border-line)}body.narrow #app{max-width:390px;margin:auto}</style>
+<div id="check-tools"><span>样式检查 · 独立样例数据，不写入服务器</span><button id="theme">切换日夜</button><button id="narrow">切换窄屏容器</button></div><div id="app"></div>
+<script type="module">
+import {createApp} from 'vue';
+import {createPinia} from 'pinia';
+import Page from '/src/views/必吃榜/index.vue';
+import {mustEatApi} from '/src/api/mustEat.ts';
+import request from '/src/utils/request.ts';
+import '/src/assets/styles/base.css';
+import '/src/assets/styles/content.css';
+import '/src/assets/styles/variables.css';
+import '/src/assets/styles/theme-rhine.css';
+const cover='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450"><rect width="800" height="450" fill="#142c38"/><circle cx="560" cy="130" r="90" fill="#70d6c3"/><path d="M0 400 270 95 480 450ZM300 450 620 210 800 420V450" fill="#357386"/><path d="M0 380 800 280V450H0" fill="#163c4a"/><text x="40" y="70" font-size="22" fill="white" font-family="sans-serif">COVER / 样例封面</text></svg>');
+const data=[
+ {id:1,category:'游戏',title:'探索与建造：留给想象的世界',description:'独立出发，也可以与朋友一起创造。推荐理由较长时，卡片保留三行摘要，完整内容在详情里继续阅读。'.repeat(4),creator:'社区推荐者',source:'游戏推荐',coverImage:cover,averageScore:4.5,ratingCount:24},
+ {id:2,category:'动漫',title:'关于旅途与相遇的故事',description:'从细小的日常里，发现值得停下脚步的片刻。',creator:'社区推荐者',source:'动画推荐',coverImage:null,averageScore:4.8,ratingCount:12},
+ {id:3,category:'小说',title:'一段尚未结束的远行',description:'适合在安静的夜晚慢慢读完。',creator:'作者',source:'阅读推荐',coverImage:cover,averageScore:0,ratingCount:0}
+].map(item=>({...item,link:null,isVisible:true,sortOrder:0,status:'Approved',submittedByUserId:null,createdAt:'2026-10-27T00:00:00Z'}));
+mustEatApi.list=async()=>data;
+mustEatApi.getRating=async id=>({...data.find(x=>x.id===id),myScore:null});
+request.get=async()=>[];
+request.post=request.put=request.delete=async()=>{throw new Error('样式检查不允许写入服务器')};
+document.querySelector('#theme').onclick=()=>document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'light':'dark';
+document.querySelector('#narrow').onclick=()=>document.body.classList.toggle('narrow');
+createApp(Page).use(createPinia()).mount('#app');
+</script></html>

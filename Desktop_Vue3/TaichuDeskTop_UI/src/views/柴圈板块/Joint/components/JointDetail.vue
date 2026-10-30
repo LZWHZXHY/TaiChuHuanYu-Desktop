@@ -83,7 +83,7 @@
         <div class="detail-left">
           <div class="info-item">
             <span class="info-label">举办者</span>
-            <span class="info-value">{{ activity.organizerName }}</span>
+            <UserLink class="info-value" :id="activity.organizerType === 'user' ? activity.organizerId : null" :name="activity.organizerName" />
           </div>
           <div v-if="activity.contact" class="info-item">
             <span class="info-label">群聊号</span>
@@ -205,7 +205,7 @@
             :key="p.id"
             class="participant-item"
           >
-            <span class="participant-name">{{ p.userName }}</span>
+            <UserLink class="participant-name" :id="p.userId" :name="p.userName" />
             <span class="participant-status" :class="p.status">
               {{ participantStatusLabel(p.status) }}
             </span>
@@ -244,6 +244,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { ref, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useJointStore } from '../joint_store'
@@ -964,7 +965,7 @@ watch(() => route.params.id, async id => {
 .project-picker {
   margin-top: 12px;
   border: 1px solid var(--line-raw);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 10px;
   display: grid;
   gap: 6px;
@@ -978,7 +979,7 @@ watch(() => route.params.id, async id => {
   padding: 8px 10px;
   border: none;
   background: var(--paper-card);
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   color: var(--ink-black);
   font-size: 13px;

@@ -15,6 +15,7 @@ export interface ArtworkItemDto extends ArtworkStats {
   title: string
   coverImageUrl?: string
   authorName: string
+  authorId?: string
   authorAvatar?: string
   uploadAt: string
   imageCount: number
@@ -35,12 +36,15 @@ export interface ArtworkDetail extends ArtworkStats {
   canInteract?: boolean
   canEdit?: boolean
   originalNoteId?: string
+  /** 只有作者拿得到：public 公开中 / withdrawn 自己下架了 / reviewing 审核中 / hidden 被管理员隐藏 / rejected 没通过 */
+  ownerState?: string | null
   id: number
   title: string
   tags?: string[]
   description?: string
   uploadAt: string
   author: {
+    id?: string
     username: string
     avatar?: string
     bio?: string
@@ -98,6 +102,9 @@ export const artworkApi = {
     silentError: true,
     onUploadProgress: event => { if (event.total) onProgress?.(Math.round(event.loaded * 100 / event.total)) }
   }),
+  /** 作者自己下架 / 重新上架 */
+  setVisibility: (id: number, visible: boolean) =>
+    request.post<{ ownerState: string; message: string }>(`/Artwork/${id}/visibility`, { visible }, { silentError: true }),
   edit: (id: number, data: ArtworkEdit) => request.put<ArtworkWriteResult>(`/Artwork/${id}`, data, { silentError: true }),
   /**
    * 获取瀑布流列表

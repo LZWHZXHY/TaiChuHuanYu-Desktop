@@ -18,7 +18,7 @@ export function getRelationTypeColor(type: string) {
 export interface WorldGraphNode { id: string; title: string; type: string; color: string; x?: number; y?: number; z?: number }
 export interface WorldGraphEdge { source: string; target: string; label: string; color: string; width: number; isEmbed: boolean }
 
-export interface GraphLabelPoint { id: string; x: number; y: number; z: number; width: number; priority?: boolean }
+export interface GraphLabelPoint { id: string; x: number; y: number; z: number; width: number; priority?: boolean; preferBelow?: boolean }
 /** 固定 32px 行高，按屏幕网格避让；隐藏名称不移除节点或关系。 */
 export function placeGraphLabels(points: GraphLabelPoint[], width: number, height: number) {
   const boxes: (GraphLabelPoint & { left: number; top: number })[] = []
@@ -27,7 +27,7 @@ export function placeGraphLabels(points: GraphLabelPoint[], width: number, heigh
   for (const point of [...points].sort((a, b) => Number(Boolean(b.priority)) - Number(Boolean(a.priority)) || a.z - b.z || a.id.localeCompare(b.id))) {
     if (point.x < 0 || point.x > width || point.y < 0 || point.y > height) continue
     const left = Math.max(4, Math.min(width - point.width - 4, point.x - point.width / 2))
-    for (const top of [point.y - 40, point.y + 8]) {
+    for (const top of point.preferBelow ? [point.y + 8, point.y - 40] : [point.y - 40, point.y + 8]) {
       if (!Number.isFinite(left + top) || left < 4 || top < 4 || left + point.width > width - 4 || top + 32 > height - 4) continue
       const cells: string[] = []
       for (let x = Math.floor((left - 4) / 64); x <= Math.floor((left + point.width + 4) / 64); x++)
@@ -40,6 +40,24 @@ export function placeGraphLabels(points: GraphLabelPoint[], width: number, heigh
     if (boxes.length >= limit) break
   }
   return boxes
+}
+
+export interface GraphBox { left: number; top: number; width: number; height: number }
+export const graphBoxesOverlap = (a: GraphBox, b: GraphBox, gap = 4) =>
+  a.left < b.left + b.width + gap && a.left + a.width + gap > b.left && a.top < b.top + b.height + gap && a.top + a.height + gap > b.top
+
+/** 沿连线寻找空白位置；放不下就省略关系名，连线始终保留。 */
+export function placeEdgeLabel(a: { x: number; y: number }, b: { x: number; y: number }, control: { x: number; y: number }, textWidth: number, width: number, height: number, occupied: GraphBox[]) {
+  for (const t of [.5, .35, .65, .25, .75]) {
+    const x = (1-t)**2*a.x + 2*(1-t)*t*control.x + t*t*b.x
+    const y = (1-t)**2*a.y + 2*(1-t)*t*control.y + t*t*b.y
+    const box = { left: x - textWidth / 2, top: y - 10, width: textWidth, height: 20 }
+    if (box.left < 4 || box.top < 4 || box.left + box.width > width - 4 || box.top + box.height > height - 4) continue
+    if (occupied.some(other => graphBoxesOverlap(box, other))) continue
+    occupied.push(box)
+    return { x, y, box }
+  }
+  return null
 }
 
 export function buildWorldGraph(cards: CardSummary[], relations: Relation[], findDetail: (id: string) => CardDetail | null | undefined) {

@@ -41,7 +41,15 @@ namespace TaiChuWeb_V2.Controllers
 
                 // 动态拼接 Policy 资源路径
                 string resource = $"qcs::cos:{region}:uid/{appId}:{bucket}/*";
-                req.Policy = "{\"version\":\"2.0\",\"statement\":[{\"action\":[\"name/cos:PutObject\",\"name/cos:PostObject\",\"name/cos:InitiateMultipartUpload\",\"name/cos:ListMultipartUploads\",\"name/cos:ListParts\",\"name/cos:UploadPart\",\"name/cos:CompleteMultipartUpload\"],\"resource\":[\"" + resource + "\"],\"effect\":\"allow\"}]}";
+                // 用户头像（avatars/u/）和官方素材（official/）只能由服务器写入：前端拿到的临时密钥写不进去，
+                // 防止把自己的头像文件换成 GIF，或者改掉官方头像
+                string userAvatars = $"qcs::cos:{region}:uid/{appId}:{bucket}/avatars/u/*";
+                string official = $"qcs::cos:{region}:uid/{appId}:{bucket}/official/*";
+                const string actions = "[\"name/cos:PutObject\",\"name/cos:PostObject\",\"name/cos:InitiateMultipartUpload\",\"name/cos:ListMultipartUploads\",\"name/cos:ListParts\",\"name/cos:UploadPart\",\"name/cos:CompleteMultipartUpload\"]";
+                req.Policy = "{\"version\":\"2.0\",\"statement\":["
+                    + "{\"action\":" + actions + ",\"resource\":[\"" + resource + "\"],\"effect\":\"allow\"},"
+                    + "{\"action\":" + actions + ",\"resource\":[\"" + userAvatars + "\",\"" + official + "\"],\"effect\":\"deny\"}"
+                    + "]}";
 
                 GetFederationTokenResponse resp = await client.GetFederationToken(req);
 
@@ -65,4 +73,4 @@ namespace TaiChuWeb_V2.Controllers
             }
         }
     }
-}
+}

@@ -376,7 +376,7 @@ const fetchFinanceData = async () => {
       import('@/utils/financeCharts'),
     ]);
     if (!isOpen.value || version !== loadVersion) return;
-    financeLogs.value = data || [];
+    financeLogs.value = Array.isArray(data) ? data : [];
     // 等待 DOM 更新
     await nextTick();
     // 延迟一帧确保容器已渲染
@@ -430,7 +430,7 @@ onBeforeUnmount(closeModal);
   background: var(--text-primary);
   color: var(--paper-card);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   padding: 16px 20px;
   font-size: 0.9rem;
   font-weight: 400;
@@ -465,7 +465,7 @@ onBeforeUnmount(closeModal);
   max-width: 1160px; /* 🌟 深度拓宽到 1160px 彻底消除任何侧边挤压感 */
   height: 88vh; 
   overflow-y: auto;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   padding: 36px 40px;
   position: relative;
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.06);
@@ -488,7 +488,7 @@ onBeforeUnmount(closeModal);
   margin-bottom: 16px;
   flex-shrink: 0;
 }
-.asset-card { background: var(--bg-sub); border: 1px solid var(--border-line); border-radius: var(--radius-sm); padding: 12px 20px; display: flex; flex-direction: column; gap: 2px; }
+.asset-card { background: var(--bg-sub); border: 1px solid var(--border-line); border-radius: 0; padding: 12px 20px; display: flex; flex-direction: column; gap: 2px; }
 .asset-card.active { background: var(--success-soft); border-color: var(--success); }
 .asset-label { font-size: 0.72rem; color: var(--text-secondary); }
 .asset-value { font-size: 1.35rem; font-weight: 400; font-family: ui-monospace, monospace; }
@@ -505,7 +505,7 @@ onBeforeUnmount(closeModal);
   gap: 14px;
   margin-bottom: 12px;
 }
-.chart-box { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: var(--radius-sm); padding: 14px; display: flex; flex-direction: column; min-width: 0; }
+.chart-box { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 0; padding: 14px; display: flex; flex-direction: column; min-width: 0; }
 .chart-sub-title { font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500; display: block;}
 
 /* ECharts 底衬渲染锚定 */
@@ -526,7 +526,7 @@ onBeforeUnmount(closeModal);
 .ledger-section { margin-bottom: 4px; flex: 1; display: flex; flex-direction: column; min-height: 320px; }
 .ledger-list-container { flex: 1; overflow-y: auto; padding-right: 4px; }
 .ledger-list-container::-webkit-scrollbar { width: 4px; }
-.ledger-list-container::-webkit-scrollbar-thumb { background: var(--border-line); border-radius: 4px; }
+.ledger-list-container::-webkit-scrollbar-thumb { background: var(--border-line); border-radius: 0; }
 
 .ledger-list { display: flex; flex-direction: column; }
 .ledger-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--bg-sub); gap: 20px; }
@@ -537,7 +537,7 @@ onBeforeUnmount(closeModal);
 .ledger-payer { font-size: 0.74rem; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .ledger-right-meta { display: flex; align-items: center; gap: 16px; flex-shrink: 0; }
-.ledger-payer-tag { font-size: 0.72rem; background: var(--bg-sub); border: 1px solid var(--border-line); padding: 1px 6px; border-radius: 3px; color: var(--text-secondary); font-weight: bold; }
+.ledger-payer-tag { font-size: 0.72rem; background: var(--bg-sub); border: 1px solid var(--border-line); padding: 1px 6px; border-radius: 0; color: var(--text-secondary); font-weight: bold; }
 .ledger-amount { font-family: ui-monospace, monospace; font-size: 0.9rem; font-weight: 600; }
 .ledger-amount.in { color: var(--success); }
 .ledger-amount.out { color: var(--text-secondary); }

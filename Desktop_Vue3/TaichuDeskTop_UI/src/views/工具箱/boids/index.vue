@@ -402,7 +402,7 @@ canvas {
   left: 16px;
   flex-direction: column;
   padding: 14px 16px;
-  border-radius: 12px;
+  border-radius: 0;
   background: rgba(22, 27, 34, 0.75);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -414,7 +414,7 @@ canvas {
   align-items: center;
   gap: 12px;
   padding: 8px 14px;
-  border-radius: 10px;
+  border-radius: 0;
   background: rgba(22, 27, 34, 0.75);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -423,7 +423,7 @@ canvas {
 .btn-back {
   width: 40px;
   height: 40px;
-  border-radius: 10px;
+  border-radius: 0;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(22, 27, 34, 0.75);
   backdrop-filter: blur(10px);
@@ -454,7 +454,7 @@ canvas {
   width: 70px;
   padding: 4px 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  border-radius: 0;
   background: rgba(13, 17, 23, 0.6);
   color: #e6edf3;
   font-size: 13px;
@@ -469,7 +469,7 @@ canvas {
 .btn-reset {
   padding: 5px 12px;
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
   color: #e6edf3;
   font-size: 13px;
@@ -522,7 +522,7 @@ canvas {
   -webkit-appearance: none;
   appearance: none;
   height: 4px;
-  border-radius: 2px;
+  border-radius: 0;
   background: rgba(255, 255, 255, 0.1);
   outline: none;
   cursor: pointer;
@@ -573,7 +573,7 @@ canvas {
   flex: 1;
   padding: 5px 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  border-radius: 0;
   background: transparent;
   color: #8b949e;
   font-size: 12px;
@@ -596,7 +596,7 @@ canvas {
   font-size: 12px;
   color: rgba(230, 237, 243, 0.5);
   padding: 6px 14px;
-  border-radius: 999px;
+  border-radius: 0;
   background: rgba(22, 27, 34, 0.6);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.06);

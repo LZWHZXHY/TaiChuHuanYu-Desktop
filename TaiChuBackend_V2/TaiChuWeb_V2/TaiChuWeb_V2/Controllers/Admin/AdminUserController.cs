@@ -7,6 +7,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using TaiChuWeb_V2.Dtos.Admin.AdminUser; // 引入独立的 DTO 命名空间
 using TaiChuWeb_V2.Models.User;
+using TaiChuWeb_V2.Services.Notify;
+using TaiChuWeb_V2.Services.Shop;
 
 namespace TaiChuWeb_V2.Controllers.Admin
 {
@@ -17,10 +19,76 @@ namespace TaiChuWeb_V2.Controllers.Admin
     public class AdminUserController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly ShopService _shop;
 
-        public AdminUserController(AppDbContext context)
+        public AdminUserController(AppDbContext context, ShopService shop)
         {
             _context = context;
+            _shop = shop;
+        }
+
+        public sealed class GrantTitlePayload
+        {
+            public string? Title { get; set; }
+            /// <summary>直接帮他戴上</summary>
+            public bool Equip { get; set; }
+            /// <summary>为什么给（写进通知，可选）</summary>
+            public string? Note { get; set; }
+        }
+
+        // ==========================================
+        // 5. 头衔：查看某人拥有的头衔 / 授予 / 收回
+        // 头衔存在 user_cosmetics（Kind = title），正在戴的是 UserStats.Title；
+        // 授予后对方在「交易行 → 我的装扮」里可以自己换戴
+        // ==========================================
+        [HttpGet("{userId:guid}/titles")]
+        public async Task<IActionResult> Titles(Guid userId)
+        {
+            if (!await _context.Users.AnyAsync(u => u.Id == userId)) return NotFound(new { message = "没有这位用户" });
+            var owned = await _shop.CosmeticsAsync(userId);
+            var equipped = await _context.UserStats.AsNoTracking().Where(s => s.UserId == userId).Select(s => s.Title).FirstOrDefaultAsync();
+            return Ok(new
+            {
+                titles = owned.Where(c => c.Kind == ShopService.EffectTitle).Select(c => new { title = c.Key, source = c.Source, at = c.CreatedAt }),
+                equipped = string.IsNullOrWhiteSpace(equipped) ? null : equipped,
+            });
+        }
+
+        [HttpPost("{userId:guid}/titles")]
+        public async Task<IActionResult> GrantTitle(Guid userId, [FromBody] GrantTitlePayload payload)
+        {
+            var title = (payload.Title ?? "").Trim();
+            if (title.Length == 0) return BadRequest(new { message = "头衔要填" });
+            if (title.Length > ShopService.MaxTitleLength) return BadRequest(new { message = $"头衔最多 {ShopService.MaxTitleLength} 个字" });
+            if (!await _context.Users.AnyAsync(u => u.Id == userId)) return NotFound(new { message = "没有这位用户" });
+            var note = (payload.Note ?? "").Trim();
+            if (note.Length > 100) note = note[..100];
+            var added = await _shop.GrantCosmeticAsync(userId, ShopService.EffectTitle, title, note.Length > 0 ? $"管理员授予：{note}" : "管理员授予");
+            if (payload.Equip)
+            {
+                var stats = await _context.UserStats.FirstOrDefaultAsync(s => s.UserId == userId);
+                if (stats == null) { stats = new UserStats { UserId = userId }; _context.UserStats.Add(stats); }
+                stats.Title = title;
+            }
+            var actor = Guid.TryParse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var me) ? me : (Guid?)null;
+            if (added || payload.Equip)
+                new NotificationService(_context).Add(userId, actor, "system", "title", title,
+                    $"授予了你头衔「{title}」{(note.Length > 0 ? $"：{note}" : "")}{(payload.Equip ? "，已经帮你戴上了" : "，可以在交易行「我的装扮」里戴上")}", "/trade?wardrobe=1");
+            await _context.SaveChangesAsync();
+            return Ok(new { message = added ? (payload.Equip ? $"已授予并戴上「{title}」" : $"已授予「{title}」") : payload.Equip ? $"他已经有「{title}」了，已帮他戴上" : $"他已经有「{title}」了" });
+        }
+
+        [HttpDelete("{userId:guid}/titles")]
+        public async Task<IActionResult> RevokeTitle(Guid userId, [FromQuery] string title)
+        {
+            var key = (title ?? "").Trim();
+            if (key.Length == 0) return BadRequest(new { message = "要收回哪个头衔" });
+            var removed = await _shop.RevokeCosmeticAsync(userId, ShopService.EffectTitle, key);
+            var stats = await _context.UserStats.FirstOrDefaultAsync(s => s.UserId == userId);
+            var wasEquipped = stats != null && stats.Title == key;
+            if (wasEquipped) stats!.Title = string.Empty; // 正戴着就取下（存空字符串，和用户自己取下一样）
+            await _context.SaveChangesAsync();
+            return Ok(new { message = removed || wasEquipped ? $"已收回「{key}」" : $"他没有「{key}」这个头衔" });
         }
 
         // ==========================================
@@ -220,4 +288,4 @@ namespace TaiChuWeb_V2.Controllers.Admin
             return Ok(new { message = $"已成功扣除 {payload.Deduction} 点信誉分" });
         }
     }
-}
+}

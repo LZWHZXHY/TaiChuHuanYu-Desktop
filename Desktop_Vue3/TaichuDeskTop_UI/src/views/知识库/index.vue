@@ -1,7 +1,7 @@
 <template>
   <section class="knowledge-home content-page community-surface tone-library">
     <header class="knowledge-header content-header">
-      <SectionTrace />
+      <SectionTrace particles="knowledge" />
       <div>
         <p class="eyebrow">社区资料 · 统一检索</p>
         <h1>{{ type === 'wiki' ? '公共 Wiki' : '知识库' }}</h1>
@@ -55,9 +55,14 @@
               <option v-for="category in categories" :key="category.id" :value="category.id">{{ category.name }}</option>
             </select>
           </label>
-          <p v-if="type === 'wiki'" class="notice">公共知识由社区共同维护，可提交编辑建议、查看修订历史和版本差异。博客与帖子保留作者自己的发布与编辑流程。</p>
+          <p v-if="type === 'wiki'" class="notice">公共知识由社区共同维护，可提交编辑建议、查看修订历史和版本差异。论坛里的博客和帖子由作者自己发布和编辑。</p>
           <p v-if="type === 'wiki' && categoryError" role="alert">{{ categoryError }} <button @click="loadCategories">重试分类</button></p>
-          <template v-if="type !== 'resource'">
+          <!-- 茶绘笔刷：数据在笔刷库，这里只是浏览入口（和下载资源一样单独列） -->
+          <section v-if="type === 'brush'" class="brush-section">
+            <p class="notice">大家在茶绘画室里做的、选择公开的笔刷。收藏后，在茶绘画室「我的笔刷」里就能直接用。</p>
+            <BrushSquare :search="search" show-studio-link />
+          </section>
+          <template v-if="type !== 'resource' && type !== 'brush'">
             <p v-if="loading" class="state" role="status">正在查找公开资料…</p>
             <div v-else-if="error" class="state" role="alert">
               <p>{{ error }}</p>
@@ -68,7 +73,7 @@
                 找到
                 {{ total }}
                 条内容
-                <template v-if="type === 'all'"> · 下载资源另列在下方</template>
+                <template v-if="type === 'all'"> · 茶绘笔刷和下载资源另列在下方</template>
               </p>
               <div v-if="!items.length" class="state">
                 <h3>暂时没有匹配的内容</h3>
@@ -87,9 +92,9 @@
                   <div class="card-body">
                     <span class="type-label content-badge">{{ knowledgeTypes[item.type] }}</span>
                     <h3>
-                      <button class="title-button" @click="openItem(item)">{{ item.title || '无标题' }}</button>
+                      <button class="title-button" @click="openItem(item)"><template v-for="(seg, si) in marks(item.title || '无标题')" :key="si"><mark v-if="seg.hit">{{ seg.text }}</mark><template v-else>{{ seg.text }}</template></template></button>
                     </h3>
-                    <p>{{ wikiText(item.summary).slice(0, 180) || '打开原内容查看详情。' }}</p>
+                    <p><template v-for="(seg, si) in marks(wikiText(item.summary).slice(0, 180) || '打开原内容查看详情。')" :key="si"><mark v-if="seg.hit">{{ seg.text }}</mark><template v-else>{{ seg.text }}</template></template></p>
                     <div class="card-meta">
                       <span v-if="item.author">{{ item.author }}</span>
                       <time>{{ item.updatedAt?.slice(0, 10) }}</time>
@@ -105,6 +110,9 @@
               </nav>
             </template>
           </template>
+          <section v-if="type === 'all'" class="resource-section brush-section">
+            <BrushSquare :search="search" compact @more="selectType('brush')" />
+          </section>
           <section v-if="type === 'all' || type === 'resource'" class="resource-section">
             <h3>
               下载资源
@@ -177,6 +185,7 @@ import { wikiTags, wikiText } from '@/utils/wikiContent';
 import ArtworkDetail from '../画廊展厅/ArtworkDetail.vue';
 import PublicNoteDetail from '../太初随笔/PublicNoteDetail.vue';
 import SpiritPreview from '@/components/SpiritTextComponents/SpiritPreview.vue';
+import BrushSquare from '../画廊展厅/茶绘/BrushSquare.vue';
 const KnowledgeGraph = defineAsyncComponent(() => import('./KnowledgeGraph.vue'));
 const route = useRoute(), router = useRouter();
 const searchInput = ref(''), items = ref<KnowledgeItem[]>([]), total = ref(0), loading = ref(false), error = ref('');
@@ -186,6 +195,15 @@ const documentDetail = ref<{
     description: string;
 }>(), documentLoading = ref(false), documentError = ref('');
 const search = computed(() => typeof route.query.q === 'string' ? route.query.q.trim().slice(0, 100) : '');
+// 搜索结果里把关键词标出来（多个词用空格分开）
+const searchTerms = computed(() => search.value.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 10));
+function marks(text: string): { text: string; hit: boolean }[] {
+    const terms = searchTerms.value;
+    if (!terms.length || !text) return [{ text, hit: false }];
+    const escaped = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    return text.split(new RegExp(`(${escaped.join('|')})`, 'gi')).filter(Boolean)
+        .map(part => ({ text: part, hit: terms.includes(part.toLowerCase()) }));
+}
 const type = computed<KnowledgeType>(() => typeof route.query.type === 'string' && Object.hasOwn(knowledgeTypes, route.query.type) ? route.query.type as KnowledgeType : 'all');
 const categories = ref<IWikiCategory[]>([]);
 const categoryError = ref('');
@@ -208,7 +226,7 @@ const changePage = (value: number) => setQuery({ page: value > 1 ? value : undef
 const switchView = () => setQuery({ view: graphMode.value ? undefined : 'graph' });
 async function loadCatalog() {
     const version = ++catalogVersion;
-    if (type.value === 'resource' || graphMode.value) {
+    if (type.value === 'resource' || type.value === 'brush' || graphMode.value) {
         loading.value = false;
         return;
     }
@@ -284,7 +302,7 @@ async function download(file: PublicResource) {
 function openItem(item: KnowledgeItem) {
     if (item.type === 'wiki')
         return router.push({ name: 'WikiDetail', params: { id: item.id }, query: { q: search.value || undefined, type: 'wiki', page: route.query.page, category: route.query.category } });
-    if (item.type === 'world' || item.type === 'character' || item.type === 'resource')
+    if (['world', 'character', 'resource', 'novel', 'work', 'setting'].includes(item.type))
         return router.push(knowledgeRoute(item));
     return setQuery({ detail: item.id, detailType: item.type });
 }
@@ -349,7 +367,7 @@ button, .knowledge-actions a {
   border: 1px solid var(--border-line);
   background: var(--paper-card);
   color: var(--text-primary);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   padding: 9px 14px;
   font: inherit;
   font-size: .88rem;
@@ -364,9 +382,10 @@ button:hover:not(:disabled), a:hover {
   border-color: var(--accent-color);
 }
 .search-form {
-  padding: 20px;
-  border: 1px solid var(--border-line);
-  border-radius: var(--radius-sm);
+  padding: 20px 0;
+  border: 0;
+  border-bottom: 1px solid var(--border-line);
+  border-radius: 0;
   background: var(--paper-card);
 }
 .search-form label {
@@ -380,7 +399,7 @@ button:hover:not(:disabled), a:hover {
   border: 1px solid var(--border-line);
   background: var(--paper-bg);
   color: var(--text-primary);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   padding: 12px;
   font: inherit;
 }
@@ -403,9 +422,9 @@ button:hover:not(:disabled), a:hover {
 }
 .mobile-type-filter { display: none; }
 .type-nav button { text-align: left; border-color: transparent; }
-.type-nav { padding: 12px; border: 1px solid var(--surface-edge); border-radius: var(--radius-sm); background: linear-gradient(165deg, var(--surface-wash), var(--paper-card) 65%); }
+.type-nav { padding: 12px; border: 1px solid var(--surface-edge); border-radius: 0; background: linear-gradient(165deg, var(--surface-wash), var(--paper-card) 65%); }
 .wiki-category { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 16px 0; color: var(--text-secondary); font-size: 14px; }
-.wiki-category select { min-height: 40px; padding: 8px 28px 8px 12px; border: 1px solid var(--border-line); border-radius: var(--radius-sm); background: var(--paper-card); color: var(--text-primary); }
+.wiki-category select { min-height: 40px; padding: 8px 28px 8px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); }
 .nav-caption { font-size: .78rem; color: var(--text-secondary); padding: 6px 12px; }
 .content-card:hover, .content-card:focus-within { border-color: var(--accent-color); }
 .result-header {
@@ -422,7 +441,7 @@ button:hover:not(:disabled), a:hover {
 .notice {
   padding: 14px;
   background: var(--paper-sub);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   line-height: 1.7;
   font-size: .9rem;
 }
@@ -437,15 +456,16 @@ button:hover:not(:disabled), a:hover {
   align-items: center;
   gap: 20px;
   background: var(--paper-card);
-  border: 1px solid var(--border-line);
-  border-radius: var(--radius-sm);
+  border: 0;
+  border-bottom: 1px solid var(--border-line);
+  border-radius: 0;
   padding: 20px;
 }
 .content-card > img {
   width: 144px;
   height: 112px;
   object-fit: cover;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 .card-body {
   flex: 1;
@@ -509,7 +529,7 @@ button:hover:not(:disabled), a:hover {
 .graph-area {
   height: 72vh;
   min-height: 460px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   overflow: hidden;
 }
 .document-mask {
@@ -525,7 +545,7 @@ button:hover:not(:disabled), a:hover {
   margin: auto;
   padding: 28px;
   background: var(--paper-bg);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 :is(button,a,input):focus-visible {
   outline: 2px solid var(--accent-color);
@@ -543,7 +563,7 @@ button:hover:not(:disabled), a:hover {
 .type-nav { flex-direction: row; flex-wrap: wrap; padding: 8px; gap: 4px; }
 .type-nav > .nav-caption, .type-nav > button { display: none; }
 .mobile-type-filter { display: flex; width: 100%; align-items: center; gap: 12px; padding: 4px; font-size: .9rem; }
-.mobile-type-filter select { min-width: 0; flex: 1; padding: 9px; background: var(--paper-card); color: var(--text-primary); border: 1px solid var(--border-line); border-radius: var(--radius-sm); }
+.mobile-type-filter select { min-width: 0; flex: 1; padding: 9px; background: var(--paper-card); color: var(--text-primary); border: 1px solid var(--border-line); border-radius: 0; }
 .type-nav button {
   white-space: nowrap;
 }
@@ -558,4 +578,5 @@ button:hover:not(:disabled), a:hover {
 }
 
 }
+mark { padding: 0 1px; background: color-mix(in srgb, var(--accent-color) 22%, transparent); color: inherit; }
 </style>

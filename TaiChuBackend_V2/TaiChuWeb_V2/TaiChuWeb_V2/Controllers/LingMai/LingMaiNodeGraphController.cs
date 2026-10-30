@@ -62,7 +62,11 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 {
                     id = n.Id.ToString(),
                     title = string.IsNullOrWhiteSpace(n.Title) ? "无标题碎片" : n.Title,
-                    type = n.Type ?? "note"
+                    type = n.Type ?? "note",
+                    // 所在文件夹：关系图里画成虚线，文件夹不再是孤零零的点
+                    folderId = n.FolderId,
+                    spaceId = n.SpaceId,
+                    isPublic = n.IsPublic
                 })
                 .ToListAsync();
 

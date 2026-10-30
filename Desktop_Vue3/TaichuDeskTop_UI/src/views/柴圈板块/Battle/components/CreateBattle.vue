@@ -1,6 +1,6 @@
 <template>
-  <div class="community-detail create-page">
-    <header class="page-header">
+  <div class="community-detail create-page workbench-skin editor-surface community-surface tone-chai">
+    <header class="page-header studio-heading"><SectionTrace />
       <div class="header-left">
         <div class="title-group">
           <button class="back-btn" @click="router.back()">‹ 返回</button>
@@ -308,6 +308,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useBattleStore } from '../battle_Store'
@@ -890,7 +891,7 @@ onMounted(async () => {
   max-height: 160px;
   overflow-y: auto;
   border: 1px solid var(--border-line);
-  border-radius: 4px;
+  border-radius: 0;
   background: var(--paper-card);
   margin-top: 4px;
 }
@@ -954,7 +955,7 @@ onMounted(async () => {
   padding: 2px 10px;
   background: var(--bg-sub);
   border: 1px solid var(--border-line);
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 12px;
   color: var(--text-primary);
 }
@@ -1039,7 +1040,7 @@ onMounted(async () => {
 .upload-area {
   border: 1px dashed var(--border-line);
   background: var(--paper-card);
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   transition: border-color 0.25s;
   min-height: 120px;
@@ -1062,7 +1063,7 @@ onMounted(async () => {
   aspect-ratio: 16/9;
   object-fit: cover;
   border: 1px solid var(--border-line);
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .remove-btn {
@@ -1071,7 +1072,7 @@ onMounted(async () => {
   right: 0;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
+  border-radius: 0;
   border: none;
   background: var(--accent-color);
   color: var(--on-accent);
@@ -1124,7 +1125,7 @@ onMounted(async () => {
   background: var(--paper-card);
   cursor: pointer;
   transition: all 0.25s;
-  border-radius: 4px;
+  border-radius: 0;
 }
 .radio-option:hover {
   border-color: var(--text-secondary);

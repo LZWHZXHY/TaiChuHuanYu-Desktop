@@ -5,13 +5,13 @@
       <span>大家在创造什么</span>
     </header>
 
-    <p v-if="loading && !items.length" class="feed-state" role="status">正在汇聚社区回响…</p>
+    <ParticleState v-if="loading && !items.length" class="feed-state" text="正在汇聚社区回响" compact />
     <p v-else-if="error && !items.length" class="feed-state feed-error" role="alert">{{ error }} <button @click="load(true)">重试</button></p>
     <ul v-else-if="items.length" class="feed-list">
       <li v-for="item in items" :key="item.id" class="feed-item" role="link" tabindex="0" @click="open(item)" @keydown.enter="open(item)">
         <span class="feed-badge" :class="'badge-' + badgeKind(item.kind)">{{ badgeText(item.kind) }}</span>
         <div class="feed-body">
-          <p class="feed-line"><strong>{{ item.actorName }}</strong> {{ verb(item.kind) }}<strong v-if="item.targetTitle" class="feed-title">{{ item.targetTitle }}</strong></p>
+          <p class="feed-line"><UserLink nested :id="item.actorId" :name="item.actorName"><strong>{{ item.actorName }}</strong></UserLink> {{ verb(item.kind) }}<strong v-if="item.targetTitle" class="feed-title">{{ item.kind.startsWith('world') ? `《${item.targetTitle}》` : item.targetTitle }}</strong><span v-if="item.detail" class="feed-detail">{{ item.kind === 'world-edit' ? '里' : item.kind.startsWith('quest') ? '，' : '' }}{{ item.detail }}</span></p>
           <time class="feed-time" :datetime="item.createdAt">{{ formatTime(item.createdAt) }}</time>
         </div>
       </li>
@@ -24,9 +24,12 @@
 </template>
 
 <script setup lang="ts">
+import ParticleState from '@/components/ParticleState.vue'
+import UserLink from '@/components/UserLink.vue'
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { communityApi, type CommunityFeedItem } from '@/api/community'
+import { questRoute } from '@/utils/forumBoards'
 
 const PAGE_SIZE = 6
 const router = useRouter()
@@ -36,9 +39,9 @@ const hasMore = ref(false)
 const error = ref('')
 let offset = 0
 
-const badgeText = (kind: string) => kind === 'post' ? '帖子' : kind === 'blog' ? '博客' : kind === 'artwork' ? '作品' : kind === 'user-joined' ? '新成员' : kind === 'signin' ? '签到' : kind.startsWith('comment') ? '评论' : kind === 'joint' ? '联合' : kind === 'survey' ? '问卷' : kind === 'dev-project' ? '开发进度' : '世界观'
-const badgeKind = (kind: string) => kind.startsWith('wiki') ? 'wiki' : kind.startsWith('comment') ? 'comment' : kind === 'dev-project' ? 'dev' : kind
-const verb = (kind: string) => kind === 'wiki-new' ? '创建了世界观设定' : kind === 'wiki-update' ? '更新了世界观设定' : kind === 'artwork' ? '发布了作品' : kind === 'post' ? '发布了帖子' : kind === 'user-joined' ? '加入了社区' : kind === 'signin' ? '签到打卡了' : kind.startsWith('comment') ? '评论了' : kind === 'joint' ? '发起了联合活动' : kind === 'survey' ? '发起了问卷调查' : kind === 'dev-project' ? '更新了开发进度' : '发布了博客'
+const badgeText = (kind: string) => kind.startsWith('quest') ? '世界任务' : kind.startsWith('world') ? '世界观' : kind.startsWith('wiki') ? '百科' : kind === 'post' ? '帖子' : kind === 'blog' ? '博客' : kind === 'artwork' ? '作品' : kind === 'user-joined' ? '新成员' : kind === 'signin' ? '签到' : kind.startsWith('comment') ? '评论' : kind === 'joint' ? '联合' : kind === 'survey' ? '问卷' : kind === 'dev-project' ? '开发进度' : '世界观'
+const badgeKind = (kind: string) => kind.startsWith('quest') ? 'quest' : kind.startsWith('world') ? 'world' : kind.startsWith('wiki') ? 'wiki' : kind.startsWith('comment') ? 'comment' : kind === 'dev-project' ? 'dev' : kind
+const verb = (kind: string) => kind === 'quest-start' ? '开启了世界任务' : kind === 'quest-complete' ? '宣布世界任务完成：' : kind === 'world-new' ? '创建了世界观' : kind === 'world-edit' ? '在世界观' : kind === 'wiki-new' ? '创建了百科词条' : kind === 'wiki-update' ? '更新了百科词条' : kind === 'artwork' ? '发布了作品' : kind === 'post' ? '发布了帖子' : kind === 'user-joined' ? '加入了社区' : kind === 'signin' ? '签到打卡了' : kind.startsWith('comment') ? '评论了' : kind === 'joint' ? '发起了联合活动' : kind === 'survey' ? '发起了问卷调查' : kind === 'dev-project' ? '更新了开发进度' : '发布了博客'
 
 function open(item: CommunityFeedItem) {
   if (item.kind === 'blog' || item.kind === 'post' || item.kind === 'comment-blog' || item.kind === 'comment-post') {
@@ -51,6 +54,10 @@ function open(item: CommunityFeedItem) {
     router.push('/joint/' + item.targetId)
   } else if (item.kind === 'survey') {
     router.push({ name: 'FillSurvey', params: { id: item.targetId } })
+  } else if (item.kind === 'quest-start' || item.kind === 'quest-complete') {
+    router.push(questRoute())
+  } else if (item.kind === 'world-new' || item.kind === 'world-edit') {
+    router.push('/world/project/' + item.targetId)
   } else if (item.kind === 'dev-project') {
     document.getElementById('dev-progress')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   } else {
@@ -107,7 +114,7 @@ onMounted(() => load(true))
 .feed-item { display: flex; align-items: flex-start; gap: 14px; padding: 18px 0; cursor: pointer; border-bottom: 1px solid var(--border-line); }
 .feed-item:last-child { border-bottom: 0; }
 .feed-item:hover .feed-title { color: var(--accent-color); }
-.feed-badge { flex: 0 0 auto; min-width: 38px; padding: 2px 6px; border-radius: 2px; font-size: 11px; font-weight: 600; text-align: center; background: var(--bg-sub); color: var(--text-secondary); }
+.feed-badge { flex: 0 0 auto; min-width: 38px; padding: 2px 6px; border-radius: 0; font-size: 11px; font-weight: 600; text-align: center; background: var(--bg-sub); color: var(--text-secondary); }
 .badge-post { background: var(--accent-soft); color: var(--accent-color); }
 .badge-blog { background: var(--accent-soft); color: var(--accent-color); }
 .badge-artwork { background: var(--bg-sub); color: var(--text-secondary); }
@@ -116,6 +123,9 @@ onMounted(() => load(true))
 .badge-comment { background: var(--bg-sub); color: var(--text-secondary); }
 .badge-joint { background: var(--bg-sub); color: var(--text-secondary); }
 .badge-survey { background: var(--bg-sub); color: var(--text-secondary); }
+.badge-quest { background: var(--accent-color); color: var(--on-accent); }
+.badge-world { background: var(--accent-soft); color: var(--accent-color); }
+.feed-detail { color: var(--text-secondary); }
 .badge-dev { background: var(--accent-soft); color: var(--accent-color); }
 .feed-body { flex: 1; min-width: 0; }
 .feed-line { margin: 0; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
@@ -125,7 +135,7 @@ onMounted(() => load(true))
 .feed-state { padding: 16px 0; margin: 0; text-align: center; color: var(--text-secondary); font-size: .82rem; }
 .feed-error { color: var(--accent-color); margin: 8px 0 0; font-size: .8rem; }
 .feed-state button { font: inherit; color: var(--accent-color); background: none; border: 0; cursor: pointer; text-decoration: underline; }
-.load-more { display: block; width: 100%; margin-top: 12px; padding: 8px; color: var(--text-secondary); background: var(--bg-sub); border: 1px solid var(--border-line); border-radius: 3px; font-size: .78rem; cursor: pointer; }
+.load-more { display: block; width: 100%; margin-top: 12px; padding: 8px; color: var(--text-secondary); background: var(--bg-sub); border: 1px solid var(--border-line); border-radius: 0; font-size: .78rem; cursor: pointer; }
 .load-more:hover:not(:disabled) { color: var(--accent-color); border-color: var(--accent-color); }
 .load-more:disabled { opacity: .5; cursor: default; }
 </style>

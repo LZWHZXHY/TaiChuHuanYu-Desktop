@@ -1,6 +1,6 @@
 <template>
   <div class="collaboration-portal community-surface tone-collab">
-    <header class="portal-header surface-heading"><SectionTrace />
+    <header class="portal-header surface-heading"><SectionTrace particles="collab" />
       <div class="brand-section">
         <h1 class="title">太初协作</h1>
         
@@ -66,7 +66,7 @@
             </template>
             <span class="role-indicator">
               项目负责人 
-              | {{ project.ownerName }}
+              | <UserLink nested :id="project.ownerId" :name="project.ownerName" />
             </span>
             <h2 class="entry-name">{{ project.name }}</h2>
           </div>
@@ -205,6 +205,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, onMounted, reactive, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
@@ -382,12 +383,7 @@ const formatShortDate = (dateStr: string) => {
 <style scoped>
 .collaboration-portal {
   min-height: 0;
-  background-color: var(--paper-card);
-  padding: 24px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-line);
   color: var(--text-primary);
-  font-family: "PingFang SC", "Inter", system-ui, sans-serif;
 }
 
 .portal-header {
@@ -406,7 +402,7 @@ const formatShortDate = (dateStr: string) => {
 
 .title {
   font-size: 2.2rem;
-  font-weight: 300;
+  font-weight: 650;
   letter-spacing: -0.01em;
   margin: 0;
 }
@@ -431,7 +427,7 @@ const formatShortDate = (dateStr: string) => {
   width: 120px;
   height: 3px;
   background: var(--bg-sub);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   overflow: hidden;
 }
 .quota-progress-bar {
@@ -483,7 +479,7 @@ const formatShortDate = (dateStr: string) => {
   font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 
 .create-trigger:hover {
@@ -510,25 +506,13 @@ const formatShortDate = (dateStr: string) => {
 }
 
 .project-entry {
-  background: var(--paper-card);
   border: 1px solid var(--border-line);
   padding: 24px;
-  transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   min-height: 220px;
-}
-
-.project-entry:hover {
-  border-color: var(--border-line);
-  transform: translateY(-6px);
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.05);
-}
-
-.actionable-entry:hover {
-  border-color: var(--border-line);
 }
 
 .role-indicator {
@@ -583,7 +567,7 @@ const formatShortDate = (dateStr: string) => {
 .status-tag {
   font-size: 0.65rem;
   padding: 2px 8px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 
 .status-0 { color: var(--text-secondary); background: var(--bg-main); }
@@ -645,7 +629,7 @@ const formatShortDate = (dateStr: string) => {
   border: 1px solid var(--border-line);
   box-shadow: 0 40px 100px rgba(0,0,0,0.03);
 
-  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
+  max-height: 90dvh; overflow-y: auto; border-radius: 0;
 }
 
 .modal-inner-header h2 {
@@ -713,7 +697,7 @@ const formatShortDate = (dateStr: string) => {
   padding: 12px;
   font-size: 0.95rem;
   resize: none;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 .input-group textarea:focus {
   border-color: var(--border-line);
@@ -743,7 +727,7 @@ const formatShortDate = (dateStr: string) => {
   padding: 14px 40px;
   font-size: 0.85rem;
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 .confirm-btn:disabled {
   background: var(--bg-sub);
@@ -753,5 +737,5 @@ const formatShortDate = (dateStr: string) => {
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.5s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
-@media (max-width: 700px) { .collaboration-portal { padding: 16px; } .portal-header { align-items: stretch; flex-direction: column; gap: 20px; } .quota-dashboard { flex-wrap: wrap; } .modal-overlay { padding: 16px; } }
+@media (max-width: 700px) { .portal-header { align-items: stretch; flex-direction: column; gap: 20px; } .quota-dashboard { flex-wrap: wrap; } .modal-overlay { padding: 16px; } }
 </style>

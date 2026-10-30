@@ -250,7 +250,7 @@ onMounted(fetchStats)
 
 .result-header {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 24px 32px;
   border: 1px solid var(--border-line);
   margin-bottom: 24px;
@@ -306,7 +306,7 @@ onMounted(fetchStats)
 
 .question-stat-card {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 20px 24px;
   border: 1px solid var(--border-line);
 }
@@ -331,7 +331,7 @@ onMounted(fetchStats)
   background: var(--bg-sub);
   color: var(--text-secondary);
   padding: 2px 10px;
-  border-radius: 12px;
+  border-radius: 0;
   font-weight: 400;
 }
 
@@ -363,14 +363,14 @@ onMounted(fetchStats)
   flex: 1;
   height: 24px;
   background: var(--bg-sub);
-  border-radius: 4px;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .bar-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--info), var(--accent-color));
-  border-radius: 4px;
+  border-radius: 0;
   transition: width 0.6s ease;
 }
 
@@ -428,14 +428,14 @@ onMounted(fetchStats)
   flex: 1;
   height: 16px;
   background: var(--bg-sub);
-  border-radius: 4px;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .score-fill {
   height: 100%;
   background: var(--success);
-  border-radius: 4px;
+  border-radius: 0;
   transition: width 0.6s ease;
 }
 
@@ -493,14 +493,14 @@ onMounted(fetchStats)
   flex: 1;
   height: 20px;
   background: var(--bg-sub);
-  border-radius: 4px;
+  border-radius: 0;
   overflow: hidden;
 }
 
 .rank-fill {
   height: 100%;
   background: linear-gradient(90deg, var(--success), var(--success));
-  border-radius: 4px;
+  border-radius: 0;
   transition: width 0.6s ease;
 }
 

@@ -37,12 +37,12 @@
         :key="post.id"
         class="post-item"
       >
-        <div class="post-avatar">
+        <UserLink class="post-avatar" :id="post.authorId" :name="post.author">
           <span>{{ post.author.charAt(0).toUpperCase() }}</span>
-        </div>
+        </UserLink>
         <div class="post-content">
           <div class="post-header">
-            <span class="post-author">{{ post.author }}</span>
+            <UserLink class="post-author" :id="post.authorId" :name="post.author" />
             <span class="post-time">{{ formatTime(post.createdAt) }}</span>
           </div>
           <div class="post-body">{{ post.content }}</div>
@@ -59,7 +59,7 @@
               :key="reply.id"
               class="reply-item"
             >
-              <span class="reply-author">{{ reply.author }}</span>
+              <UserLink class="reply-author" :id="reply.authorId" :name="reply.author" />
               <span class="reply-time">{{ formatTime(reply.createdAt) }}</span>
               <p class="reply-content">{{ reply.content }}</p>
             </div>
@@ -88,6 +88,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { ref, computed, watch, onMounted } from 'vue';
 import request from '@/utils/request';
 
@@ -209,7 +210,7 @@ watch(() => props.activityId, (newId) => {
 
 .new-post {
   background: var(--paper-card);
-  border-radius: 10px;
+  border-radius: 0;
   padding: 16px;
   border: 1px solid var(--border-line);
   margin-bottom: 20px;
@@ -241,7 +242,7 @@ watch(() => props.activityId, (newId) => {
   color: var(--on-accent);
   border: none;
   padding: 6px 16px;
-  border-radius: 20px;
+  border-radius: 0;
   font-weight: 500;
   font-size: 0.8rem;
   cursor: pointer;
@@ -271,7 +272,7 @@ watch(() => props.activityId, (newId) => {
 .post-avatar {
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--info);
   color: var(--on-accent);
   display: flex;
@@ -323,7 +324,7 @@ watch(() => props.activityId, (newId) => {
   align-items: center;
   gap: 4px;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 .action-reply:hover { color: var(--info); background: var(--bg-sub); }
 .reply-count { font-size: 0.7rem; color: var(--text-secondary); }
@@ -361,7 +362,7 @@ watch(() => props.activityId, (newId) => {
   flex: 1;
   padding: 6px 12px;
   border: 1px solid var(--border-line);
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 0.8rem;
   outline: none;
   background: var(--paper-card);
@@ -372,7 +373,7 @@ watch(() => props.activityId, (newId) => {
   color: var(--on-accent);
   border: none;
   padding: 4px 14px;
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 0.75rem;
   cursor: pointer;
   transition: background 0.2s;

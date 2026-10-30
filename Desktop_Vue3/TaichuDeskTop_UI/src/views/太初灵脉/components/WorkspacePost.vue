@@ -3,8 +3,8 @@
     <header class="post-header-meta">
       <div class="author-avatar-placeholder">✍️</div>
       <div class="meta-info">
-        <span class="meta-label">发布简语微言</span>
-        <span class="meta-subtitle">瞬时的灵感，多维的交织</span>
+        <span class="meta-label">帖子</span>
+        <span class="meta-subtitle">500 字以内，可以配图；发布后出现在「论坛」</span>
       </div>
       <div class="post-word-count" :class="{ 'is-limit': isOverLimit }">
         {{ currentLength }} / 500 字
@@ -134,7 +134,7 @@ onMounted(() => {
   margin: 0 auto;
   padding: 32px 24px 80px;
   background: var(--paper-card);
-  border-radius: 24px;
+  border-radius: 0;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.01);
 }
 
@@ -152,7 +152,7 @@ onMounted(() => {
   width: 42px;
   height: 42px;
   background: var(--bg-sub);
-  border-radius: 50%;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -184,7 +184,7 @@ onMounted(() => {
   color: var(--text-secondary);
   background: var(--bg-sub);
   padding: 4px 10px;
-  border-radius: 20px;
+  border-radius: 0;
   font-variant-numeric: tabular-nums;
   transition: all 0.2s;
 }
@@ -227,7 +227,7 @@ onMounted(() => {
   color: var(--accent-color); /* 灵脉科技感科技蓝 */
   background: rgba(0, 102, 204, 0.05);
   padding: 4px 12px;
-  border-radius: 40px;
+  border-radius: 0;
   font-weight: 500;
 }
 

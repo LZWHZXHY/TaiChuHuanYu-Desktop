@@ -305,7 +305,7 @@ const handleSubmit = async () => {
 .list-img {
   width: 60px;
   height: 60px;
-  border-radius: 6px;
+  border-radius: 0;
   object-fit: cover;
   border: 1px solid var(--bg-sub);
   opacity: 0.9;
@@ -337,7 +337,7 @@ const handleSubmit = async () => {
   background: var(--paper-card);
   width: 90%;
   max-width: 480px;
-  border-radius: 12px;
+  border-radius: 0;
   padding: 2.5rem 2rem;
   position: relative;
   box-shadow: 0 20px 40px rgba(0,0,0,0.08);
@@ -374,7 +374,7 @@ const handleSubmit = async () => {
   width: 100%;
   padding: 0.8rem;
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 0.95rem;
   color: var(--text-primary);
   outline: none;
@@ -401,7 +401,7 @@ const handleSubmit = async () => {
   position: relative;
   width: 70px;
   height: 70px;
-  border-radius: 6px;
+  border-radius: 0;
   overflow: hidden;
   border: 1px solid var(--border-line);
 }
@@ -412,7 +412,7 @@ const handleSubmit = async () => {
   right: 2px;
   width: 18px;
   height: 18px;
-  border-radius: 50%;
+  border-radius: 0;
   background: rgba(0,0,0,0.5);
   color: var(--paper-card);
   border: none;
@@ -428,7 +428,7 @@ const handleSubmit = async () => {
   width: 70px;
   height: 70px;
   border: 1px dashed var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -487,7 +487,7 @@ const handleSubmit = async () => {
   width: 16px;
   background-color: var(--bg-sub);
   border: 1px solid var(--border-line);
-  border-radius: 4px;
+  border-radius: 0;
   transition: all 0.2s;
   display: flex;
   align-items: center;
@@ -523,7 +523,7 @@ const handleSubmit = async () => {
   color: var(--paper-card);
   border: none;
   padding: 0.6rem 1.5rem;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 0.95rem;
   cursor: pointer;
   transition: opacity 0.2s;

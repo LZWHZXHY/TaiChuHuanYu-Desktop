@@ -258,7 +258,7 @@ defineExpose({
 .insert-btn {
   padding: 8px 14px;
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: 0;
   background: var(--paper-card);
   font-size: 13px;
   cursor: pointer;
@@ -286,7 +286,7 @@ defineExpose({
   color: var(--text-secondary);
   font-size: 13px;
   border: 1px dashed var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
 }
 
 /* ===== 选择器浮层 ===== */
@@ -302,7 +302,7 @@ defineExpose({
 }
 .picker-modal {
   background: var(--paper-card);
-  border-radius: 16px;
+  border-radius: 0;
   width: 380px;
   max-width: 92%;
   max-height: 70vh;
@@ -341,7 +341,7 @@ defineExpose({
   width: 100%;
   padding: 6px 12px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 13px;
   background: var(--paper-card);
   transition: border-color 0.2s;
@@ -361,7 +361,7 @@ defineExpose({
   width: 100%;
   padding: 6px 12px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 13px;
   background: var(--paper-card);
   transition: border-color 0.2s, background 0.2s;
@@ -387,7 +387,7 @@ defineExpose({
 }
 .picker-list::-webkit-scrollbar-thumb {
   background: var(--bg-sub);
-  border-radius: 4px;
+  border-radius: 0;
 }
 .picker-item {
   width: 100%; border: 0; background: transparent; text-align: left; font: inherit;
@@ -406,7 +406,7 @@ defineExpose({
   color: var(--accent-color);
   background: var(--accent-soft);
   padding: 1px 8px;
-  border-radius: 10px;
+  border-radius: 0;
   flex-shrink: 0;
 }
 .picker-title {
@@ -439,7 +439,7 @@ defineExpose({
 .picker-footer .btn-outline {
   padding: 6px 16px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   background: transparent;
   cursor: pointer;
   font-size: 13px;
@@ -455,7 +455,7 @@ defineExpose({
   background: var(--accent-color);
   color: var(--on-accent);
   border: none;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;

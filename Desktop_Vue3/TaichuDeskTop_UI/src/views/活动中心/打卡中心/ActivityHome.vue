@@ -160,7 +160,7 @@ const statusClass = (status: string) => ({
   align-items: center;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 30px;
+  border-radius: 0;
   padding: 0 14px;
   transition: border 0.2s;
 }
@@ -182,7 +182,7 @@ const statusClass = (status: string) => ({
   color: var(--text-primary);
   border: none;
   padding: 8px 18px;
-  border-radius: 30px;
+  border-radius: 0;
   font-weight: 500;
   font-size: 0.85rem;
   cursor: pointer;
@@ -204,7 +204,7 @@ const statusClass = (status: string) => ({
 }
 .filter-tab {
   padding: 6px 14px;
-  border-radius: 20px;
+  border-radius: 0;
   border: none;
   background: transparent;
   font-size: 0.8rem;
@@ -227,7 +227,7 @@ const statusClass = (status: string) => ({
 }
 .card {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   overflow: hidden;
   border: 1px solid var(--border-line);
   transition: transform 0.2s, border-color 0.2s;
@@ -251,13 +251,13 @@ const statusClass = (status: string) => ({
   backdrop-filter: blur(2px);
   color: var(--on-overlay);
   padding: 2px 10px;
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 0.6rem;
   font-weight: 500;
 }
 .status-badge {
   padding: 2px 10px;
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 0.6rem;
   font-weight: 500;
   color: var(--text-primary);
@@ -308,7 +308,7 @@ const statusClass = (status: string) => ({
 }
 .card-footer .action-btn {
   padding: 6px 14px;
-  border-radius: 20px;
+  border-radius: 0;
   border: none;
   background: var(--bg-sub);
   font-weight: 500;
@@ -357,7 +357,7 @@ const statusClass = (status: string) => ({
   color: var(--text-secondary);
   cursor: pointer;
   padding: 2px 6px;
-  border-radius: 6px;
+  border-radius: 0;
   transition: 0.2s;
 }
 .close-detail:hover { background: var(--bg-sub); color: var(--text-primary); }

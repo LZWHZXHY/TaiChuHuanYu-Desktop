@@ -219,6 +219,19 @@ namespace TaiChuWeb_V2.DbContext
 
         public DbSet<WorldRestore> WorldRestores { get; set; }
         public DbSet<WorldProject> WorldProjects { get; set; }
+        public DbSet<WorldCollaborator> WorldCollaborators { get; set; }
+        public DbSet<WorldCardRevision> WorldCardRevisions { get; set; }
+        // 世界编年史（表由 WorldCollaboratorSchema 启动时创建）
+        public DbSet<WorldTimeline> WorldTimelines { get; set; }
+        public DbSet<WorldTimelineEvent> WorldTimelineEvents { get; set; }
+        public DbSet<WorldCalendar> WorldCalendars { get; set; }
+        // 我的世界服务器「世界任务」（表由 ServerQuestSchema 启动时创建）
+        public DbSet<TaiChuWeb_V2.Models.Quest.ServerQuest> ServerQuests { get; set; }
+        public DbSet<TaiChuWeb_V2.Models.Quest.ServerQuestContribution> ServerQuestContributions { get; set; }
+        // 岁月史书（表由 CommunityHistorySchema 启动时创建）
+        public DbSet<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryEntry> CommunityHistoryEntries { get; set; }
+        public DbSet<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryReaction> CommunityHistoryReactions { get; set; }
+        public DbSet<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryComment> CommunityHistoryComments { get; set; }
         public DbSet<WorldCard> WorldCards { get; set; }
         public DbSet<WorldRelation> WorldRelations { get; set; }
         public DbSet<WorldNovel> WorldNovels { get; set; }
@@ -408,6 +421,41 @@ namespace TaiChuWeb_V2.DbContext
             // 👇 世界模块配置
             modelBuilder.Entity<WorldProject>()
                 .HasIndex(p => p.OwnerId);
+
+            // 世界观协作者：表由 WorldCollaboratorSchema 启动时创建，不参与 EF 迁移
+            modelBuilder.Entity<WorldCollaborator>(entity =>
+            {
+                entity.ToTable("WorldCollaborators", t => t.ExcludeFromMigrations());
+                entity.HasKey(c => new { c.ProjectId, c.UserId });
+                entity.HasIndex(c => c.UserId);
+                entity.HasOne(c => c.Project).WithMany(p => p.Collaborators).HasForeignKey(c => c.ProjectId);
+                entity.HasOne(c => c.User).WithMany().HasForeignKey(c => c.UserId);
+            });
+
+            // 世界观条目修改记录：表由 WorldCollaboratorSchema 启动时创建，不参与 EF 迁移
+            modelBuilder.Entity<WorldCardRevision>(entity =>
+            {
+                entity.ToTable("WorldCardRevisions", t => t.ExcludeFromMigrations());
+                entity.HasIndex(r => new { r.ProjectId, r.Id });
+                entity.HasIndex(r => new { r.CardId, r.Id });
+            });
+
+            // 世界编年史：表由 WorldCollaboratorSchema 启动时创建，不参与 EF 迁移
+            modelBuilder.Entity<WorldTimeline>(entity => entity.ToTable("WorldTimelines", t => t.ExcludeFromMigrations()));
+            modelBuilder.Entity<WorldTimelineEvent>(entity => entity.ToTable("WorldTimelineEvents", t => t.ExcludeFromMigrations()));
+            modelBuilder.Entity<WorldCalendar>(entity => entity.ToTable("WorldCalendars", t => t.ExcludeFromMigrations()));
+
+            // 世界任务：表由 ServerQuestSchema 启动时创建，不参与 EF 迁移
+            modelBuilder.Entity<TaiChuWeb_V2.Models.Quest.ServerQuest>(entity => entity.ToTable("ServerQuests", t => t.ExcludeFromMigrations()));
+            modelBuilder.Entity<TaiChuWeb_V2.Models.Quest.ServerQuestContribution>(entity => entity.ToTable("ServerQuestContributions", t => t.ExcludeFromMigrations()));
+            // 岁月史书：表由 CommunityHistorySchema 启动时创建，不参与 EF 迁移
+            modelBuilder.Entity<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryEntry>(entity => entity.ToTable("CommunityHistoryEntries", t => t.ExcludeFromMigrations()));
+            modelBuilder.Entity<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryComment>(entity => entity.ToTable("CommunityHistoryComments", t => t.ExcludeFromMigrations()));
+            modelBuilder.Entity<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryReaction>(entity =>
+            {
+                entity.ToTable("CommunityHistoryReactions", t => t.ExcludeFromMigrations());
+                entity.HasKey(r => new { r.EntryId, r.UserId, r.Kind });
+            });
 
             modelBuilder.Entity<WorldCard>()
                 .HasIndex(c => c.ProjectId);

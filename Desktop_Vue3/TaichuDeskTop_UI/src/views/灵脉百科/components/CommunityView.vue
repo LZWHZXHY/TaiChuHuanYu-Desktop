@@ -94,7 +94,7 @@ const parseJson = (content: any) => {
   color: var(--c-text-light);
   background: #f4f4f5;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .row-title {

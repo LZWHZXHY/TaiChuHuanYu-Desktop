@@ -1,6 +1,6 @@
 <template>
-  <div class="community-detail edit-joint">
-    <div class="page-header">
+  <div class="community-detail edit-joint workbench-skin editor-surface community-surface tone-chai">
+    <div class="page-header studio-heading"><SectionTrace />
       <div class="header-left">
         <button class="back-btn" @click="goBack">← 返回</button>
         <div>
@@ -33,6 +33,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { computed, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useJointStore } from '../joint_store'

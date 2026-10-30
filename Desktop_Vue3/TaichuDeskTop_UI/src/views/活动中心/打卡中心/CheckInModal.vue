@@ -134,7 +134,7 @@ const submit = () => {
 }
 .modal-card {
   background: var(--paper-card);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 28px 32px;
   width: 480px;
   max-width: 92%;
@@ -183,7 +183,7 @@ const submit = () => {
   width: 100%;
   padding: 10px 14px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 0.9rem;
   font-family: inherit;
   resize: vertical;
@@ -198,7 +198,7 @@ const submit = () => {
 .form-group input[type="file"] {
   border: 1px dashed var(--border-line);
   padding: 10px;
-  border-radius: 8px;
+  border-radius: 0;
   width: 100%;
   background: var(--paper-card);
 }
@@ -215,7 +215,7 @@ const submit = () => {
 .image-preview img {
   max-width: 100%;
   max-height: 160px;
-  border-radius: 8px;
+  border-radius: 0;
   border: 1px solid var(--border-line);
 }
 .remove-image {
@@ -225,7 +225,7 @@ const submit = () => {
   background: var(--overlay);
   color: var(--on-overlay);
   border: none;
-  border-radius: 50%;
+  border-radius: 0;
   width: 24px;
   height: 24px;
   cursor: pointer;
@@ -245,7 +245,7 @@ const submit = () => {
 .btn-cancel {
   padding: 8px 20px;
   border: 1px solid var(--border-line);
-  border-radius: 30px;
+  border-radius: 0;
   background: var(--paper-card);
   color: var(--text-primary);
   cursor: pointer;
@@ -255,7 +255,7 @@ const submit = () => {
 .btn-submit {
   padding: 8px 24px;
   border: none;
-  border-radius: 30px;
+  border-radius: 0;
   background: var(--info);
   color: var(--on-accent);
   font-weight: 500;

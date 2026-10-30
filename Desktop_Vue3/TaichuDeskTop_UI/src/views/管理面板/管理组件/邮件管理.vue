@@ -307,7 +307,7 @@ const handleSubmit = async () => {
 <style scoped>
 .email-manage-panel {
   background: var(--paper-card);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   padding: 32px;
   border: 1px solid var(--border-line);
   box-shadow: 0 4px 20px rgba(0,0,0,0.03);
@@ -339,7 +339,7 @@ const handleSubmit = async () => {
   gap: 12px;
   background: var(--bg-main);
   padding: 4px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
 }
 
 .tab-btn {
@@ -349,7 +349,7 @@ const handleSubmit = async () => {
   font-size: 0.9rem;
   color: var(--text-secondary);
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   transition: all 0.3s;
 }
 
@@ -374,7 +374,7 @@ const handleSubmit = async () => {
   gap: 16px;
   padding: 20px;
   border: 1px solid var(--border-line);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   cursor: pointer;
   background: var(--paper-card);
   transition: all 0.3s ease;
@@ -409,7 +409,7 @@ const handleSubmit = async () => {
 .badge {
   font-size: 0.7rem;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 0;
   font-weight: normal;
 }
 .badge.manual { background: var(--info-soft); color: var(--info); }
@@ -456,20 +456,20 @@ const handleSubmit = async () => {
   background: var(--bg-main);
   border: 1px solid var(--warning-soft);
   padding: 16px 20px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   margin-bottom: 24px;
   align-items: flex-start;
 }
 .automation-alert .icon { font-size: 1.2rem; }
-.automation-alert .text strong { color: #92400e; font-size: 0.95rem; display: block; margin-bottom: 4px; }
-.automation-alert .text p { margin: 0; color: #b45309; font-size: 0.85rem; line-height: 1.5; }
+.automation-alert .text strong { color: var(--warning); font-size: 0.95rem; display: block; margin-bottom: 4px; }
+.automation-alert .text p { margin: 0; color: var(--warning); font-size: 0.85rem; line-height: 1.5; }
 
 /* 动态筛选区动画 */
 .dynamic-filters {
   background: var(--paper-card);
   border-left: 4px solid var(--border-line);
   padding: 16px 20px 1px 20px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   margin-bottom: 24px;
 }
 
@@ -493,7 +493,7 @@ const handleSubmit = async () => {
   background: var(--paper-card);
   padding: 24px;
   border: 1px solid var(--border-line);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   margin-bottom: 24px;
 }
 
@@ -523,7 +523,7 @@ const handleSubmit = async () => {
   width: 100%;
   padding: 14px 16px;
   border: 1px solid var(--border-line);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   font-size: 0.95rem;
   transition: all 0.2s ease;
   font-family: inherit;
@@ -560,7 +560,7 @@ const handleSubmit = async () => {
 
 .btn-outline, .btn-primary {
   padding: 12px 28px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   cursor: pointer;
   font-size: 0.95rem;
   font-weight: 600;
@@ -631,17 +631,17 @@ const handleSubmit = async () => {
 /* 标签样式 */
 .tag {
   padding: 4px 12px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   font-size: 0.8rem;
   font-weight: 500;
 }
 .tag.update { background: var(--info-soft); color: var(--info); }
 .tag.activity { background: var(--warning-soft); color: var(--warning); }
-.tag.recall { background: var(--bg-sub); color: #7e22ce; }
-.tag.festival { background: var(--bg-sub); color: #be123c; }
+.tag.recall { background: var(--bg-sub); color: var(--accent-color); }
+.tag.festival { background: var(--bg-sub); color: var(--danger); }
 
 .status.success {
-  color: #15803d;
+  color: var(--success);
   font-weight: 500;
   display: flex;
   align-items: center;

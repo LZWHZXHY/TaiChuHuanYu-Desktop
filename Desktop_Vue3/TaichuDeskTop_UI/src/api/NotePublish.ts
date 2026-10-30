@@ -15,7 +15,10 @@ export interface PublishedNoteItem {
   resonance: number;
   excerpt?: string;
   authorName?: string; // 补齐广场所需的作者名字段
+  authorId?: string | null; // 作者用户 ID，点击作者名进入个人主页
   commentsCount?: number; // 评论数
+  tags?: string | null; // 发布时的标签快照（JSON 数组字符串），用于识别论坛版块
+  extraData?: string;
 }
 
 export interface PublishedNoteDetail extends PublishedNoteItem {
@@ -30,7 +33,7 @@ export interface PublishedNoteDetail extends PublishedNoteItem {
   }[];
 }
 
-// 🌟 博客与帖子的评论区（与画廊评论同构）
+// 🌟 论坛的评论区（与画廊评论同构）
 export interface NoteComment {
   id: string;
   userId: string;
@@ -56,7 +59,7 @@ export const notePublishApi = {
   },
 
   /**
-   * 🌟 博客与帖子评论区
+   * 🌟 论坛评论区
    */
   getComments: (id: string, offset = 0) =>
     request.get<NoteCommentPage>(`/LingMaiPublish/blog/${id}/comments`, { params: { offset, limit: 20 }, silentError: true }),
@@ -69,9 +72,11 @@ export const notePublishApi = {
    * 🌟 广场公共信息流：获取已发布的公开帖子/简语
    * 使用 unknown as Promise<T> 抹平 Axios 拦截器剥离 response.data 后的类型差异
    */
-  getPublicStream(params: { type?: string, tag?: string, page?: number, pageSize?: number } = {}) {
+  getPublicStream(params: { type?: string, tag?: string, sub?: string, author?: string, page?: number, pageSize?: number } = {}) {
     const searchParams = new URLSearchParams();
+    if (params.author) searchParams.set('author', params.author); // 个人主页：只看某位用户的内容
     if (params.tag) searchParams.set('tag', params.tag);
+    if (params.sub) searchParams.set('sub', params.sub); // 版块内小类，需与 tag 同时满足
     
     if (params && params.type) {
       searchParams.append('type', params.type);

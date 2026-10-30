@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import ParticleState from '@/components/ParticleState.vue'
+import UserLink from '@/components/UserLink.vue'
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { artworkApi, type ArtworkItemDto } from '@/api/artwork'
 
@@ -41,14 +43,14 @@ onMounted(load)
         <button v-if="works.length > 1" :disabled="atEnd" aria-label="向右浏览作品" @click="move(1)">→</button>
       </div>
     </header>
-    <p v-if="loading" class="showcase-state" role="status">正在布置展览…</p>
+    <ParticleState v-if="loading" class="showcase-state" text="正在布置展览" />
     <p v-else-if="failed" class="showcase-state" role="alert">作品暂时未能加载。<button @click="load">重试</button></p>
-    <p v-else-if="!works.length" class="showcase-state">新的作品，即将在这里相遇。</p>
+    <ParticleState v-else-if="!works.length" class="showcase-state" kind="empty" preset="gallery" text="新的作品，即将在这里相遇。" />
     <div v-else ref="strip" class="showcase-strip" tabindex="0" aria-label="左右滚动浏览作品" @scroll.passive="syncPosition" @keydown.left.prevent="move(-1)" @keydown.right.prevent="move(1)">
-      <RouterLink v-for="(work, index) in works" :key="work.id" class="art-slice" :to="{ path: '/gallery', query: { workId: work.id } }" :aria-label="`查看作品：${work.title}`">
+      <RouterLink v-for="(work, index) in works" :key="work.id" class="art-slice" data-depth :to="{ path: '/gallery', query: { workId: work.id } }" :aria-label="`查看作品：${work.title}`">
         <img :src="work.coverImageUrl" alt="" loading="lazy" decoding="async" @error="($event.target as HTMLImageElement).hidden = true" />
         <span class="slice-number" aria-hidden="true">{{ String(index + 1).padStart(2, '0') }}</span>
-        <span class="slice-caption"><strong>{{ work.title }}</strong><small>{{ work.authorName }}</small><span class="slice-arrow" aria-hidden="true">↗</span></span>
+        <span class="slice-caption"><strong>{{ work.title }}</strong><small><UserLink nested :id="work.authorId" :name="work.authorName" /></small><span class="slice-arrow" aria-hidden="true">↗</span></span>
       </RouterLink>
     </div>
   </section>

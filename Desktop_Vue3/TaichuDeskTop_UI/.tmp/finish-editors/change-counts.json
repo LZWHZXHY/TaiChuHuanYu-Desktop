@@ -1,0 +1,122 @@
+[
+  {
+    "file": "tests\\artwork.test.mjs",
+    "added": 12,
+    "removed": 1
+  },
+  {
+    "file": "tests\\world-components.test.mjs",
+    "added": 17,
+    "removed": 0
+  },
+  {
+    "file": "src\\components\\SpiritBlock.vue",
+    "added": 23,
+    "removed": 20
+  },
+  {
+    "file": "src\\components\\SpiritCanvas.vue",
+    "added": 54,
+    "removed": 47
+  },
+  {
+    "file": "src\\utils\\worldGraphLayout.ts",
+    "added": 19,
+    "removed": 13
+  },
+  {
+    "file": "src\\views\\画廊展厅\\ArtworkDetail.vue",
+    "added": 75,
+    "removed": 73
+  },
+  {
+    "file": "src\\views\\身份认证\\ForgotForm.vue",
+    "added": 18,
+    "removed": 105
+  },
+  {
+    "file": "src\\views\\身份认证\\index.vue",
+    "added": 9,
+    "removed": 9
+  },
+  {
+    "file": "src\\views\\身份认证\\LoginForm.vue",
+    "added": 10,
+    "removed": 58
+  },
+  {
+    "file": "src\\views\\身份认证\\RegisterForm.vue",
+    "added": 12,
+    "removed": 59
+  },
+  {
+    "file": "src\\views\\活动中心\\问卷中心\\SurveyEditor.vue",
+    "added": 13,
+    "removed": 10
+  },
+  {
+    "file": "src\\views\\太虚游\\Custom\\index.vue",
+    "added": 44,
+    "removed": 42
+  },
+  {
+    "file": "src\\views\\太虚游\\Custom\\components\\CreateQuestionnaire.vue",
+    "added": 52,
+    "removed": 46
+  },
+  {
+    "file": "src\\views\\太虚游\\Custom\\components\\CreateSimulation.vue",
+    "added": 15,
+    "removed": 15
+  },
+  {
+    "file": "src\\views\\太初灵脉\\components\\WorkspaceCanvas.vue",
+    "added": 6,
+    "removed": 7
+  },
+  {
+    "file": "src\\views\\太初灵脉\\components\\WorkspaceSchedule.vue",
+    "added": 29,
+    "removed": 24
+  },
+  {
+    "file": "src\\views\\太初协作\\协作组件\\ProjectDeliveries.vue",
+    "added": 5,
+    "removed": 1
+  },
+  {
+    "file": "src\\views\\太初协作\\协作组件\\ProjectMember.vue",
+    "added": 5,
+    "removed": 1
+  },
+  {
+    "file": "src\\views\\太初协作\\协作组件\\ProjectReports.vue",
+    "added": 6,
+    "removed": 2
+  },
+  {
+    "file": "src\\views\\世界观管理\\Novels\\Detail.vue",
+    "added": 14,
+    "removed": 10
+  },
+  {
+    "file": "src\\views\\世界观管理\\Novels\\index.vue",
+    "added": 9,
+    "removed": 6
+  },
+  {
+    "file": "src\\views\\世界观管理\\世界观组件\\FlatWorldGraph.vue",
+    "added": 26,
+    "removed": 21
+  },
+  {
+    "file": "src\\views\\世界观管理\\世界观组件\\RelationGraph.vue",
+    "added": 5,
+    "removed": 7
+  },
+  {
+    "file": "src\\views\\身份认证\\auth-form.css",
+    "added": 15,
+    "removed": 0
+  }
+]

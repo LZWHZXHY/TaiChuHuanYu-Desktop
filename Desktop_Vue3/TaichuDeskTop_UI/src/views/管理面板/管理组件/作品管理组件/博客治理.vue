@@ -90,7 +90,7 @@ watch(() => props.type, fetchList);
   margin-top: 16px;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   overflow: hidden;
 }
 
@@ -128,7 +128,7 @@ watch(() => props.type, fetchList);
   font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 0;
   transition: all 0.2s;
 }
 

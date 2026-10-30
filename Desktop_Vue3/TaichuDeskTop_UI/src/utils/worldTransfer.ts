@@ -1,4 +1,5 @@
 import type { CardDetail, WorldProject, CreateCardPayload } from '@/api/types/world';
+import { blockTitle, parseLayout } from './worldLayout';
 import { getCardTypeLabel, parseCoverImage } from './worldPresentation';
 import { cardSchemas } from '@/views/世界观管理/card-schemas';
 import type { CardType } from '@/views/世界观管理/card_type';
@@ -26,9 +27,14 @@ function snapshot(card: CardDetail): CreateCardPayload {
     title: card.title, type: card.type, subType: card.subType, description: card.description,
     content: card.content, coverImage: card.coverImage, galleryImages: card.galleryImages,
     aliases: card.aliases, tags: card.tags, attributes: card.attributes, contentBlocks: card.contentBlocks,
-    embeddedCards: card.embeddedCards, timelineEvents: card.timelineEvents,
+    embeddedCards: card.embeddedCards, timelineEvents: card.timelineEvents, layout: card.layout ?? null,
     relations: card.outRelations.map(r => ({ targetCardId: r.targetCardId, relationType: r.relationType })),
   };
+}
+
+/** 区块里的引用（文本块的 {CARD:id}）和时间线事件的相关条目，换成新世界里的 ID */
+function remapLayout(layout: string | null | undefined, target: (id: string) => string) {
+  return layout ? layout.replace(/\{CARD:([^}]+)\}/g, (_, id: string) => `{CARD:${target(id)}}`) : layout ?? null;
 }
 
 /** 外部文件只取业务字段，绝不恢复账号、世界 ID、公开状态、版本或权限。 */
@@ -55,7 +61,13 @@ function readSnapshot(value: unknown): CreateCardPayload {
       if (!Number.isInteger(b.order)) throw new Error('引用顺序无效。');
       return { id: string(b.id), cardId: string(b.cardId), cardType: string(b.cardType), order: b.order as number, contextLabel: optional(b.contextLabel) };
     }),
-    timelineEvents: array(v.timelineEvents, raw => { const e = object(raw); return { date: string(e.date), era: optional(e.era), title: string(e.title), description: optional(e.description) }; }),
+    timelineEvents: array(v.timelineEvents, raw => {
+      const e = object(raw);
+      return { id: e.id == null ? undefined : string(e.id), date: string(e.date), era: optional(e.era), title: string(e.title), description: optional(e.description),
+        image: optional(e.image), tags: e.tags == null ? [] : array(e.tags, string), cardIds: e.cardIds == null ? [] : array(e.cardIds, string), hidden: e.hidden === true,
+        color: optional(e.color) };
+    }),
+    layout: optional(v.layout),
     relations: array(v.relations, raw => { const r = object(raw); return { targetCardId: string(r.targetCardId), relationType: string(r.relationType) }; }),
   };
   if (!result.title.trim() || result.title.length > 200 || !result.type.trim() || result.type.length > 50 || (result.subType?.length || 0) > 50)
@@ -82,7 +94,9 @@ function remapContentReferences(payload: CreateCardPayload, target: (id: string)
 export function createWorldImportPayload(item: WorldTextItem, fallbackType: string): CreateCardPayload {
   if (!item.payload) return { title: item.title, description: item.description, type: fallbackType, galleryImages: item.images || [] };
   return { ...item.payload, description: item.payload.description?.replace(/\{CARD:[^}]+\}/g, '（引用待恢复）') ?? null,
-    content: remapContentReferences(item.payload, () => ''), contentBlocks: [], embeddedCards: [], relations: [] };
+    content: remapContentReferences(item.payload, () => ''), contentBlocks: [], embeddedCards: [], relations: [],
+    layout: item.payload.layout?.replace(/\{CARD:[^}]+\}/g, '（引用待恢复）') ?? null,
+    timelineEvents: (item.payload.timelineEvents || []).map(e => ({ ...e, cardIds: [] })) };
 }
 
 function readWorldRestoreData(content: string): WorldTextItem[] | null {
@@ -221,6 +235,8 @@ export function resolveWorldImport(items: WorldTextItem[], ids: string[]) {
     contentBlocks: item.payload.contentBlocks!.map(block => ({ ...block, cardId: restoredTarget(block.cardId) })),
     embeddedCards: item.payload.embeddedCards!.map(restoredTarget),
     relations: item.payload.relations!.map(relation => ({ ...relation, targetCardId: restoredTarget(relation.targetCardId) })),
+    layout: remapLayout(item.payload.layout, restoredTarget),
+    timelineEvents: (item.payload.timelineEvents || []).map(e => ({ ...e, cardIds: (e.cardIds || []).map(restoredTarget) })),
   } : { title: item.title, type: '', description: descriptions[index], galleryImages: item.images || [] });
   return { descriptions, payloads, unresolved };
 }
@@ -233,8 +249,25 @@ export function worldMarkdown(project: WorldProject, cards: CardDetail[], restor
       `## ${escapeTitle(card.title)}`, `<a id="card-${card.id}"></a>`, `类型：${escapeTitle(getCardTypeLabel(card.type))}`,
       card.aliases.length ? `别名：${card.aliases.map(escapeTitle).join('、')}` : '',
       card.tags.length ? `标签：${card.tags.map(escapeTitle).join('、')}` : '',
-      mapWorldProse(card.description || '', line => line.replace(/^#{1,2}\s+/, '### ')
+      // 「显示全部内容」的引用（单独一行的 !{CARD:id}）导出时当普通引用，避免被当成 Markdown 图片
+      mapWorldProse(card.description || '', line => line.replace(/^\s*!(?=\{CARD:)/, '').replace(/^#{1,2}\s+/, '### ')
         .replace(/\{CARD:([^}]+)\}/g, (_, id: string) => reference(id))),
+      // 自定义文本块（背景、性格……）
+      ...(parseLayout(card.layout)?.rows.flatMap(r => r.blocks) ?? []).filter(b => b.kind === 'text' && b.text?.trim()).flatMap(b => [
+        `### ${escapeTitle(blockTitle(b))}${b.hidden ? '（仅成员可见）' : ''}`,
+        mapWorldProse(b.text || '', line => line.replace(/^\s*!(?=\{CARD:)/, '').replace(/^#{1,3}\s+/, '#### ').replace(/\{CARD:([^}]+)\}/g, (_, id: string) => reference(id))),
+      ]),
+      ...(parseLayout(card.layout)?.rows.flatMap(r => r.blocks) ?? []).filter(b => b.kind === 'media').flatMap(b => (b.images || []).map(imageUrl).filter(Boolean)
+        .map((url, index) => `![${escapeTitle(card.title)} · ${escapeTitle(blockTitle(b))} ${index + 1}](<${url}>)`)),
+      // 参考来源
+      ...(parseLayout(card.layout)?.rows.flatMap(r => r.blocks) ?? []).filter(b => b.kind === 'sources' && b.sources?.some(x => x.title?.trim() || x.url?.trim())).flatMap(b => [
+        `### ${escapeTitle(blockTitle(b))}${b.hidden ? '（仅成员可见）' : ''}`,
+        ...(b.sources ?? []).filter(x => x.title?.trim() || x.url?.trim()).map(x => {
+          const url = /^https?:\/\//i.test(x.url?.trim() ?? '') ? x.url!.trim() : ''
+          const name = escapeTitle(x.title?.trim() || x.url?.trim() || '')
+          return `- ${url ? `[${name}](<${url}>)` : name}${x.note ? `（${escapeTitle(x.note)}）` : ''}`
+        }),
+      ]),
       ...card.attributes.filter(a => textValue(a.value).trim()).map(a => `- ${escapeTitle(a.key)}：${escapeTitle(a.value)}`),
       ...card.contentBlocks.map(block => `- ${escapeTitle(block.contextLabel || '引用')}：${reference(block.cardId)}`),
       ...card.outRelations.map(r => `- ${escapeTitle(r.relationType)} → ${reference(r.targetCardId)}`),

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { computed, onMounted, ref } from 'vue'
 import request from '@/utils/request'
 import { useUserStore } from '@/stores/user'
@@ -54,8 +55,8 @@ onMounted(loadProjects)
 const samples = ref([{ title: '了解任务接取流程', status: 0 }, { title: '整理自己的创作计划', status: 1 }, { title: '回顾已完成的工作', status: 2 }])
 </script>
 <template>
-  <article class="content-page task-workspace">
-    <header class="content-header">
+  <article class="content-page task-workspace community-surface tone-collab">
+    <header class="content-header"><SectionTrace />
       <div>
         <span class="eyebrow">协作与进度</span>
         <h1>任务栏</h1>
@@ -122,7 +123,7 @@ const samples = ref([{ title: '了解任务接取流程', status: 0 }, { title: 
   padding: 20px;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: var(--radius-md);
+  border-radius: 0;
 }
 .task-toolbar label {
   display: grid;
@@ -136,7 +137,7 @@ const samples = ref([{ title: '了解任务接取流程', status: 0 }, { title: 
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--bg-main);
   color: var(--text-primary);
   min-width: 0;
@@ -174,7 +175,7 @@ const samples = ref([{ title: '了解任务接取流程', status: 0 }, { title: 
   flex-direction: column;
   padding: 24px;
   border: 1px solid var(--border-line);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   background: var(--paper-card);
   color: var(--text-primary);
   text-decoration: none;
@@ -188,7 +189,7 @@ const samples = ref([{ title: '了解任务接取流程', status: 0 }, { title: 
   background: var(--accent-soft);
   color: var(--accent-color);
   padding: 3px 8px;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 12px;
 }
 .task-card h3 {

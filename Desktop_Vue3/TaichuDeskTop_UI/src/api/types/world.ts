@@ -11,7 +11,28 @@ export interface WorldProject {
   cardCount: number
   ownerName: string | null
   ownerId: string
+  /** 协作者人数（不含创建者） */
+  collaboratorCount?: number
+  /** 当前用户的身份：owner 创建者 / editor 编写者 / viewer 只读成员；路人为 null */
+  myRole?: WorldRole | null
 }
+
+export type WorldRole = 'owner' | 'editor' | 'viewer'
+export type CollaboratorRole = Exclude<WorldRole, 'owner'>
+export interface WorldMember {
+  userId: string
+  username: string
+  avatar: string | null
+  role: WorldRole
+  createdAt: string | null
+}
+export interface WorldMembers {
+  owner: WorldMember
+  items: WorldMember[]
+  myRole: WorldRole | null
+  max: number
+}
+export interface WorldMemberCandidate { userId: string; username: string; avatar: string | null }
 
 export interface CreateProjectPayload {
   name: string
@@ -44,7 +65,23 @@ export interface WorldRestoreStatus {
 
 export interface CardAttribute { key: string; value: string; type: string }
 export interface ContentBlock { id: string; cardId: string; cardType: string; order: number; contextLabel?: string | null }
-export interface TimelineEvent { date: string; era?: string | null; title: string; description: string | null }
+export interface TimelineEvent {
+  /** 前端生成的事件 ID（老数据没有） */
+  id?: string
+  date: string
+  era?: string | null
+  title: string
+  description: string | null
+  /** 事件配图 */
+  image?: string | null
+  tags?: string[] | null
+  /** 和这件事有关的条目 */
+  cardIds?: string[] | null
+  /** 对访客隐藏 */
+  hidden?: boolean
+  /** 事件颜色（区分战争、灾难、建国……） */
+  color?: string | null
+}
 export interface TimelineItem {
   cardId: string
   cardTitle: string
@@ -53,6 +90,8 @@ export interface TimelineItem {
   era?: string | null
   title: string
   description: string | null
+  image?: string | null
+  cardIds?: string[] | null
 }
 export interface WorldSearchResult {
   cardId: string
@@ -96,6 +135,8 @@ export interface CardDetail extends Omit<CardSummary, 'outRelationCount' | 'inRe
   tags: string[]
   embeddedCards: string[]
   galleryImages: string[]
+  /** 区块排列 JSON（见 utils/worldLayout.ts）；null = 老条目，按默认顺序 */
+  layout?: string | null
   outRelations: Relation[]
   inRelations: Relation[]
 }
@@ -115,6 +156,7 @@ export interface CreateCardPayload {
   tags?: string[]
   embeddedCards?: string[]
   galleryImages?: string[]
+  layout?: string | null
 }
 export type UpdateCardPayload = Partial<CreateCardPayload> & { expectedUpdatedAt?: string }
 
@@ -136,8 +178,6 @@ export interface WorldQuota {
   remainingWorldCount: number
   maxCardsPerWorld: number
   experience: number
-  expCostPerWorldSlot: number
-  expCostPer10Cards: number
 }
 export interface ProjectQuotaCheck { canCreate: boolean; message: string; used: number; max: number }
 export interface CardQuotaCheck { canAdd: boolean; message: string; currentCount: number; maxCount: number }
@@ -159,3 +199,48 @@ export interface QuotaHistory {
   newValue: number
   createdAt: string
 }
+
+/** 条目修改记录 */
+export type RevisionAction = 'create' | 'update' | 'delete' | 'restore' | 'baseline'
+export interface WorldRevision {
+  id: number
+  cardId: string
+  userId: string | null
+  username: string | null
+  avatar: string | null
+  action: RevisionAction
+  title: string
+  note: string | null
+  createdAt: string
+  cardExists: boolean
+}
+export interface WorldCardSnapshot {
+  title: string
+  type: string
+  subType?: string | null
+  coverImage?: string | null
+  galleryImages: string
+  aliases: string
+  attributes: string
+  description?: string | null
+  contentBlocks: string
+  timelineEvents: string
+  tags: string
+  embeddedCards: string
+  content: string
+  out: { cardId: string; relationType: string }[]
+  in: { cardId: string; relationType: string }[]
+}
+export interface WorldRevisionDetail { id: number; action: RevisionAction; before: WorldCardSnapshot | null; after: WorldCardSnapshot | null }
+export interface WorldFieldBlame { username: string | null; at: string; count: number; editors: number }
+export interface WorldCardBlame {
+  createdBy: string | null
+  createdAt: string | null
+  totalEdits: number
+  trackedFromStart: boolean
+  editors: { userId: string; username: string | null; count: number; lastAt: string }[]
+  /** title / type / description / aliases / tags / cover / gallery / timeline / relations / blocks / attr:属性名 / field:表单字段名 */
+  fields: Record<string, WorldFieldBlame>
+}
+export interface WorldLastEditor { cardId: string; userId: string | null; username: string | null; action: RevisionAction; createdAt: string }
+

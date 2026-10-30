@@ -55,7 +55,7 @@ defineExpose({ show })
   backdrop-filter: blur(8px);
   border: 1px solid rgba(207, 138, 5, 0.3);
   padding: 12px 20px;
-  border-radius: 8px;
+  border-radius: 0;
   color: #fff;
   display: flex;
   align-items: center;

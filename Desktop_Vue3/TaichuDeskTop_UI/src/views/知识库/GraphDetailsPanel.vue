@@ -82,6 +82,7 @@ import type { GraphNode } from './types'
 import { useKnowledgeGraphData } from './useKnowledgeGraphData'
 // 👇 新增：引入 request 工具 👇
 import request from '@/utils/request'
+import { useRouter } from 'vue-router'
 
 defineProps<{
   show: boolean;
@@ -98,8 +99,17 @@ const { getTheme, hexToRgba } = useKnowledgeGraphData()
 
 // 👇 新增：监听富文本区域内的点击事件，处理 NAS 下载逻辑 👇
 // 👇 替换原有的 handleContentClick 👇
+const router = useRouter()
+
 const handleContentClick = async (event: MouseEvent) => {
   const target = event.target as HTMLElement;
+  // 全站内容节点的「打开原内容」：站内跳转，不整页刷新
+  const link = target.closest('a[data-route]') as HTMLAnchorElement | null;
+  if (link?.dataset.route?.startsWith('/')) {
+    event.preventDefault();
+    router.push(link.dataset.route).catch(() => {});
+    return;
+  }
   const card = target.closest('.nas-attachment-card') as HTMLElement;
 
   if (card) {
@@ -194,7 +204,7 @@ const handleContentClick = async (event: MouseEvent) => {
   text-transform: uppercase;
   padding: 4px 10px;
   border: 1px solid;
-  border-radius: 4px;
+  border-radius: 0;
 }
 .close-btn {
   background: var(--paper-card);
@@ -203,7 +213,7 @@ const handleContentClick = async (event: MouseEvent) => {
   cursor: pointer;
   padding: 8px;
   transition: all 0.2s ease;
-  border-radius: 6px;
+  border-radius: 0;
 }
 .close-btn:hover {
   background: rgba(239, 68, 68, 0.1);
@@ -242,17 +252,17 @@ const handleContentClick = async (event: MouseEvent) => {
 
 /* 纪要内容框设计 */
 .content-box {
-  background: var(--overlay);
-  border: 1px solid rgba(255, 255, 255, 0.03);
-  border-radius: 10px;
+  /* 跟随网站主题（原来用遮罩色，浅色主题下是一块灰底） */
+  background: var(--bg-sub);
+  border: 1px solid var(--border-line);
+  border-radius: 0;
   padding: 24px;
-  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .description-text {
   font-size: 15px;
   line-height: 1.9;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   text-align: justify;
   letter-spacing: 0.5px;
 }
@@ -279,7 +289,7 @@ const handleContentClick = async (event: MouseEvent) => {
   background: var(--paper-card);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-left: 3px solid var(--theme-color);
-  border-radius: 6px;
+  border-radius: 0;
   text-align: left;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -330,7 +340,7 @@ const handleContentClick = async (event: MouseEvent) => {
 /* 封面图 */
 .cover-image-wrapper {
   margin-bottom: 32px;
-  border-radius: 10px;
+  border-radius: 0;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.15);
   box-shadow: 0 8px 25px rgba(0,0,0,0.4);
@@ -344,7 +354,7 @@ const handleContentClick = async (event: MouseEvent) => {
   background: rgba(14, 165, 233, 0.08);
   border: 1px solid rgba(14, 165, 233, 0.3);
   border-left: 4px solid var(--info);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 16px;
   margin-top: 10px;
   cursor: pointer;
@@ -380,7 +390,7 @@ const handleContentClick = async (event: MouseEvent) => {
   font-weight: 600;
   padding: 8px 12px;
   background: rgba(14, 165, 233, 0.15);
-  border-radius: 6px;
+  border-radius: 0;
   transition: all 0.2s;
 }
 :deep(.nas-attachment-card:hover .nas-download-btn) {
@@ -394,6 +404,13 @@ const handleContentClick = async (event: MouseEvent) => {
 
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.15); border-radius: 3px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.15); border-radius: 0; }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.4); }
+:deep(.kb-open) { display: inline-block; margin-top: 8px; padding: 6px 14px; border: 1px solid var(--accent-color); color: var(--accent-color); text-decoration: none; font-size: 13px; }
+:deep(.kb-open:hover) { background: var(--accent-color); color: var(--on-accent, #fff); }
+</style>
+
+<style>
+/* 浅色主题：节点名用正文色，不要发光（原来的浅粉 / 浅蓝在白底上看不清）。要匹配 html 上的主题属性，所以不放在 scoped 里 */
+html[data-theme='light'] .details-panel .panel-header h2 { color: var(--text-primary) !important; text-shadow: none !important; }
 </style>

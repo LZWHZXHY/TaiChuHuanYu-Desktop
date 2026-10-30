@@ -44,8 +44,9 @@ export function useCos() {
 
   /**
    * 只上传，不登记。保留原行为，兼容旧调用点。
+   * onProgress：这一个文件的上传进度（0～100），同时传好几个文件时各显示各的百分比用。
    */
-  const uploadFile = async (file: File, folder: string = 'uploads'): Promise<UploadResult> => {
+  const uploadFile = async (file: File, folder: string = 'uploads', onProgress?: (percent: number) => void): Promise<UploadResult> => {
     isUploading.value = true;
     progress.value = 0;
 
@@ -69,6 +70,7 @@ export function useCos() {
         Body: file,
         onProgress: (progressData: CosProgressData) => {
           progress.value = Math.floor(progressData.percent * 100);
+          onProgress?.(progress.value);
         }
       }, (err: any, data: any) => {
         isUploading.value = false;
@@ -145,4 +147,4 @@ export function useCos() {
     isUploading,
     progress,
   };
-}
+}

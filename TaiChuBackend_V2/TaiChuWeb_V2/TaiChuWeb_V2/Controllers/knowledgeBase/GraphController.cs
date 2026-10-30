@@ -1,6 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaiChuWeb_V2.DbContext;
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using TaiChuWeb_V2.Controllers.LingMai;
 using TaiChuWeb_V2.Models.FinalNodes;
 
 namespace TaiChuWeb_V2.Controllers.knowledgeBase
@@ -19,6 +22,10 @@ namespace TaiChuWeb_V2.Controllers.knowledgeBase
         public string Type { get; set; } = string.Empty;
         public int Size { get; set; } = 30; // 默认节点大小，前端可覆盖
         public string? CoverImage { get; set; }
+        /// <summary>简介（纯文字，全站图谱用）</summary>
+        public string? Description { get; set; }
+        /// <summary>站内地址：点「打开原内容」时跳过去（全站图谱用）</summary>
+        public string? Route { get; set; }
     }
 
     public class GraphEdgeDto
@@ -87,5 +94,233 @@ namespace TaiChuWeb_V2.Controllers.knowledgeBase
                 Edges = edges
             });
         }
+            /// <summary>
+        /// 全站公开内容的关系图谱：图谱资料 + 博客 / 帖子 / 画廊作品 / 公开世界观 / 世界观小说 / 柴圈作品 / 柴圈人设 / 百科，
+        /// 再加「创作者」节点把同一个人的内容串起来；小说连到所属世界，柴圈作品连到出场的人设。
+        /// 每类最多取最近更新的 PerType 个，避免节点太多拖慢星图。
+        /// </summary>
+        [HttpGet("public")]
+        public async Task<ActionResult<GraphDataDto>> GetPublicGraph()
+        {
+            const int PerType = 150;
+            var nodes = new List<GraphNodeDto>();
+            var edges = new List<GraphEdgeDto>();
+            var authors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase); // 名字 → 节点 ID
+
+            static string Clip(string? text, int max = 160)
+            {
+                if (string.IsNullOrWhiteSpace(text)) return "";
+                var plain = Regex.Replace(text, @"\{CARD:[^}]+\}|!\[[^\]]*\]\([^)]*\)|[#*>`]", "").Trim();
+                return plain.Length > max ? plain[..max] + "…" : plain;
+            }
+            void Author(string nodeId, string? name)
+            {
+                if (string.IsNullOrWhiteSpace(name)) return;
+                name = name.Trim();
+                if (!authors.TryGetValue(name, out var authorId))
+                {
+                    authorId = "author:" + name;
+                    authors[name] = authorId;
+                    nodes.Add(new GraphNodeDto { Id = authorId, Title = name, Type = "author", Size = 12, Description = $"{name} 的公开创作" });
+                }
+                edges.Add(new GraphEdgeDto { Id = $"{authorId}->{nodeId}", Source = authorId, Target = nodeId, RelationType = "AUTHOR" });
+            }
+
+            // 1. 图谱资料（灵脉里整理的设定节点）和它们之间的关系
+            var finalNodes = await _context.FinalNodes.AsNoTracking().Where(n => n.Status == 0)
+                .Select(n => new GraphNodeDto { Id = n.Id, Title = n.Title, Type = n.Type, CoverImage = n.CoverImage }).ToListAsync();
+            nodes.AddRange(finalNodes);
+            var finalIds = finalNodes.Select(n => n.Id).ToHashSet();
+            edges.AddRange((await _context.FinalRelations.AsNoTracking()
+                    .Select(r => new GraphEdgeDto { Id = r.Id, Source = r.SourceNodeId, Target = r.TargetNodeId, RelationType = r.RelationType }).ToListAsync())
+                .Where(e => finalIds.Contains(e.Source) && finalIds.Contains(e.Target)));
+
+            // 2. 博客 / 帖子（和论坛同一套可见规则）
+            var notes = await LingMaiPublishController.VisiblePublishedNotes(_context)
+                .Where(n => n.Type == "blog" || n.Type == "note" || n.Type == "post")
+                .OrderByDescending(n => n.PublishedAt).Take(PerType * 2)
+                .Select(n => new { n.Id, n.Type, n.Title, n.Excerpt, n.ExtraData, n.AuthorName }).ToListAsync();
+            foreach (var n in notes)
+            {
+                var type = n.Type == "post" ? "post" : "blog";
+                string text = n.Excerpt ?? "", cover = "";
+                try
+                {
+                    if (text.TrimStart().StartsWith('{'))
+                    {
+                        using var doc = JsonDocument.Parse(text);
+                        text = doc.RootElement.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() ?? "" : "";
+                        cover = doc.RootElement.TryGetProperty("coverUrl", out var c) && c.ValueKind == JsonValueKind.String ? c.GetString() ?? "" : "";
+                    }
+                    if (type == "post" && !string.IsNullOrWhiteSpace(n.ExtraData) && n.ExtraData.TrimStart().StartsWith('{'))
+                    {
+                        using var doc = JsonDocument.Parse(n.ExtraData);
+                        if (doc.RootElement.TryGetProperty("cardCover", out var c) && c.ValueKind == JsonValueKind.String) cover = c.GetString() ?? "";
+                    }
+                }
+                catch (JsonException) { }
+                var id = $"{type}:{n.Id}";
+                nodes.Add(new GraphNodeDto
+                {
+                    Id = id, Type = type, Title = string.IsNullOrWhiteSpace(n.Title) ? (type == "post" ? "短帖" : "无标题文章") : n.Title!,
+                    CoverImage = string.IsNullOrWhiteSpace(cover) ? null : cover, Description = Clip(text),
+                    Route = $"/knowledge?detail={n.Id}&detailType={type}"
+                });
+                Author(id, n.AuthorName);
+            }
+
+            // 3. 画廊作品
+            var artworks = await _context.Artworks.AsNoTracking()
+                .Where(a => a.IsApproved && (a.Status == "published" || a.Status == "" || a.Status == null))
+                .OrderByDescending(a => a.UploadAt).Take(PerType)
+                .Select(a => new { a.Id, a.Title, a.Description, Author = a.Uploader.Username,
+                    Cover = a.Images.OrderByDescending(i => i.IsCover).ThenBy(i => i.Id).Select(i => i.ImageUrl).FirstOrDefault() })
+                .ToListAsync();
+            foreach (var a in artworks)
+            {
+                var id = $"artwork:{a.Id}";
+                nodes.Add(new GraphNodeDto { Id = id, Type = "artwork", Title = a.Title, CoverImage = a.Cover, Description = Clip(a.Description),
+                    Route = $"/knowledge?detail={a.Id}&detailType=artwork" });
+                Author(id, a.Author);
+            }
+
+            // 4. 公开世界观
+            var worlds = await _context.WorldProjects.AsNoTracking().Where(p => p.IsPublic)
+                .OrderByDescending(p => p.UpdatedAt).Take(PerType)
+                .Select(p => new { p.Id, p.Name, p.Description, p.CoverImage, Author = p.Owner != null ? p.Owner.Username : null, Cards = p.Cards.Count })
+                .ToListAsync();
+            var worldIds = new HashSet<Guid>();
+            foreach (var w in worlds)
+            {
+                var id = $"world:{w.Id}";
+                worldIds.Add(w.Id);
+                nodes.Add(new GraphNodeDto { Id = id, Type = "world", Title = w.Name, CoverImage = w.CoverImage, Size = 20,
+                    Description = Clip($"{w.Cards} 个设定条目。{w.Description}"), Route = $"/world/project/{w.Id}" });
+                Author(id, w.Author);
+            }
+
+            // 5. 世界观小说（连到所属世界）
+            var novels = await _context.WorldNovels.AsNoTracking().Where(n => n.IsPublic)
+                .OrderByDescending(n => n.UpdatedAt).Take(PerType)
+                .Select(n => new { n.Id, n.Title, n.Description, n.CoverUrl, n.AuthorName, n.ProjectId }).ToListAsync();
+            foreach (var n in novels)
+            {
+                var id = $"novel:{n.Id}";
+                nodes.Add(new GraphNodeDto { Id = id, Type = "novel", Title = n.Title, CoverImage = n.CoverUrl, Description = Clip(n.Description), Route = $"/novels/{n.Id}" });
+                Author(id, n.AuthorName);
+                if (n.ProjectId is Guid pid && worldIds.Contains(pid))
+                    edges.Add(new GraphEdgeDto { Id = $"{id}->world", Source = id, Target = $"world:{pid}", RelationType = "IN_WORLD" });
+            }
+
+            // 6. 柴圈人设
+            var ocs = await _context.StickmanCharacters.AsNoTracking().Where(c => c.Status == "published")
+                .OrderByDescending(c => c.UpdatedAt ?? c.CreatedAt).Take(PerType)
+                .Select(c => new { c.Id, c.Title, c.Description, c.CoverUrl, c.AuthorName }).ToListAsync();
+            var ocIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var c in ocs)
+            {
+                var id = $"oc:{c.Id}";
+                ocIds.Add(c.Id.ToString());
+                nodes.Add(new GraphNodeDto { Id = id, Type = "oc", Title = c.Title, CoverImage = c.CoverUrl, Description = Clip(c.Description), Route = $"/ocs/{c.Id}" });
+                Author(id, c.AuthorName);
+            }
+
+            // 7. 柴圈作品（连到出场的人设）
+            var works = await _context.ChaiWorks.AsNoTracking().Where(w => w.Status == "published")
+                .OrderByDescending(w => w.UpdatedAt ?? w.CreatedAt).Take(PerType)
+                .Select(w => new { w.Id, w.Title, w.Description, w.CoverUrl, w.AuthorName, w.RelatedCharacterIds }).ToListAsync();
+            foreach (var w in works)
+            {
+                var id = $"work:{w.Id}";
+                nodes.Add(new GraphNodeDto { Id = id, Type = "work", Title = w.Title, CoverImage = w.CoverUrl, Description = Clip(w.Description), Route = $"/works/{w.Id}" });
+                Author(id, w.AuthorName);
+                try
+                {
+                    using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(w.RelatedCharacterIds) ? "[]" : w.RelatedCharacterIds);
+                    if (doc.RootElement.ValueKind == JsonValueKind.Array)
+                        foreach (var item in doc.RootElement.EnumerateArray())
+                        {
+                            var cid = item.ValueKind == JsonValueKind.String ? item.GetString() : item.ToString();
+                            if (cid != null && ocIds.Contains(cid))
+                                edges.Add(new GraphEdgeDto { Id = $"{id}->oc:{cid}", Source = id, Target = $"oc:{cid.ToLowerInvariant()}", RelationType = "FEATURES" });
+                        }
+                }
+                catch (JsonException) { }
+            }
+
+            // 8. 公共百科
+            var wikis = await _context.WikiArticles.AsNoTracking().Where(a => !a.IsDeleted && a.CurrentRevisionId != null)
+                .OrderByDescending(a => a.UpdatedAt).Take(PerType)
+                .Select(a => new { a.Id, a.Title, a.Excerpt }).ToListAsync();
+            foreach (var a in wikis)
+                nodes.Add(new GraphNodeDto { Id = $"wiki:{a.Id}", Type = "wiki", Title = a.Title, Description = Clip(a.Excerpt), Route = $"/codex/{a.Id}" });
+
+            // 创作者节点大小按作品数
+            var authorCounts = edges.Where(e => e.RelationType == "AUTHOR").GroupBy(e => e.Source).ToDictionary(g => g.Key, g => g.Count());
+            foreach (var n in nodes.Where(n => n.Type == "author"))
+                n.Size = 10 + Math.Min(20, authorCounts.GetValueOrDefault(n.Id) * 2);
+
+            return Ok(new GraphDataDto { Nodes = nodes, Edges = edges });
+        }
+            /// <summary>
+        /// 关系图谱的全文搜索：返回标题、简介或正文里包含关键词的节点 ID（和 /public 的节点 ID 同一格式）。
+        /// 多个词用空格分开时，要每个词都出现。创作者名字由前端自己匹配。
+        /// </summary>
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchPublicGraph([FromQuery] string? q)
+        {
+            var terms = KnowledgeSearch.Terms(q?.Length > 100 ? q[..100] : q);
+            if (terms.Count == 0) return Ok(new { ids = Array.Empty<string>() });
+            HashSet<string>? result = null;
+            foreach (var term in terms)
+            {
+                var encoded = KnowledgeSearch.Encoded(term);
+                var body = await KnowledgeSearch.BodyHitsAsync(_context, term, encoded);
+                var cardWorlds = body.Where(h => h.Contains(':')).Select(h => h.Split(':')[0]).Distinct().ToList();
+                var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                ids.UnionWith(await _context.FinalNodes.AsNoTracking()
+                    .Where(n => n.Status == 0 && (n.Title.Contains(term) || (n.Excerpt != null && n.Excerpt.Contains(term)) || body.Contains(n.Id)))
+                    .Select(n => n.Id).ToListAsync());
+
+                var notes = await LingMaiPublishController.VisiblePublishedNotes(_context)
+                    .Where(n => (n.Type == "blog" || n.Type == "note" || n.Type == "post")
+                        && ((n.Title != null && n.Title.Contains(term)) || (n.Excerpt != null && (n.Excerpt.Contains(term) || n.Excerpt.Contains(encoded))) || body.Contains(n.Id.ToString())))
+                    .Select(n => new { n.Id, n.Type }).ToListAsync();
+                ids.UnionWith(notes.Select(n => $"{(n.Type == "post" ? "post" : "blog")}:{n.Id}"));
+
+                ids.UnionWith((await _context.WikiArticles.AsNoTracking()
+                    .Where(a => !a.IsDeleted && a.CurrentRevisionId != null && (a.Title.Contains(term) || (a.Excerpt != null && a.Excerpt.Contains(term)) || body.Contains(a.Id)))
+                    .Select(a => a.Id).ToListAsync()).Select(id => $"wiki:{id}"));
+
+                ids.UnionWith((await _context.Artworks.AsNoTracking()
+                    .Where(a => a.IsApproved && (a.Status == "published" || a.Status == "" || a.Status == null)
+                        && (a.Title.Contains(term) || (a.Description != null && a.Description.Contains(term))))
+                    .Select(a => a.Id).ToListAsync()).Select(id => $"artwork:{id}"));
+
+                // 世界观：名字 / 简介，或者世界里有条目包含这个词
+                ids.UnionWith((await _context.WorldProjects.AsNoTracking()
+                    .Where(p => p.IsPublic && (p.Name.Contains(term) || (p.Description != null && p.Description.Contains(term))
+                        || p.Cards.Any(c => c.Title.Contains(term) || (c.Description != null && c.Description.Contains(term)))
+                        || cardWorlds.Contains(p.Id.ToString())))
+                    .Select(p => p.Id).ToListAsync()).Select(id => $"world:{id}"));
+
+                ids.UnionWith((await _context.WorldNovels.AsNoTracking()
+                    .Where(n => n.IsPublic && (n.Title.Contains(term) || (n.Description != null && n.Description.Contains(term)) || body.Contains(n.Id.ToString())))
+                    .Select(n => n.Id).ToListAsync()).Select(id => $"novel:{id}"));
+
+                ids.UnionWith((await _context.StickmanCharacters.AsNoTracking()
+                    .Where(c => c.Status == "published" && (c.Title.Contains(term) || (c.Description != null && c.Description.Contains(term))))
+                    .Select(c => c.Id).ToListAsync()).Select(id => $"oc:{id}"));
+
+                ids.UnionWith((await _context.ChaiWorks.AsNoTracking()
+                    .Where(w => w.Status == "published" && (w.Title.Contains(term) || (w.Description != null && w.Description.Contains(term))))
+                    .Select(w => w.Id).ToListAsync()).Select(id => $"work:{id}"));
+
+                if (result == null) result = ids; else result.IntersectWith(ids);
+                if (result.Count == 0) break;
+            }
+            return Ok(new { ids = result?.Select(id => id.ToLowerInvariant()).ToList() ?? new List<string>() });
+        }
     }
-}
+}

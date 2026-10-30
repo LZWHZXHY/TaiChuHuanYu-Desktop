@@ -1,0 +1,5565 @@
+[
+  {
+    "path": "src\\components\\ContentReferencePicker.vue",
+    "hits": [
+      {
+        "line": 86,
+        "value": "8px"
+      },
+      {
+        "line": 110,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\ExpNotification.vue",
+    "hits": [
+      {
+        "line": 58,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\GlobalNotify.vue",
+    "hits": [
+      {
+        "line": 81,
+        "value": "8px"
+      },
+      {
+        "line": 124,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\InteractActions.vue",
+    "hits": [
+      {
+        "line": 53,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\NotificationBell.vue",
+    "hits": [
+      {
+        "line": 107,
+        "value": "3px"
+      },
+      {
+        "line": 115,
+        "value": "8px"
+      },
+      {
+        "line": 120,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 129,
+        "value": "8px"
+      },
+      {
+        "line": 134,
+        "value": "50%"
+      },
+      {
+        "line": 140,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\OperationTerminal.vue",
+    "hits": [
+      {
+        "line": 97,
+        "value": "2px"
+      },
+      {
+        "line": 112,
+        "value": "3px"
+      },
+      {
+        "line": 114,
+        "value": "3px"
+      },
+      {
+        "line": 128,
+        "value": "3px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SignCard.vue",
+    "hits": [
+      {
+        "line": 299,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 306,
+        "value": "0"
+      },
+      {
+        "line": 327,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 341,
+        "value": "50%"
+      },
+      {
+        "line": 375,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 404,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritBlock.vue",
+    "hits": [
+      {
+        "line": 122,
+        "value": "8px"
+      },
+      {
+        "line": 142,
+        "value": "8px"
+      },
+      {
+        "line": 155,
+        "value": "6px"
+      },
+      {
+        "line": 163,
+        "value": "50%"
+      },
+      {
+        "line": 169,
+        "value": "8px"
+      },
+      {
+        "line": 190,
+        "value": "4px"
+      },
+      {
+        "line": 217,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritCanvas.vue",
+    "hits": [
+      {
+        "line": 334,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 375,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 388,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 414,
+        "value": "8px"
+      },
+      {
+        "line": 425,
+        "value": "50%"
+      },
+      {
+        "line": 431,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritMap.vue",
+    "hits": [
+      {
+        "line": 247,
+        "value": "20px"
+      },
+      {
+        "line": 269,
+        "value": "12px"
+      },
+      {
+        "line": 302,
+        "value": "50%"
+      },
+      {
+        "line": 311,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritMenuList.vue",
+    "hits": [
+      {
+        "line": 80,
+        "value": "14px"
+      },
+      {
+        "line": 111,
+        "value": "10px"
+      },
+      {
+        "line": 132,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritText.vue",
+    "hits": [
+      {
+        "line": 504,
+        "value": "6px"
+      },
+      {
+        "line": 526,
+        "value": "12px"
+      },
+      {
+        "line": 560,
+        "value": "14px"
+      },
+      {
+        "line": 599,
+        "value": "10px"
+      },
+      {
+        "line": 620,
+        "value": "8px"
+      },
+      {
+        "line": 691,
+        "value": "12px"
+      },
+      {
+        "line": 723,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritToast.vue",
+    "hits": [
+      {
+        "line": 86,
+        "value": "100px"
+      },
+      {
+        "line": 116,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\index.vue",
+    "hits": [
+      {
+        "line": 148,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 157,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 158,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 159,
+        "value": "0"
+      },
+      {
+        "line": 164,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 167,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 169,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 174,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 179,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\ProjectCreate.vue",
+    "hits": [
+      {
+        "line": 225,
+        "value": "16px"
+      },
+      {
+        "line": 227,
+        "value": "8px"
+      },
+      {
+        "line": 229,
+        "value": "10px"
+      },
+      {
+        "line": 230,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\ProjectDetail.vue",
+    "hits": [
+      {
+        "line": 568,
+        "value": "16px"
+      },
+      {
+        "line": 573,
+        "value": "8px"
+      },
+      {
+        "line": 575,
+        "value": "12px"
+      },
+      {
+        "line": 580,
+        "value": "8px"
+      },
+      {
+        "line": 582,
+        "value": "10px"
+      },
+      {
+        "line": 584,
+        "value": "6px"
+      },
+      {
+        "line": 590,
+        "value": "999px"
+      },
+      {
+        "line": 594,
+        "value": "6px"
+      },
+      {
+        "line": 595,
+        "value": "8px"
+      },
+      {
+        "line": 604,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 650,
+        "value": "6px"
+      },
+      {
+        "line": 674,
+        "value": "4px"
+      },
+      {
+        "line": 732,
+        "value": "6px"
+      },
+      {
+        "line": 744,
+        "value": "4px"
+      },
+      {
+        "line": 808,
+        "value": "6px"
+      },
+      {
+        "line": 827,
+        "value": "3px"
+      },
+      {
+        "line": 845,
+        "value": "14px"
+      },
+      {
+        "line": 861,
+        "value": "4px"
+      },
+      {
+        "line": 862,
+        "value": "8px"
+      },
+      {
+        "line": 864,
+        "value": "8px"
+      },
+      {
+        "line": 869,
+        "value": "8px"
+      },
+      {
+        "line": 873,
+        "value": "8px"
+      },
+      {
+        "line": 875,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\个人中心\\AiSettings.vue",
+    "hits": [
+      {
+        "line": 84,
+        "value": "8px"
+      },
+      {
+        "line": 88,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\个人中心\\ClubCard.vue",
+    "hits": [
+      {
+        "line": 149,
+        "value": "12px"
+      },
+      {
+        "line": 188,
+        "value": "6px"
+      },
+      {
+        "line": 216,
+        "value": "4px"
+      },
+      {
+        "line": 248,
+        "value": "8px"
+      },
+      {
+        "line": 297,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\个人中心\\index.vue",
+    "hits": [
+      {
+        "line": 220,
+        "value": "20px"
+      },
+      {
+        "line": 228,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 231,
+        "value": "4px"
+      },
+      {
+        "line": 239,
+        "value": "8px"
+      },
+      {
+        "line": 251,
+        "value": "6px"
+      },
+      {
+        "line": 258,
+        "value": "var(--radius-md)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\个人中心\\PreferenceSettings.vue",
+    "hits": [
+      {
+        "line": 112,
+        "value": "12px"
+      },
+      {
+        "line": 156,
+        "value": "6px"
+      },
+      {
+        "line": 182,
+        "value": "24px"
+      },
+      {
+        "line": 191,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\个人中心\\ProfileCard.vue",
+    "hits": [
+      {
+        "line": 226,
+        "value": "12px"
+      },
+      {
+        "line": 233,
+        "value": "8px"
+      },
+      {
+        "line": 240,
+        "value": "6px"
+      },
+      {
+        "line": 241,
+        "value": "6px"
+      },
+      {
+        "line": 245,
+        "value": "20px"
+      },
+      {
+        "line": 253,
+        "value": "6px"
+      },
+      {
+        "line": 261,
+        "value": "4px"
+      },
+      {
+        "line": 264,
+        "value": "6px"
+      },
+      {
+        "line": 266,
+        "value": "6px"
+      },
+      {
+        "line": 268,
+        "value": "6px"
+      },
+      {
+        "line": 269,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\个人中心\\UserManualViewer.vue",
+    "hits": [
+      {
+        "line": 137,
+        "value": "12px"
+      },
+      {
+        "line": 168,
+        "value": "6px"
+      },
+      {
+        "line": 215,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\交易行\\index.vue",
+    "hits": [
+      {
+        "line": 215,
+        "value": "var(--radius-lg)"
+      },
+      {
+        "line": 254,
+        "value": "8px"
+      },
+      {
+        "line": 275,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 295,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 328,
+        "value": "8px"
+      },
+      {
+        "line": 353,
+        "value": "8px"
+      },
+      {
+        "line": 377,
+        "value": "16px"
+      },
+      {
+        "line": 401,
+        "value": "8px"
+      },
+      {
+        "line": 420,
+        "value": "12px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\任务栏\\index.vue",
+    "hits": [
+      {
+        "line": 125,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 139,
+        "value": "8px"
+      },
+      {
+        "line": 177,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 191,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初协作\\index.vue",
+    "hits": [
+      {
+        "line": 429,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 481,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 569,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 631,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 699,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 729,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\SpiritLayout.vue",
+    "hits": [
+      {
+        "line": 407,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初随笔\\ComposeView.vue",
+    "hits": [
+      {
+        "line": 244,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 246,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 250,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初随笔\\index.vue",
+    "hits": [
+      {
+        "line": 121,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 125,
+        "value": "var(--content-radius)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初随笔\\NoteComments.vue",
+    "hits": [
+      {
+        "line": 137,
+        "value": "6px"
+      },
+      {
+        "line": 140,
+        "value": "50%"
+      },
+      {
+        "line": 143,
+        "value": "12px"
+      },
+      {
+        "line": 150,
+        "value": "8px"
+      },
+      {
+        "line": 152,
+        "value": "0 8px 8px 0"
+      },
+      {
+        "line": 172,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初随笔\\PublicNoteDetail.vue",
+    "hits": [
+      {
+        "line": 219,
+        "value": "12px"
+      },
+      {
+        "line": 239,
+        "value": "50%"
+      },
+      {
+        "line": 251,
+        "value": "4px"
+      },
+      {
+        "line": 254,
+        "value": "12px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\index.vue",
+    "hits": [
+      {
+        "line": 334,
+        "value": "8px"
+      },
+      {
+        "line": 338,
+        "value": "12px"
+      },
+      {
+        "line": 341,
+        "value": "8px"
+      },
+      {
+        "line": 345,
+        "value": "5px"
+      },
+      {
+        "line": 357,
+        "value": "6px"
+      },
+      {
+        "line": 359,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\工具箱\\Home.vue",
+    "hits": [
+      {
+        "line": 81,
+        "value": "10px"
+      },
+      {
+        "line": 120,
+        "value": "999px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\开发进度\\index.vue",
+    "hits": [
+      {
+        "line": 466,
+        "value": "18px"
+      },
+      {
+        "line": 468,
+        "value": "8px"
+      },
+      {
+        "line": 480,
+        "value": "10px"
+      },
+      {
+        "line": 492,
+        "value": "10px"
+      },
+      {
+        "line": 497,
+        "value": "3px"
+      },
+      {
+        "line": 498,
+        "value": "3px"
+      },
+      {
+        "line": 506,
+        "value": "14px"
+      },
+      {
+        "line": 509,
+        "value": "6px"
+      },
+      {
+        "line": 517,
+        "value": "8px"
+      },
+      {
+        "line": 522,
+        "value": "6px"
+      },
+      {
+        "line": 526,
+        "value": "10px"
+      },
+      {
+        "line": 528,
+        "value": "10px"
+      },
+      {
+        "line": 532,
+        "value": "8px"
+      },
+      {
+        "line": 537,
+        "value": "4px"
+      },
+      {
+        "line": 538,
+        "value": "8px"
+      },
+      {
+        "line": 543,
+        "value": "8px"
+      },
+      {
+        "line": 548,
+        "value": "8px"
+      },
+      {
+        "line": 551,
+        "value": "6px"
+      },
+      {
+        "line": 566,
+        "value": "10px"
+      },
+      {
+        "line": 570,
+        "value": "4px"
+      },
+      {
+        "line": 571,
+        "value": "10px"
+      },
+      {
+        "line": 584,
+        "value": "10px"
+      },
+      {
+        "line": 585,
+        "value": "6px"
+      },
+      {
+        "line": 591,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\开发进度\\ReportDetail.vue",
+    "hits": [
+      {
+        "line": 132,
+        "value": "10px"
+      },
+      {
+        "line": 144,
+        "value": "5px"
+      },
+      {
+        "line": 145,
+        "value": "5px"
+      },
+      {
+        "line": 165,
+        "value": "10px"
+      },
+      {
+        "line": 173,
+        "value": "50%"
+      },
+      {
+        "line": 178,
+        "value": "8px"
+      },
+      {
+        "line": 185,
+        "value": "10px"
+      },
+      {
+        "line": 189,
+        "value": "0 8px 8px 0"
+      },
+      {
+        "line": 190,
+        "value": "4px"
+      },
+      {
+        "line": 191,
+        "value": "10px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\必吃榜\\index.vue",
+    "hits": [
+      {
+        "line": 389,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 391,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 397,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 401,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 427,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 431,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 439,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 452,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 454,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 462,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 465,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 470,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 473,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\推送首页\\index.vue",
+    "hits": [
+      {
+        "line": 128,
+        "value": "0"
+      },
+      {
+        "line": 131,
+        "value": "3px"
+      },
+      {
+        "line": 133,
+        "value": "2px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\detail.css",
+    "hits": [
+      {
+        "line": 15,
+        "value": "var(--radius-lg)"
+      },
+      {
+        "line": 42,
+        "value": "var(--radius-lg)"
+      },
+      {
+        "line": 48,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 56,
+        "value": "0"
+      },
+      {
+        "line": 75,
+        "value": "8px"
+      },
+      {
+        "line": 86,
+        "value": "8px"
+      },
+      {
+        "line": 121,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 128,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 140,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 143,
+        "value": "12px"
+      },
+      {
+        "line": 156,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\index.vue",
+    "hits": [
+      {
+        "line": 625,
+        "value": "2px"
+      },
+      {
+        "line": 688,
+        "value": "4px"
+      },
+      {
+        "line": 750,
+        "value": "2px"
+      },
+      {
+        "line": 756,
+        "value": "2px"
+      },
+      {
+        "line": 1005,
+        "value": "12px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\theme.css",
+    "hits": [
+      {
+        "line": 10,
+        "value": "var(--radius-lg)"
+      },
+      {
+        "line": 30,
+        "value": "8px"
+      },
+      {
+        "line": 66,
+        "value": "var(--radius-lg)"
+      },
+      {
+        "line": 93,
+        "value": "var(--radius-lg)"
+      },
+      {
+        "line": 107,
+        "value": "12px"
+      },
+      {
+        "line": 128,
+        "value": "6px"
+      },
+      {
+        "line": 165,
+        "value": "var(--radius-lg)"
+      },
+      {
+        "line": 180,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 201,
+        "value": "10px"
+      },
+      {
+        "line": 205,
+        "value": "7px"
+      },
+      {
+        "line": 227,
+        "value": "var(--radius-lg)"
+      },
+      {
+        "line": 266,
+        "value": "8px"
+      },
+      {
+        "line": 282,
+        "value": "8px"
+      },
+      {
+        "line": 310,
+        "value": "12px"
+      },
+      {
+        "line": 350,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 393,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 423,
+        "value": "16px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\版本更新\\index.vue",
+    "hits": [
+      {
+        "line": 201,
+        "value": "50%"
+      },
+      {
+        "line": 203,
+        "value": "12px"
+      },
+      {
+        "line": 208,
+        "value": "10px"
+      },
+      {
+        "line": 214,
+        "value": "6px"
+      },
+      {
+        "line": 217,
+        "value": "12px"
+      },
+      {
+        "line": 220,
+        "value": "8px"
+      },
+      {
+        "line": 224,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\画廊展厅\\ArtworkComments.vue",
+    "hits": [
+      {
+        "line": 126,
+        "value": "6px"
+      },
+      {
+        "line": 129,
+        "value": "50%"
+      },
+      {
+        "line": 132,
+        "value": "12px"
+      },
+      {
+        "line": 139,
+        "value": "8px"
+      },
+      {
+        "line": 141,
+        "value": "0 8px 8px 0"
+      },
+      {
+        "line": 161,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\画廊展厅\\ArtworkDetail.vue",
+    "hits": [
+      {
+        "line": 218,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 238,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\画廊展厅\\ArtworkInfiniteGrid.vue",
+    "hits": [
+      {
+        "line": 186,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 192,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 198,
+        "value": "4px"
+      },
+      {
+        "line": 201,
+        "value": "50%"
+      },
+      {
+        "line": 203,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\画廊展厅\\ArtworkPublishModal.vue",
+    "hits": [
+      {
+        "line": 214,
+        "value": "12px"
+      },
+      {
+        "line": 250,
+        "value": "8px"
+      },
+      {
+        "line": 272,
+        "value": "6px"
+      },
+      {
+        "line": 286,
+        "value": "4px"
+      },
+      {
+        "line": 306,
+        "value": "4px"
+      },
+      {
+        "line": 314,
+        "value": "4px"
+      },
+      {
+        "line": 325,
+        "value": "6px"
+      },
+      {
+        "line": 336,
+        "value": "4px"
+      },
+      {
+        "line": 347,
+        "value": "6px"
+      },
+      {
+        "line": 348,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\画廊展厅\\ArtworkRanking.vue",
+    "hits": [
+      {
+        "line": 115,
+        "value": "14px"
+      },
+      {
+        "line": 135,
+        "value": "50%"
+      },
+      {
+        "line": 149,
+        "value": "10px"
+      },
+      {
+        "line": 177,
+        "value": "8px"
+      },
+      {
+        "line": 186,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\画廊展厅\\index.vue",
+    "hits": [
+      {
+        "line": 168,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\知识库\\GraphControlPanel.vue",
+    "hits": [
+      {
+        "line": 79,
+        "value": "12px"
+      },
+      {
+        "line": 122,
+        "value": "8px"
+      },
+      {
+        "line": 160,
+        "value": "8px"
+      },
+      {
+        "line": 192,
+        "value": "2px"
+      },
+      {
+        "line": 206,
+        "value": "50%"
+      },
+      {
+        "line": 255,
+        "value": "12px"
+      },
+      {
+        "line": 265,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\知识库\\GraphDetailsPanel.vue",
+    "hits": [
+      {
+        "line": 197,
+        "value": "4px"
+      },
+      {
+        "line": 206,
+        "value": "6px"
+      },
+      {
+        "line": 247,
+        "value": "10px"
+      },
+      {
+        "line": 282,
+        "value": "6px"
+      },
+      {
+        "line": 333,
+        "value": "10px"
+      },
+      {
+        "line": 347,
+        "value": "8px"
+      },
+      {
+        "line": 383,
+        "value": "6px"
+      },
+      {
+        "line": 397,
+        "value": "3px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\知识库\\GraphFilterPanel.vue",
+    "hits": [
+      {
+        "line": 70,
+        "value": "12px"
+      },
+      {
+        "line": 106,
+        "value": "6px"
+      },
+      {
+        "line": 122,
+        "value": "50%"
+      },
+      {
+        "line": 155,
+        "value": "4px"
+      },
+      {
+        "line": 164,
+        "value": "2px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\知识库\\index.vue",
+    "hits": [
+      {
+        "line": 352,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 369,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 383,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 406,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 408,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 425,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 441,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 448,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 512,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 528,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 546,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\知识库\\KnowledgeGraph.vue",
+    "hits": [
+      {
+        "line": 70,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\社区规则\\index.vue",
+    "hits": [
+      {
+        "line": 206,
+        "value": "12px"
+      },
+      {
+        "line": 209,
+        "value": "12px"
+      },
+      {
+        "line": 218,
+        "value": "6px"
+      },
+      {
+        "line": 229,
+        "value": "6px"
+      },
+      {
+        "line": 232,
+        "value": "12px"
+      },
+      {
+        "line": 235,
+        "value": "8px"
+      },
+      {
+        "line": 239,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\index.vue",
+    "hits": [
+      {
+        "line": 80,
+        "value": "2px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\荣誉墙\\index.vue",
+    "hits": [
+      {
+        "line": 135,
+        "value": "12px"
+      },
+      {
+        "line": 157,
+        "value": "14px"
+      },
+      {
+        "line": 177,
+        "value": "17px"
+      },
+      {
+        "line": 192,
+        "value": "6px"
+      },
+      {
+        "line": 197,
+        "value": "12px"
+      },
+      {
+        "line": 202,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\荣誉墙\\UniverseWorkDesk.vue",
+    "hits": [
+      {
+        "line": 195,
+        "value": "6px"
+      },
+      {
+        "line": 197,
+        "value": "6px"
+      },
+      {
+        "line": 200,
+        "value": "8px"
+      },
+      {
+        "line": 202,
+        "value": "10px"
+      },
+      {
+        "line": 204,
+        "value": "6px"
+      },
+      {
+        "line": 213,
+        "value": "8px"
+      },
+      {
+        "line": 216,
+        "value": "50%"
+      },
+      {
+        "line": 218,
+        "value": "4px"
+      },
+      {
+        "line": 221,
+        "value": "4px"
+      },
+      {
+        "line": 224,
+        "value": "8px"
+      },
+      {
+        "line": 232,
+        "value": "4px"
+      },
+      {
+        "line": 233,
+        "value": "4px"
+      },
+      {
+        "line": 235,
+        "value": "3px"
+      },
+      {
+        "line": 237,
+        "value": "4px"
+      },
+      {
+        "line": 238,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\赞助墙\\index.vue",
+    "hits": [
+      {
+        "line": 208,
+        "value": "12px"
+      },
+      {
+        "line": 212,
+        "value": "14px"
+      },
+      {
+        "line": 214,
+        "value": "12px"
+      },
+      {
+        "line": 220,
+        "value": "6px"
+      },
+      {
+        "line": 224,
+        "value": "12px"
+      },
+      {
+        "line": 230,
+        "value": "10px"
+      },
+      {
+        "line": 241,
+        "value": "6px"
+      },
+      {
+        "line": 245,
+        "value": "12px"
+      },
+      {
+        "line": 248,
+        "value": "8px"
+      },
+      {
+        "line": 254,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\身份认证\\auth-form.css",
+    "hits": [
+      {
+        "line": 3,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 5,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\交易行组件.vue",
+    "hits": [
+      {
+        "line": 256,
+        "value": "4px"
+      },
+      {
+        "line": 259,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 265,
+        "value": "2px"
+      },
+      {
+        "line": 266,
+        "value": "2px"
+      },
+      {
+        "line": 270,
+        "value": "50%"
+      },
+      {
+        "line": 278,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 295,
+        "value": "var(--radius-md)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\作品管理.vue",
+    "hits": [
+      {
+        "line": 97,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\公告组件.vue",
+    "hits": [
+      {
+        "line": 303,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 326,
+        "value": "50%"
+      },
+      {
+        "line": 357,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 365,
+        "value": "3px"
+      },
+      {
+        "line": 379,
+        "value": "4px"
+      },
+      {
+        "line": 382,
+        "value": "50%"
+      },
+      {
+        "line": 387,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\反馈组件.vue",
+    "hits": [
+      {
+        "line": 198,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 213,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 279,
+        "value": "4px"
+      },
+      {
+        "line": 300,
+        "value": "4px"
+      },
+      {
+        "line": 309,
+        "value": "999px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\数据中心.vue",
+    "hits": [
+      {
+        "line": 133,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 136,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 138,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 144,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 148,
+        "value": "5px"
+      },
+      {
+        "line": 149,
+        "value": "5px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\活动组件.vue",
+    "hits": [
+      {
+        "line": 265,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 278,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 288,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 347,
+        "value": "4px"
+      },
+      {
+        "line": 393,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 439,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 443,
+        "value": "var(--radius-md)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\用户手册组件.vue",
+    "hits": [
+      {
+        "line": 371,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 395,
+        "value": "4px"
+      },
+      {
+        "line": 408,
+        "value": "4px"
+      },
+      {
+        "line": 411,
+        "value": "3px"
+      },
+      {
+        "line": 421,
+        "value": "4px"
+      },
+      {
+        "line": 440,
+        "value": "4px"
+      },
+      {
+        "line": 445,
+        "value": "4px"
+      },
+      {
+        "line": 456,
+        "value": "4px"
+      },
+      {
+        "line": 479,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\用户组件.vue",
+    "hits": [
+      {
+        "line": 386,
+        "value": "4px"
+      },
+      {
+        "line": 390,
+        "value": "4px"
+      },
+      {
+        "line": 394,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 413,
+        "value": "2px"
+      },
+      {
+        "line": 416,
+        "value": "4px"
+      },
+      {
+        "line": 425,
+        "value": "3px"
+      },
+      {
+        "line": 438,
+        "value": "0 0 6px 6px"
+      },
+      {
+        "line": 441,
+        "value": "4px"
+      },
+      {
+        "line": 449,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 459,
+        "value": "4px"
+      },
+      {
+        "line": 479,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\邮件管理.vue",
+    "hits": [
+      {
+        "line": 310,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 342,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 352,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 377,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 412,
+        "value": "4px"
+      },
+      {
+        "line": 432,
+        "value": "50%"
+      },
+      {
+        "line": 449,
+        "value": "50%"
+      },
+      {
+        "line": 459,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 472,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 496,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 526,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 563,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 634,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 656,
+        "value": "50%"
+      },
+      {
+        "line": 673,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\作品管理组件\\博客治理.vue",
+    "hits": [
+      {
+        "line": 93,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 131,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\作品管理组件\\画廊治理.vue",
+    "hits": [
+      {
+        "line": 249,
+        "value": "4px"
+      },
+      {
+        "line": 252,
+        "value": "4px"
+      },
+      {
+        "line": 260,
+        "value": "4px"
+      },
+      {
+        "line": 267,
+        "value": "3px"
+      },
+      {
+        "line": 268,
+        "value": "3px"
+      },
+      {
+        "line": 277,
+        "value": "4px"
+      },
+      {
+        "line": 278,
+        "value": "4px"
+      },
+      {
+        "line": 289,
+        "value": "4px"
+      },
+      {
+        "line": 294,
+        "value": "var(--radius-md)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\俱乐部组件\\字段编排组件.vue",
+    "hits": [
+      {
+        "line": 372,
+        "value": "4px"
+      },
+      {
+        "line": 381,
+        "value": "4px"
+      },
+      {
+        "line": 387,
+        "value": "8px"
+      },
+      {
+        "line": 406,
+        "value": "3px"
+      },
+      {
+        "line": 411,
+        "value": "3px"
+      },
+      {
+        "line": 413,
+        "value": "50%"
+      },
+      {
+        "line": 432,
+        "value": "4px"
+      },
+      {
+        "line": 434,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 454,
+        "value": "4px"
+      },
+      {
+        "line": 458,
+        "value": "3px"
+      },
+      {
+        "line": 468,
+        "value": "4px"
+      },
+      {
+        "line": 473,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\俱乐部组件\\客服审核组件.vue",
+    "hits": [
+      {
+        "line": 363,
+        "value": "4px"
+      },
+      {
+        "line": 372,
+        "value": "4px"
+      },
+      {
+        "line": 379,
+        "value": "6px"
+      },
+      {
+        "line": 384,
+        "value": "50%"
+      },
+      {
+        "line": 393,
+        "value": "10px"
+      },
+      {
+        "line": 401,
+        "value": "50%"
+      },
+      {
+        "line": 422,
+        "value": "4px"
+      },
+      {
+        "line": 434,
+        "value": "4px"
+      },
+      {
+        "line": 462,
+        "value": "4px"
+      },
+      {
+        "line": 476,
+        "value": "4px"
+      },
+      {
+        "line": 478,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 491,
+        "value": "4px"
+      },
+      {
+        "line": 504,
+        "value": "3px"
+      },
+      {
+        "line": 519,
+        "value": "4px"
+      },
+      {
+        "line": 524,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\俱乐部组件\\打手审核组件.vue",
+    "hits": [
+      {
+        "line": 269,
+        "value": "4px"
+      },
+      {
+        "line": 279,
+        "value": "4px"
+      },
+      {
+        "line": 288,
+        "value": "10px"
+      },
+      {
+        "line": 296,
+        "value": "50%"
+      },
+      {
+        "line": 316,
+        "value": "4px"
+      },
+      {
+        "line": 328,
+        "value": "4px"
+      },
+      {
+        "line": 354,
+        "value": "4px"
+      },
+      {
+        "line": 356,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 369,
+        "value": "4px"
+      },
+      {
+        "line": 402,
+        "value": "4px"
+      },
+      {
+        "line": 407,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\俱乐部组件\\游戏库组件.vue",
+    "hits": [
+      {
+        "line": 292,
+        "value": "4px"
+      },
+      {
+        "line": 300,
+        "value": "4px"
+      },
+      {
+        "line": 305,
+        "value": "8px"
+      },
+      {
+        "line": 322,
+        "value": "4px"
+      },
+      {
+        "line": 343,
+        "value": "4px"
+      },
+      {
+        "line": 345,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 368,
+        "value": "4px"
+      },
+      {
+        "line": 381,
+        "value": "2px"
+      },
+      {
+        "line": 393,
+        "value": "4px"
+      },
+      {
+        "line": 398,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\俱乐部组件\\订单管理.vue",
+    "hits": [
+      {
+        "line": 380,
+        "value": "6px"
+      },
+      {
+        "line": 385,
+        "value": "50%"
+      },
+      {
+        "line": 400,
+        "value": "4px"
+      },
+      {
+        "line": 408,
+        "value": "4px"
+      },
+      {
+        "line": 414,
+        "value": "8px"
+      },
+      {
+        "line": 441,
+        "value": "3px"
+      },
+      {
+        "line": 452,
+        "value": "3px"
+      },
+      {
+        "line": 457,
+        "value": "3px"
+      },
+      {
+        "line": 468,
+        "value": "3px"
+      },
+      {
+        "line": 493,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\俱乐部组件\\订单类型组件.vue",
+    "hits": [
+      {
+        "line": 618,
+        "value": "4px"
+      },
+      {
+        "line": 627,
+        "value": "4px"
+      },
+      {
+        "line": 635,
+        "value": "6px"
+      },
+      {
+        "line": 639,
+        "value": "50%"
+      },
+      {
+        "line": 646,
+        "value": "8px"
+      },
+      {
+        "line": 670,
+        "value": "18px"
+      },
+      {
+        "line": 675,
+        "value": "50%"
+      },
+      {
+        "line": 682,
+        "value": "3px"
+      },
+      {
+        "line": 692,
+        "value": "3px"
+      },
+      {
+        "line": 728,
+        "value": "4px"
+      },
+      {
+        "line": 730,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 766,
+        "value": "3px"
+      },
+      {
+        "line": 776,
+        "value": "4px"
+      },
+      {
+        "line": 781,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\俱乐部组件\\钱包审核组件.vue",
+    "hits": [
+      {
+        "line": 217,
+        "value": "6px"
+      },
+      {
+        "line": 227,
+        "value": "50%"
+      },
+      {
+        "line": 239,
+        "value": "4px"
+      },
+      {
+        "line": 247,
+        "value": "4px"
+      },
+      {
+        "line": 253,
+        "value": "8px"
+      },
+      {
+        "line": 281,
+        "value": "3px"
+      },
+      {
+        "line": 302,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\维基组件子类\\CategoryManager.vue",
+    "hits": [
+      {
+        "line": 153,
+        "value": "4px"
+      },
+      {
+        "line": 156,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 159,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 160,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 163,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 164,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\维基组件子类\\RevisionReview.vue",
+    "hits": [
+      {
+        "line": 131,
+        "value": "4px"
+      },
+      {
+        "line": 137,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 139,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 141,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\管理面板\\管理组件\\维基组件子类\\Wiki子组件风格.css",
+    "hits": [
+      {
+        "line": 2,
+        "value": "16px"
+      },
+      {
+        "line": 13,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\灵脉百科\\components\\CommunityView.vue",
+    "hits": [
+      {
+        "line": 97,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\灵脉百科\\components\\WikiDetail.vue",
+    "hits": [
+      {
+        "line": 395,
+        "value": "6px"
+      },
+      {
+        "line": 408,
+        "value": "10px"
+      },
+      {
+        "line": 418,
+        "value": "8px"
+      },
+      {
+        "line": 428,
+        "value": "6px"
+      },
+      {
+        "line": 450,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\灵脉百科\\components\\WorldviewView.vue",
+    "hits": [
+      {
+        "line": 130,
+        "value": "12px"
+      },
+      {
+        "line": 192,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\打卡中心\\ActivityDetail.vue",
+    "hits": [
+      {
+        "line": 132,
+        "value": "8px"
+      },
+      {
+        "line": 133,
+        "value": "8px"
+      },
+      {
+        "line": 134,
+        "value": "8px"
+      },
+      {
+        "line": 646,
+        "value": "30px"
+      },
+      {
+        "line": 674,
+        "value": "12px"
+      },
+      {
+        "line": 725,
+        "value": "8px"
+      },
+      {
+        "line": 753,
+        "value": "20px"
+      },
+      {
+        "line": 778,
+        "value": "30px"
+      },
+      {
+        "line": 788,
+        "value": "30px"
+      },
+      {
+        "line": 809,
+        "value": "12px"
+      },
+      {
+        "line": 836,
+        "value": "20px"
+      },
+      {
+        "line": 851,
+        "value": "30px"
+      },
+      {
+        "line": 868,
+        "value": "30px"
+      },
+      {
+        "line": 883,
+        "value": "10px"
+      },
+      {
+        "line": 917,
+        "value": "20px"
+      },
+      {
+        "line": 938,
+        "value": "50%"
+      },
+      {
+        "line": 952,
+        "value": "6px"
+      },
+      {
+        "line": 989,
+        "value": "3px"
+      },
+      {
+        "line": 999,
+        "value": "12px"
+      },
+      {
+        "line": 1017,
+        "value": "10px"
+      },
+      {
+        "line": 1048,
+        "value": "8px"
+      },
+      {
+        "line": 1064,
+        "value": "4px"
+      },
+      {
+        "line": 1065,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\打卡中心\\ActivityHome.vue",
+    "hits": [
+      {
+        "line": 163,
+        "value": "30px"
+      },
+      {
+        "line": 185,
+        "value": "30px"
+      },
+      {
+        "line": 207,
+        "value": "20px"
+      },
+      {
+        "line": 230,
+        "value": "12px"
+      },
+      {
+        "line": 254,
+        "value": "20px"
+      },
+      {
+        "line": 260,
+        "value": "20px"
+      },
+      {
+        "line": 311,
+        "value": "20px"
+      },
+      {
+        "line": 360,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\打卡中心\\CheckInModal.vue",
+    "hits": [
+      {
+        "line": 137,
+        "value": "12px"
+      },
+      {
+        "line": 186,
+        "value": "8px"
+      },
+      {
+        "line": 201,
+        "value": "8px"
+      },
+      {
+        "line": 218,
+        "value": "8px"
+      },
+      {
+        "line": 228,
+        "value": "50%"
+      },
+      {
+        "line": 248,
+        "value": "30px"
+      },
+      {
+        "line": 258,
+        "value": "30px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\打卡中心\\CompetitionPanel.vue",
+    "hits": [
+      {
+        "line": 262,
+        "value": "14px"
+      },
+      {
+        "line": 267,
+        "value": "999px"
+      },
+      {
+        "line": 274,
+        "value": "8px"
+      },
+      {
+        "line": 277,
+        "value": "10px"
+      },
+      {
+        "line": 278,
+        "value": "7px"
+      },
+      {
+        "line": 282,
+        "value": "12px"
+      },
+      {
+        "line": 293,
+        "value": "999px"
+      },
+      {
+        "line": 299,
+        "value": "10px"
+      },
+      {
+        "line": 309,
+        "value": "8px"
+      },
+      {
+        "line": 316,
+        "value": "6px"
+      },
+      {
+        "line": 321,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\打卡中心\\CreateActivity.vue",
+    "hits": [
+      {
+        "line": 40,
+        "value": "8px"
+      },
+      {
+        "line": 41,
+        "value": "8px"
+      },
+      {
+        "line": 42,
+        "value": "8px"
+      },
+      {
+        "line": 243,
+        "value": "12px"
+      },
+      {
+        "line": 274,
+        "value": "8px"
+      },
+      {
+        "line": 307,
+        "value": "20px"
+      },
+      {
+        "line": 346,
+        "value": "6px"
+      },
+      {
+        "line": 393,
+        "value": "8px"
+      },
+      {
+        "line": 403,
+        "value": "50%"
+      },
+      {
+        "line": 421,
+        "value": "10px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\打卡中心\\DiscussionBoard.vue",
+    "hits": [
+      {
+        "line": 212,
+        "value": "10px"
+      },
+      {
+        "line": 244,
+        "value": "20px"
+      },
+      {
+        "line": 274,
+        "value": "50%"
+      },
+      {
+        "line": 326,
+        "value": "4px"
+      },
+      {
+        "line": 364,
+        "value": "20px"
+      },
+      {
+        "line": 375,
+        "value": "20px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\打卡中心\\MyActivities.vue",
+    "hits": [
+      {
+        "line": 185,
+        "value": "12px"
+      },
+      {
+        "line": 210,
+        "value": "20px"
+      },
+      {
+        "line": 216,
+        "value": "20px"
+      },
+      {
+        "line": 269,
+        "value": "3px"
+      },
+      {
+        "line": 275,
+        "value": "3px"
+      },
+      {
+        "line": 293,
+        "value": "20px"
+      },
+      {
+        "line": 331,
+        "value": "30px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\打卡中心\\Square.vue",
+    "hits": [
+      {
+        "line": 196,
+        "value": "40px"
+      },
+      {
+        "line": 230,
+        "value": "40px"
+      },
+      {
+        "line": 258,
+        "value": "30px"
+      },
+      {
+        "line": 287,
+        "value": "20px"
+      },
+      {
+        "line": 317,
+        "value": "30px"
+      },
+      {
+        "line": 323,
+        "value": "6px"
+      },
+      {
+        "line": 326,
+        "value": "30px"
+      },
+      {
+        "line": 400,
+        "value": "30px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\问卷中心\\FillSurvey.vue",
+    "hits": [
+      {
+        "line": 400,
+        "value": "12px"
+      },
+      {
+        "line": 424,
+        "value": "8px"
+      },
+      {
+        "line": 433,
+        "value": "12px"
+      },
+      {
+        "line": 463,
+        "value": "3px"
+      },
+      {
+        "line": 470,
+        "value": "3px"
+      },
+      {
+        "line": 482,
+        "value": "12px"
+      },
+      {
+        "line": 513,
+        "value": "12px"
+      },
+      {
+        "line": 548,
+        "value": "8px"
+      },
+      {
+        "line": 597,
+        "value": "8px"
+      },
+      {
+        "line": 615,
+        "value": "12px"
+      },
+      {
+        "line": 669,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\问卷中心\\Manage.vue",
+    "hits": [
+      {
+        "line": 291,
+        "value": "8px"
+      },
+      {
+        "line": 314,
+        "value": "12px"
+      },
+      {
+        "line": 341,
+        "value": "20px"
+      },
+      {
+        "line": 363,
+        "value": "12px"
+      },
+      {
+        "line": 406,
+        "value": "20px"
+      },
+      {
+        "line": 433,
+        "value": "6px"
+      },
+      {
+        "line": 489,
+        "value": "8px"
+      },
+      {
+        "line": 508,
+        "value": "0 0 6px 6px"
+      },
+      {
+        "line": 527,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\问卷中心\\SurveyEditor.vue",
+    "hits": [
+      {
+        "line": 727,
+        "value": "16px"
+      },
+      {
+        "line": 770,
+        "value": "12px"
+      },
+      {
+        "line": 789,
+        "value": "8px"
+      },
+      {
+        "line": 827,
+        "value": "12px"
+      },
+      {
+        "line": 845,
+        "value": "12px"
+      },
+      {
+        "line": 877,
+        "value": "12px"
+      },
+      {
+        "line": 885,
+        "value": "6px"
+      },
+      {
+        "line": 925,
+        "value": "4px"
+      },
+      {
+        "line": 971,
+        "value": "6px"
+      },
+      {
+        "line": 985,
+        "value": "50%"
+      },
+      {
+        "line": 1004,
+        "value": "6px"
+      },
+      {
+        "line": 1023,
+        "value": "8px"
+      },
+      {
+        "line": 1048,
+        "value": "6px"
+      },
+      {
+        "line": 1058,
+        "value": "8px"
+      },
+      {
+        "line": 1074,
+        "value": "6px"
+      },
+      {
+        "line": 1108,
+        "value": "6px"
+      },
+      {
+        "line": 1115,
+        "value": "50%"
+      },
+      {
+        "line": 1134,
+        "value": "6px"
+      },
+      {
+        "line": 1157,
+        "value": "8px"
+      },
+      {
+        "line": 1185,
+        "value": "8px"
+      },
+      {
+        "line": 1196,
+        "value": "8px"
+      },
+      {
+        "line": 1207,
+        "value": "8px"
+      },
+      {
+        "line": 1246,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\问卷中心\\SurveyList.vue",
+    "hits": [
+      {
+        "line": 166,
+        "value": "20px"
+      },
+      {
+        "line": 208,
+        "value": "8px"
+      },
+      {
+        "line": 236,
+        "value": "20px"
+      },
+      {
+        "line": 276,
+        "value": "12px"
+      },
+      {
+        "line": 301,
+        "value": "20px"
+      },
+      {
+        "line": 375,
+        "value": "20px"
+      },
+      {
+        "line": 410,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\活动中心\\问卷中心\\SurveyResult.vue",
+    "hits": [
+      {
+        "line": 253,
+        "value": "12px"
+      },
+      {
+        "line": 309,
+        "value": "12px"
+      },
+      {
+        "line": 334,
+        "value": "12px"
+      },
+      {
+        "line": 366,
+        "value": "4px"
+      },
+      {
+        "line": 373,
+        "value": "4px"
+      },
+      {
+        "line": 431,
+        "value": "4px"
+      },
+      {
+        "line": 438,
+        "value": "4px"
+      },
+      {
+        "line": 496,
+        "value": "4px"
+      },
+      {
+        "line": 503,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Battle\\index.vue",
+    "hits": [
+      {
+        "line": 402,
+        "value": "50%"
+      },
+      {
+        "line": 481,
+        "value": "2px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\components\\ChaiAchievements.vue",
+    "hits": [
+      {
+        "line": 60,
+        "value": "12px"
+      },
+      {
+        "line": 64,
+        "value": "8px"
+      },
+      {
+        "line": 71,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\components\\ChaiComments.vue",
+    "hits": [
+      {
+        "line": 131,
+        "value": "8px"
+      },
+      {
+        "line": 135,
+        "value": "8px"
+      },
+      {
+        "line": 136,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\components\\ChaiFeed.vue",
+    "hits": [
+      {
+        "line": 67,
+        "value": "12px"
+      },
+      {
+        "line": 71,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\components\\ChaiLeaderboardCard.vue",
+    "hits": [
+      {
+        "line": 34,
+        "value": "12px"
+      },
+      {
+        "line": 37,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\components\\CharacterForm.vue",
+    "hits": [
+      {
+        "line": 533,
+        "value": "4px"
+      },
+      {
+        "line": 552,
+        "value": "4px"
+      },
+      {
+        "line": 562,
+        "value": "50%"
+      },
+      {
+        "line": 756,
+        "value": "50%"
+      },
+      {
+        "line": 780,
+        "value": "4px"
+      },
+      {
+        "line": 790,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\OCs\\index.vue",
+    "hits": [
+      {
+        "line": 224,
+        "value": "2px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Works\\Create.vue",
+    "hits": [
+      {
+        "line": 143,
+        "value": "12px"
+      },
+      {
+        "line": 147,
+        "value": "8px"
+      },
+      {
+        "line": 148,
+        "value": "10px"
+      },
+      {
+        "line": 153,
+        "value": "8px"
+      },
+      {
+        "line": 155,
+        "value": "8px"
+      },
+      {
+        "line": 158,
+        "value": "8px"
+      },
+      {
+        "line": 159,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Works\\Detail.vue",
+    "hits": [
+      {
+        "line": 140,
+        "value": "8px"
+      },
+      {
+        "line": 144,
+        "value": "10px"
+      },
+      {
+        "line": 150,
+        "value": "12px"
+      },
+      {
+        "line": 152,
+        "value": "8px"
+      },
+      {
+        "line": 155,
+        "value": "8px"
+      },
+      {
+        "line": 159,
+        "value": "10px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Works\\index.vue",
+    "hits": [
+      {
+        "line": 109,
+        "value": "8px"
+      },
+      {
+        "line": 111,
+        "value": "8px"
+      },
+      {
+        "line": 112,
+        "value": "8px"
+      },
+      {
+        "line": 116,
+        "value": "999px"
+      },
+      {
+        "line": 120,
+        "value": "12px"
+      },
+      {
+        "line": 125,
+        "value": "50%"
+      },
+      {
+        "line": 131,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\OCs\\components\\detail.vue",
+    "hits": [
+      {
+        "line": 309,
+        "value": "10px"
+      },
+      {
+        "line": 422,
+        "value": "12px"
+      },
+      {
+        "line": 500,
+        "value": "0 4px 4px 0"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Joint\\components\\JointCard.vue",
+    "hits": [
+      {
+        "line": 221,
+        "value": "2px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Joint\\components\\JointDetail.vue",
+    "hits": [
+      {
+        "line": 660,
+        "value": "50%"
+      },
+      {
+        "line": 967,
+        "value": "8px"
+      },
+      {
+        "line": 981,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Joint\\components\\JointEdit.vue",
+    "hits": [
+      {
+        "line": 142,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Joint\\components\\JointForm.vue",
+    "hits": [
+      {
+        "line": 393,
+        "value": "4px"
+      },
+      {
+        "line": 412,
+        "value": "4px"
+      },
+      {
+        "line": 422,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Joint\\components\\MyJoint.vue",
+    "hits": [
+      {
+        "line": 206,
+        "value": "10px"
+      },
+      {
+        "line": 235,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Battle\\components\\BattleDetail.vue",
+    "hits": [
+      {
+        "line": 689,
+        "value": "10px"
+      },
+      {
+        "line": 717,
+        "value": "50%"
+      },
+      {
+        "line": 1259,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Battle\\components\\CreateBattle.vue",
+    "hits": [
+      {
+        "line": 894,
+        "value": "4px"
+      },
+      {
+        "line": 958,
+        "value": "4px"
+      },
+      {
+        "line": 1043,
+        "value": "4px"
+      },
+      {
+        "line": 1066,
+        "value": "4px"
+      },
+      {
+        "line": 1075,
+        "value": "50%"
+      },
+      {
+        "line": 1128,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Battle\\components\\Leaderboard.vue",
+    "hits": [
+      {
+        "line": 95,
+        "value": "8px"
+      },
+      {
+        "line": 98,
+        "value": "14px"
+      },
+      {
+        "line": 103,
+        "value": "50%"
+      },
+      {
+        "line": 107,
+        "value": "10px"
+      },
+      {
+        "line": 120,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\柴圈板块\\Battle\\components\\MyBattles.vue",
+    "hits": [
+      {
+        "line": 303,
+        "value": "10px"
+      },
+      {
+        "line": 348,
+        "value": "50%"
+      },
+      {
+        "line": 402,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\推送首页\\components\\CommunityFeed.vue",
+    "hits": [
+      {
+        "line": 110,
+        "value": "2px"
+      },
+      {
+        "line": 128,
+        "value": "3px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\推送首页\\components\\CommunityLinks.vue",
+    "hits": [
+      {
+        "line": 118,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\推送首页\\components\\DataPanel.vue",
+    "hits": [
+      {
+        "line": 78,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 84,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\推送首页\\components\\DevProgress.vue",
+    "hits": [
+      {
+        "line": 55,
+        "value": "12px"
+      },
+      {
+        "line": 65,
+        "value": "3px"
+      },
+      {
+        "line": 66,
+        "value": "3px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\推送首页\\components\\feedback.vue",
+    "hits": [
+      {
+        "line": 308,
+        "value": "6px"
+      },
+      {
+        "line": 340,
+        "value": "12px"
+      },
+      {
+        "line": 377,
+        "value": "6px"
+      },
+      {
+        "line": 404,
+        "value": "6px"
+      },
+      {
+        "line": 415,
+        "value": "50%"
+      },
+      {
+        "line": 431,
+        "value": "6px"
+      },
+      {
+        "line": 452,
+        "value": "50%"
+      },
+      {
+        "line": 490,
+        "value": "4px"
+      },
+      {
+        "line": 526,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\推送首页\\components\\FinancePanel.vue",
+    "hits": [
+      {
+        "line": 433,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 468,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 491,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 508,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 529,
+        "value": "4px"
+      },
+      {
+        "line": 540,
+        "value": "3px"
+      },
+      {
+        "line": 547,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\推送首页\\components\\LatestNews.vue",
+    "hits": [
+      {
+        "line": 196,
+        "value": "12px"
+      },
+      {
+        "line": 221,
+        "value": "20px"
+      },
+      {
+        "line": 225,
+        "value": "50%"
+      },
+      {
+        "line": 244,
+        "value": "8px"
+      },
+      {
+        "line": 273,
+        "value": "50%"
+      },
+      {
+        "line": 356,
+        "value": "4px"
+      },
+      {
+        "line": 364,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\推送首页\\components\\updateLog.vue",
+    "hits": [
+      {
+        "line": 89,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\工具箱\\boids\\index.vue",
+    "hits": [
+      {
+        "line": 405,
+        "value": "12px"
+      },
+      {
+        "line": 417,
+        "value": "10px"
+      },
+      {
+        "line": 426,
+        "value": "10px"
+      },
+      {
+        "line": 457,
+        "value": "6px"
+      },
+      {
+        "line": 472,
+        "value": "6px"
+      },
+      {
+        "line": 514,
+        "value": "50%"
+      },
+      {
+        "line": 525,
+        "value": "2px"
+      },
+      {
+        "line": 536,
+        "value": "50%"
+      },
+      {
+        "line": 550,
+        "value": "50%"
+      },
+      {
+        "line": 576,
+        "value": "6px"
+      },
+      {
+        "line": 599,
+        "value": "999px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\工具箱\\percolation\\index.vue",
+    "hits": [
+      {
+        "line": 873,
+        "value": "999px"
+      },
+      {
+        "line": 883,
+        "value": "50%"
+      },
+      {
+        "line": 910,
+        "value": "12px"
+      },
+      {
+        "line": 953,
+        "value": "6px"
+      },
+      {
+        "line": 982,
+        "value": "6px"
+      },
+      {
+        "line": 1041,
+        "value": "12px"
+      },
+      {
+        "line": 1053,
+        "value": "8px"
+      },
+      {
+        "line": 1082,
+        "value": "12px"
+      },
+      {
+        "line": 1158,
+        "value": "6px"
+      },
+      {
+        "line": 1226,
+        "value": "3px"
+      },
+      {
+        "line": 1264,
+        "value": "999px"
+      },
+      {
+        "line": 1290,
+        "value": "50%"
+      },
+      {
+        "line": 1311,
+        "value": "50%"
+      },
+      {
+        "line": 1328,
+        "value": "8px"
+      },
+      {
+        "line": 1370,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\Custom\\index.vue",
+    "hits": [
+      {
+        "line": 411,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 458,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 478,
+        "value": "50%"
+      },
+      {
+        "line": 518,
+        "value": "8px"
+      },
+      {
+        "line": 539,
+        "value": "12px"
+      },
+      {
+        "line": 593,
+        "value": "4px"
+      },
+      {
+        "line": 673,
+        "value": "8px"
+      },
+      {
+        "line": 716,
+        "value": "10px"
+      },
+      {
+        "line": 742,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\games\\TempHolder.vue",
+    "hits": [
+      {
+        "line": 53,
+        "value": "4px"
+      },
+      {
+        "line": 121,
+        "value": "2px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\games\\Go\\index.vue",
+    "hits": [
+      {
+        "line": 214,
+        "value": "4px"
+      },
+      {
+        "line": 230,
+        "value": "50%"
+      },
+      {
+        "line": 241,
+        "value": "50%"
+      },
+      {
+        "line": 247,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\games\\Gobang\\index.vue",
+    "hits": [
+      {
+        "line": 216,
+        "value": "16px"
+      },
+      {
+        "line": 243,
+        "value": "8px"
+      },
+      {
+        "line": 252,
+        "value": "8px"
+      },
+      {
+        "line": 262,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\games\\Minecraft\\index.vue",
+    "hits": [
+      {
+        "line": 83,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 85,
+        "value": "8px"
+      },
+      {
+        "line": 86,
+        "value": "8px"
+      },
+      {
+        "line": 88,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\games\\Question\\index.vue",
+    "hits": [
+      {
+        "line": 144,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\games\\Xiangqi\\index.vue",
+    "hits": [
+      {
+        "line": 244,
+        "value": "4px"
+      },
+      {
+        "line": 276,
+        "value": "50%"
+      },
+      {
+        "line": 282,
+        "value": "50%"
+      },
+      {
+        "line": 294,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\games\\Question\\components\\TestGame.vue",
+    "hits": [
+      {
+        "line": 228,
+        "value": "2px"
+      },
+      {
+        "line": 260,
+        "value": "4px"
+      },
+      {
+        "line": 354,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\games\\Gobang\\components\\CreateRoom.vue",
+    "hits": [
+      {
+        "line": 74,
+        "value": "12px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\games\\Gobang\\components\\GameBoard.vue",
+    "hits": [
+      {
+        "line": 437,
+        "value": "20px"
+      },
+      {
+        "line": 475,
+        "value": "12px"
+      },
+      {
+        "line": 489,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\games\\Gobang\\components\\WaitingRoom.vue",
+    "hits": [
+      {
+        "line": 145,
+        "value": "12px"
+      },
+      {
+        "line": 162,
+        "value": "8px"
+      },
+      {
+        "line": 180,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太虚游\\Custom\\components\\CreateQuestionnaire.vue",
+    "hits": [
+      {
+        "line": 760,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\GraphView.vue",
+    "hits": [
+      {
+        "line": 240,
+        "value": "12px"
+      },
+      {
+        "line": 246,
+        "value": "20px"
+      },
+      {
+        "line": 274,
+        "value": "50%"
+      },
+      {
+        "line": 279,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\HistoryPanel.vue",
+    "hits": [
+      {
+        "line": 128,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 138,
+        "value": "4px"
+      },
+      {
+        "line": 151,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 163,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\NoteEditorView.vue",
+    "hits": [
+      {
+        "line": 150,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\NoteSettingsPanel.vue",
+    "hits": [
+      {
+        "line": 190,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 193,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 206,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 207,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 213,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 214,
+        "value": "50%"
+      },
+      {
+        "line": 223,
+        "value": "50%"
+      },
+      {
+        "line": 224,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\PublishModal.vue",
+    "hits": [
+      {
+        "line": 194,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 198,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 202,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 203,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 204,
+        "value": "4px"
+      },
+      {
+        "line": 209,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\QuickEditorDrawer.vue",
+    "hits": [
+      {
+        "line": 85,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 88,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 89,
+        "value": "50%"
+      },
+      {
+        "line": 95,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\RightSidePanel.vue",
+    "hits": [
+      {
+        "line": 407,
+        "value": "6px"
+      },
+      {
+        "line": 408,
+        "value": "4px"
+      },
+      {
+        "line": 415,
+        "value": "4px"
+      },
+      {
+        "line": 421,
+        "value": "4px"
+      },
+      {
+        "line": 426,
+        "value": "8px"
+      },
+      {
+        "line": 431,
+        "value": "6px"
+      },
+      {
+        "line": 449,
+        "value": "8px"
+      },
+      {
+        "line": 460,
+        "value": "6px"
+      },
+      {
+        "line": 508,
+        "value": "10px"
+      },
+      {
+        "line": 544,
+        "value": "4px"
+      },
+      {
+        "line": 574,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\SidebarIndex.vue",
+    "hits": [
+      {
+        "line": 350,
+        "value": "8px"
+      },
+      {
+        "line": 351,
+        "value": "4px"
+      },
+      {
+        "line": 363,
+        "value": "8px"
+      },
+      {
+        "line": 364,
+        "value": "4px"
+      },
+      {
+        "line": 372,
+        "value": "6px"
+      },
+      {
+        "line": 395,
+        "value": "2px"
+      },
+      {
+        "line": 459,
+        "value": "12px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\TopBar.vue",
+    "hits": [
+      {
+        "line": 64,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\WikiImportModal.vue",
+    "hits": [
+      {
+        "line": 45,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 47,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 50,
+        "value": "40px"
+      },
+      {
+        "line": 52,
+        "value": "40px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\WorkspaceBlog.vue",
+    "hits": [
+      {
+        "line": 193,
+        "value": "20px"
+      },
+      {
+        "line": 199,
+        "value": "30px"
+      },
+      {
+        "line": 202,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\WorkspaceNote.vue",
+    "hits": [
+      {
+        "line": 39,
+        "value": "0"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\WorkspacePost.vue",
+    "hits": [
+      {
+        "line": 137,
+        "value": "24px"
+      },
+      {
+        "line": 155,
+        "value": "50%"
+      },
+      {
+        "line": 187,
+        "value": "20px"
+      },
+      {
+        "line": 230,
+        "value": "40px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\WorkspaceSchedule.vue",
+    "hits": [
+      {
+        "line": 507,
+        "value": "8px"
+      },
+      {
+        "line": 536,
+        "value": "5px"
+      },
+      {
+        "line": 559,
+        "value": "50%"
+      },
+      {
+        "line": 654,
+        "value": "50%"
+      },
+      {
+        "line": 685,
+        "value": "8px"
+      },
+      {
+        "line": 725,
+        "value": "3px"
+      },
+      {
+        "line": 731,
+        "value": "50%"
+      },
+      {
+        "line": 735,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初灵脉\\components\\WorkspaceWiki.vue",
+    "hits": [
+      {
+        "line": 497,
+        "value": "20px"
+      },
+      {
+        "line": 516,
+        "value": "30px"
+      },
+      {
+        "line": 524,
+        "value": "30px"
+      },
+      {
+        "line": 552,
+        "value": "30px"
+      },
+      {
+        "line": 590,
+        "value": "24px"
+      },
+      {
+        "line": 648,
+        "value": "20px"
+      },
+      {
+        "line": 687,
+        "value": "16px"
+      },
+      {
+        "line": 729,
+        "value": "12px"
+      },
+      {
+        "line": 737,
+        "value": "6px"
+      },
+      {
+        "line": 777,
+        "value": "12px"
+      },
+      {
+        "line": 787,
+        "value": "6px"
+      },
+      {
+        "line": 815,
+        "value": "8px"
+      },
+      {
+        "line": 900,
+        "value": "30px"
+      },
+      {
+        "line": 923,
+        "value": "10px"
+      },
+      {
+        "line": 955,
+        "value": "10px"
+      },
+      {
+        "line": 979,
+        "value": "8px"
+      },
+      {
+        "line": 1003,
+        "value": "10px"
+      },
+      {
+        "line": 1021,
+        "value": "20px"
+      },
+      {
+        "line": 1052,
+        "value": "50%"
+      },
+      {
+        "line": 1064,
+        "value": "12px"
+      },
+      {
+        "line": 1086,
+        "value": "10px"
+      },
+      {
+        "line": 1101,
+        "value": "20px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初协作\\协作组件\\ProjectDeliveries.vue",
+    "hits": [
+      {
+        "line": 347,
+        "value": "2px"
+      },
+      {
+        "line": 361,
+        "value": "50%"
+      },
+      {
+        "line": 371,
+        "value": "2px"
+      },
+      {
+        "line": 388,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 406,
+        "value": "2px"
+      },
+      {
+        "line": 411,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初协作\\协作组件\\ProjectDetail.vue",
+    "hits": [
+      {
+        "line": 151,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初协作\\协作组件\\ProjectDocument.vue",
+    "hits": [
+      {
+        "line": 159,
+        "value": "var(--radius-lg)"
+      },
+      {
+        "line": 164,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 177,
+        "value": "8px"
+      },
+      {
+        "line": 180,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初协作\\协作组件\\ProjectKanban.vue",
+    "hits": [
+      {
+        "line": 496,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 559,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 593,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 597,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 618,
+        "value": "50%"
+      },
+      {
+        "line": 621,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 626,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 633,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初协作\\协作组件\\ProjectMember.vue",
+    "hits": [
+      {
+        "line": 395,
+        "value": "2px"
+      },
+      {
+        "line": 418,
+        "value": "2px"
+      },
+      {
+        "line": 452,
+        "value": "50%"
+      },
+      {
+        "line": 495,
+        "value": "2px"
+      },
+      {
+        "line": 497,
+        "value": "2px"
+      },
+      {
+        "line": 504,
+        "value": "50%"
+      },
+      {
+        "line": 509,
+        "value": "2px"
+      },
+      {
+        "line": 526,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 533,
+        "value": "2px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初协作\\协作组件\\ProjectReports.vue",
+    "hits": [
+      {
+        "line": 325,
+        "value": "20px"
+      },
+      {
+        "line": 327,
+        "value": "2px"
+      },
+      {
+        "line": 338,
+        "value": "50%"
+      },
+      {
+        "line": 347,
+        "value": "2px"
+      },
+      {
+        "line": 356,
+        "value": "2px"
+      },
+      {
+        "line": 375,
+        "value": "2px"
+      },
+      {
+        "line": 376,
+        "value": "50%"
+      },
+      {
+        "line": 379,
+        "value": "2px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初协作\\协作组件\\ProjectSettings.vue",
+    "hits": [
+      {
+        "line": 312,
+        "value": "0"
+      },
+      {
+        "line": 407,
+        "value": "2px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初协作\\协作组件\\ProjectTaskDetail.vue",
+    "hits": [
+      {
+        "line": 323,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 330,
+        "value": "2px"
+      },
+      {
+        "line": 346,
+        "value": "20px"
+      },
+      {
+        "line": 367,
+        "value": "8px"
+      },
+      {
+        "line": 380,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 422,
+        "value": "8px"
+      },
+      {
+        "line": 447,
+        "value": "4px"
+      },
+      {
+        "line": 454,
+        "value": "8px"
+      },
+      {
+        "line": 463,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\太初协作\\协作组件\\ProjectTimeline.vue",
+    "hits": [
+      {
+        "line": 279,
+        "value": "3px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\Novels\\Detail.vue",
+    "hits": [
+      {
+        "line": 249,
+        "value": "12px"
+      },
+      {
+        "line": 255,
+        "value": "6px"
+      },
+      {
+        "line": 256,
+        "value": "999px"
+      },
+      {
+        "line": 261,
+        "value": "8px"
+      },
+      {
+        "line": 265,
+        "value": "6px"
+      },
+      {
+        "line": 272,
+        "value": "8px"
+      },
+      {
+        "line": 286,
+        "value": "10px"
+      },
+      {
+        "line": 290,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 294,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\Novels\\index.vue",
+    "hits": [
+      {
+        "line": 152,
+        "value": "8px"
+      },
+      {
+        "line": 154,
+        "value": "999px"
+      },
+      {
+        "line": 158,
+        "value": "12px"
+      },
+      {
+        "line": 163,
+        "value": "6px"
+      },
+      {
+        "line": 170,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 173,
+        "value": "8px"
+      },
+      {
+        "line": 177,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\AttributeList.vue",
+    "hits": [
+      {
+        "line": 123,
+        "value": "6px"
+      },
+      {
+        "line": 148,
+        "value": "6px"
+      },
+      {
+        "line": 161,
+        "value": "6px"
+      },
+      {
+        "line": 185,
+        "value": "6px"
+      },
+      {
+        "line": 202,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\CardEditor.css",
+    "hits": [
+      {
+        "line": 5,
+        "value": "0"
+      },
+      {
+        "line": 11,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 12,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 15,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 17,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 20,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 31,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 36,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 41,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 45,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 54,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\CardEditor.vue",
+    "hits": [
+      {
+        "line": 468,
+        "value": "8px"
+      },
+      {
+        "line": 470,
+        "value": "8px"
+      },
+      {
+        "line": 472,
+        "value": "12px"
+      },
+      {
+        "line": 472,
+        "value": "6px"
+      },
+      {
+        "line": 474,
+        "value": "6px"
+      },
+      {
+        "line": 476,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\CardRefTextarea.vue",
+    "hits": [
+      {
+        "line": 130,
+        "value": "8px"
+      },
+      {
+        "line": 153,
+        "value": "8px"
+      },
+      {
+        "line": 181,
+        "value": "4px"
+      },
+      {
+        "line": 201,
+        "value": "5px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\ContentBlockManager.vue",
+    "hits": [
+      {
+        "line": 261,
+        "value": "12px"
+      },
+      {
+        "line": 289,
+        "value": "6px"
+      },
+      {
+        "line": 305,
+        "value": "16px"
+      },
+      {
+        "line": 344,
+        "value": "8px"
+      },
+      {
+        "line": 364,
+        "value": "8px"
+      },
+      {
+        "line": 390,
+        "value": "4px"
+      },
+      {
+        "line": 409,
+        "value": "10px"
+      },
+      {
+        "line": 442,
+        "value": "8px"
+      },
+      {
+        "line": 458,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\DynamicForm.vue",
+    "hits": [
+      {
+        "line": 255,
+        "value": "6px"
+      },
+      {
+        "line": 282,
+        "value": "6px"
+      },
+      {
+        "line": 310,
+        "value": "6px"
+      },
+      {
+        "line": 323,
+        "value": "6px"
+      },
+      {
+        "line": 344,
+        "value": "12px"
+      },
+      {
+        "line": 373,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\EmbeddedCard.vue",
+    "hits": [
+      {
+        "line": 249,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 264,
+        "value": "6px"
+      },
+      {
+        "line": 316,
+        "value": "4px"
+      },
+      {
+        "line": 395,
+        "value": "4px"
+      },
+      {
+        "line": 432,
+        "value": "6px"
+      },
+      {
+        "line": 456,
+        "value": "5px"
+      },
+      {
+        "line": 473,
+        "value": "5px"
+      },
+      {
+        "line": 566,
+        "value": "3px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\FlatWorldGraph.vue",
+    "hits": [
+      {
+        "line": 358,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\ProjectCardDocument.vue",
+    "hits": [
+      {
+        "line": 211,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 262,
+        "value": "4px"
+      },
+      {
+        "line": 291,
+        "value": "6px"
+      },
+      {
+        "line": 347,
+        "value": "6px"
+      },
+      {
+        "line": 362,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\ProjectCardNavigation.vue",
+    "hits": [
+      {
+        "line": 113,
+        "value": "8px"
+      },
+      {
+        "line": 131,
+        "value": "6px"
+      },
+      {
+        "line": 161,
+        "value": "6px"
+      },
+      {
+        "line": 180,
+        "value": "8px"
+      },
+      {
+        "line": 192,
+        "value": "4px"
+      },
+      {
+        "line": 215,
+        "value": "4px"
+      },
+      {
+        "line": 225,
+        "value": "3px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\ProjectHeader.vue",
+    "hits": [
+      {
+        "line": 73,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 75,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 75,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\RelationGraph.vue",
+    "hits": [
+      {
+        "line": 133,
+        "value": "6px"
+      },
+      {
+        "line": 135,
+        "value": "0"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\RelationList.vue",
+    "hits": [
+      {
+        "line": 118,
+        "value": "12px"
+      },
+      {
+        "line": 133,
+        "value": "8px"
+      },
+      {
+        "line": 164,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\RelationSelector.vue",
+    "hits": [
+      {
+        "line": 38,
+        "value": "8px"
+      },
+      {
+        "line": 40,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\SpatialWorldGraph.vue",
+    "hits": [
+      {
+        "line": 22,
+        "value": "6px"
+      },
+      {
+        "line": 23,
+        "value": "5px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\TagInput.vue",
+    "hits": [
+      {
+        "line": 98,
+        "value": "6px"
+      },
+      {
+        "line": 109,
+        "value": "6px"
+      },
+      {
+        "line": 130,
+        "value": "12px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\TimelineView.vue",
+    "hits": [
+      {
+        "line": 100,
+        "value": "8px"
+      },
+      {
+        "line": 106,
+        "value": "50%"
+      },
+      {
+        "line": 123,
+        "value": "10px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\WorldQuotaBanner.vue",
+    "hits": [
+      {
+        "line": 34,
+        "value": "12px"
+      },
+      {
+        "line": 61,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\views\\世界观管理\\世界观组件\\WorldTransfer.vue",
+    "hits": [
+      {
+        "line": 269,
+        "value": "8px"
+      },
+      {
+        "line": 271,
+        "value": "10px"
+      },
+      {
+        "line": 271,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritTextComponents\\EditorBubbleMenu.vue",
+    "hits": [
+      {
+        "line": 97,
+        "value": "8px"
+      },
+      {
+        "line": 106,
+        "value": "8px"
+      },
+      {
+        "line": 121,
+        "value": "4px"
+      },
+      {
+        "line": 141,
+        "value": "50%"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritTextComponents\\MathBlockView.vue",
+    "hits": [
+      {
+        "line": 76,
+        "value": "8px"
+      },
+      {
+        "line": 96,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritTextComponents\\MathInlineView.vue",
+    "hits": [
+      {
+        "line": 73,
+        "value": "4px"
+      },
+      {
+        "line": 87,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritTextComponents\\PanelGraphBlock.vue",
+    "hits": [
+      {
+        "line": 312,
+        "value": "20px"
+      },
+      {
+        "line": 332,
+        "value": "12px"
+      },
+      {
+        "line": 339,
+        "value": "4px"
+      },
+      {
+        "line": 351,
+        "value": "4px"
+      },
+      {
+        "line": 355,
+        "value": "3px"
+      },
+      {
+        "line": 357,
+        "value": "4px"
+      },
+      {
+        "line": 358,
+        "value": "4px"
+      },
+      {
+        "line": 362,
+        "value": "24px"
+      },
+      {
+        "line": 364,
+        "value": "18px"
+      },
+      {
+        "line": 370,
+        "value": "10px"
+      },
+      {
+        "line": 372,
+        "value": "50%"
+      },
+      {
+        "line": 375,
+        "value": "16px"
+      },
+      {
+        "line": 378,
+        "value": "50%"
+      },
+      {
+        "line": 383,
+        "value": "10px"
+      },
+      {
+        "line": 388,
+        "value": "3px"
+      },
+      {
+        "line": 393,
+        "value": "4px"
+      },
+      {
+        "line": 395,
+        "value": "10px"
+      },
+      {
+        "line": 396,
+        "value": "6px"
+      },
+      {
+        "line": 403,
+        "value": "12px"
+      },
+      {
+        "line": 406,
+        "value": "6px"
+      },
+      {
+        "line": 410,
+        "value": "6px"
+      },
+      {
+        "line": 415,
+        "value": "14px"
+      },
+      {
+        "line": 420,
+        "value": "6px"
+      },
+      {
+        "line": 423,
+        "value": "6px"
+      },
+      {
+        "line": 425,
+        "value": "6px"
+      },
+      {
+        "line": 427,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritTextComponents\\PdfEmbedView.vue",
+    "hits": [
+      {
+        "line": 38,
+        "value": "12px"
+      },
+      {
+        "line": 63,
+        "value": "6px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritTextComponents\\spirit-typography.css",
+    "hits": [
+      {
+        "line": 20,
+        "value": "4px"
+      },
+      {
+        "line": 30,
+        "value": "4px"
+      },
+      {
+        "line": 50,
+        "value": "12px"
+      },
+      {
+        "line": 118,
+        "value": "12px"
+      }
+    ]
+  },
+  {
+    "path": "src\\components\\SpiritTextComponents\\SpiritPreview.vue",
+    "hits": [
+      {
+        "line": 101,
+        "value": "4px"
+      }
+    ]
+  },
+  {
+    "path": "src\\assets\\styles\\base.css",
+    "hits": [
+      {
+        "line": 10,
+        "value": "4px"
+      },
+      {
+        "line": 12,
+        "value": "8px"
+      }
+    ]
+  },
+  {
+    "path": "src\\assets\\styles\\content.css",
+    "hits": [
+      {
+        "line": 21,
+        "value": "0"
+      },
+      {
+        "line": 42,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 54,
+        "value": "var(--content-radius)"
+      },
+      {
+        "line": 71,
+        "value": "0"
+      },
+      {
+        "line": 78,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 79,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 81,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 82,
+        "value": "var(--radius-md)"
+      },
+      {
+        "line": 84,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 89,
+        "value": "0"
+      }
+    ]
+  },
+  {
+    "path": "src\\assets\\styles\\theme-rhine.css",
+    "hits": [
+      {
+        "line": 5,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 9,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 65,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 75,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 78,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 86,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 87,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 92,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 94,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 100,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 101,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 102,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 120,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 126,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 131,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 132,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 145,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 148,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 154,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 158,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 176,
+        "value": "50%"
+      },
+      {
+        "line": 177,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 193,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 202,
+        "value": "var(--radius-sm)"
+      },
+      {
+        "line": 207,
+        "value": "0"
+      },
+      {
+        "line": 213,
+        "value": "var(--radius-sm)"
+      }
+    ]
+  }
+]

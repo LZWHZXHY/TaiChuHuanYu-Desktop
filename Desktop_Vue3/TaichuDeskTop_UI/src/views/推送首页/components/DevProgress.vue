@@ -47,12 +47,15 @@ const visibleProjects = computed(() => {
 
 onMounted(async () => {
   loading.value = true
-  try { projects.value = await devProjectApi.list() } catch { projects.value = [] } finally { loading.value = false }
+  try {
+    const data = await devProjectApi.list()
+    projects.value = Array.isArray(data) ? data : []
+  } catch { projects.value = [] } finally { loading.value = false }
 })
 </script>
 
 <style scoped>
-.dev-progress { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 12px; padding: 20px; }
+.dev-progress { background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 0; padding: 20px; }
 .dp-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 14px; }
 .dp-title { margin: 0; font-size: 1.05rem; }
 .dp-all { margin-left: auto; color: var(--accent-color); font-size: .8rem; text-decoration: none; white-space: nowrap; }
@@ -62,7 +65,7 @@ onMounted(async () => {
 .dp-item { display: flex; align-items: center; gap: 10px; }
 .dp-icon { font-size: 1.1rem; flex-shrink: 0; }
 .dp-name { flex: 0 0 auto; max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; }
-.dp-bar { flex: 1; height: 6px; background: var(--bg-sub); border-radius: 3px; overflow: hidden; }
-.dp-fill { display: block; height: 100%; background: linear-gradient(90deg, var(--accent-color), var(--success)); border-radius: 3px; }
+.dp-bar { flex: 1; height: 6px; background: var(--bg-sub); border-radius: 0; overflow: hidden; }
+.dp-fill { display: block; height: 100%; background: linear-gradient(90deg, var(--accent-color), var(--success)); border-radius: 0; }
 .dp-pct { flex: 0 0 auto; font-size: .78rem; color: var(--text-secondary); font-variant-numeric: tabular-nums; min-width: 38px; text-align: right; }
 </style>

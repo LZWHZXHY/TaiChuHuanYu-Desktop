@@ -870,7 +870,7 @@ onMounted(() => {
   gap: 6px;
   font-size: 12px;
   padding: 5px 12px;
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--tb-card-bg);
   border: 1px solid var(--tb-border);
   color: var(--tb-text-muted);
@@ -907,7 +907,7 @@ onMounted(() => {
   padding: 14px 20px;
   background: var(--tb-card-bg);
   border: 1px solid var(--tb-border);
-  border-radius: 12px;
+  border-radius: 0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
 
@@ -950,7 +950,7 @@ onMounted(() => {
 .control-panel select {
   padding: 6px 10px;
   border: 1px solid var(--tb-border);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--tb-bg);
   color: var(--tb-text);
   font-size: 13px;
@@ -979,7 +979,7 @@ onMounted(() => {
 .control-panel button {
   padding: 7px 14px;
   border: 1px solid var(--tb-accent);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--tb-accent);
   color: #fff;
   font-size: 13px;
@@ -1038,7 +1038,7 @@ onMounted(() => {
 .canvas-card {
   background: var(--tb-card-bg);
   border: 1px solid var(--tb-border);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -1050,7 +1050,7 @@ onMounted(() => {
   width: 100%;
   aspect-ratio: 1 / 1;
   height: auto;
-  border-radius: 8px;
+  border-radius: 0;
   display: block;
   background: #161b22;
 }
@@ -1079,7 +1079,7 @@ onMounted(() => {
 .card {
   background: var(--tb-card-bg);
   border: 1px solid var(--tb-border);
-  border-radius: 12px;
+  border-radius: 0;
   padding: 16px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
 }
@@ -1155,7 +1155,7 @@ onMounted(() => {
 .btn-clear {
   font-size: 11px;
   padding: 3px 10px;
-  border-radius: 6px;
+  border-radius: 0;
   border: 1px solid var(--tb-border);
   background: transparent;
   color: var(--tb-text-dim);
@@ -1223,7 +1223,7 @@ onMounted(() => {
   flex: 1;
   height: 5px;
   background: #30363d;
-  border-radius: 3px;
+  border-radius: 0;
   overflow: hidden;
   min-width: 32px;
 }
@@ -1261,7 +1261,7 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 3px 10px 3px 8px;
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--tb-bg);
   border: 1px solid var(--tb-border);
   font-size: 12px;
@@ -1325,7 +1325,7 @@ onMounted(() => {
   width: 100%;
   aspect-ratio: 8 / 3;
   height: auto;
-  border-radius: 8px;
+  border-radius: 0;
   display: block;
   background: #161b22;
 }
@@ -1367,7 +1367,7 @@ onMounted(() => {
   font-size: 13px;
   color: var(--tb-text-muted);
   padding: 10px 18px;
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--tb-card-bg);
   border: 1px solid var(--tb-border);
   text-align: center;

@@ -1,5 +1,6 @@
 ﻿// Services/LingMai/LingMaiService.cs
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using TaiChuWeb_V2.Models.FinalNodes;
@@ -14,10 +15,13 @@ namespace TaiChuWeb_V2.Services.LingMai
     public class LingMaiService
     {
         private readonly AppDbContext _context;
+        private readonly ILogger<LingMaiService>? _logger;
 
-        public LingMaiService(AppDbContext context)
+        // logger 可选：依赖注入会自动提供；回归测试直接 new LingMaiService(db) 仍可用。
+        public LingMaiService(AppDbContext context, ILogger<LingMaiService>? logger = null)
         {
             _context = context;
+            _logger = logger;
         }
 
         public async Task<List<NoteReferenceDto>> GetNoteLinksAsync(Guid noteId, bool incoming)
@@ -129,10 +133,29 @@ namespace TaiChuWeb_V2.Services.LingMai
             return new NoteSyncDto { NoteId = noteId, Blocks = blocks };
         }
 
-        public enum NoteSaveResult { Saved, NotFound, Forbidden, DeadlockIgnored, DuplicateIgnored, ConcurrencyIgnored }
+        // Conflict：多次重试后仍冲突，必须告诉前端「没保存成功」，不能再当作成功返回。
+        public enum NoteSaveResult { Saved, NotFound, Forbidden, DeadlockIgnored, DuplicateIgnored, ConcurrencyIgnored, Conflict }
 
-        // 持久化及重试归服务处理；控制器负责将结果映射为原有 HTTP 响应。
+        private const int MaxSaveAttempts = 3;
+
+        // 持久化及重试归服务处理；控制器负责将结果映射为 HTTP 响应。
+        // 死锁(1213)、主键/唯一索引冲突(1062)、并发冲突通常来自同一篇笔记的两次保存交错：
+        // 清空跟踪状态、稍等后整篇重写一次即可成功。重试仍失败则返回 Conflict，由前端提示并重试，绝不静默丢弃。
         public async Task<NoteSaveResult> SaveNoteAsync(NoteSyncDto dto, string userId)
+        {
+            for (var attempt = 1; ; attempt++)
+            {
+                var result = await SaveNoteOnceAsync(dto, userId);
+                if (result is not (NoteSaveResult.DeadlockIgnored or NoteSaveResult.DuplicateIgnored or NoteSaveResult.ConcurrencyIgnored))
+                    return result;
+                _logger?.LogWarning("笔记 {NoteId} 第 {Attempt} 次保存冲突：{Result}", dto.NoteId, attempt, result);
+                if (attempt >= MaxSaveAttempts) return NoteSaveResult.Conflict;
+                _context.ChangeTracker.Clear();
+                await Task.Delay(100 * attempt);
+            }
+        }
+
+        private async Task<NoteSaveResult> SaveNoteOnceAsync(NoteSyncDto dto, string userId)
         {
             var strategy = _context.Database.CreateExecutionStrategy();
             return await strategy.ExecuteAsync(async () =>
@@ -211,15 +234,23 @@ namespace TaiChuWeb_V2.Services.LingMai
 
                     if (dto.Tags != null)
                     {
-                        note.Tags = dto.Tags.Any() ? JsonSerializer.Serialize(dto.Tags) : null;
+                        var savedTags = dto.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).Distinct().ToList();
+                        note.Tags = savedTags.Any() ? JsonSerializer.Serialize(savedTags) : null;
                         var oldTags = await _context.TagAssignments.Where(ta => ta.EntityId == note.Id.ToString() && ta.EntityType == "Note").ToListAsync();
-                        _context.TagAssignments.RemoveRange(oldTags);
+                        // 只删除不再使用的关联、只新增缺少的关联，不依赖同一批次里先删后插的执行顺序。
+                        var keptTagIds = new HashSet<Guid>();
 
                         if (dto.Tags.Any())
                         {
-                            var cleanTags = dto.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim()).ToList();
+                            // tags.NormalizedName 是全局唯一索引（画廊、百科也共用这张表），必须按名称全局查找。
+                            // 以前只在当前空间里查，别处已有同名标签时插入会撞唯一索引，整次保存被回滚且前端仍收到成功。
+                            // 同一篇里重复的标签也要去重，否则 tag_assignments 的唯一索引同样会冲突。
+                            var cleanTags = dto.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.Trim())
+                                .GroupBy(t => t.ToLower()).Select(g => g.First()).ToList();
                             var normalizedTags = cleanTags.Select(t => t.ToLower()).ToList();
-                            var existingDbTags = await _context.Tags.Where(t => t.SpaceId == note.SpaceId && normalizedTags.Contains(t.NormalizedName)).ToDictionaryAsync(t => t.NormalizedName);
+                            var existingDbTags = (await _context.Tags.Where(t => normalizedTags.Contains(t.NormalizedName)).ToListAsync())
+                                .GroupBy(t => t.NormalizedName, StringComparer.OrdinalIgnoreCase)
+                                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
                             foreach (var cleanName in cleanTags)
                             {
@@ -230,9 +261,11 @@ namespace TaiChuWeb_V2.Services.LingMai
                                     _context.Tags.Add(tag);
                                     existingDbTags[normalizedName] = tag;
                                 }
-                                _context.TagAssignments.Add(new TagAssignment { Id = Guid.NewGuid(), TagId = tag.Id, EntityId = note.Id.ToString(), EntityType = "Note", CreatedAt = DateTime.UtcNow });
+                                if (keptTagIds.Add(tag.Id) && !oldTags.Any(old => old.TagId == tag.Id))
+                                    _context.TagAssignments.Add(new TagAssignment { Id = Guid.NewGuid(), TagId = tag.Id, EntityId = note.Id.ToString(), EntityType = "Note", CreatedAt = DateTime.UtcNow });
                             }
                         }
+                        _context.TagAssignments.RemoveRange(oldTags.Where(old => !keptTagIds.Contains(old.TagId)));
                     }
                     // ========================================================================
                     // 🌟 3.5 投影 block_links（块级引用的边）

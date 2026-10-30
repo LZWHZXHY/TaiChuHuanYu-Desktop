@@ -5,6 +5,7 @@ export interface ChaiFeedItem {
   type: 'work' | 'oc' | 'battle' | 'joint';
   title: string;
   authorName: string;
+  authorId?: string | null;
   coverUrl: string | null;
   createdAt: string;
 }

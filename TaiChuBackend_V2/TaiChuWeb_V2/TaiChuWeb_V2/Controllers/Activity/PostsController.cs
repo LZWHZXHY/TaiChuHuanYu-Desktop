@@ -42,6 +42,7 @@ public class PostsController : ControllerBase
             {
                 Id = p.Id,
                 Author = p.Author.Username,
+                AuthorId = p.AuthorId,
                 Content = p.Content,
                 CreatedAt = p.CreatedAt,
                 ReplyCount = p.Replies.Count,
@@ -49,6 +50,7 @@ public class PostsController : ControllerBase
                 {
                     Id = r.Id,
                     Author = r.Author.Username,
+                    AuthorId = r.AuthorId,
                     Content = r.Content,
                     CreatedAt = r.CreatedAt
                 }).ToList()
@@ -90,6 +92,7 @@ public class PostsController : ControllerBase
         {
             Id = post.Id,
             Author = (await _context.Users.FindAsync(userId))?.Username ?? string.Empty,
+            AuthorId = userId,
             Content = post.Content,
             CreatedAt = post.CreatedAt,
             ReplyCount = 0,
@@ -113,6 +116,7 @@ public class PostsController : ControllerBase
         {
             Id = post.Id,
             Author = post.Author.Username,
+            AuthorId = post.AuthorId,
             Content = post.Content,
             CreatedAt = post.CreatedAt,
             ReplyCount = post.Replies.Count,
@@ -120,6 +124,7 @@ public class PostsController : ControllerBase
             {
                 Id = r.Id,
                 Author = r.Author.Username,
+                AuthorId = r.AuthorId,
                 Content = r.Content,
                 CreatedAt = r.CreatedAt
             }).ToList()
@@ -158,6 +163,7 @@ public class PostsController : ControllerBase
         {
             Id = reply.Id,
             Author = (await _context.Users.FindAsync(userId))?.Username ?? string.Empty,
+            AuthorId = userId,
             Content = reply.Content,
             CreatedAt = reply.CreatedAt
         });

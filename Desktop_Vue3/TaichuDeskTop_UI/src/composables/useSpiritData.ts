@@ -4,7 +4,7 @@ import { lingmaiApi } from '../api/lingmai';
 import { debounce } from 'lodash-es';
 import { useAutoSave } from './useAutoSave';
 import { createNoteSyncPayload } from '../utils/editorHelpers';
-import type { NoteType } from '../utils/NoteType';
+import { DEFAULT_NOTE_TITLE, type NoteType } from '../utils/NoteType';
 import { wikiApi } from '../api/Wiki'; // 引入 Wiki API
 
 const isWikiMode = ref(false);
@@ -164,7 +164,7 @@ export function useSpiritData() {
       // 🌟 精准解析后端新加的所有字段
       notes.value = res.map((n: any) => ({
         id: n.id,
-        title: n.title || (n.type === 'folder' ? '新文件夹' : '无标题碎片'),
+        title: n.title || (n.type === 'folder' ? '新文件夹' : '未命名笔记'),
         spaceId: n.spaceId,
         folderId: n.folderId,
         type: n.type || 'note',
@@ -258,7 +258,7 @@ export function useSpiritData() {
       const selectedType = dto?.type || 'note';
       
       const payload = {
-        title: dto?.title || (selectedType === 'folder' ? "新文件夹" : "新灵感碎片"),
+        title: dto?.title || (selectedType === 'folder' ? "新文件夹" : DEFAULT_NOTE_TITLE),
         spaceId: currentSpaceId.value,
         folderId: dto?.folderId || null,
         type: selectedType

@@ -17,7 +17,7 @@
   background: rgba(0, 102, 204, 0.05);
   text-decoration: none;
   padding: 0 4px;
-  border-radius: 4px;
+  border-radius: 0;
   font-weight: 500;
   border-bottom: 1px dashed rgba(0, 102, 204, 0.4);
 }
@@ -27,7 +27,7 @@
 .spirit-typography-engine .spirit-mention-node {
   background: rgba(0, 102, 204, 0.1);
   color: var(--accent-color);
-  border-radius: 4px;
+  border-radius: 0;
   padding: 0 4px;
   font-weight: 600;
   text-decoration: none;
@@ -47,7 +47,7 @@
 .spirit-typography-engine .spirit-image-node {
   display: block;
   height: auto;
-  border-radius: 12px;
+  border-radius: 0;
   max-width: 100%;
 }
 .spirit-render-engine .spirit-image-node[data-align="left"],
@@ -115,7 +115,7 @@
 .spirit-render-engine details,
 .spirit-typography-engine details {
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: 0;
   margin: 1.5rem 0;
   background: var(--paper-card);
   overflow: hidden;

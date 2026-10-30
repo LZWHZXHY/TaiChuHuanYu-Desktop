@@ -404,7 +404,7 @@ const handleDelete = async () => {
   padding: 14px 40px;
   font-size: 0.85rem;
   cursor: pointer;
-  border-radius: 2px;
+  border-radius: 0;
   transition: all 0.3s;
 }
 

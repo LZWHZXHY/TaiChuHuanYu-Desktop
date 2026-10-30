@@ -17,7 +17,7 @@
 
         <h1 class="title">{{ work.title }}</h1>
         <div class="meta">
-          <span>@{{ work.authorName }}</span>
+          <UserLink :id="work.authorId" :name="work.authorName">@{{ work.authorName }}</UserLink>
           <span>·</span>
           <time>{{ formatDate(work.createdAt) }}</time>
           <span>·</span>
@@ -56,6 +56,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { chaiWorkApi, type ChaiWork } from '@/api/chaiWork'
@@ -137,26 +138,26 @@ onMounted(load)
 .content-header { display: flex; justify-content: space-between; align-items: center; }
 .content-header a { color: var(--accent-color); text-decoration: none; font-size: .85rem; }
 .header-actions { display: flex; gap: 10px; }
-.btn-line { padding: 7px 14px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; text-decoration: none; font-size: .85rem; }
+.btn-line { padding: 7px 14px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; text-decoration: none; font-size: .85rem; }
 .btn-line.danger { color: var(--danger); border-color: var(--danger); }
 .state { padding: 40px 0; text-align: center; color: var(--text-secondary); }
 .detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 24px; margin-top: 16px; }
-.player { width: 100%; max-height: 70vh; background: #000; border-radius: 10px; }
+.player { width: 100%; max-height: 70vh; background: #000; border-radius: 0; }
 .player.img { object-fit: contain; }
 .title { margin: 16px 0 8px; font-size: 1.4rem; }
 .meta { display: flex; gap: 8px; align-items: center; font-size: .85rem; color: var(--text-secondary); }
 .description { margin: 16px 0; line-height: 1.8; white-space: pre-wrap; }
 .tags { display: flex; flex-wrap: wrap; gap: 8px; }
-.tag { font-size: .8rem; color: var(--accent-color); background: var(--accent-soft); padding: 2px 10px; border-radius: 12px; }
+.tag { font-size: .8rem; color: var(--accent-color); background: var(--accent-soft); padding: 2px 10px; border-radius: 0; }
 .interactions { display: flex; gap: 12px; margin-top: 20px; }
-.interact-btn { padding: 8px 16px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; }
+.interact-btn { padding: 8px 16px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; }
 .interact-btn.active { color: var(--accent-color); border-color: var(--accent-color); }
 .interact-count { display: inline-flex; align-items: center; padding: 0 8px; font-size: .85rem; color: var(--text-secondary); }
-.follow-btn { padding: 6px 12px; border: 1px solid var(--accent-color); border-radius: 8px; background: transparent; color: var(--accent-color); cursor: pointer; font-size: .8rem; justify-self: start; }
+.follow-btn { padding: 6px 12px; border: 1px solid var(--accent-color); border-radius: 0; background: transparent; color: var(--accent-color); cursor: pointer; font-size: .8rem; justify-self: start; }
 .follow-btn.active { background: var(--accent-soft); }
 .follower-count { font-size: .75rem; color: var(--text-secondary); }
 .side-col { display: grid; gap: 16px; align-content: start; }
-.side-card { border: 1px solid var(--border-line); border-radius: 10px; padding: 16px; background: var(--paper-card); display: grid; gap: 8px; }
+.side-card { border: 1px solid var(--border-line); border-radius: 0; padding: 16px; background: var(--paper-card); display: grid; gap: 8px; }
 .side-card h3 { margin: 0 0 4px; font-size: .9rem; }
 .side-card a { color: var(--accent-color); text-decoration: none; font-size: .85rem; }
 @media (max-width: 820px) { .detail-layout { grid-template-columns: 1fr; } }

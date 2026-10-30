@@ -1,14 +1,14 @@
 <template>
   <div class="form-body">
     <div class="input-group">
-      <label>昵称 / USERNAME</label>
-      <input v-model="form.username" placeholder="不建议使用邮箱" />
+      <label>昵称</label>
+      <input v-model="form.username" placeholder="不建议使用邮箱" aria-label="昵称" />
     </div>
 
     <div class="input-group">
-      <label>邮件地址 / EMAIL</label>
+      <label>邮箱</label>
       <div class="email-input-wrapper">
-        <input v-model="form.email" type="email" placeholder="email@example.com" />
+        <input v-model="form.email" type="email" autocomplete="email" aria-label="邮箱" placeholder="email@example.com" />
         <button 
           type="button" 
           class="send-code-btn" 
@@ -21,25 +21,25 @@
     </div>
 
     <div class="input-group">
-      <label>验证代码 / VERIFICATION CODE</label>
-      <input v-model="form.verificationCode" placeholder="请输入6位验证码" maxlength="6" />
+      <label>邮箱验证码</label>
+      <input v-model="form.verificationCode" placeholder="请输入6位验证码" maxlength="6" inputmode="numeric" autocomplete="one-time-code" aria-label="邮箱验证码" />
     </div>
 
     <div class="input-group">
-      <label>密钥/ PASSWORD</label>
-      <input v-model="form.password" type="password" placeholder="不少于6位" />
+      <label>密码</label>
+      <input v-model="form.password" type="password" autocomplete="new-password" placeholder="不少于6位" aria-label="密码" />
     </div>
 
     <button @click="handleRegister" :disabled="loading" class="black-btn">
-      {{ loading ? '认知中...' : '开始认证' }}
+      {{ loading ? '正在注册…' : '注册' }}
     </button>
 
-    <p v-if="message" :class="['message', isError ? 'error' : 'success']">
+    <p role="status" v-if="message" :class="['message', isError ? 'error' : 'success']">
       {{ message }}
     </p>
 
     <div class="footer-links">
-      <span @click="$emit('switch', 'login')">已有账号？返回接入</span>
+      <button type="button" class="text-link" @click="$emit('switch', 'login')">已有账号？返回登录</button>
     </div>
   </div>
 </template>
@@ -108,51 +108,4 @@ const handleRegister = async () => {
 }
 </script>
 
-<style scoped>
-/* 保持原有样式，增加发送按钮样式 */
-.input-group { margin-bottom: 16px; }
-label { font-size: 11px; color: var(--text-secondary); font-weight: 600; margin-bottom: 6px; display: block; }
-
-.email-input-wrapper {
-  display: flex;
-  gap: 8px;
-}
-
-.email-input-wrapper input {
-  flex: 1;
-}
-
-.send-code-btn {
-  padding: 0 12px;
-  background: var(--bg-sub);
-  border: 1px solid var(--border-line);
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.send-code-btn:disabled {
-  color: var(--text-secondary);
-  cursor: not-allowed;
-}
-
-input {
-  width: 100%; padding: 8px 12px; background: var(--bg-sub); border: 1px solid var(--border-line);
-  border-radius: 6px; font-size: 14px;
-}
-input:focus { border-color: var(--accent-color); background: var(--paper-card); outline: none; }
-
-.black-btn {
-  width: 100%; padding: 12px; background: var(--text-primary); border-radius: 6px;
-  color: white; font-weight: 600; border: none; cursor: pointer; margin-top: 10px;
-}
-.black-btn:hover { background: var(--text-primary); }
-
-.message { margin-top: 16px; text-align: center; font-size: 12px; }
-.error { color: var(--danger); background: var(--accent-soft); padding: 8px; border-radius: 6px; }
-.success { color: var(--success); background: var(--success-soft); padding: 8px; border-radius: 6px; }
-
-.footer-links { margin-top: 24px; text-align: center; font-size: 13px; color: var(--accent-color); cursor: pointer; }
-</style>
+<style scoped src="./auth-form.css"></style>

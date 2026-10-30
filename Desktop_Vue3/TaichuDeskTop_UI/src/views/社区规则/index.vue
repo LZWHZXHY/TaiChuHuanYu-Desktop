@@ -203,10 +203,10 @@ onMounted(load)
 .rules-header h1 { margin: 6px 0 8px; font-size: clamp(1.7rem, 3.2vw, 2.3rem); }
 .rules-header .sub { margin: 0; color: var(--text-secondary); font-size: .9rem; }
 .rules-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.rules-version { font-size: .78rem; color: var(--text-secondary); border: 1px solid var(--border-line); border-radius: 12px; padding: 3px 12px; }
+.rules-version { font-size: .78rem; color: var(--text-secondary); border: 1px solid var(--border-line); border-radius: 0; padding: 3px 12px; }
 .rules-empty { text-align: center; color: var(--text-secondary); padding: 48px 0; }
 .rules-groups { display: grid; gap: 32px; }
-.rule-group { border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); padding: 22px 24px; }
+.rule-group { border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); padding: 22px 24px; }
 .rule-group-head { border-bottom: 1px dashed var(--border-line); padding-bottom: 14px; margin-bottom: 16px; }
 .rule-group-title-row { display: flex; align-items: center; gap: 10px; justify-content: space-between; flex-wrap: wrap; }
 .rule-group-title { margin: 0; font-size: 1.2rem; }
@@ -215,7 +215,7 @@ onMounted(load)
 .rule-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
 .rule-item { padding-left: 2px; }
 .rule-main { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
-.rule-code { flex-shrink: 0; font-family: ui-monospace, monospace; font-size: .78rem; font-weight: 700; color: var(--accent-color); background: var(--accent-soft); border-radius: 6px; padding: 2px 8px; }
+.rule-code { flex-shrink: 0; font-family: ui-monospace, monospace; font-size: .78rem; font-weight: 700; color: var(--accent-color); background: var(--accent-soft); border-radius: 0; padding: 2px 8px; }
 .rule-code.small { font-size: .72rem; }
 .rule-text { margin: 0; font-size: .92rem; line-height: 1.7; color: var(--text-primary); white-space: pre-wrap; flex: 1; min-width: 200px; }
 .rule-text.small { font-size: .86rem; color: var(--text-secondary); }
@@ -226,17 +226,17 @@ onMounted(load)
 .rule-subitem { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
 .rule-admin { display: flex; gap: 6px; flex-shrink: 0; }
 .rule-admin.inline { margin-left: auto; }
-.mini-btn { padding: 2px 9px; border: 1px solid var(--border-line); border-radius: 6px; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .72rem; }
+.mini-btn { padding: 2px 9px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .72rem; }
 .mini-btn.danger { color: var(--danger); }
 .rules-mask { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 20px; }
-.rules-editor { width: min(560px, 100%); max-height: 90vh; overflow-y: auto; background: var(--paper-card); border-radius: 12px; padding: 24px; display: grid; gap: 14px; }
+.rules-editor { width: min(560px, 100%); max-height: 90vh; overflow-y: auto; background: var(--paper-card); border-radius: 0; padding: 24px; display: grid; gap: 14px; }
 .editor-title { margin: 0; font-size: 1.15rem; }
 .field { display: grid; gap: 6px; font-size: .8rem; color: var(--text-secondary); }
-.field input, .field select, .field textarea { padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); color: var(--text-primary); font-size: .88rem; font-family: inherit; }
+.field input, .field select, .field textarea { padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); font-size: .88rem; font-family: inherit; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .check { display: flex; align-items: center; gap: 6px; font-size: .85rem; cursor: pointer; }
 .editor-actions { display: flex; justify-content: flex-end; gap: 10px; }
-.btn { padding: 8px 18px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
+.btn { padding: 8px 18px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
 .btn.primary { background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color); }
 .btn:disabled { opacity: .5; cursor: default; }
 </style>

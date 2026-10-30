@@ -225,7 +225,7 @@ watch(started, (val) => {
   flex: 1;
   height: 3px;
   background: var(--line-raw, var(--bg-sub));
-  border-radius: 2px;
+  border-radius: 0;
   overflow: hidden;
 }
 .progress-fill {
@@ -257,7 +257,7 @@ watch(started, (val) => {
   max-width: 100%;
   max-height: 200px;
   border: 1px solid var(--line-raw);
-  border-radius: 4px;
+  border-radius: 0;
 }
 .options {
   display: flex;
@@ -351,7 +351,7 @@ watch(started, (val) => {
   max-width: 100%;
   max-height: 200px;
   border: 1px solid var(--line-raw);
-  border-radius: 4px;
+  border-radius: 0;
 }
 .btn-restart {
   border-color: var(--line-raw);

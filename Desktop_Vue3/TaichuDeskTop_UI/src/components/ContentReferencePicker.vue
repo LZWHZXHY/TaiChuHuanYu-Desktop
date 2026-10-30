@@ -28,6 +28,7 @@
 import { ref, watch, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { knowledgeApi, knowledgeTypes, knowledgeRoute, type KnowledgeType, type KnowledgeItem } from '@/api/knowledge';
+import { brushApi } from '@/views/画廊展厅/茶绘/brushApi';
 const emit = defineEmits<{
     select: [
         value: {
@@ -59,6 +60,10 @@ async function search(nextPage = 1) {
             if (!resources.success) throw new Error();
             const matches = resources.data.filter(file => file.name.toLowerCase().includes(query.value.trim().toLowerCase()));
             res = { total: matches.length, items: matches.slice((nextPage - 1) * 24, nextPage * 24).map(file => ({ id: file.name, type: 'resource' as const, title: file.name, summary: '', author: '', tags: '', updatedAt: '' })) };
+        } else if (type.value === 'brush') {
+            // 茶绘笔刷不在资料目录里，直接查笔刷库
+            const r = await brushApi.square({ q: query.value.trim() || undefined, offset: (nextPage - 1) * 24, limit: 24 });
+            res = { total: r.total, items: r.items.map(b => ({ id: b.id, type: 'brush' as const, title: b.name, summary: `${b.ownerName} 做的茶绘笔刷`, author: b.ownerName, tags: '', updatedAt: b.updatedAt })) };
         } else res = await knowledgeApi.search({ type: type.value, search: query.value.trim(), page: nextPage });
         if (current === version) {
             items.value = res.items;
@@ -83,7 +88,7 @@ onUnmounted(() => version++);
 <style scoped>
 .reference-picker {
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 12px;
   margin: 12px 0;
   font-size: .9rem;
@@ -107,7 +112,7 @@ input, button, select {
   color: var(--text-primary);
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
 }
 form { flex-wrap: wrap; }
 nav { display: flex; gap: 8px; align-items: center; }

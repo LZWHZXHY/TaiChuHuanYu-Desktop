@@ -6,6 +6,7 @@
   --accent-color: #006d85; --accent-soft: #e4f5fa; --on-accent: #ffffff;
   --signal-color: #00accf; --grid-line: rgb(25 55 75 / 8%);
   --signal-secondary: #9fe4f2; --diagram-paper: #edf6fa;
+  --accent-mint: #087f70; --signal-mint: #28b99c;
   --inverse-bg: #142733; --inverse-text: #ffffff;
   --success: #267453; --success-soft: #e5f2e9; --info-soft: #e7eef8; --danger: #bd3939;
   --info: #286390; --danger-soft: #fbeaea; --warning: #966015; --warning-soft: #fbf1dc; --on-overlay: #ffffff;
@@ -13,8 +14,16 @@
   --shadow-sm: 0 2px 8px rgb(24 32 40 / 4%); --shadow-md: 0 12px 36px rgb(24 32 40 / 10%);
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+  /* 实验室铭牌字体：Windows/WebView2 自带 Bahnschrift（DIN 窄体），其余平台回落到系统窄体。 */
+  --font-display: Bahnschrift, 'DIN Alternate', 'DIN Condensed', 'Roboto Condensed', 'Arial Narrow', var(--font-sans);
   --font-family: var(--font-sans);
   --radius-sm: 3px; --radius-md: 4px; --radius-lg: 6px;
+  /* 洁净实验室语汇：警示黄只用于标签和警戒条，坐标纸与角标只铺在装饰层。 */
+  --caution: #f2b705; --caution-ink: #1b1600;
+  --lab-grid-minor: rgb(20 60 85 / 2.6%); --lab-grid-major: rgb(20 60 85 / 5.5%);
+  --bracket-color: var(--text-primary); --bracket-size: 10px;
+  --hazard-stripe: repeating-linear-gradient(-45deg, var(--caution) 0 6px, var(--caution-ink) 6px 12px);
+  --chamfer: 10px;
 }
 :root[data-theme='dark'] {
   color-scheme: dark;
@@ -23,10 +32,13 @@
   --accent-color: #64d8ef; --accent-soft: #143541; --on-accent: #081d26;
   --signal-color: #39c8e7; --grid-line: rgb(155 206 232 / 9%);
   --signal-secondary: #9fe4f2; --diagram-paper: #203440;
+  --accent-mint: #73e2c4; --signal-mint: #40d7af;
   --inverse-bg: #d9edf5; --inverse-text: #112633;
   --success: #87d4ae; --success-soft: #233d32; --info-soft: #26374b; --danger: #ff9c9c;
   --info: #96c5eb; --danger-soft: #422b31; --warning: #ecc17c; --warning-soft: #3c3426;
   --overlay: rgb(0 0 0 / 65%);
+  --caution: #f5c33b; --caution-ink: #14110a;
+  --lab-grid-minor: rgb(150 210 235 / 2.5%); --lab-grid-major: rgb(150 210 235 / 5.5%);
   --shadow-sm: 0 2px 8px rgb(0 0 0 / 12%); --shadow-md: 0 12px 36px rgb(0 0 0 / 28%);
 }
 :root {

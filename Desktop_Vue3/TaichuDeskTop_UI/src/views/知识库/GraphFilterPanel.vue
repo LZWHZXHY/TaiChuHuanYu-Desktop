@@ -67,7 +67,7 @@ const selectAll = () => {
   width: 240px;
   background: linear-gradient(135deg, var(--paper-card) 0%, var(--paper-card) 100%);
   border: 1px solid rgba(56, 189, 248, 0.15);
-  border-radius: 12px;
+  border-radius: 0;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
@@ -103,7 +103,7 @@ const selectAll = () => {
   padding: 8px 12px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: left;
@@ -152,7 +152,7 @@ const selectAll = () => {
   border: 1px solid transparent;
   color: var(--info);
   font-size: 11px;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -161,5 +161,5 @@ const selectAll = () => {
 .action-btn.highlight:hover { background: rgba(56, 189, 248, 0.1); }
 
 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 2px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.3); border-radius: 0; }
 </style>

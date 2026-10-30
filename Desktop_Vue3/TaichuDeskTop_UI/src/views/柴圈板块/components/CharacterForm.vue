@@ -530,7 +530,7 @@ function handleSubmit() {
 .upload-area {
   border: 1px dashed var(--line-raw);
   padding: 16px;
-  border-radius: 4px;
+  border-radius: 0;
   background: var(--paper-sub);
   min-height: 120px;
   display: flex;
@@ -549,7 +549,7 @@ function handleSubmit() {
   width: 100%;
   aspect-ratio: 1/1;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 0;
   border: 1px solid var(--line-raw);
 }
 
@@ -559,7 +559,7 @@ function handleSubmit() {
   right: -8px;
   width: 24px;
   height: 24px;
-  border-radius: 50%;
+  border-radius: 0;
   border: none;
   background: rgba(44, 42, 41, 0.8);
   color: var(--text-primary);
@@ -753,7 +753,7 @@ function handleSubmit() {
   width: 20px;
   height: 20px;
   border: none;
-  border-radius: 50%;
+  border-radius: 0;
   background: rgba(231, 76, 60, 0.8);
   color: var(--text-primary);
   cursor: pointer;
@@ -777,7 +777,7 @@ function handleSubmit() {
   padding: 24px;
   border: 1px dashed var(--line-raw);
   background: var(--paper-sub);
-  border-radius: 4px;
+  border-radius: 0;
   color: var(--ink-gray);
   font-size: 13px;
 }

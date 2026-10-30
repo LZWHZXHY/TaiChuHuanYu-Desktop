@@ -115,7 +115,7 @@ const direction = computed(() => {
   color: var(--text-secondary);
   background: var(--bg-sub);
   padding: 0 10px;
-  border-radius: 12px;
+  border-radius: 0;
 }
 
 .relation-list {
@@ -130,7 +130,7 @@ const direction = computed(() => {
   gap: 8px;
   padding: 8px 14px;
   background: var(--bg-main);
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 13px;
   cursor: pointer;
   transition: all 0.15s;
@@ -161,7 +161,7 @@ const direction = computed(() => {
   color: var(--accent-color);
   background: var(--accent-soft);
   padding: 0 8px;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 12px;
 }
 

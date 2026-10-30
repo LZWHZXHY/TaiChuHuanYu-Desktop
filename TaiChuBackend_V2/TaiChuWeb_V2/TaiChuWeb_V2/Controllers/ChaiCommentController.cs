@@ -17,7 +17,7 @@ namespace TaiChuWeb_V2.Controllers
         public Guid? ParentId { get; set; }
     }
 
-    /// <summary>柴圈作品/OC 通用评论（复用 comments 表，TargetType + TargetId 多态）。</summary>
+    /// <summary>柴圈作品/OC、必吃榜、个人主页留言板通用评论（复用 comments 表，TargetType + TargetId 多态）。</summary>
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -34,6 +34,7 @@ namespace TaiChuWeb_V2.Controllers
         {
             if (string.IsNullOrWhiteSpace(targetType) || string.IsNullOrWhiteSpace(targetId))
                 return BadRequest(new { message = "目标无效" });
+            targetId = NormalizeTargetId(targetType, targetId);
 
             var comments = await _context.Comments
                 .Where(c => c.TargetType == targetType && c.TargetId == targetId)
@@ -45,8 +46,9 @@ namespace TaiChuWeb_V2.Controllers
                 .Select(c => Guid.TryParse(c.UserId, out var g) ? g : Guid.Empty)
                 .Where(g => g != Guid.Empty).Distinct().ToList();
             var users = await _context.Users.Where(u => guids.Contains(u.Id))
-                .Select(u => new { u.Id, u.Username }).ToListAsync();
+                .Select(u => new { u.Id, u.Username, Avatar = u.Profile != null ? u.Profile.Avatar : null }).ToListAsync();
             var map = users.ToDictionary(u => u.Id.ToString(), u => u.Username);
+            var avatars = users.ToDictionary(u => u.Id.ToString(), u => u.Avatar);
 
             // 评论点赞：统计 + 我点过的
             var keys = comments.Select(c => c.Id.ToString()).ToList();
@@ -64,6 +66,7 @@ namespace TaiChuWeb_V2.Controllers
                 id = c.Id,
                 userId = c.UserId,
                 userName = map.TryGetValue(c.UserId, out var n) ? n : "已注销用户",
+                avatar = c.Content == "" ? null : avatars.GetValueOrDefault(c.UserId),
                 content = c.Content,
                 parentId = c.ParentId,
                 createdAt = c.CreatedAt,
@@ -111,6 +114,18 @@ namespace TaiChuWeb_V2.Controllers
             if (string.IsNullOrWhiteSpace(req.Content)) return BadRequest(new { message = "评论内容不能为空" });
             if (string.IsNullOrWhiteSpace(req.TargetType) || string.IsNullOrWhiteSpace(req.TargetId))
                 return BadRequest(new { message = "目标无效" });
+            if (req.Content.Trim().Length > 1000) return BadRequest(new { message = "评论不能超过 1000 字" });
+            req.TargetId = NormalizeTargetId(req.TargetType, req.TargetId);
+
+            // 个人主页留言板：目标必须是存在的用户。
+            if (req.TargetType == ProfileTarget)
+            {
+                if (!Guid.TryParse(req.TargetId, out var wallOwner) || !await _context.Users.AnyAsync(u => u.Id == wallOwner))
+                    return NotFound(new { message = "没有找到这位用户" });
+            }
+            // 回复必须指向同一个目标下仍存在的评论。
+            if (req.ParentId.HasValue && !await _context.Comments.AnyAsync(c => c.Id == req.ParentId && c.TargetType == req.TargetType && c.TargetId == req.TargetId && c.Content != ""))
+                return BadRequest(new { message = "回复的评论不存在或已删除" });
 
             var comment = new Comment
             {
@@ -135,17 +150,19 @@ namespace TaiChuWeb_V2.Controllers
             else
             {
                 var ownerId = await ResolveOwnerAsync(req.TargetType, req.TargetId);
-                notifier.Add(ownerId, CurrentUserId, "comment", req.TargetType, req.TargetId, "评论了你的" + TargetLabel(req.TargetType), link);
+                var message = req.TargetType == ProfileTarget ? "在你的主页留言了" : "评论了你的" + TargetLabel(req.TargetType);
+                notifier.Add(ownerId, CurrentUserId, "comment", req.TargetType, req.TargetId, message, link);
             }
 
             await _context.SaveChangesAsync();
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == CurrentUserId);
+            var user = await _context.Users.Include(u => u.Profile).FirstOrDefaultAsync(u => u.Id == CurrentUserId);
             return Ok(new
             {
                 id = comment.Id,
                 userId = comment.UserId,
                 userName = user?.Username ?? "我",
+                avatar = user?.Profile?.Avatar,
                 content = comment.Content,
                 parentId = comment.ParentId,
                 createdAt = comment.CreatedAt
@@ -158,15 +175,25 @@ namespace TaiChuWeb_V2.Controllers
             if (!CurrentUserId.HasValue) return Unauthorized();
             var comment = await _context.Comments.FirstOrDefaultAsync(c => c.Id == id);
             if (comment == null) return NotFound(new { message = "评论不存在" });
-            if (comment.UserId != CurrentUserId.Value.ToString()) return Forbid();
+            // 本人可以删除自己的评论；主页主人也可以删除自己留言板上的留言。
+            var isAuthor = comment.UserId == CurrentUserId.Value.ToString();
+            var isWallOwner = comment.TargetType == ProfileTarget && comment.TargetId == CurrentUserId.Value.ToString();
+            if (!isAuthor && !isWallOwner) return Forbid();
 
             comment.Content = ""; // 软删除：内容置空
             await _context.SaveChangesAsync();
             return NoContent();
         }
 
+        private const string ProfileTarget = "profile";
+
+        // 用户 ID 统一成小写标准格式，避免大小写不同导致留言对不上。
+        private static string NormalizeTargetId(string targetType, string targetId)
+            => targetType == ProfileTarget && Guid.TryParse(targetId, out var id) ? id.ToString() : targetId;
+
         private static string TargetLabel(string targetType) => targetType switch
         {
+            ProfileTarget => "主页",
             "work" => "作品",
             "character" => "角色",
             "MustEat" => "推荐",
@@ -178,6 +205,7 @@ namespace TaiChuWeb_V2.Controllers
             "work" => "/community",
             "character" => "/community",
             "MustEat" => "/must-eat",
+            ProfileTarget => $"/user/{targetId}?tab=guestbook", // 主人打开的是个人中心的留言板标签，别人打开的是公开主页的留言板
             _ => "/"
         };
 
@@ -188,6 +216,7 @@ namespace TaiChuWeb_V2.Controllers
             {
                 "work" => await _context.ChaiWorks.Where(w => w.Id == id).Select(w => w.AuthorId).FirstOrDefaultAsync(),
                 "character" => await _context.StickmanCharacters.Where(c => c.Id == id).Select(c => c.AuthorId).FirstOrDefaultAsync(),
+                ProfileTarget => id, // 留言板的主人就是这个用户
                 _ => Guid.Empty
             };
         }

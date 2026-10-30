@@ -36,7 +36,7 @@ const toasts = ref<ToastItem[]>([]);
  * @param type 可选类型，用于样式差异化
  */
 const show = (
-  message: string = '作品已固化至灵脉',
+  message: string = '已保存',
   duration: number = 3000,
   icon: string = '✨',
   type?: 'success' | 'error' | 'info'
@@ -83,7 +83,7 @@ defineExpose({ show });
   backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(0, 0, 0, 0.05);
   padding: 12px 20px;
-  border-radius: 100px;
+  border-radius: 0;
   box-shadow: 0 10px 40px rgba(0, 102, 204, 0.1), 0 2px 8px rgba(0, 0, 0, 0.05);
   color: #1d1d1f;
   font-size: 14px;
@@ -113,7 +113,7 @@ defineExpose({ show });
   width: 24px;
   height: 24px;
   background: #f0f5ff;
-  border-radius: 50%;
+  border-radius: 0;
   font-size: 14px;
   color: #0066cc;
   flex-shrink: 0;

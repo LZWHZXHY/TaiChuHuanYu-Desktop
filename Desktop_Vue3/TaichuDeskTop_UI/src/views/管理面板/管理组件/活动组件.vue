@@ -55,9 +55,9 @@
     <Teleport to="body">
       <Transition name="fade">
         <div v-if="isModalOpen" class="modal-overlay" @click.self="closeModal">
-          <div class="modal-content form-modal workbench-skin">
+          <div class="modal-content form-modal workbench-skin editor-surface community-surface tone-admin">
             <button class="modal-close-btn" @click="closeModal">×</button>
-            <h3 class="modal-title">{{ isEditing ? '编辑活动' : '新增活动' }}</h3>
+            <h3 class="modal-title studio-heading">{{ isEditing ? '编辑活动' : '新增活动' }}</h3>
             
             <form @submit.prevent="submitForm" class="admin-form">
               <div class="form-group">
@@ -262,7 +262,7 @@ const getStatusClass = (status: number) => {
   color: var(--on-accent);
   border: none;
   padding: 0.5rem 1.25rem;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   font-size: 0.9rem;
   cursor: pointer;
   transition: opacity 0.2s;
@@ -275,7 +275,7 @@ const getStatusClass = (status: number) => {
   color: var(--text-secondary);
   border: 1px solid var(--border-line);
   padding: 0.5rem 1.25rem;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -285,7 +285,7 @@ const getStatusClass = (status: number) => {
 /* 表格设计: 极简线条，大量留白 */
 .table-wrapper {
   background: var(--paper-card);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   box-shadow: 0 2px 8px rgba(0,0,0,0.02);
   overflow-x: auto;
 }
@@ -344,7 +344,7 @@ const getStatusClass = (status: number) => {
   border: none;
   background: transparent;
   padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
@@ -352,8 +352,8 @@ const getStatusClass = (status: number) => {
 }
 .status-select:hover { filter: brightness(0.95); }
 .status-normal { background: var(--bg-sub); color: var(--accent-color); }
-.status-ongoing { background: var(--bg-sub); color: #e68a2e; }
-.status-completed { background: var(--bg-sub); color: #4c9f70; }
+.status-ongoing { background: var(--bg-sub); color: var(--warning); }
+.status-completed { background: var(--bg-sub); color: var(--success); }
 .status-cancelled { background: var(--bg-sub); color: var(--text-secondary); }
 .status-draft { background: var(--bg-sub); color: var(--text-secondary); border: 1px dashed var(--border-line); }
 
@@ -390,7 +390,7 @@ const getStatusClass = (status: number) => {
 .form-group textarea {
   padding: 0.6rem;
   border: 1px solid var(--border-line);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   font-size: 0.9rem;
   color: var(--text-primary);
   outline: none;
@@ -436,11 +436,11 @@ const getStatusClass = (status: number) => {
 .modal-content {
   background: var(--paper-card);
   width: 90%;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   position: relative;
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
 
-  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
+  max-height: 90dvh; overflow-y: auto; border-radius: 0;
 }
 
 .modal-close-btn {

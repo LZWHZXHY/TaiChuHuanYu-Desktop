@@ -76,7 +76,7 @@ defineEmits<{
   position: relative;
   background: linear-gradient(135deg, var(--paper-card) 0%, var(--paper-card) 100%);
   border: 1px solid rgba(56, 189, 248, 0.15);
-  border-radius: 12px;
+  border-radius: 0;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow:
@@ -119,7 +119,7 @@ defineEmits<{
   gap: 10px;
   padding: 8px 12px;
   background: var(--overlay);
-  border-radius: 8px;
+  border-radius: 0;
   border: 1px solid transparent;
   transition: all 0.3s ease;
 }
@@ -157,7 +157,7 @@ defineEmits<{
   height: 36px;
   background: rgba(56, 189, 248, 0.1);
   border: 1px solid rgba(56, 189, 248, 0.3);
-  border-radius: 8px;
+  border-radius: 0;
   color: var(--info);
   font-size: 12px;
   font-weight: 600;
@@ -189,7 +189,7 @@ defineEmits<{
   height: 4px;
   background: var(--overlay);
   border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 2px;
+  border-radius: 0;
   outline: none;
   transition: border-color 0.3s;
 }
@@ -252,7 +252,7 @@ defineEmits<{
   height: 100%;
   background: var(--overlay);
   border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 12px;
+  border-radius: 0;
   transition: all 0.3s ease;
 }
 .switch-thumb {

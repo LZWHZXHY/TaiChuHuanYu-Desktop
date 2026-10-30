@@ -17,13 +17,15 @@ namespace TaiChuWeb_V2.Services.World
         private readonly IWorldProjectService _projectService;
         private readonly IMemoryCache _cache;
         private readonly IWorldQuotaService _quotaService;
+        private readonly WorldHistoryService _history;
 
-        public WorldCardService(AppDbContext context, IWorldProjectService projectService, IMemoryCache cache, IWorldQuotaService quotaService)
+        public WorldCardService(AppDbContext context, IWorldProjectService projectService, IMemoryCache cache, IWorldQuotaService quotaService, WorldHistoryService history)
         {
             _context = context;
             _projectService = projectService;
             _cache = cache;
             _quotaService = quotaService;
+            _history = history;
         }
 
         public async Task<IEnumerable<CardSummaryDto>> GetCardSummariesByProjectAsync(Guid projectId, Guid userId, string? type = null)
@@ -82,7 +84,7 @@ namespace TaiChuWeb_V2.Services.World
 
             var cards = await query.ToListAsync();
 
-            return cards.Select(c => MapToResponseDto(c)).ToList();
+            return await ForReaderAsync(projectId, userId, cards.Select(c => MapToResponseDto(c)).ToList());
         }
 
         // ============================================================
@@ -90,11 +92,19 @@ namespace TaiChuWeb_V2.Services.World
         // ============================================================
         public async Task<CardResponseDto?> GetCardByIdAsync(Guid cardId, Guid userId, Guid? projectId = null)
         {
-            // 缓存只保存数据；每次读取仍验证项目当前的访问权限。
-            if (!await IsCardAccessibleAsync(cardId, userId)) return null;
-
             // 编辑冲突核对必须取得数据库当前内容，不能返回其他实例遗留的缓存。
-            return EnsureProject(await GetCardByIdInternalAsync(cardId), projectId);
+            var card = await GetCardByIdInternalAsync(cardId);
+            if (card == null || (projectId.HasValue && card.ProjectId != projectId.Value)) return null;
+
+            // 每次读取都验证项目当前的访问权限：能不能看、是不是成员一次查出来（数据库远时每次查询都要几百毫秒）
+            var access = await _context.WorldProjects.AsNoTracking().Where(p => p.Id == card.ProjectId)
+                .Select(p => new { p.IsPublic, p.OwnerId, Collaborator = _context.WorldCollaborators.Any(c => c.ProjectId == p.Id && c.UserId == userId) })
+                .FirstOrDefaultAsync();
+            if (access == null) return null;
+            var member = userId != Guid.Empty && (access.OwnerId == userId || access.Collaborator);
+            if (!access.IsPublic && !member) return null;
+            if (!member) StripForVisitor(card);
+            return card;
         }
 
         // ============================================================
@@ -146,7 +156,7 @@ namespace TaiChuWeb_V2.Services.World
                 .Where(c => c.ProjectId == projectId && idList.Contains(c.Id))
                 .ToListAsync();
 
-            return cards.Select(c => MapToResponseDto(c)).ToList();
+            return await ForReaderAsync(projectId, userId, cards.Select(c => MapToResponseDto(c)).ToList());
         }
 
         // ============================================================
@@ -162,12 +172,14 @@ namespace TaiChuWeb_V2.Services.World
                     ["success"] = false, ["code"] = "CARD_LIMIT_EXCEEDED",
                     ["currentCount"] = quota.CurrentCount, ["maxCount"] = quota.MaxCount
                 });
-            // CanAddCardAsync 已验证项目存在和所有者权限。
+            // CanAddCardAsync 已验证项目存在和编写权限（创建者或编写者）。
 
             var card = CreateEntity(projectId, Guid.NewGuid(), dto);
             await ApplyRelationsAsync(card, dto.Relations);
             await _context.WorldCards.AddAsync(card);
             await _context.SaveChangesAsync();
+            // 修改记录：谁新建了这个条目（新条目的出入关系就在内存里，不用再查）
+            await _history.RecordAsync(card, userId, WorldHistoryService.Create);
 
             // ✅ 清除项目卡片列表缓存
             WorldCache.InvalidateProject(_cache, projectId, userId);
@@ -198,6 +210,7 @@ namespace TaiChuWeb_V2.Services.World
                 Tags = JsonSerializer.Serialize(dto.Tags ?? new List<string>()),
                 EmbeddedCards = JsonSerializer.Serialize(dto.EmbeddedCards ?? new List<Guid>()),
                 Content = dto.Content ?? "{}",
+                Layout = WorldLayout.Validate(dto.Layout),
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -221,13 +234,17 @@ namespace TaiChuWeb_V2.Services.World
             if (card == null)
                 return null;
 
-            // 2. 权限检查：只有项目所有者才能修改
-            if (card.Project == null || !WorldAccess.IsOwner(card.Project.OwnerId, userId))
+            // 2. 权限检查：创建者和「编写者」协作者可以修改
+            // 创建者自己改的不用再查一次协作者表
+            if (card.Project == null || (card.Project.OwnerId != userId && !await WorldAccess.CanEditProjectAsync(_context, card.ProjectId, userId)))
                 return null;
 
             if (dto.ExpectedUpdatedAt.HasValue && dto.ExpectedUpdatedAt.Value.Ticks != card.UpdatedAt.Ticks)
                 throw new WorldOperationException(WorldErrorKind.Conflict, "条目已被更新，请核对最新内容后再保存",
                     new Dictionary<string, object?> { ["code"] = "WORLD_CARD_CONFLICT" });
+
+            // 老条目第一次被改之前，先存一份原样，保证这次修改能撤销
+            await _history.EnsureBaselineAsync(card);
 
             var affectedIds = card.OutRelations.Concat(card.InRelations)
                 .SelectMany(r => new[] { r.SourceCardId, r.TargetCardId }).Append(cardId).ToList();
@@ -277,11 +294,16 @@ namespace TaiChuWeb_V2.Services.World
             if (dto.Content != null)
                 card.Content = dto.Content;
 
+            if (dto.Layout != null)
+                card.Layout = WorldLayout.Validate(dto.Layout);
+
             // 4. 更新时间戳
             card.AdvanceVersion();
 
             // 5. 保存更改
             await _context.SaveChangesAsync();
+            // 直接用刚保存的条目记修改记录（省掉重新读条目和关系的 3 次查询）
+            await _history.RecordAsync(card, userId, WorldHistoryService.Update, card.Project.OwnerId, card.Project.Name);
 
             // 6. 清除缓存
             WorldCache.InvalidateCards(_cache, affectedIds.Concat(card.OutRelations.Select(r => r.TargetCardId)));
@@ -305,10 +327,13 @@ namespace TaiChuWeb_V2.Services.World
             if (card == null)
                 return false;
 
-            if (card.Project == null || !WorldAccess.IsOwner(card.Project.OwnerId, userId))
+            if (card.Project == null || !await WorldAccess.CanEditProjectAsync(_context, card.ProjectId, userId))
                 return false;
 
             var owningProjectId = card.ProjectId;
+
+            // 修改记录：删除前的完整内容（含双向关系），之后可以原样恢复；协作者删的会通知创建者
+            await _history.RecordDeleteAsync(card, card.OutRelations, card.InRelations, userId);
 
             // 手动删除关联（因为配置了 Restrict）
             var relations = card.OutRelations.Concat(card.InRelations).ToList();
@@ -360,7 +385,8 @@ namespace TaiChuWeb_V2.Services.World
             // 仅检索已授权的当前项目，兼容已有内容块的 JSON 字段格式。
             return await _context.WorldCards.AsNoTracking()
                 .Where(c => c.ProjectId == target.ProjectId && c.Id != cardId)
-                .Where(c => (c.Description != null && c.Description.Contains(inlineToken)) || EF.Functions.JsonSearchAny(c.ContentBlocks, idStr))
+                .Where(c => (c.Description != null && c.Description.Contains(inlineToken)) || EF.Functions.JsonSearchAny(c.ContentBlocks, idStr)
+                    || (c.Layout != null && c.Layout.Contains(inlineToken)))
                 .OrderByDescending(c => c.UpdatedAt)
                 .Select(c => new CardSummaryDto
                 {
@@ -380,13 +406,16 @@ namespace TaiChuWeb_V2.Services.World
         {
             await WorldAccess.RequireReadableProjectAsync(_context, projectId, userId);
             var rows = await _context.WorldCards.AsNoTracking().Where(c => c.ProjectId == projectId)
-                .Select(c => new { c.Id, c.Description, c.ContentBlocks }).ToListAsync();
+                .Select(c => new { c.Id, c.Description, c.ContentBlocks, c.Layout }).ToListAsync();
             var allowed = rows.Select(c => c.Id).ToHashSet();
+            var member = await IsMemberAsync(projectId, userId);
             var result = new Dictionary<Guid, List<Guid>>();
             foreach (var row in rows)
             {
                 var ids = new HashSet<Guid>();
-                foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(row.Description ?? "", @"\{CARD:([^}]+)\}"))
+                // 正文 + 文本块（访客只算公开的文本块）
+                var text = (row.Description ?? "") + " " + string.Join(" ", WorldLayout.Blocks(row.Layout).Where(b => b.Kind == "text" && (member || !b.Hidden)).Select(b => b.Text));
+                foreach (System.Text.RegularExpressions.Match match in System.Text.RegularExpressions.Regex.Matches(text, @"\{CARD:([^}]+)\}"))
                     if (Guid.TryParse(match.Groups[1].Value, out var id)) ids.Add(id);
                 try
                 {
@@ -412,12 +441,13 @@ namespace TaiChuWeb_V2.Services.World
                 .Where(c => c.ProjectId == projectId)
                 .Select(c => new { c.Id, c.Title, c.Type, c.TimelineEvents })
                 .ToListAsync();
+            var member = await IsMemberAsync(projectId, userId);
 
             var items = new List<TimelineItemDto>();
             foreach (var card in cards)
             {
                 var events = JsonSerializer.Deserialize<List<TimelineEventDto>>(card.TimelineEvents ?? "[]") ?? new();
-                foreach (var e in events)
+                foreach (var e in events.Where(e => member || !e.Hidden))
                 {
                     items.Add(new TimelineItemDto
                     {
@@ -427,7 +457,9 @@ namespace TaiChuWeb_V2.Services.World
                         Date = e.Date,
                         Era = e.Era,
                         Title = e.Title,
-                        Description = e.Description
+                        Description = e.Description,
+                        Image = e.Image,
+                        CardIds = e.CardIds
                     });
                 }
             }
@@ -503,6 +535,23 @@ namespace TaiChuWeb_V2.Services.World
             return ids;
         }
 
+        private Task<bool> IsMemberAsync(Guid projectId, Guid userId) => userId == Guid.Empty ? Task.FromResult(false)
+            : _context.WorldProjects.AsNoTracking().MemberOf(userId).AnyAsync(p => p.Id == projectId);
+
+        /// <summary>访客（不是创建者或协作者）看到的版本：去掉「对访客隐藏」的区块和时间线事件</summary>
+        private async Task<List<CardResponseDto>> ForReaderAsync(Guid projectId, Guid userId, List<CardResponseDto> cards)
+        {
+            if (cards.Count == 0 || await IsMemberAsync(projectId, userId)) return cards;
+            foreach (var card in cards) StripForVisitor(card);
+            return cards;
+        }
+
+        private static void StripForVisitor(CardResponseDto card)
+        {
+            card.Layout = WorldLayout.StripHidden(card.Layout);
+            card.TimelineEvents = card.TimelineEvents.Where(e => !e.Hidden).ToList();
+        }
+
         private static CardResponseDto? EnsureProject(CardResponseDto? card, Guid? projectId)
         {
             if (card != null && projectId.HasValue && card.ProjectId != projectId.Value)
@@ -533,6 +582,7 @@ namespace TaiChuWeb_V2.Services.World
                 Tags = JsonSerializer.Deserialize<List<string>>(card.Tags ?? "[]") ?? new(),
                 EmbeddedCards = JsonSerializer.Deserialize<List<Guid>>(card.EmbeddedCards ?? "[]") ?? new(),
                 Content = card.Content ?? "{}",
+                Layout = card.Layout,
                 CreatedAt = card.CreatedAt,
                 UpdatedAt = card.UpdatedAt,
                 OutRelations = outRelations,

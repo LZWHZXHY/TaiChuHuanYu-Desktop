@@ -29,6 +29,7 @@ export interface RecordItem {
 export interface Member {
   id: number;
   name: string;
+  userId?: string; // 成员的用户 ID，点击进入个人主页
   active: boolean;
   records: RecordItem[];
 }
@@ -36,6 +37,7 @@ export interface Member {
 export interface Post {
   id: number;
   author: string;
+  authorId?: string;
   content: string;
   createdAt: number;
   replies: Reply[];
@@ -44,6 +46,7 @@ export interface Post {
 export interface Reply {
   id: number;
   author: string;
+  authorId?: string;
   content: string;
   createdAt: number;
 }
@@ -154,6 +157,7 @@ export async function getActivityDetail(id: number): Promise<{
   const members: Member[] = membersData.map((m: any) => ({
     id: m.id,
     name: m.name,
+    userId: m.userId,
     active: false, // 由前端控制
     records: m.records.map((r: any) => ({
       day: r.day,
@@ -280,11 +284,13 @@ export async function getPosts(activityId: number): Promise<Post[]> {
   return data.map((p: any) => ({
     id: p.id,
     author: p.author,
+    authorId: p.authorId,
     content: p.content,
     createdAt: new Date(p.createdAt).getTime(),
     replies: p.replies?.map((r: any) => ({
       id: r.id,
       author: r.author,
+      authorId: r.authorId,
       content: r.content,
       createdAt: new Date(r.createdAt).getTime(),
     })) || [],
@@ -300,11 +306,13 @@ export async function createPost(activityId: number, content: string): Promise<P
   return {
     id: data.id,
     author: data.author,
+    authorId: data.authorId,
     content: data.content,
     createdAt: new Date(data.createdAt).getTime(),
     replies: data.replies?.map((r: any) => ({
       id: r.id,
       author: r.author,
+      authorId: r.authorId,
       content: r.content,
       createdAt: new Date(r.createdAt).getTime(),
     })) || [],
@@ -320,6 +328,7 @@ export async function createReply(activityId: number, postId: number, content: s
   return {
     id: data.id,
     author: data.author,
+    authorId: data.authorId,
     content: data.content,
     createdAt: new Date(data.createdAt).getTime(),
   };

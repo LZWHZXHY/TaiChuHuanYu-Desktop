@@ -94,7 +94,7 @@ const currentComponent = computed(() => {
 .table-card { 
   background: var(--paper-card); 
   border: 1px solid var(--border-line); 
-  border-radius: var(--radius-sm); 
+  border-radius: 0; 
   padding: 24px;
   box-shadow: 0 4px 20px rgba(0,0,0,0.01); 
   min-height: 500px;

@@ -276,7 +276,7 @@ const formatDateNode = (dateStr: string) => {
 .capsule-inner {
   height: 100%;
   width: 100%;
-  border-radius: 3px;
+  border-radius: 0;
   display: flex;
   align-items: center;
   padding: 0 14px;

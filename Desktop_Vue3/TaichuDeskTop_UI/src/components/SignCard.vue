@@ -296,7 +296,7 @@ const getStatusClass = (status?: number) => {
 .nav-btn:disabled { opacity: 0.3; cursor: default; }
 .month-display { font-size: 1.2rem; font-weight: 450; letter-spacing: -0.2px; }
 .sign-stats { display: flex; align-items: baseline; gap: 1rem; }
-.sign-action-btn { background: none; border: 1px solid var(--border-line); padding: 0.2rem 1rem; font-size: 0.85rem; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); transition: all 0.1s; }
+.sign-action-btn { background: none; border: 1px solid var(--border-line); padding: 0.2rem 1rem; font-size: 0.85rem; border-radius: 0; cursor: pointer; color: var(--text-primary); transition: all 0.1s; }
 .sign-action-btn:hover:not(:disabled) { background: var(--bg-sub); border-color: var(--text-secondary); }
 .sign-action-btn:disabled { color: var(--text-secondary); cursor: default; }
 .stats-label { font-size: 0.85rem; color: var(--text-secondary); }
@@ -324,7 +324,7 @@ const getStatusClass = (status?: number) => {
 .event-item { 
   padding: 0.75rem; 
   margin: 0 -0.75rem; /* 抵消内边距，保持文字对齐 */
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   border-bottom: 1px solid #f0f2f5; 
   transition: background-color 0.2s ease;
 }
@@ -372,7 +372,7 @@ const getStatusClass = (status?: number) => {
   background: var(--paper-card);
   width: 90%;
   max-width: 440px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   padding: 2.5rem 2rem;
   position: relative;
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
@@ -401,7 +401,7 @@ const getStatusClass = (status?: number) => {
   display: inline-block;
   font-size: 0.7rem;
   padding: 0.2rem 0.6rem;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   margin-bottom: 0.75rem;
   letter-spacing: 0.5px;
 }

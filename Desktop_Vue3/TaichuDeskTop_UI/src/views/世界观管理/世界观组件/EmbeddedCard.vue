@@ -11,6 +11,11 @@
     <div
       class="ec-header"
       :class="{ 'is-clickable': collapsible || clickable }"
+      :role="collapsible || clickable ? 'button' : undefined"
+      :tabindex="collapsible || clickable ? 0 : undefined"
+      :aria-expanded="collapsible ? expanded : undefined"
+      @keydown.enter.self.prevent="onHeaderClick"
+      @keydown.space.self.prevent="onHeaderClick"
       @click="onHeaderClick"
     >
       <span class="ec-type">{{ typeLabel }}</span>
@@ -241,7 +246,8 @@ const goToDetail = () => {
    ============================================================ */
 .embedded-card {
   border: 1px solid var(--border-line);
-  border-radius: 10px;
+  border-radius: 0;
+  border-left: 3px solid var(--surface-color, var(--accent-color));
   background: var(--paper-card);
   overflow: hidden;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -255,7 +261,7 @@ const goToDetail = () => {
 }
 
 .embedded-card.is-nested {
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--paper-card);
   border-color: var(--border-line);
   box-shadow: none;
@@ -277,7 +283,7 @@ const goToDetail = () => {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: var(--paper-card);
+  background: linear-gradient(115deg,var(--surface-wash,var(--bg-sub)),var(--paper-card));
   user-select: none;
   min-height: 40px;
 }
@@ -285,9 +291,7 @@ const goToDetail = () => {
   cursor: pointer;
   transition: background 0.12s;
 }
-.ec-header.is-clickable:hover {
-  background: var(--paper-card);
-}
+.ec-header.is-clickable:is(:hover,:focus-visible) { background: var(--accent-soft); outline: 2px solid var(--accent-color); outline-offset: -2px; }
 .embedded-card.is-expanded .ec-header {
   background: var(--bg-main);
   border-bottom: 1px solid var(--border-line);
@@ -309,7 +313,7 @@ const goToDetail = () => {
   color: var(--accent-color);
   background: var(--accent-soft);
   padding: 1px 8px;
-  border-radius: 4px;
+  border-radius: 0;
   flex-shrink: 0;
   font-weight: 500;
   line-height: 16px;
@@ -388,7 +392,7 @@ const goToDetail = () => {
   cursor: pointer;
   font-size: 13px;
   padding: 3px 6px;
-  border-radius: 4px;
+  border-radius: 0;
   transition: all 0.12s;
   line-height: 1;
 }
@@ -425,7 +429,7 @@ const goToDetail = () => {
    封面：图片完整显示 + max-height 兜底
    ============================================================ */
 .ec-cover {
-  border-radius: 6px;
+  border-radius: 0;
   overflow: hidden;
   margin-bottom: 12px;
   background: var(--bg-main);
@@ -449,7 +453,7 @@ const goToDetail = () => {
 
 .is-nested .ec-cover {
   margin-bottom: 8px;
-  border-radius: 5px;
+  border-radius: 0;
 }
 .is-nested .ec-cover img {
   max-height: 280px;
@@ -466,7 +470,7 @@ const goToDetail = () => {
 }
 .ec-gallery-item {
   aspect-ratio: 1;
-  border-radius: 5px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--bg-sub);
   border: 1px solid var(--border-line);
@@ -559,7 +563,7 @@ const goToDetail = () => {
   color: var(--accent-color);
   background: var(--bg-sub);
   padding: 1px 7px;
-  border-radius: 3px;
+  border-radius: 0;
   line-height: 16px;
 }
 .is-nested .ec-tag {

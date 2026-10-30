@@ -82,10 +82,10 @@
         <ul class="member-grid">
           <li v-for="member in members" :key="member.id" class="member-card">
             <div class="card-top">
-              <div class="member-avatar large">{{ member.name ? member.name.charAt(0) : '?' }}</div>
+              <UserLink class="member-avatar large" :id="member.id" :name="member.name">{{ member.name ? member.name.charAt(0) : '?' }}</UserLink>
               <div class="member-core">
                 <span class="member-name">
-                  {{ member.name }}
+                  <UserLink :id="member.id" :name="member.name" />
                   <span v-if="member.isOwner" class="owner-tag">创建者</span>
                 </span>
                 <span class="member-email">{{ member.email }}</span>
@@ -132,8 +132,8 @@
 
     <Transition name="fade">
       <div v-if="removeModal.isOpen" class="modal-overlay" @click.self="closeRemoveModal">
-        <div class="minimal-modal">
-          <header class="modal-inner-header">
+        <div role="dialog" aria-modal="true" aria-label="移除成员" class="minimal-modal workbench-skin editor-surface community-surface tone-collab">
+          <header class="modal-inner-header studio-heading">
             <h2>移除成员</h2>
             <p>确定要将 <strong>{{ removeModal.memberName }}</strong> 移出项目吗？此操作无法撤销。</p>
           </header>
@@ -148,6 +148,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { ref, onMounted } from 'vue'
 import projectService from '../../../api/projectService'
 import request from '@/utils/request'
@@ -392,7 +393,7 @@ const handleRequest = async (requestId: string, action: 'approve' | 'reject') =>
 .panel-block { background: var(--paper-card); border: 1px solid var(--border-line); padding: 28px; }
 .members-panel { flex: 1; min-width: 0; }
 .section-title { font-size: 0.85rem; font-weight: 500; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-secondary); margin: 0 0 20px 0; display: flex; align-items: center; gap: 8px; }
-.count-badge { font-size: 0.7rem; font-family: monospace; color: var(--text-secondary); background: var(--bg-main); padding: 2px 6px; border-radius: 2px; font-weight: 400; }
+.count-badge { font-size: 0.7rem; font-family: monospace; color: var(--text-secondary); background: var(--bg-main); padding: 2px 6px; border-radius: 0; font-weight: 400; }
 
 /* 🌟 输入与联想浮层容器样式 */
 .invite-form-wrapper {
@@ -415,7 +416,7 @@ const handleRequest = async (requestId: string, action: 'approve' | 'reject') =>
   background: var(--paper-card);
   border: 1px solid var(--border-line);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
-  border-radius: 2px;
+  border-radius: 0;
   z-index: 50;
   max-height: 240px;
   overflow-y: auto;
@@ -449,7 +450,7 @@ const handleRequest = async (requestId: string, action: 'approve' | 'reject') =>
 .candidate-avatar {
   width: 28px;
   height: 28px;
-  border-radius: 50%;
+  border-radius: 0;
   background: var(--text-primary);
   color: var(--paper-card);
   display: flex;
@@ -492,21 +493,21 @@ const handleRequest = async (requestId: string, action: 'approve' | 'reject') =>
 .request-message { font-size: 0.8rem; color: var(--text-secondary); font-style: italic; background: var(--bg-main); padding: 8px 12px; border-left: 2px solid var(--border-line); margin: 4px 0 0 0; line-height: 1.5; word-break: break-all; }
 
 .request-actions { display: flex; gap: 8px; justify-content: flex-end; width: 100%; }
-.accept-btn { background: var(--accent-color); color: var(--on-accent); border: none; font-size: 0.75rem; padding: 6px 16px; cursor: pointer; transition: background 0.2s; border-radius: 2px; }
+.accept-btn { background: var(--accent-color); color: var(--on-accent); border: none; font-size: 0.75rem; padding: 6px 16px; cursor: pointer; transition: background 0.2s; border-radius: 0; }
 .accept-btn:hover { background: var(--text-primary); }
-.reject-btn { background: none; border: 1px solid var(--border-line); color: var(--text-secondary); font-size: 0.75rem; padding: 6px 16px; cursor: pointer; transition: all 0.2s; border-radius: 2px; }
+.reject-btn { background: none; border: 1px solid var(--border-line); color: var(--text-secondary); font-size: 0.75rem; padding: 6px 16px; cursor: pointer; transition: all 0.2s; border-radius: 0; }
 .reject-btn:hover { border-color: var(--danger); color: var(--danger); background: var(--bg-main); }
 
 .member-grid { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
 .member-card { background: var(--paper-card); border: 1px solid var(--border-line); padding: 24px; display: flex; flex-direction: column; gap: 16px; transition: border-color 0.2s, box-shadow 0.2s; }
 .member-card:hover { border-color: var(--border-line); box-shadow: 0 10px 30px rgba(0,0,0,0.03); }
 .card-top { display: flex; align-items: center; gap: 16px; }
-.member-avatar { background: var(--bg-sub); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; flex-shrink: 0; }
+.member-avatar { background: var(--bg-sub); border-radius: 0; display: flex; align-items: center; justify-content: center; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; flex-shrink: 0; }
 .member-avatar.small { width: 32px; height: 32px; font-size: 0.75rem; }
 .member-avatar.large { width: 44px; height: 44px; font-size: 0.9rem; }
 .member-core { display: flex; flex-direction: column; gap: 2px; }
 .member-name { font-size: 0.95rem; color: var(--text-primary); font-weight: 500; display: flex; align-items: center; gap: 6px; }
-.owner-tag { font-size: 0.65rem; background: var(--text-primary); color: var(--paper-card); padding: 1px 6px; border-radius: 2px; font-weight: 400; }
+.owner-tag { font-size: 0.65rem; background: var(--text-primary); color: var(--paper-card); padding: 1px 6px; border-radius: 0; font-weight: 400; }
 .member-email { font-size: 0.8rem; color: var(--text-secondary); }
 .card-bottom { display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; }
 .role-section { display: flex; flex-direction: column; gap: 6px; flex: 1; }
@@ -523,18 +524,22 @@ const handleRequest = async (requestId: string, action: 'approve' | 'reject') =>
 
 .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--overlay); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
 .minimal-modal { background: var(--paper-card); width: 100%; max-width: 420px; padding: clamp(20px, 4vw, 32px); border: 1px solid var(--border-line); box-shadow: 0 40px 100px rgba(0, 0, 0, 0.04); 
-  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
+  max-height: 90dvh; overflow-y: auto; border-radius: 0;
 }
 .modal-inner-header h2 { font-size: 1.2rem; font-weight: 500; margin: 0 0 12px 0; color: var(--text-primary); }
 .modal-inner-header p { font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; margin: 0; }
 .modal-footer { margin-top: 40px; display: flex; justify-content: flex-end; gap: 16px; }
 .cancel-btn { background: none; border: none; color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; padding: 10px 20px; transition: color 0.3s; }
 .cancel-btn:hover { color: var(--text-primary); }
-.confirm-btn { background: var(--accent-color); color: var(--on-accent); border: none; font-size: 0.85rem; cursor: pointer; padding: 10px 28px; border-radius: 2px; transition: background 0.3s; }
+.confirm-btn { background: var(--accent-color); color: var(--on-accent); border: none; font-size: 0.85rem; cursor: pointer; padding: 10px 28px; border-radius: 0; transition: background 0.3s; }
 .confirm-btn:hover { background: var(--text-primary); }
 .fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pulse { 0% { transform: scaleX(0.5); opacity: 0.2; } 50% { transform: scaleX(1.5); opacity: 1; } 100% { transform: scaleX(0.5); opacity: 0.2; } }
+.editor-surface { box-sizing: border-box; max-height: calc(100dvh - 32px); overflow-y: auto; }
+.editor-surface .clean-input { color: var(--text-primary); background: var(--paper-card); min-width: 0; }
+.editor-surface .form-row > * { min-width: 0; }
+@media(max-width:640px) { .editor-surface { padding: 16px; }.editor-surface .form-row { flex-direction: column; }.editor-surface .w-120 { width: 100%; }.editor-surface :is(.modal-foot,.modal-footer) { flex-wrap: wrap; gap: 12px; } }
 </style>

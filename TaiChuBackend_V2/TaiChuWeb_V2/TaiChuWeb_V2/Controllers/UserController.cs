@@ -5,6 +5,9 @@ using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Dtos.User;
 using TaiChuWeb_V2.Models.User;
 using Microsoft.EntityFrameworkCore;
+using TaiChuWeb_V2.Controllers.LingMai;
+using TaiChuWeb_V2.Services.Cos;
+using TaiChuWeb_V2.Services.Shop;
 
 [Authorize]
 [Route("api/[controller]")]
@@ -12,10 +15,47 @@ using Microsoft.EntityFrameworkCore;
 public class UserController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ShopService _shop;
+    private readonly CosService _cos;
 
-    public UserController(AppDbContext context)
+    public UserController(AppDbContext context, ShopService shop, CosService cos)
     {
         _context = context;
+        _shop = shop;
+        _cos = cos;
+    }
+
+    /// <summary>用户自己上传的头像放在这个目录下（只由服务器写入）</summary>
+    private string OwnAvatarPrefix(Guid userId) => _cos.ObjectUrl($"avatars/u/{userId:N}/");
+
+    /// <summary>
+    /// 上传自己的头像：只收静态图（JPG / PNG / WebP）。GIF、动态 WebP、APNG 会被拒绝——动图头像只能用官方的（交易行出售）。
+    /// 服务器检查文件内容后存到 avatars/u/{用户}/ 并直接设成头像。
+    /// </summary>
+    [HttpPost("avatar")]
+    [RequestSizeLimit(AvatarImage.MaxUserBytes + 64 * 1024)]
+    public async Task<IActionResult> UploadAvatar(IFormFile? file)
+    {
+        if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)) return Unauthorized();
+        if (file == null || file.Length == 0) return BadRequest(new { message = "没有收到图片" });
+        if (file.Length > AvatarImage.MaxUserBytes) return BadRequest(new { message = "头像不能超过 5MB" });
+        await using var ms = new MemoryStream();
+        await file.CopyToAsync(ms);
+        var bytes = ms.ToArray();
+        var info = AvatarImage.Sniff(bytes);
+        if (info == null) return BadRequest(new { message = "只支持 JPG、PNG、WebP 图片" });
+        if (info.Animated) return BadRequest(new { message = "不能上传 GIF 或动图头像。动图头像可以在交易行兑换官方的。" });
+        var url = await _cos.UploadAsync(bytes, $"{Guid.NewGuid():N}.{info.Ext}", $"avatars/u/{userId:N}");
+
+        var profile = await _context.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId);
+        if (profile == null)
+        {
+            profile = new UserProfile { UserId = userId };
+            _context.UserProfiles.Add(profile);
+        }
+        profile.Avatar = url;
+        await _context.SaveChangesAsync();
+        return Ok(new { avatar = url });
     }
 
 
@@ -56,6 +96,64 @@ public class UserController : ControllerBase
 
 
 
+
+    // 公开个人主页：任何人（包括未登录访客）都能看。只返回公开资料和已公开的内容，
+    // 不含邮箱、手机号、住址、生日等私人信息。
+    [AllowAnonymous]
+    [HttpGet("{id:guid}/public")]
+    public async Task<IActionResult> GetPublicProfile(Guid id)
+    {
+        var user = await _context.Users.AsNoTracking()
+            .Include(u => u.Profile)
+            .Include(u => u.Stats)
+            .FirstOrDefaultAsync(u => u.Id == id);
+        if (user == null) return NotFound(new { message = "没有找到这位用户" });
+
+        // spaces 与 PublishedNotes 两表排序规则不同，先取出空间 ID 再筛选，不在 SQL 里直接比较两列。
+        var spaceIds = await LingMaiPublishController.AuthorSpaceIds(_context, id);
+        var notes = LingMaiPublishController.VisiblePublishedNotes(_context)
+            .Where(pn => (pn.Type == "post" || pn.Type == "blog" || pn.Type == "note") && spaceIds.Contains(pn.SpaceId));
+        var artworks = _context.Artworks.AsNoTracking()
+            .Where(a => a.UploaderId == id && a.IsApproved && (a.Status == "published" || a.Status == "" || a.Status == null));
+        var worlds = _context.WorldProjects.AsNoTracking().Where(w => w.OwnerId == id && w.IsPublic);
+        var characters = _context.StickmanCharacters.AsNoTracking().Where(c => c.AuthorId == id && c.Status == "published");
+
+        var counts = new
+        {
+            Posts = await notes.CountAsync(),
+            Artworks = await artworks.CountAsync(),
+            Worlds = await worlds.CountAsync(),
+            Characters = await characters.CountAsync()
+        };
+
+        var recentArtworks = await artworks.OrderByDescending(a => a.UploadAt).Take(12)
+            .Select(a => new { a.Id, a.Title, CoverImageUrl = a.Images.Where(i => i.IsCover).Select(i => i.ImageUrl).FirstOrDefault() })
+            .ToListAsync();
+        var publicWorlds = await worlds.OrderByDescending(w => w.UpdatedAt).Take(6)
+            .Select(w => new { w.Id, w.Name, w.Description, w.CoverImage })
+            .ToListAsync();
+        var publishedCharacters = await characters.OrderByDescending(c => c.UpdatedAt ?? c.CreatedAt).Take(8)
+            .Select(c => new { c.Id, c.Title, c.CoverUrl, c.Description })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            user.Id,
+            user.Username,
+            JoinedAt = user.CreatedAt,
+            Avatar = user.Profile?.Avatar,
+            Bio = user.Profile?.Bio,
+            Mood = user.Profile?.Mood,
+            Level = user.Stats?.Level ?? 0,
+            Title = user.Stats?.Title,
+            MaxSignStreak = user.Stats?.MaxSignStreak ?? 0,
+            LikesReceived = user.Stats?.LikesReceived ?? 0,
+            Counts = counts,
+            Artworks = recentArtworks,
+            Worlds = publicWorlds,
+            Characters = publishedCharacters
+        });
+    }
 
     [HttpGet("me")]
     public async Task<IActionResult> GetCurrentUser()
@@ -133,7 +231,11 @@ public class UserController : ControllerBase
         {
             case "artwork":
                 query = _context.Artworks.Where(a => a.UploaderId == userId).Select(a => new ContentItem {
-                    Id = a.Id.ToString(), Title = a.Title, Status = !a.IsApproved ? "待审核" : (a.Status == "published" || a.Status == "" || a.Status == null) ? "已发布" : "未公开", UpdatedAt = a.UploadAt });
+                    Id = a.Id.ToString(), Title = a.Title, // 状态和作品详情页一致：自己下架的显示「已下架」，可以点进去「重新上架」
+                    Status = (a.Status == "published" || a.Status == "" || a.Status == null)
+                        ? (a.IsApproved ? "已发布" : "已下架")
+                        : a.Status == "reviewing" ? "审核中" : a.Status == "rejected" ? "未通过" : a.Status == "hidden" ? "被管理员隐藏" : "未公开",
+                    UpdatedAt = a.UploadAt });
                 break;
             case "blog":
             case "post":
@@ -172,8 +274,16 @@ public class UserController : ControllerBase
             _context.UserProfiles.Add(profile);
         }
 
+        // 头像只能是：自己通过 /api/User/avatar 上传的静态图，或者能用的官方头像（不改就不检查）
+        if (!string.IsNullOrEmpty(dto.Avatar) && dto.Avatar != profile.Avatar)
+        {
+            var ok = dto.Avatar.StartsWith(OwnAvatarPrefix(userId), StringComparison.Ordinal);
+            if (!ok && await _shop.FindAvatarDefByUrlAsync(dto.Avatar) is { } def) ok = await _shop.CanUseAvatarAsync(userId, def);
+            if (!ok) return BadRequest(new { message = "头像请在个人中心上传静态图片，或者选用官方头像" });
+        }
+
         // --- 覆盖式更新字段 ---
-        profile.Avatar = dto.Avatar ?? profile.Avatar;
+        profile.Avatar = string.IsNullOrEmpty(dto.Avatar) ? profile.Avatar : dto.Avatar;
         profile.Address = dto.Address ?? profile.Address;
         profile.PhoneNumber = dto.PhoneNumber ?? profile.PhoneNumber;
         profile.Gender = dto.Gender ?? profile.Gender;
@@ -203,4 +313,4 @@ public class UserController : ControllerBase
             return StatusCode(500, new { message = "数据库同步失败", detail = ex.Message });
         }
     }
-}
+}

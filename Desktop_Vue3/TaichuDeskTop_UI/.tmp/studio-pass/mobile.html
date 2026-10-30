@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8"><title>编辑页面窄屏检查</title>
+<style>body{margin:16px;background:#dce4e8;font:14px sans-serif}nav{display:flex;gap:8px;margin-bottom:12px}iframe{width:390px;height:640px;border:1px solid #8c9ca5;margin-right:12px;background:white}main{display:flex}</style>
+<nav>390px 真实页面 <button onclick="show(0)">博客、帖子、角色</button><button onclick="show(1)">联创、约战、作品</button><button onclick="show(2)">世界、打卡、画廊</button></nav><main><iframe title="编辑页一"></iframe><iframe title="编辑页二"></iframe><iframe title="编辑页三"></iframe></main>
+<script>
+const groups=[['/write/blog','/write/post','/ocs/create'],['/joint/create','/battles/create','/works/create'],['/world/create','/activity/checkin/create','/gallery?workId=377']];
+function show(i){document.querySelectorAll('iframe').forEach((f,n)=>f.src='/#'+groups[i][n])}show(0);
+</script>

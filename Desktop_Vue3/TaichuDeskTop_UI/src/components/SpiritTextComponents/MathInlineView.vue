@@ -70,7 +70,7 @@ const cancel = () => {
 }
 .math-inline-display {
   padding: 0 4px;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: text;
   transition: background 0.15s;
 }
@@ -84,7 +84,7 @@ const cancel = () => {
 }
 .math-inline-editor input {
   border: 1px solid var(--accent-color);
-  border-radius: 4px;
+  border-radius: 0;
   padding: 2px 6px;
   outline: none;
   font-family: 'SF Mono', Monaco, monospace;

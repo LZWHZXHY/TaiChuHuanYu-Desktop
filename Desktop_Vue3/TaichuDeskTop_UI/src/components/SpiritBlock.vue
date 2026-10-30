@@ -35,7 +35,10 @@
       </div>
     </div>
 
-    <div v-else-if="!['canvas-node', 'canvas-edge', 'text', 'hardBreak', 'horizontalRule'].includes(block.type)" class="block-unknown">
+    <div v-else-if="block.type === 'schedule-item'" class="block-text">
+      {{ blockData.isDone ? '✓' : '○' }} {{ blockData.title || '未命名任务' }}
+    </div>
+    <div v-else-if="!['canvas-node', 'canvas-edge', 'schedule-column', 'text', 'hardBreak', 'horizontalRule'].includes(block.type)" class="block-unknown">
       [未知能量块: {{ block.type }}]
     </div>
   </div>
@@ -105,7 +108,7 @@ const tableShortCut = computed(() => {
 /* 文本样式 */
 .block-text {
   font-size: 13px;
-  color: #3a3a3c;
+  color: var(--text-primary);
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 3; /* 卡片内最多显示3行文本 */
@@ -116,10 +119,10 @@ const tableShortCut = computed(() => {
 /* 🌟 新增：图片预览样式 */
 .block-image-preview {
   width: 100%;
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
   margin-top: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border-line);
 }
 
 .preview-img {
@@ -134,14 +137,14 @@ const tableShortCut = computed(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: #f5f5f7;
+  background: var(--bg-sub);
   padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid #e5e5ea;
+  border-radius: 0;
+  border: 1px solid var(--border-line);
 }
 .pin-icon { font-size: 18px; }
-.pin-title { font-size: 13px; font-weight: 600; color: #1d1d1f; }
-.pin-coords { font-size: 11px; color: #86868b; margin-top: 2px; }
+.pin-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.pin-coords { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
 
 /* 状态标签样式 */
 .block-status {
@@ -149,21 +152,21 @@ const tableShortCut = computed(() => {
   align-items: center;
   gap: 6px;
   padding: 4px 8px;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 12px;
   font-weight: 600;
   width: fit-content;
 }
-.status-default { background: #f2f2f7; color: #86868b; }
-.status-processing { background: #e5f0ff; color: #0066cc; }
-.status-done { background: #e8f5e9; color: #34c759; }
+.status-default { background: var(--bg-sub); color: var(--text-secondary); }
+.status-processing { background: var(--accent-soft); color: var(--accent-color); }
+.status-done { background: var(--success-soft); color: var(--success); }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 
 /* 🌟 新增：Excel 电子表格微缩 Apple 风格样式 */
 .block-excel-preview {
-  background: #f5f5f7;
-  border: 1px solid #e5e5ea;
-  border-radius: 8px;
+  background: var(--bg-sub);
+  border: 1px solid var(--border-line);
+  border-radius: 0;
   padding: 8px;
   display: flex;
   flex-direction: column;
@@ -176,15 +179,15 @@ const tableShortCut = computed(() => {
   gap: 4px;
 }
 .excel-icon { font-size: 12px; }
-.excel-tag { font-size: 9px; font-weight: 700; color: #86868b; letter-spacing: 0.05em; }
+.excel-tag { font-size: 9px; font-weight: 700; color: var(--text-secondary); letter-spacing: 0.05em; }
 
 .excel-preview-body {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.04);
-  border-radius: 4px;
+  background: var(--bg-main);
+  border: 1px solid var(--border-line);
+  border-radius: 0;
   padding: 4px;
   overflow: hidden;
 }
@@ -195,22 +198,22 @@ const tableShortCut = computed(() => {
 .preview-cell {
   flex: 1;
   font-size: 10px;
-  color: #3a3a3c;
-  background: #fafafa;
+  color: var(--text-primary);
+  background: var(--bg-sub);
   padding: 2px;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  border: 0.5px solid #efeff4;
+  border: 0.5px solid var(--border-line);
 }
 
 /* 兜底样式 */
 .block-unknown {
   font-size: 11px;
-  color: #ff3b30;
-  background: #ffeeea;
+  color: var(--danger);
+  background: var(--danger-soft);
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 </style>

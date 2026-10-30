@@ -1,0 +1,150 @@
+/* src/assets/styles/spirit-typography.css */
+
+/* 🌟 核心排版引擎容器 */
+.spirit-render-engine,
+.spirit-typography-engine {
+  outline: none;
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+/* 双链节点样式 */
+.spirit-render-engine .spirit-link-node,
+.spirit-typography-engine .spirit-link-node {
+  color: var(--accent-color);
+  background: rgba(0, 102, 204, 0.05);
+  text-decoration: none;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-weight: 500;
+  border-bottom: 1px dashed rgba(0, 102, 204, 0.4);
+}
+
+/* 提到（Mention）节点样式 */
+.spirit-render-engine .spirit-mention-node,
+.spirit-typography-engine .spirit-mention-node {
+  background: rgba(0, 102, 204, 0.1);
+  color: var(--accent-color);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.spirit-render-engine .spirit-mention-node::before,
+.spirit-typography-engine .spirit-mention-node::before {
+  content: '◈ ';
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+/* 图片排版 */
+.spirit-render-engine img,
+.spirit-render-engine .spirit-image-node,
+.spirit-typography-engine img,
+.spirit-typography-engine .spirit-image-node {
+  display: block;
+  height: auto;
+  border-radius: 12px;
+  max-width: 100%;
+}
+.spirit-render-engine .spirit-image-node[data-align="left"],
+.spirit-typography-engine .spirit-image-node[data-align="left"] { margin-right: auto; }
+.spirit-render-engine .spirit-image-node[data-align="center"],
+.spirit-typography-engine .spirit-image-node[data-align="center"] { margin-left: auto; margin-right: auto; }
+.spirit-render-engine .spirit-image-node[data-align="right"],
+.spirit-typography-engine .spirit-image-node[data-align="right"] { margin-left: auto; }
+
+/* ---------------- 🌟 待办事项 (Task List) 修复区 ---------------- */
+
+/* 1. 彻底干掉原生圆点 */
+.spirit-render-engine ul[data-type="taskList"],
+.spirit-typography-engine ul[data-type="taskList"] {
+  list-style: none !important;
+  padding: 0;
+  margin: 0.5rem 0;
+}
+
+/* 2. 核心布局：强制 Flex 横向排列 */
+.spirit-render-engine li[data-type="taskItem"],
+.spirit-typography-engine li[data-type="taskItem"],
+.spirit-task-item {
+  display: flex !important;
+  gap: 8px;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+  list-style-type: none !important;
+}
+
+/* 3. 选框外壳微调，对齐首行文字 */
+.spirit-task-item label {
+  display: flex;
+  margin-top: 4px; /* 微调复选框，使其与首行文字对齐 */
+  user-select: none;
+  cursor: pointer;
+}
+
+/* 4. 选框本框美化 */
+.spirit-task-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--accent-color); /* 使用你的灵脉蓝主题色 */
+}
+
+/* 5. 核心：干掉 p 标签默认边距，防止文字掉下去 */
+.spirit-task-item > div {
+  flex: 1;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.spirit-task-item > div > p {
+  margin: 0 !important; 
+  line-height: 1.6;
+}
+
+/* 6. 打勾后的划线与置灰状态 */
+.spirit-task-item[data-checked="true"] > div {
+  color: var(--text-secondary); /* 文字变灰 */
+  text-decoration: line-through; /* 添加删除线 */
+  opacity: 0.7;
+}
+
+/* ---------------- 折叠区块 (Details/Summary) ---------------- */
+.spirit-render-engine details,
+.spirit-typography-engine details {
+  border: 1px solid var(--border-line);
+  border-radius: 12px;
+  margin: 1.5rem 0;
+  background: var(--paper-card);
+  overflow: hidden;
+}
+.spirit-render-engine summary,
+.spirit-typography-engine summary {
+  padding: 12px 20px;
+  background: var(--paper-card);
+  border-bottom: 1px solid var(--border-line);
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+}
+.spirit-render-engine summary::before,
+.spirit-typography-engine summary::before {
+  content: '▼';
+  font-size: 10px;
+  margin-right: 12px;
+  color: var(--accent-color);
+  display: inline-block;
+  transition: transform 0.2s ease;
+}
+.spirit-render-engine details:not([open]) summary::before,
+.spirit-typography-engine details:not([open]) summary::before {
+  transform: rotate(-90deg);
+}
+.spirit-render-engine details > div,
+.spirit-render-engine details > p,
+.spirit-typography-engine details > div,
+.spirit-typography-engine details > p {
+  padding: 16px 20px;
+}

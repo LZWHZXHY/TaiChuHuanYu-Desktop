@@ -154,7 +154,7 @@
           </summary>
           <div class="card-body relation-grid">
             <div v-if="relations.length === 0" class="empty-state">
-              <span>暂无羁绊，连接其他碎片</span>
+              <span>还没有关联，点下方添加与其他笔记的关联</span>
             </div>
             <div class="relation-chips">
               <div 
@@ -187,7 +187,7 @@
               <input 
                 v-model="searchQuery" 
                 class="search-input" 
-                placeholder="搜索宇宙碎片..." 
+                placeholder="搜索笔记标题…" 
               />
             </div>
             <div class="index-scroll">
@@ -202,7 +202,7 @@
                 <span class="item-type">{{ getTypeLabel(note.type) }}</span>
               </div>
               <div v-if="filteredNotes.length === 0 && searchQuery" class="empty-state">
-                未找到匹配碎片
+                没有找到匹配的笔记
               </div>
             </div>
           </div>
@@ -239,7 +239,7 @@
               <button class="pi-add">+ 关联</button>
             </div>
             <div v-if="relationCandidates.length === 0" class="empty-state picker-empty">
-              🕳️ 没有可关联的碎片（或已全部关联）
+              没有可关联的笔记（或已全部关联）
             </div>
           </div>
         </div>
@@ -376,9 +376,9 @@ const getTypeLabel = (type?: string) => {
     race: '种族', ability: '能力', item: '物品',
     event: '事件', concept: '概念', faction: '势力',
     nation: '国家', geography: '地理', wiki: '词条',
-    note: '笔记', post: '动态', blog: '随笔'
+    note: '笔记', post: '帖子', blog: '博客'
   };
-  return map[type || ''] || '碎片';
+  return map[type || ''] || '笔记';
 };
 
 // 属性操作
@@ -494,7 +494,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 }
 .entry-type-badge {
   padding: 2px 12px;
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 11px;
   font-weight: 700;
   color: var(--text-primary);
@@ -513,7 +513,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 .view-toggle {
   display: flex;
   background: var(--bg-sub);
-  border-radius: 30px;
+  border-radius: 0;
   padding: 3px;
   border: 1px solid var(--border-line);
 }
@@ -521,7 +521,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   border: none;
   background: transparent;
   padding: 4px 16px;
-  border-radius: 30px;
+  border-radius: 0;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -549,7 +549,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 
 .action-btn {
   padding: 6px 18px;
-  border-radius: 30px;
+  border-radius: 0;
   border: 1px solid var(--border-line);
   background: var(--paper-card);
   font-size: 13px;
@@ -587,7 +587,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 /* ================================================================ */
 .narrative-canvas {
   background: var(--paper-card);
-  border-radius: 24px;
+  border-radius: 0;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
   min-height: 70vh;
   padding: 40px 56px;
@@ -645,7 +645,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   color: var(--accent-color);
   background: var(--accent-soft);
   padding: 4px 12px;
-  border-radius: 20px;
+  border-radius: 0;
   font-weight: 500;
 }
 
@@ -684,7 +684,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 
 .inspector-card {
   background: var(--paper-card);
-  border-radius: 16px;
+  border-radius: 0;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.02);
   border: 1px solid rgba(0, 0, 0, 0.03);
   overflow: hidden;
@@ -726,7 +726,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   font-size: 10px;
   background: var(--bg-sub);
   padding: 2px 10px;
-  border-radius: 12px;
+  border-radius: 0;
   font-weight: 600;
   color: var(--text-secondary);
 }
@@ -734,7 +734,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   background: none;
   border: 1px dashed var(--border-line);
   color: var(--text-secondary);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 2px 12px;
   font-size: 11px;
   font-weight: 600;
@@ -774,7 +774,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 .type-tag-display {
   background: var(--bg-sub);
   padding: 2px 10px;
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 12px;
 }
 .status-control {
@@ -784,7 +784,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 }
 .status-select {
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 4px 8px;
   font-size: 12px;
   background: var(--paper-card);
@@ -812,7 +812,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   align-items: center;
   gap: 8px;
   background: var(--paper-card);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 4px 4px 4px 12px;
   border: 1px solid transparent;
   transition: all 0.2s;
@@ -897,7 +897,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   gap: 6px;
   background: var(--bg-sub);
   padding: 4px 10px 4px 8px;
-  border-radius: 30px;
+  border-radius: 0;
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
@@ -920,7 +920,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   color: var(--text-secondary);
   background: var(--paper-card);
   padding: 1px 6px;
-  border-radius: 10px;
+  border-radius: 0;
 }
 .chip-remove {
   background: none;
@@ -952,7 +952,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   width: 100%;
   padding: 8px 12px 8px 36px;
   border: 1px solid var(--border-line);
-  border-radius: 10px;
+  border-radius: 0;
   font-size: 13px;
   outline: none;
   background: var(--paper-card);
@@ -976,7 +976,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   align-items: center;
   gap: 10px;
   padding: 6px 10px;
-  border-radius: 8px;
+  border-radius: 0;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -1000,7 +1000,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   color: var(--text-secondary);
   background: var(--bg-sub);
   padding: 1px 8px;
-  border-radius: 10px;
+  border-radius: 0;
 }
 
 /* ================================================================ */
@@ -1018,7 +1018,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
 }
 .picker-modal {
   background: var(--paper-card);
-  border-radius: 20px;
+  border-radius: 0;
   padding: 24px;
   width: 420px;
   max-width: 94%;
@@ -1049,7 +1049,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   border: none;
   width: 30px;
   height: 30px;
-  border-radius: 50%;
+  border-radius: 0;
   font-size: 16px;
   cursor: pointer;
   transition: background 0.2s;
@@ -1061,7 +1061,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   width: 100%;
   padding: 10px 14px;
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: 0;
   font-size: 14px;
   outline: none;
   margin-bottom: 16px;
@@ -1083,7 +1083,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  border-radius: 10px;
+  border-radius: 0;
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -1098,7 +1098,7 @@ watch(() => props.status, (val) => { if (val) editableStatus.value = val; });
   color: var(--on-accent);
   border: none;
   padding: 2px 12px;
-  border-radius: 20px;
+  border-radius: 0;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;

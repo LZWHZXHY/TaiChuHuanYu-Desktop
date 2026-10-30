@@ -19,50 +19,55 @@
             <span v-else class="opt-name">{{ space.name }}</span>
 
             <div class="space-actions">
-              <span @click.stop="startRenameSpace(space)">Edit</span>
-              <span class="danger" @click.stop="startDeleteSpace(space)" v-if="spaces.length > 1">Delete</span>
+              <button type="button" @click.stop="startRenameSpace(space)">重命名</button>
+              <button type="button" class="danger" @click.stop="startDeleteSpace(space)" v-if="spaces.length > 1">删除</button>
             </div>
           </div>
 
           <div v-if="isCreatingSpace" class="space-opt">
-            <input class="inline-input" v-model="tempName" placeholder="New World..." @blur="cancelCreateSpace" @keyup.enter="confirmCreateSpace" v-focus />
+            <input class="inline-input" v-model="tempName" placeholder="输入空间名称，回车创建" @blur="cancelCreateSpace" @keyup.enter="confirmCreateSpace" v-focus />
           </div>
-          <div v-else-if="quota.usedSpaces < quota.maxSpaces" class="space-footer-action" @click="startCreateSpace">
-            New Space
-          </div>
+          <button v-else-if="quota.usedSpaces < quota.maxSpaces" type="button" class="space-footer-action" @click="startCreateSpace">
+            ＋ 新建空间
+          </button>
+          <p v-else class="space-footer-note">空间数量已达上限（{{ quota.maxSpaces }} 个）</p>
         </div>
       </transition>
     </div>
 
     <div class="sidebar-header">
       <div class="header-left">
-        <span class="index-label">INDEX</span>
-        <span class="quota-text">{{ quota.usedNotes }}/{{ quota.maxNotes }}</span>
+        <span class="index-label">全部笔记</span>
+        <span class="quota-text" :title="`已用 ${quota.usedNotes} 篇，上限 ${quota.maxNotes} 篇`">{{ quota.usedNotes }} / {{ quota.maxNotes }}</span>
       </div>
       
       <div class="header-actions" style="position: relative;">
-        <button type="button" class="text-btn" @click="$emit('create', 'folder')">文件夹</button>
-        
         <button type="button" class="text-btn active" :aria-expanded="isCreateMenuOpen" @click.stop="toggleCreateMenu">
-          新建 <span aria-hidden="true">▾</span>
+          ＋ 新建 <span aria-hidden="true">▾</span>
         </button>
 
         <transition name="fade">
           <div v-if="isCreateMenuOpen" class="create-dropdown" @click.stop>
-            <button type="button" class="create-opt" @click="handleCreateWithType('note')">📝 长文随笔</button>
-            <button type="button" class="create-opt" @click="handleCreateWithType('doc')">📄 项目文档</button>
-            <button type="button" class="create-opt" @click="handleCreateWithType('blog')">✒️ 深度博客</button>
-            <button type="button" class="create-opt" @click="handleCreateWithType('post')">💬 短篇简语</button>
-            <button type="button" class="create-opt" @click="handleCreateWithType('wiki')">🪐 百科与攻略</button>
-            <button type="button" class="create-opt" @click="handleCreateWithType('schedule')">📅 日历看板</button>
-            <button type="button" class="create-opt" @click="handleCreateWithType('canvas')">🕸️ 星图白板</button>
+            <p class="create-hint">新建到「{{ currentSpaceName }}」</p>
+            <button v-for="kind in createKinds.common" :key="kind.value" type="button" class="create-opt" @click="handleCreateWithType(kind.value)">
+              <span aria-hidden="true">{{ kind.icon }}</span><span><strong>{{ kind.label }}</strong><small>{{ kind.desc }}</small></span>
+            </button>
+            <details class="create-more">
+              <summary>更多类型</summary>
+              <button v-for="kind in createKinds.more" :key="kind.value" type="button" class="create-opt" @click="handleCreateWithType(kind.value)">
+                <span aria-hidden="true">{{ kind.icon }}</span><span><strong>{{ kind.label }}</strong><small>{{ kind.desc }}</small></span>
+              </button>
+            </details>
+            <button type="button" class="create-opt folder-opt" @click="handleCreateWithType('folder')">
+              <span aria-hidden="true">📁</span><span><strong>文件夹</strong><small>用来整理笔记</small></span>
+            </button>
           </div>
         </transition>
       </div>
     </div>
 
     <div class="sidebar-search">
-      <input type="text" v-model="searchQuery" placeholder="搜索灵脉" aria-label="搜索灵脉" spellcheck="false" />
+      <input type="text" v-model="searchQuery" placeholder="搜索本空间的笔记标题" aria-label="搜索本空间的笔记标题" spellcheck="false" />
     </div>
 
     <nav class="note-list">
@@ -77,8 +82,8 @@
           @dragstart="onDragStart($event, note.id)"
         >
           <div class="item-content">
-            <span class="item-title">{{ note.title || 'Untitled' }}</span>
-            <span class="type-label">{{ note.type || 'note' }}</span>
+            <span class="item-title">{{ note.title || '未命名笔记' }}</span>
+            <span class="type-label">{{ noteKind(note.type).short }}</span>
           </div>
           <div class="item-hover-actions">
             <button type="button" class="danger" @click.stop="startDeleteItem(note.id)">删除</button>
@@ -99,10 +104,10 @@
             <input v-if="editingFolderId === folder.id" 
               class="inline-input" v-model="tempName" 
               @blur="saveFolderName(folder)" @keyup.enter="saveFolderName(folder)" v-focus />
-            <span v-else class="item-title" @dblclick.stop="startRenameFolder(folder)">{{ folder.title }}</span>
+            <span v-else class="item-title" title="双击重命名" @dblclick.stop="startRenameFolder(folder)">📁 {{ folder.title }}</span>
 
             <div class="item-hover-actions">
-              <span @click.stop="$emit('create', 'note', folder.id)">Add</span>
+              <button type="button" @click.stop="$emit('create', 'note', folder.id)">＋ 笔记</button>
             </div>
           </div>
 
@@ -118,8 +123,8 @@
                 @dragstart="onDragStart($event, subNote.id)"
               >
                 <div class="item-content">
-                  <span class="item-title">{{ subNote.title || 'Untitled' }}</span>
-                  <span class="type-label">{{ subNote.type || 'note' }}</span>
+                  <span class="item-title">{{ subNote.title || '未命名笔记' }}</span>
+                  <span class="type-label">{{ noteKind(subNote.type).short }}</span>
                 </div>
                 <div class="item-hover-actions">
                   <button type="button" class="danger" @click.stop="startDeleteItem(subNote.id)">删除</button>
@@ -131,15 +136,15 @@
       </div>
     </nav>
 
-    <div class="sidebar-footer">All synced</div>
+    <div class="sidebar-footer">拖动笔记到文件夹即可整理</div>
 
     <transition name="fade">
       <div v-if="confirmDialog.visible" class="spirit-overlay" @click="confirmDialog.visible = false">
         <div class="spirit-dialog" @click.stop>
           <p class="dialog-msg">{{ confirmDialog.message }}</p>
           <div class="dialog-actions">
-            <span class="dialog-btn" @click="confirmDialog.visible = false">Cancel</span>
-            <span class="dialog-btn danger" @click="executeConfirm">Confirm</span>
+            <button type="button" class="dialog-btn" @click="confirmDialog.visible = false">取消</button>
+            <button type="button" class="dialog-btn danger" @click="executeConfirm">确认删除</button>
           </div>
         </div>
       </div>
@@ -151,6 +156,13 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useSpiritData } from '../../../composables/useSpiritData';
 import { lingmaiApi } from '../../../api/lingmai';
+import { NOTE_KINDS, noteKind } from '@/utils/NoteType';
+
+const createKinds = { common: NOTE_KINDS.filter(k => k.common), more: NOTE_KINDS.filter(k => !k.common && ['wiki', 'doc', 'schedule', 'canvas'].includes(k.value)) };
+// 记住上次打开的空间，刷新后不再回到第一个空间。
+const LAST_SPACE_KEY = 'taichu-lingmai-space';
+const rememberSpace = (id: string) => { try { localStorage.setItem(LAST_SPACE_KEY, id); } catch { /* 存储不可用时仅本次有效 */ } };
+const recalledSpace = () => { try { return localStorage.getItem(LAST_SPACE_KEY) || ''; } catch { return ''; } };
 
 const vFocus = { mounted: (el: HTMLElement) => el.focus() };
 
@@ -230,12 +242,13 @@ const filteredNotesInFolder = (folderId: string) => {
   });
 };
 
-const currentSpaceName = computed(() => spaces.value.find(s => s.id === currentSpaceId.value)?.name || 'Spirit');
+const currentSpaceName = computed(() => spaces.value.find(s => s.id === currentSpaceId.value)?.name || '我的空间');
 
 const toggleSpaceList = () => isSpaceListOpen.value = !isSpaceListOpen.value;
 
 const switchSpace = async (space: any) => {
   currentSpaceId.value = space.id;
+  rememberSpace(space.id);
   isSpaceListOpen.value = false;
   await fetchAllNotes();
 };
@@ -265,7 +278,7 @@ const saveSpaceName = async (space: any) => {
 const startDeleteSpace = (space: any) => {
   confirmDialog.value = {
     visible: true,
-    message: `归流此位面: 「${space.name}」吗？其内所有碎片将一并消失。`,
+    message: `删除空间「${space.name}」？里面的所有笔记都会一起删除，无法恢复。`,
     onConfirm: async () => {
       await lingmaiApi.deleteSpace(space.id);
       spaces.value = spaces.value.filter(s => s.id !== space.id);
@@ -304,7 +317,7 @@ const saveFolderName = async (folder: any) => {
 const startDeleteItem = (id: string) => {
   confirmDialog.value = {
     visible: true,
-    message: "彻底粉碎这枚灵魂碎片吗？此操作不可逆。",
+    message: "删除这篇笔记？删除后无法恢复。",
     onConfirm: async () => {
       await deleteNote(id);
       await fetchAllNotes();
@@ -323,7 +336,8 @@ const initSpaces = async () => {
   const res: any = await lingmaiApi.getSpaces(); 
   spaces.value = res;
   if (spaces.value.length > 0 && (!currentSpaceId.value || currentSpaceId.value.startsWith('0000'))) {
-    await switchSpace(spaces.value[0]);
+    const remembered = spaces.value.find(s => s.id === recalledSpace());
+    await switchSpace(remembered || spaces.value[0]);
   }
 };
 
@@ -347,21 +361,32 @@ onUnmounted(() => {
 .current-space-label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 500; }
 .chevron-icon { color: var(--text-secondary); transition: transform 0.3s; }
 .chevron-icon.rotated { transform: rotate(180deg); }
-.space-dropdown { position: absolute; top: 65px; left: 24px; width: 200px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.03); z-index: 100; padding: 6px; }
-.space-opt { padding: 8px 12px; font-size: 12px; border-radius: 4px; display: flex; justify-content: space-between; cursor: pointer; transition: background 0.2s; }
+.space-dropdown { position: absolute; top: 65px; left: 24px; width: 200px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 0; box-shadow: 0 4px 20px rgba(0,0,0,0.03); z-index: 100; padding: 6px; }
+.space-opt { padding: 8px 12px; font-size: 12px; border-radius: 0; display: flex; justify-content: space-between; cursor: pointer; transition: background 0.2s; }
 .space-opt:hover { background: var(--paper-card); }
 .space-opt.active { color: var(--accent-color); font-weight: 600; }
 .space-actions { font-size: 10px; display: none; gap: 8px; color: var(--text-secondary); }
 .space-opt:hover .space-actions { display: flex; }
 .sidebar-header { padding: 10px 24px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-line); }
-.index-label { font-size: 10px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.05em; }
-.quota-text { font-size: 9px; color: var(--text-secondary); margin-left: 8px; }
+.index-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.quota-text { font-size: 10px; color: var(--text-secondary); margin-left: 8px; }
 .header-actions { display: flex; gap: 12px; }
-.text-btn { font-size: 11px; color: var(--text-secondary); cursor: pointer; }
+.text-btn { font-size: 12px; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
 .text-btn.active { color: var(--accent-color); }
 
-.create-dropdown { position: absolute; top: 30px; right: 0; width: 140px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.06); z-index: 100; padding: 6px; }
-.create-opt { padding: 8px 12px; font-size: 12px; color: var(--text-primary); border-radius: 4px; cursor: pointer; transition: background 0.2s; }
+.create-dropdown { position: absolute; top: 30px; right: 0; width: 240px; background: var(--paper-card); border: 1px solid var(--border-line); border-radius: 0; box-shadow: 0 8px 24px rgba(0,0,0,0.06); z-index: 100; padding: 6px; }
+.create-opt { padding: 8px 10px; font-size: 12px; color: var(--text-primary); border-radius: 0; cursor: pointer; transition: background 0.2s; }
+.create-opt { display: flex !important; gap: 10px; align-items: flex-start; }
+.create-opt strong { display: block; font-size: 13px; }
+.create-opt small { display: block; margin-top: 2px; font-size: 11px; color: var(--text-secondary); line-height: 1.4; }
+.create-hint { margin: 2px 10px 6px; font-size: 11px; color: var(--text-secondary); }
+.create-more { border-top: 1px solid var(--border-line); margin-top: 4px; }
+.create-more summary { padding: 8px 10px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+.folder-opt { border-top: 1px solid var(--border-line); margin-top: 4px; }
+.space-actions button { background: none; border: none; font: inherit; color: inherit; cursor: pointer; padding: 0; }
+.space-footer-action { display: block; width: 100%; margin-top: 4px; padding: 8px 12px; text-align: left; font: inherit; font-size: 12px; color: var(--accent-color); background: none; border: 0; border-top: 1px solid var(--border-line); cursor: pointer; }
+.space-footer-note { margin: 4px 0 0; padding: 8px 12px; font-size: 11px; color: var(--text-secondary); border-top: 1px solid var(--border-line); }
+.dialog-btn { background: none; border: none; font: inherit; }
 .create-opt:hover { background: var(--bg-sub); color: var(--accent-color); }
 
 .sidebar-search { padding: 0 24px 15px; }
@@ -369,7 +394,7 @@ onUnmounted(() => {
 .note-list { flex: 1; overflow-y: auto; padding: 0 16px; }
 
 .note-item, .folder-header { 
-  border-radius: 6px; 
+  border-radius: 0; 
   cursor: pointer; 
   display: flex; 
   justify-content: space-between; 
@@ -392,7 +417,7 @@ onUnmounted(() => {
   transform: translateY(-50%);
   width: 2px;
   height: 10px;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--bg-sub);
   opacity: 0.4;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -434,11 +459,9 @@ onUnmounted(() => {
 
 /* --- 右侧极简字样标签颜色 --- */
 .type-label {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  opacity: 0.5;
+  font-size: 10px;
+  font-weight: 600;
+  opacity: 0.7;
   flex-shrink: 0;
   transition: opacity 0.2s;
 }
@@ -456,14 +479,14 @@ onUnmounted(() => {
 .note-item:hover .item-hover-actions, .folder-header:hover .item-hover-actions { display: flex; }
 
 .spirit-overlay { position: fixed; inset: 0; background: var(--paper-card); backdrop-filter: blur(8px); z-index: 5000; display: flex; align-items: center; justify-content: center; }
-.spirit-dialog { background: var(--paper-card); padding: 40px; border: 1px solid var(--border-line); border-radius: 12px; box-shadow: 0 15px 50px rgba(0,0,0,0.05); text-align: center; max-width: 320px; }
+.spirit-dialog { background: var(--paper-card); padding: 40px; border: 1px solid var(--border-line); border-radius: 0; box-shadow: 0 15px 50px rgba(0,0,0,0.05); text-align: center; max-width: 320px; }
 .dialog-msg { font-size: 14px; margin-bottom: 30px; color: var(--text-primary); line-height: 1.6; }
 .dialog-actions { display: flex; justify-content: center; gap: 40px; }
 .dialog-btn { font-size: 12px; color: var(--text-secondary); cursor: pointer; border-bottom: 1px solid transparent; }
 .dialog-btn:hover { color: var(--text-primary); border-bottom-color: var(--border-line); }
 .dialog-btn.danger:hover { color: var(--danger); border-bottom-color: var(--danger); }
 
-.sidebar-footer { padding: 20px 24px; font-size: 9px; color: var(--text-secondary); text-transform: uppercase; }
+.sidebar-footer { padding: 14px 24px; font-size: 11px; color: var(--text-secondary); }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

@@ -50,7 +50,7 @@ async function handleAction(action: 'Like' | 'Favorite') {
 <style scoped>
 .interact-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .is-vertical { flex-direction: column; }
-button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: .8rem; padding: 6px 10px; border: 1px solid var(--border-line); border-radius: 4px; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; }
+button { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: .8rem; padding: 6px 10px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; }
 button.active { color: var(--accent-color); border-color: var(--accent-color); }
 button:disabled { opacity: .5; cursor: default; }
 button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }

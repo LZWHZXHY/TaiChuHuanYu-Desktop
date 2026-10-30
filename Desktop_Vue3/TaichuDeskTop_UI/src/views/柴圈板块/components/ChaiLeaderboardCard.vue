@@ -31,10 +31,10 @@ onMounted(load)
 </script>
 
 <style scoped>
-.lb-card { border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); padding: 16px; }
+.lb-card { border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); padding: 16px; }
 .lb-title { margin: 0 0 12px; font-size: .9rem; }
 .lb-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.lb-list li { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 4px; border-radius: 8px; }
+.lb-list li { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 4px; border-radius: 0; }
 .lb-list li:hover { background: var(--bg-sub); }
 .lb-rank { width: 26px; text-align: center; font-size: 1rem; }
 .lb-rank.r1 { font-size: 1.2rem; }

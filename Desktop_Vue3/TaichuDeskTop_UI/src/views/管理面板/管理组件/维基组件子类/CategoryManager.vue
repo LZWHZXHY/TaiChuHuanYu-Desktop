@@ -36,8 +36,8 @@
 
     <Teleport to="body">
       <div v-if="showModal" class="modal-mask" @mousedown="showModal = false">
-        <div class="modal-container workbench-skin" @mousedown.stop>
-          <h3>{{ isEdit ? '修订分类' : '开辟新分类' }}</h3>
+        <div class="modal-container workbench-skin editor-surface community-surface tone-admin" @mousedown.stop>
+          <header class="studio-heading dialog-heading"><h3>{{ isEdit ? '修订分类' : '开辟新分类' }}</h3><button type="button" aria-label="关闭分类编辑" @click="showModal = false">×</button></header>
           
           <label class="md-label">分类名称</label>
           <input v-model="form.name" class="md-input" placeholder="输入名称..." />
@@ -150,16 +150,16 @@ const submit = async () => {
 @import './Wiki子组件风格.css';
 
 /* 新增一点展示标签的样式 */
-.owner-badge { background: var(--bg-sub); color: var(--text-primary); padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+.owner-badge { background: var(--bg-sub); color: var(--text-primary); padding: 4px 8px; border-radius: 0; font-size: 0.75rem; font-weight: 500; }
 .text-gray { color: var(--text-secondary); }
 
-.btn-add { background: var(--accent-color); color: var(--on-accent); border: none; padding: 6px 12px; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; cursor: pointer; }
+.btn-add { background: var(--accent-color); color: var(--on-accent); border: none; padding: 6px 12px; border-radius: 0; font-size: 0.75rem; font-weight: 600; cursor: pointer; }
 .tree-line { display: inline-block; width: 16px; color: var(--text-secondary); margin-right: 4px; font-weight: bold; }
 .modal-mask { position: fixed; inset: 0; background: var(--overlay); display: flex; justify-content: center; align-items: center; z-index: 9999; }
-.modal-container { background: var(--paper-card); width: 400px; padding: 30px; border-radius: var(--radius-sm); 
-  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
+.modal-container { background: var(--paper-card); width: 400px; padding: 30px; border-radius: 0; 
+  max-height: 90dvh; overflow-y: auto; border-radius: 0;
 }
 .md-label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary); }
-.md-input { width: 100%; padding: 10px; margin-bottom: 16px; border: 1px solid var(--border-line); border-radius: var(--radius-sm); box-sizing: border-box; }
-.btn-black { width: 100%; background: var(--accent-color); color: var(--on-accent); padding: 12px; border: none; cursor: pointer; border-radius: var(--radius-sm); }
+.md-input { width: 100%; padding: 10px; margin-bottom: 16px; border: 1px solid var(--border-line); border-radius: 0; box-sizing: border-box; }
+.btn-black { width: 100%; background: var(--accent-color); color: var(--on-accent); padding: 12px; border: none; cursor: pointer; border-radius: 0; }
 </style>

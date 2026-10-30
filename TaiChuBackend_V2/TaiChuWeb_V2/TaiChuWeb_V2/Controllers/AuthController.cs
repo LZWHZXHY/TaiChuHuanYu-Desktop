@@ -81,6 +81,9 @@ namespace TaiChuWeb_V2.Controllers
             // 2. 检查重名
             if (await _context.Users.AnyAsync(u => u.Username == dto.Username))
                 return BadRequest(new { message = "名号已存在，请重新输入" });
+            // 别人用改名卡改掉的旧名字有 30 天保留期，防止冒充
+            if (await TaiChuWeb_V2.Controllers.Users.RenameController.IsReservedAsync(_context, dto.Username, null))
+                return BadRequest(new { message = "这个名号刚被原主人改掉，保留期内暂不可用，请换一个" });
 
             // 🌟 提前生成新用户的 ID，因为我们要用它来绑定“默认空间”
             var newUserId = Guid.NewGuid();

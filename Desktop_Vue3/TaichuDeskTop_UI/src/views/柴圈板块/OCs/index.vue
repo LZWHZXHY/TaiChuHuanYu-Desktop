@@ -221,7 +221,7 @@ onMounted(fetchData)
   font-size: 13px;
   letter-spacing: 0.15em;
   text-decoration: none;
-  border-radius: 2px;
+  border-radius: 0;
   transition: all 0.3s;
   cursor: pointer;
   text-align: center;

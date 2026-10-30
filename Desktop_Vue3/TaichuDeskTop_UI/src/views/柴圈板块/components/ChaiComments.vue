@@ -16,7 +16,7 @@
     <ul v-if="topLevel.length" class="comment-list">
       <li v-for="c in topLevel" :key="c.id" class="comment-item">
         <div class="comment-head">
-          <strong>{{ c.userName }}</strong>
+          <UserLink :id="c.userId" :name="c.userName"><strong>{{ c.userName }}</strong></UserLink>
           <time>{{ relTime(c.createdAt) }}</time>
         </div>
         <p class="comment-content">{{ c.content || '已删除评论' }}</p>
@@ -28,7 +28,7 @@
         <ul v-if="repliesOf(c.id).length" class="reply-list">
           <li v-for="r in repliesOf(c.id)" :key="r.id" class="reply-item">
             <div class="comment-head">
-              <strong>{{ r.userName }}</strong>
+              <UserLink :id="r.userId" :name="r.userName"><strong>{{ r.userName }}</strong></UserLink>
               <time>{{ relTime(r.createdAt) }}</time>
             </div>
             <p class="comment-content">
@@ -47,6 +47,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { ref, computed, watch, onMounted } from 'vue'
 import { chaiCommentApi, type ChaiComment } from '@/api/chaiComment'
 import { useUserStore } from '@/stores/user'
@@ -128,12 +129,12 @@ watch(() => props.targetId, load)
 <style scoped>
 .chai-comments { margin-top: 32px; padding-top: 20px; border-top: 1px dashed var(--border-line); }
 .comments-title { margin: 0 0 14px; font-size: 1.05rem; font-weight: 600; }
-.reply-banner { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 6px 12px; border-radius: 8px; background: var(--bg-sub); font-size: .8rem; color: var(--text-secondary); }
+.reply-banner { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 6px 12px; border-radius: 0; background: var(--bg-sub); font-size: .8rem; color: var(--text-secondary); }
 .reply-banner strong { color: var(--accent-color); }
 .reply-cancel { margin-left: auto; border: 0; background: none; color: var(--text-secondary); cursor: pointer; font-size: .76rem; text-decoration: underline; }
 .comment-input { display: flex; gap: 10px; }
-.comment-input input { flex: 1; padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); font-size: .85rem; }
-.comment-input button { padding: 9px 18px; border: none; border-radius: 8px; background: var(--accent-color); color: var(--on-accent); cursor: pointer; font-size: .85rem; }
+.comment-input input { flex: 1; padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); font-size: .85rem; }
+.comment-input button { padding: 9px 18px; border: none; border-radius: 0; background: var(--accent-color); color: var(--on-accent); cursor: pointer; font-size: .85rem; }
 .comment-input button:disabled { opacity: .5; cursor: default; }
 .comment-error { color: var(--danger); font-size: .8rem; margin: 8px 0 0; }
 .comment-list { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 14px; }

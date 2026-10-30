@@ -17,6 +17,8 @@
         public List<string> Tags { get; set; } = new();
         public List<Guid> EmbeddedCards { get; set; } = new();
         public string Content { get; set; } = "{}";
+        /// <summary>区块排列 JSON（访客拿到的是去掉隐藏区块后的版本）</summary>
+        public string? Layout { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public List<RelationDto> OutRelations { get; set; } = new();

@@ -73,23 +73,23 @@
       <div class="section-header">
         <span class="header-title">🔗 关系引用</span>
         <div class="relation-badge-tabs">
-          <span 
-            :class="['badge-tab', { active: subTab === 'back' }]" 
+          <button type="button"
+            :class="['badge-tab', { active: subTab === 'back' }]" :aria-pressed="subTab === 'back'"
             @click="subTab = 'back'"
           >
             反链 ({{ backlinks.length }})
-          </span>
-          <span 
-            :class="['badge-tab', { active: subTab === 'out' }]" 
+          </button>
+          <button type="button"
+            :class="['badge-tab', { active: subTab === 'out' }]" :aria-pressed="subTab === 'out'"
             @click="subTab = 'out'"
           >
             正链 ({{ outlinks.length }})
-          </span>
+          </button>
         </div>
       </div>
 
       <div class="section-content is-scrollable">
-        <div v-if="isLinksLoading" class="panel-mini-loading">感应星轨中...</div>
+        <div v-if="isLinksLoading" class="panel-mini-loading">加载中…</div>
         <div v-else class="links-list">
           <div 
             v-for="(link, i) in (subTab === 'back' ? backlinks : outlinks) as any[]" 
@@ -97,7 +97,7 @@
             class="link-card"
             @click="$emit('select', link.id)"
           >
-            <div class="link-title">{{ link.title || '无标题碎片' }}</div>
+            <div class="link-title">{{ link.title || '未命名笔记' }}</div>
             <div v-if="link.excerpt" class="link-excerpt">{{ link.excerpt }}</div>
           </div>
           <div v-if="(subTab === 'back' ? backlinks : outlinks).length === 0" class="empty-placeholder">
@@ -402,33 +402,33 @@ const removeTag = (index: number) => {
 .relation-block { flex: 1; min-height: 200px; overflow: hidden; }
 .properties-block { max-height: 350px; overflow-y: auto; }
 .tags-block { border-bottom: none; background: var(--bg-main); }
-.section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-.header-title { font-size: 12px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.05em; }
-.relation-badge-tabs { display: flex; background: var(--bg-sub); padding: 2px; border-radius: 6px; }
-.badge-tab { font-size: 11px; padding: 3px 8px; border-radius: 4px; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
+.section-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 8px; margin-bottom: 12px; }
+.header-title { font-size: 12px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.05em; white-space: nowrap; }
+.relation-badge-tabs { display: flex; background: var(--bg-sub); padding: 2px; border-radius: 0; }
+.badge-tab { font: inherit; font-size: 11px; padding: 3px 8px; border: 0; border-radius: 0; background: transparent; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; white-space: nowrap; }
 .badge-tab.active { background: var(--paper-card); color: var(--accent-color); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
 .section-content { width: 100%; }
 .section-content.is-scrollable { flex: 1; overflow-y: auto; scrollbar-width: none; }
 .section-content.is-scrollable::-webkit-scrollbar { display: none; }
 .prop-list { display: flex; flex-direction: column; gap: 8px; }
 .prop-row { display: flex; align-items: center; position: relative; gap: 4px; }
-.prop-input { border: 1px solid transparent; background: transparent; padding: 4px 6px; font-size: 12px; width: 42%; border-radius: 4px; }
+.prop-input { border: 1px solid transparent; background: transparent; padding: 4px 6px; font-size: 12px; width: 42%; border-radius: 0; }
 .prop-input:hover { background: var(--bg-sub); }
 .prop-input:focus { background: var(--paper-card); border-color: var(--accent-color); box-shadow: 0 0 0 2px rgba(0,102,204,0.08); }
 .key-input { text-align: right; color: var(--text-secondary); font-weight: 500; }
 .val-input { color: var(--text-primary); }
 .colon { color: var(--text-secondary); font-size: 12px; }
-.ghost-add-btn { background: none; border: none; color: var(--accent-color); font-size: 11px; font-weight: 600; cursor: pointer; padding: 2px 6px; border-radius: 4px; }
+.ghost-add-btn { background: none; border: none; color: var(--accent-color); font-size: 11px; font-weight: 600; cursor: pointer; padding: 2px 6px; border-radius: 0; }
 .ghost-add-btn:hover { background: rgba(0,102,204,0.05); }
 .del-prop-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; opacity: 0; transition: opacity 0.2s; font-size: 12px; }
 .prop-row:hover .del-prop-btn { opacity: 1; }
 .del-prop-btn:hover { color: var(--danger); }
-.link-card { padding: 10px; background: var(--bg-main); border-radius: 8px; margin-bottom: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
+.link-card { padding: 10px; background: var(--bg-main); border-radius: 0; margin-bottom: 8px; cursor: pointer; border: 1px solid transparent; transition: all 0.2s; }
 .link-card:hover { border-color: var(--border-line); background: var(--paper-card); }
 .link-title { font-size: 12px; font-weight: 600; color: var(--text-primary); }
 .link-excerpt { font-size: 11px; color: var(--text-secondary); margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 .tags-wrapper { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.spirit-tag { font-size: 11px; background: rgba(0, 102, 204, 0.06); color: var(--accent-color); padding: 4px 8px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
+.spirit-tag { font-size: 11px; background: rgba(0, 102, 204, 0.06); color: var(--accent-color); padding: 4px 8px; border-radius: 0; display: inline-flex; align-items: center; gap: 4px; font-weight: 500; }
 .tag-remove { cursor: pointer; color: var(--text-secondary); font-weight: bold; transition: color 0.2s; }
 .tag-remove:hover { color: var(--danger); }
 .tag-inline-input { border: none; background: transparent; outline: none; font-size: 11px; color: var(--text-secondary); padding: 4px; flex: 1; min-width: 100px; }
@@ -446,7 +446,7 @@ const removeTag = (index: number) => {
   color: var(--text-secondary);
   background: var(--bg-sub);
   padding: 1px 6px;
-  border-radius: 8px;
+  border-radius: 0;
 }
 
 .outline-scroll {
@@ -457,7 +457,7 @@ const removeTag = (index: number) => {
   font-size: 12px;
   color: var(--text-primary);
   padding: 5px 8px;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
@@ -505,7 +505,7 @@ const removeTag = (index: number) => {
 .pinned-card {
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 10px;
+  border-radius: 0;
   padding: 10px 12px;
   transition: border-color 0.15s;
 }
@@ -541,7 +541,7 @@ const removeTag = (index: number) => {
   cursor: pointer;
   font-size: 12px;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 0;
   transition: all 0.15s;
   flex-shrink: 0;
 }

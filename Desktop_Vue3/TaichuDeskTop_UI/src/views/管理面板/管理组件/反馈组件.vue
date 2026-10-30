@@ -195,7 +195,7 @@ const handleDelete = async (id: string) => {
   background: var(--paper-card);
   border: 1px solid var(--border-line);
   padding: 8px 16px;
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.9rem;
@@ -210,7 +210,7 @@ const handleDelete = async (id: string) => {
 /* 表格主体样式 */
 .table-wrapper {
   background: var(--paper-card);
-  border-radius: var(--radius-sm);
+  border-radius: 0;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   overflow-x: auto;
 }
@@ -276,7 +276,7 @@ const handleDelete = async (id: string) => {
   background: var(--danger-soft);
   color: var(--danger);
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: 0;
   border: 1px solid var(--danger-soft);
   margin-bottom: 4px;
 }
@@ -297,7 +297,7 @@ const handleDelete = async (id: string) => {
   width: 36px;
   height: 36px;
   object-fit: cover;
-  border-radius: 4px;
+  border-radius: 0;
   border: 1px solid var(--border-line);
   cursor: zoom-in;
 }
@@ -306,7 +306,7 @@ const handleDelete = async (id: string) => {
 .status-badge {
   display: inline-block;
   padding: 4px 8px;
-  border-radius: 999px;
+  border-radius: 0;
   font-size: 0.8rem;
   font-weight: 500;
 }
@@ -334,7 +334,7 @@ const handleDelete = async (id: string) => {
   text-align: left;
   transition: color 0.2s;
 }
-.toggle-btn { color: #3b82f6; }
+.toggle-btn { color: var(--accent-color); }
 .toggle-btn:hover { color: var(--accent-color); }
 .toggle-btn:disabled { color: var(--text-secondary); cursor: not-allowed; }
 

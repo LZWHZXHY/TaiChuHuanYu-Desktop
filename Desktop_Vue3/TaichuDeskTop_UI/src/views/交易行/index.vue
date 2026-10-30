@@ -1,26 +1,31 @@
 <template>
-  <div class="editorial-container content-page" v-loading="loading">
+  <div class="editorial-container content-page community-surface tone-library" v-loading="loading">
     <div class="content-wrapper">
-      <header class="editorial-header">
+      <header class="editorial-header surface-heading"><SectionTrace />
         <div class="header-left">
-          <span class="eyebrow">经验兑换 · 账户权益</span><h1 class="main-title">交易行</h1>
-          <p class="sub-caption">查看可用经验和配额，选择需要的资源。兑换前会再次确认消耗。</p>
+          <span class="eyebrow">经验 · 土豆 · 账户权益</span><h1 class="main-title">交易行</h1>
+          <p class="sub-caption">头像、头衔、头像框、网站背景、主页装扮、改名卡和站内配额可以用经验或土豆兑换；游戏 CDKey 和资源链接只能用经验兑换。兑换前会再次确认消耗。</p>
         </div>
 
         <div class="header-right">
-          <!-- 🌟 排序切换控件 -->
           <div class="sort-controls">
             <button @click="sortKey = 'cost'" :aria-pressed="sortKey === 'cost'" :class="{ active: sortKey === 'cost' }">按消耗排序</button>
             <button @click="sortKey = 'name'" :aria-pressed="sortKey === 'name'" :class="{ active: sortKey === 'name' }">按名称排序</button>
+            <button class="wardrobe-btn" @click="showWardrobe = true">我的装扮</button>
           </div>
-          <div class="experience-meter">
-            <span class="label">可用经验 / EXP</span>
-            <span class="value">{{ loaded ? state.experience.toLocaleString() : '—' }}</span>
+          <div class="meters">
+            <div class="experience-meter">
+              <span class="label">可用经验 / EXP</span>
+              <span class="value">{{ loaded ? state.experience.toLocaleString() : '—' }}</span>
+            </div>
+            <div class="experience-meter potato">
+              <span class="label">土豆</span>
+              <span class="value">{{ loaded ? state.potatoes.toLocaleString() : '—' }}</span>
+            </div>
           </div>
         </div>
       </header>
 
-      <!-- 🌟 审计区域：展示实时配额 (均已对齐后端实时查询结果) -->
       <section class="audit-section">
         <div class="audit-line">
           <div class="audit-cell">
@@ -39,6 +44,14 @@
             <span class="c-label">协作项目</span>
             <span class="c-val">{{ loaded ? state.usedProjectCount : '—' }} / {{ loaded ? state.maxProjectCount : '—' }} 个</span>
           </div>
+          <div class="audit-cell">
+            <span class="c-label">世界观</span>
+            <span class="c-val">{{ loaded && state.maxWorldCount != null ? `${state.usedWorldCount ?? 0} / ${state.maxWorldCount} 个` : '—' }}</span>
+          </div>
+          <div class="audit-cell" title="对你所有的世界观通用，扩容一次每个世界都会提高">
+            <span class="c-label">每个世界的节点上限</span>
+            <span class="c-val">{{ loaded && state.maxCardsPerWorld != null ? state.maxCardsPerWorld : '—' }}</span>
+          </div>
         </div>
       </section>
 
@@ -49,20 +62,40 @@
           v-for="item in processedItems"
           :key="item.id"
           class="feed-item"
-          :class="{ locked: state.experience < item.cost }"
+          :class="{ locked: blockReason(item) !== '' }"
         >
           <div class="item-inner">
             <div class="item-header">
               <span class="item-cat">#{{ String(item.id).padStart(3, '0') }}</span>
-              <span class="purchase-info" v-if="item.purchaseCount > 0">已兑换 {{ item.purchaseCount }} 次</span>
+              <span class="tags">
+                <span v-if="item.effect" class="tag fx">{{ EFFECT_NAMES[item.effect] }}</span>
+                <span v-if="item.expOnly" class="tag">仅限经验</span>
+                <span v-if="item.owned" class="tag ok">已拥有</span>
+                <span v-else-if="item.stock === 0" class="tag bad">已售罄</span>
+                <span v-else-if="item.stock != null" class="tag">剩 {{ item.stock }}</span>
+                <span v-if="item.purchaseCount > 0" class="purchase-info">已兑换 {{ item.purchaseCount }} 次</span>
+              </span>
             </div>
 
             <div class="item-body">
+              <div v-if="item.effect === 'frame' && item.effectValue" class="fx-preview">
+                <AvatarFrame :frame="item.effectValue"><span class="fx-avatar"><img v-if="avatar" :src="avatar" alt="" /><b v-else>{{ initial }}</b></span></AvatarFrame>
+              </div>
+              <div v-else-if="item.effect === 'title' && item.effectValue" class="fx-preview">
+                <span class="title-badge">{{ item.effectValue }}</span>
+              </div>
+              <div v-else-if="item.effect === 'avatar' && item.preview" class="fx-preview">
+                <span class="fx-avatar big"><img :src="item.preview.url" :alt="item.preview.title" loading="lazy" /></span>
+                <em v-if="item.preview.kind === 'animated'" class="video-tag">动图</em>
+              </div>
+              <div v-else-if="(item.effect === 'bg' || item.effect === 'pbg') && item.preview" class="fx-preview bg-preview" :class="{ banner: item.preview.slot === 'banner' }" :style="bgThumb(item.preview)">
+                <em v-if="item.preview.kind === 'video'" class="video-tag">▶ 动态</em>
+              </div>
               <h2 class="item-title">{{ item.name }}</h2>
               <div class="desc-wrapper">
                 <p class="item-desc">{{ item.description }}</p>
               </div>
-              <div class="item-benefit">
+              <div v-if="item.benefit" class="item-benefit">
                 <span class="b-dot"></span>
                 {{ item.benefit }}
               </div>
@@ -70,34 +103,75 @@
 
             <div class="item-footer">
               <div class="price-box">
-                <span class="p-val">{{ item.cost }}</span>
-                <span class="p-unit">EXP</span>
+                <div><span class="p-val">{{ item.expCost.toLocaleString() }}</span><span class="p-unit">EXP</span></div>
+                <div v-if="item.potatoCost != null" class="p-alt">或 <b>{{ item.potatoCost.toLocaleString() }}</b> 土豆</div>
               </div>
-              <button class="exchange-btn" @click="openConfirm(item)" :disabled="purchasing || state.experience < item.cost">
-                {{ state.experience < item.cost ? '经验不足' : '兑换资源' }}
+              <button class="exchange-btn" @click="openConfirm(item)" :disabled="purchasing || blockReason(item) !== ''">
+                {{ blockReason(item) || '兑换' }}
               </button>
             </div>
           </div>
         </div>
       </main>
 
-      <!-- 对话框 -->
+      <!-- 确认 / 结果 -->
       <transition name="fade">
-        <div v-if="dialog.show" class="modal-overlay" @click.self="closeDialog">
+        <div v-if="dialog.show && dialog.item" class="modal-overlay" @click.self="closeDialog">
           <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="trade-confirm-title" @keydown.esc="closeDialog">
-            <div class="modal-header" id="trade-confirm-title">确认兑换</div>
-            <div class="modal-body">
-              是否消耗 <span class="highlight">{{ dialog.item?.cost }} EXP</span> 兑换
-              <br class="mobile-only"/>
-              <span class="item-name">「 {{ dialog.item?.name }} 」</span>？
-            </div>
-            <div class="modal-actions">
-              <button class="btn-cancel" @click="closeDialog" :disabled="purchasing">取消</button>
-              <button class="btn-confirm" @click="executeExchange" :disabled="purchasing">{{ purchasing ? '兑换中…' : '确认扣除' }}</button>
-            </div>
+            <template v-if="!dialog.result">
+              <div class="modal-header" id="trade-confirm-title">确认兑换</div>
+              <div class="modal-body">
+                <p class="confirm-name">「{{ dialog.item.name }}」</p>
+                <div v-if="dialog.item.potatoCost != null" class="pay-choice" role="radiogroup" aria-label="支付方式">
+                  <label :class="{ on: dialog.currency === 'exp', off: state.experience < dialog.item.expCost }">
+                    <input v-model="dialog.currency" type="radio" value="exp" :disabled="state.experience < dialog.item.expCost" />
+                    <strong>{{ dialog.item.expCost.toLocaleString() }} EXP</strong>
+                    <small>{{ state.experience < dialog.item.expCost ? '经验不够' : '用经验' }}</small>
+                  </label>
+                  <label :class="{ on: dialog.currency === 'potato', off: state.potatoes < dialog.item.potatoCost }">
+                    <input v-model="dialog.currency" type="radio" value="potato" :disabled="state.potatoes < dialog.item.potatoCost" />
+                    <strong>{{ dialog.item.potatoCost.toLocaleString() }} 土豆</strong>
+                    <small>{{ state.potatoes < dialog.item.potatoCost ? '土豆不够' : '用土豆' }}</small>
+                  </label>
+                </div>
+                <p v-else-if="dialog.item.expOnly" class="hint">游戏 CDKey、资源链接只能用经验兑换。</p>
+                <dl class="ledger">
+                  <template v-if="dialog.currency === 'exp'">
+                    <div><dt>经验</dt><dd>{{ state.experience.toLocaleString() }} → <span class="highlight">{{ (state.experience - dialog.item.expCost).toLocaleString() }}</span></dd></div>
+                    <div :class="{ warn: levelAfter < state.level }"><dt>等级</dt><dd>Lv.{{ state.level }}<template v-if="levelAfter < state.level"> → Lv.{{ levelAfter }}（等级按剩余经验计算，会降级）</template></dd></div>
+                  </template>
+                  <div v-else><dt>土豆</dt><dd>{{ state.potatoes.toLocaleString() }} → <span class="highlight">{{ (state.potatoes - (dialog.item.potatoCost ?? 0)).toLocaleString() }}</span></dd></div>
+                </dl>
+                <p v-if="dialog.error" class="dialog-error" role="alert">{{ dialog.error }}</p>
+              </div>
+              <div class="modal-actions">
+                <button class="btn-cancel" @click="closeDialog" :disabled="purchasing">取消</button>
+                <button class="btn-confirm" @click="executeExchange" :disabled="purchasing || !canPay">{{ purchasing ? '兑换中…' : '确认兑换' }}</button>
+              </div>
+            </template>
+            <template v-else>
+              <div class="modal-header" id="trade-confirm-title">兑换成功</div>
+              <div class="modal-body">
+                <p>{{ dialog.result.message }}</p>
+                <div v-if="dialog.result.payload" class="payload">
+                  <span class="payload-label">{{ dialog.item.delivery === 'Link' ? '资源链接' : '你的卡密' }}（请妥善保存）</span>
+                  <code>{{ dialog.result.payload }}</code>
+                  <button class="btn-cancel" @click="copyPayload">{{ copied ? '已复制' : '复制' }}</button>
+                </div>
+              </div>
+              <div class="modal-actions">
+                <button v-if="dialog.item.effect === 'title' || dialog.item.effect === 'frame'" class="btn-cancel" @click="dialog.show = false; showWardrobe = true">去佩戴</button>
+                <RouterLink v-if="dialog.item.effect === 'bg' && user.userId" class="btn-cancel" :to="{ path: `/user/${user.userId}`, query: { tab: 'appearance' } }">去换背景</RouterLink>
+                <RouterLink v-if="dialog.item.effect === 'avatar' && user.userId" class="btn-cancel" :to="{ path: `/user/${user.userId}`, query: { pick: 'avatar' } }">去换头像</RouterLink>
+                <RouterLink v-if="dialog.item.effect === 'pbg' && user.userId" class="btn-cancel" :to="{ path: `/user/${user.userId}`, query: { tab: 'profile' } }">去装扮主页</RouterLink>
+                <button class="btn-confirm" @click="dialog.show = false">好的</button>
+              </div>
+            </template>
           </div>
         </div>
       </transition>
+
+      <CosmeticsPanel v-if="showWardrobe" @close="showWardrobe = false" @changed="onWardrobeChanged" />
 
       <transition name="slide-up">
         <div v-if="notice.show" class="minimal-toast" role="status" :class="notice.type">
@@ -109,28 +183,56 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
+import AvatarFrame from '@/components/AvatarFrame.vue'
+import CosmeticsPanel from './CosmeticsPanel.vue'
 import { reactive, computed, onMounted, onUnmounted, ref } from 'vue';
-import { TradeApi } from '../../api/trade';
+import { useUserStore } from '@/stores/user'
+import { useRoute } from 'vue-router'
+import { TradeApi, tradeError, type ITradeItem, type ITradeResult, type TradeCurrency } from '../../api/trade';
+
+const EFFECT_NAMES: Record<string, string> = { title: '头衔', frame: '头像框', bg: '网站背景', pbg: '主页装扮', avatar: '头像', rename: '改名卡' }
+const bgThumb = (p: NonNullable<ITradeItem['preview']>) => {
+  const url = p.kind === 'video' ? p.poster : p.url
+  return url ? { backgroundImage: `url(${JSON.stringify(url)})` } : undefined
+}
+
+const user = useUserStore()
+const avatar = computed(() => user.userInfo?.avatar || '')
+const initial = computed(() => user.userInfo?.username?.[0] ?? '?')
 
 const loading = ref(false), loaded = ref(false), purchasing = ref(false);
 const loadError = ref('');
+// 地址带 ?wardrobe=1（比如「授予了你头衔」的通知点进来）直接打开「我的装扮」
+const showWardrobe = ref(useRoute().query.wardrobe === '1')
+const copied = ref(false)
 let noticeTimer: ReturnType<typeof setTimeout> | undefined;
 onUnmounted(() => clearTimeout(noticeTimer));
-const sortKey = ref<'cost' | 'name'>('cost'); // 排序状态
+const sortKey = ref<'cost' | 'name'>('cost');
 
 const state = reactive({
   experience: 0,
   level: 0,
+  potatoes: 0,
   usedSpaces: 0,
   maxSpaces: 0,
   usedNotes: 0,
   maxNotes: 0,
-  usedProjectCount: 0, // 🌟 接收后端实时统计值
+  usedProjectCount: 0,
   maxProjectCount: 0,
-  items: [] as any[]
+  usedWorldCount: undefined as number | undefined,
+  maxWorldCount: undefined as number | undefined,
+  maxCardsPerWorld: undefined as number | undefined,
+  items: [] as ITradeItem[]
 });
 
-const dialog = reactive({ show: false, item: null as any });
+const dialog = reactive({
+  show: false,
+  item: null as ITradeItem | null,
+  currency: 'exp' as TradeCurrency,
+  error: '',
+  result: null as ITradeResult | null,
+});
 const notice = reactive({ show: false, message: '', type: 'success' });
 
 const showNotice = (msg: string, type = 'success') => {
@@ -148,11 +250,11 @@ const initHome = async () => {
       TradeApi.getAccountStatus(),
       TradeApi.getStoreItems()
     ]);
-    // 🌟 后端 status 接口现已返回所有实时数据，直接合并
     Object.assign(state, status);
+    state.potatoes = status.potatoes ?? 0;
     state.items = storeItems; loaded.value = true;
   } catch (err) {
-    loadError.value = "账户或资源读取失败，请重试。";
+    loadError.value = tradeError(err, '账户或资源读取失败，请重试。');
   } finally {
     loading.value = false;
   }
@@ -160,44 +262,78 @@ const initHome = async () => {
 
 onMounted(initHome);
 
-// 🌟 核心：包含计算成本与排序的响应式列表
-const processedItems = computed(() => {
-  let list = state.items.map(item => {
-    const pCount = item.purchaseCount || 0;
-    const cost = Math.floor(item.baseCost * Math.pow(item.priceMultiplier || 1, pCount));
-    return { ...item, cost, purchaseCount: pCount };
-  });
+const processedItems = computed(() => [...state.items].sort((a, b) => {
+  if (sortKey.value === 'cost') return a.expCost - b.expCost;
+  return a.name.localeCompare(b.name);
+}));
 
-  return list.sort((a, b) => {
-    if (sortKey.value === 'cost') return a.cost - b.cost;
-    return a.name.localeCompare(b.name);
-  });
-});
+const canExp = (item: ITradeItem) => state.experience >= item.expCost
+const canPotato = (item: ITradeItem) => item.potatoCost != null && state.potatoes >= item.potatoCost
 
-const openConfirm = (item: any) => {
-  if (purchasing.value || loading.value || loadError.value || state.experience < item.cost) return;
+/** 不能兑换的原因（空字符串 = 可以兑换） */
+const blockReason = (item: ITradeItem) => {
+  if (item.owned) return '已拥有'
+  if (item.stock === 0) return '已售罄'
+  if (!canExp(item) && !canPotato(item)) return item.potatoCost != null ? '经验和土豆都不够' : '经验不足'
+  return ''
+}
+
+const levelAfter = computed(() => {
+  const exp = Math.max(0, state.experience - (dialog.item?.expCost ?? 0))
+  return exp <= 0 ? 0 : Math.floor(Math.sqrt(exp / 100))
+})
+
+const canPay = computed(() => {
+  const item = dialog.item
+  if (!item) return false
+  return dialog.currency === 'potato' ? canPotato(item) : canExp(item)
+})
+
+const openConfirm = (item: ITradeItem) => {
+  if (purchasing.value || loading.value || loadError.value || blockReason(item)) return;
   dialog.item = item;
+  // 经验不够时默认用土豆
+  dialog.currency = canExp(item) ? 'exp' : 'potato';
+  dialog.error = '';
+  dialog.result = null;
+  copied.value = false;
   dialog.show = true;
 };
 
 const closeDialog = () => { if (!purchasing.value) dialog.show = false; };
+
 const executeExchange = async () => {
-  if (purchasing.value || !dialog.item) return;
+  if (purchasing.value || !dialog.item || !canPay.value) return;
   purchasing.value = true;
+  dialog.error = '';
   const item = dialog.item;
   try {
-    const res = await TradeApi.purchase(item.id);
+    const res = await TradeApi.purchase(item.id, dialog.currency);
     if (res.isSuccess) {
-      dialog.show = false;
-      showNotice(res.payload ? `兑换成功: ${res.payload}` : `[${item.name}] 已兑换`);
-      await initHome(); // 购买后重新拉取最新审计数据
+      dialog.result = res;
+      await initHome();
+      // 列表刷新后换成最新的同一件商品（价格、库存可能变了）
+      dialog.item = state.items.find(i => i.id === item.id) ?? item;
+      if (item.effect === 'title') user.fetchUserInfo(true).catch(() => null);
     } else {
-      showNotice(res.message, "error");
+      dialog.error = res.message || '兑换失败';
     }
   } catch (err) {
-    showNotice("兑换失败，请稍后重试。", "error");
+    dialog.error = tradeError(err, '兑换失败，请稍后重试。');
   } finally { purchasing.value = false; }
 };
+
+const copyPayload = async () => {
+  const text = dialog.result?.payload
+  if (!text) return
+  try { await navigator.clipboard.writeText(text); copied.value = true }
+  catch { showNotice('复制失败，请手动选中复制', 'error') }
+}
+
+const onWardrobeChanged = () => {
+  // 佩戴后不影响价格，只需提示
+  showNotice('装扮已更新')
+}
 </script>
 
 <style scoped>
@@ -212,7 +348,7 @@ const executeExchange = async () => {
   padding: 28px;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: var(--radius-lg);
+  border-radius: 0;
 }
 .main-title {
   margin: 8px 0;
@@ -251,7 +387,7 @@ const executeExchange = async () => {
 .sort-controls button {
   padding: 7px 12px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   background: var(--bg-main);
   color: var(--text-secondary);
 }
@@ -262,7 +398,7 @@ const executeExchange = async () => {
 }
 .audit-line {
   display: grid;
-  grid-template-columns: repeat(4,minmax(0,1fr));
+  grid-template-columns: repeat(3,minmax(0,1fr));
   gap: 16px;
   margin: 24px 0;
 }
@@ -272,7 +408,7 @@ const executeExchange = async () => {
   padding: 20px;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: var(--radius-md);
+  border-radius: 0;
 }
 .c-label {
   font-size: 13px;
@@ -292,7 +428,7 @@ const executeExchange = async () => {
   padding: 24px;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   min-width: 0;
 }
 .item-inner {
@@ -325,7 +461,7 @@ const executeExchange = async () => {
   color: var(--accent-color);
   font-size: 13px;
   padding: 8px 12px;
-  border-radius: 8px;
+  border-radius: 0;
   margin: 16px 0;
 }
 .item-footer {
@@ -350,7 +486,7 @@ const executeExchange = async () => {
   background: var(--accent-color);
   color: var(--on-accent);
   border: 1px solid var(--accent-color);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 10px 18px;
 }
 .exchange-btn:disabled {
@@ -374,7 +510,7 @@ const executeExchange = async () => {
   background: var(--paper-card);
   padding: 28px;
   border: 1px solid var(--border-line);
-  border-radius: 16px;
+  border-radius: 0;
   box-shadow: var(--shadow-lg);
 }
 .modal-header {
@@ -398,7 +534,7 @@ const executeExchange = async () => {
   border: 1px solid var(--border-line);
   background: var(--bg-main);
   color: var(--text-primary);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 10px 18px;
 }
 .mobile-only {
@@ -417,7 +553,7 @@ const executeExchange = async () => {
   padding: 16px 24px;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 12px;
+  border-radius: 0;
   box-shadow: var(--shadow-lg);
   color: var(--success);
   z-index: 3100;
@@ -442,4 +578,48 @@ const executeExchange = async () => {
     padding: 16px;
   }
 }
+.meters { display: grid; gap: 6px; justify-items: end; }
+.experience-meter.potato .value { font-size: 22px; color: var(--warning, #d9a400); }
+.wardrobe-btn { border-color: var(--accent-color) !important; color: var(--accent-color) !important; }
+.tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; align-items: center; }
+.tag { padding: 1px 7px; border: 1px solid var(--border-line); font-size: 11px; color: var(--text-secondary); }
+.tag.fx { border-color: var(--accent-color); color: var(--accent-color); }
+.tag.ok { border-color: var(--success); color: var(--success); }
+.tag.bad { border-color: var(--danger); color: var(--danger); }
+.fx-preview { display: grid; place-items: center; min-height: 92px; margin-top: 14px; border: 1px dashed var(--border-line); background: var(--bg-main); }
+.fx-avatar { display: grid; place-items: center; width: 52px; height: 52px; overflow: hidden; background: linear-gradient(135deg, var(--accent-color), var(--signal-mint, #2dd4bf)); color: #fff; font-size: 20px; }
+.fx-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.fx-avatar.big { width: 80px; height: 80px; }
+.fx-preview { position: relative; }
+.bg-preview.banner { min-height: 0; aspect-ratio: 3 / 1; align-self: center; }
+.bg-preview { min-height: 132px; position: relative; background: var(--bg-sub) center / cover no-repeat; border-style: solid; }
+.video-tag { position: absolute; right: 6px; bottom: 6px; padding: 1px 6px; background: rgb(0 0 0 / 55%); color: #fff; font-size: 11px; font-style: normal; }
+a.btn-cancel { display: inline-flex; align-items: center; text-decoration: none; }
+.title-badge { display: inline-block; padding: 2px 10px; border: 1px solid var(--accent-color); background: var(--accent-soft); color: var(--accent-color); font-size: 13px; font-weight: 600; letter-spacing: .06em; }
+.p-alt { font-size: 13px; color: var(--text-secondary); }
+.p-alt b { color: var(--text-primary); }
+.feed-item.locked { opacity: .78; }
+.confirm-name { margin: 0 0 12px; font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
+.pay-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.pay-choice label { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--border-line); background: var(--bg-main); cursor: pointer; line-height: 1.4; }
+.pay-choice label.on { border-color: var(--accent-color); box-shadow: inset 0 -3px 0 var(--accent-color); }
+.pay-choice label.off { opacity: .5; cursor: not-allowed; }
+.pay-choice input { position: absolute; opacity: 0; pointer-events: none; }
+.pay-choice small { font-size: 12px; color: var(--text-secondary); }
+.hint { margin: 0 0 12px; font-size: 13px; color: var(--text-secondary); }
+.ledger { display: grid; gap: 6px; margin: 0; font-size: 14px; line-height: 1.6; }
+.ledger div { display: flex; justify-content: space-between; gap: 12px; }
+.ledger dt { color: var(--text-secondary); }
+.ledger dd { margin: 0; text-align: right; }
+.ledger .warn dd { color: var(--danger); }
+.dialog-error { margin: 12px 0 0; color: var(--danger); font-size: 14px; }
+.payload { display: grid; gap: 8px; margin-top: 12px; }
+.payload-label { font-size: 12px; color: var(--text-secondary); }
+.payload code { padding: 10px 12px; border: 1px solid var(--border-line); background: var(--bg-main); font-size: 14px; overflow-wrap: anywhere; user-select: all; }
+.payload .btn-cancel { justify-self: start; padding: 6px 14px; }
+@media(max-width:700px) {
+  .meters { justify-items: start; }
+  .sort-controls { flex-wrap: wrap; }
+}
 </style>
+

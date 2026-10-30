@@ -1,7 +1,7 @@
 <template>
   <div v-if="modelValue" class="publish-mask" role="dialog" aria-modal="true" aria-label="作品编辑与发布" @click.self="close">
-    <div class="publish-modal content-form">
-      <header class="modal-header">
+    <div class="publish-modal content-form workbench-skin editor-surface community-surface tone-gallery">
+      <header class="modal-header studio-heading"><SectionTrace />
         <div>
           <h2 class="modal-title">{{ artwork ? '编辑作品' : '发布作品' }}</h2>
           <p class="modal-subtitle">{{ artwork ? '修改标题、简介、题注和封面；已发布图片及水印保持原样' : '选择图片、填写作品信息后发布到画廊' }}</p>
@@ -107,13 +107,15 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, reactive, watch, onUnmounted } from 'vue'
 import { artworkApi, type ArtworkDetail } from '../../api/artwork'
 import { wikiTags } from '@/utils/wikiContent'
 import { useUserStore } from '../../stores/user'
 
 interface ImageItem { localId: string; file?: File; previewUrl: string; caption: string; isCover: boolean }
-const props = defineProps<{ modelValue: boolean; artwork?: ArtworkDetail }>()
+// initial*：从别处（例如茶绘）带着图片打开发布窗口时预先填好
+const props = defineProps<{ modelValue: boolean; artwork?: ArtworkDetail; initialFiles?: File[]; initialTitle?: string; initialDescription?: string; initialTags?: string }>()
 const emit = defineEmits(['update:modelValue', 'published'])
 const user = useUserStore()
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -132,6 +134,9 @@ watch(() => [props.modelValue, props.artwork], () => {
     Object.assign(form, { title: props.artwork.title, description: props.artwork.description || '', tags: (props.artwork.tags || []).join(', ') })
     imageList.value = props.artwork.images.map((image, index) => ({ localId: String(index), previewUrl: image.url, caption: image.caption || '', isCover: !!image.isCover }))
     if (!imageList.value.some(item => item.isCover) && imageList.value[0]) imageList.value[0].isCover = true
+  } else if (props.modelValue && props.initialFiles?.length) {
+    Object.assign(form, { title: props.initialTitle || '', description: props.initialDescription || '', tags: props.initialTags || '' })
+    props.initialFiles.forEach((file, i) => imageList.value.push({ localId: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file), caption: '', isCover: i === 0 }))
   }
 }, { immediate: true })
 watch(() => user.token, () => { generation++; reset(); emit('update:modelValue', false) }, { flush: 'sync' })
@@ -210,7 +215,7 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
   width: 920px;
   max-width: 100%;
   max-height: 90vh;
-  border-radius: 12px;
+  border-radius: 0;
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
@@ -246,7 +251,7 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
 
 .dropzone {
   border: 1px dashed var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   padding: 28px 16px;
   text-align: center;
   cursor: pointer;
@@ -268,7 +273,7 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
 
 .grid-item {
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 6px;
   display: flex;
   flex-direction: column;
@@ -282,7 +287,7 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
   width: 100%;
   aspect-ratio: 4/3;
   overflow: hidden;
-  border-radius: 4px;
+  border-radius: 0;
   background: var(--border-line);
 }
 .thumb-img { width: 100%; height: 100%; object-fit: cover; }
@@ -302,15 +307,15 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
   border: none;
   font-size: 0.75rem;
   padding: 4px 8px;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
 }
 .cover-btn { background: var(--paper-bg); color: var(--accent-color); }
-.cover-btn.active { background: var(--accent-color); color: #fff; }
+.cover-btn.active { background: var(--accent-color); color: var(--on-accent); }
 .del-btn { background: rgba(255, 60, 60, 0.85); color: var(--paper-bg); }
 .caption-input {
   border: 1px solid var(--border-line);
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 0.75rem;
   padding: 4px 6px;
 }
@@ -321,7 +326,7 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
 .required { color: #eb4d4b; }
 .text-input, .text-textarea, .select-input {
   border: 1px solid var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 10px 12px;
   font-size: 0.85rem;
   outline: none;
@@ -332,7 +337,7 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
 .toggle-label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.85rem; }
 .watermark-subform { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .watermark-options { display: flex; gap: 8px; align-items: center; }
-.color-picker { width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 4px; background: none; }
+.color-picker { width: 36px; height: 36px; border: none; cursor: pointer; border-radius: 0; background: none; }
 
 .modal-footer {
   flex-shrink: 0;
@@ -343,8 +348,8 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
   padding: 20px 32px;
   border-top: 1px solid var(--border-line);
 }
-.btn-cancel { color: var(--text-primary); background: var(--paper-card); border: 1px solid var(--border-line); padding: 8px 18px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
-.btn-submit { background: var(--accent-color); color: #fff; border: none; padding: 8px 22px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+.btn-cancel { color: var(--text-primary); background: var(--paper-card); border: 1px solid var(--border-line); padding: 8px 18px; border-radius: 0; cursor: pointer; font-size: 0.85rem; }
+.btn-submit { background: var(--accent-color); color: var(--on-accent); border: none; padding: 8px 22px; border-radius: 0; cursor: pointer; font-size: 0.85rem; }
 .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
 
 @media (max-width: 768px) {

@@ -148,7 +148,7 @@ onUnmounted(() => loadVersion++);
 .status-badge { color: var(--success); }
 .module-nav { min-width: 0; border-bottom: 1px solid var(--border-line); }
 .nav-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; }
-.nav-link { flex-shrink: 0; padding: 10px 16px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); cursor: pointer; }
+.nav-link { flex-shrink: 0; padding: 10px 16px; border: 0; border-radius: 0; background: transparent; color: var(--text-secondary); cursor: pointer; }
 .nav-link:hover { background: var(--bg-sub); }
 .nav-link.is-active { background: var(--accent-soft); color: var(--accent-color); font-weight: 600; }
 .content-viewport, .module-container { min-width: 0; }

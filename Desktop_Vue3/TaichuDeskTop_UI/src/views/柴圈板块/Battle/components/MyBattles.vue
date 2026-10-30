@@ -300,7 +300,7 @@ onMounted(() => {
   color: var(--text-secondary);
   background: var(--border-line);
   padding: 0 8px;
-  border-radius: 10px;
+  border-radius: 0;
 }
 .tab-btn.active .tab-count {
   background: var(--accent-color);
@@ -399,7 +399,7 @@ onMounted(() => {
   width: 64px;
   height: 64px;
   background: var(--bg-sub);
-  border-radius: 4px;
+  border-radius: 0;
   overflow: hidden;
   display: flex;
   align-items: center;

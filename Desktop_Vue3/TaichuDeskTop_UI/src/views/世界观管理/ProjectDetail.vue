@@ -1,14 +1,16 @@
 <template>
   <div class="project-detail workbench-skin community-surface tone-world">
     <!-- ========== 顶部 ========== -->
-    <ProjectHeader :project="projectError ? null : project" :card-count="cards.length" :is-owner="isOwner" :can-organize="userStore.isLoggedIn" @back="goBack" @create="openCreateDialog" @organize="openAiOrganize" @import="openAiImport" @transfer="openTransfer" />
+    <ProjectHeader :project="projectError ? null : project" :card-count="cards.length" :is-owner="isOwner" :can-edit="canEdit" :can-organize="userStore.isLoggedIn" @back="goBack" @create="openCreateDialog" @organize="openAiOrganize" @import="openAiImport" @transfer="openTransfer" @settings="settingsTab = 'info'" @members="settingsTab = 'members'" @history="openRevisions()" />
+    <WorldHistory v-if="revisionsOpen && project && !projectError" :project="project" :is-owner="isOwner" :can-edit="canEdit" :card-id="revisionsCard" :user-id="revisionsUser" :card-titles="cardTitles" @close="closeRevisions" @changed="onRevisionChanged" @open-card="selectCard" />
 
     <WorldTransfer v-if="transferMode && project && !projectError" :project="project" :mode="transferMode" :can-edit="isOwner" @close="transferMode = null" />
+    <WorldSettings v-if="settingsTab && project && !projectError" :project="project" :tab="settingsTab" :is-owner="isOwner" @close="settingsTab = null" @left="onLeftWorld" @deleted="onLeftWorld" />
     <!-- ========== 主体 ========== -->
     <div class="layout">
       <!-- 左侧栏 -->
       <ProjectCardNavigation v-if="!projectError" v-model:search="searchQuery" :cards="cards" :loading="store.loadingCards"
-        :selected-card-id="selectedCardId" :view="view" @select="selectCard" @overview="showOverview" @graph="switchToGraph" @timeline="switchToTimeline" />
+        :selected-card-id="selectedCardId" :view="view" :can-stats="isMember" :can-pane="canPane" :pane-ids="paneIds" @pane="openPane" @select="selectCard" @overview="showOverview" @graph="switchToGraph" @timeline="switchToTimeline" @stats="switchToStats" />
 
       <!-- 主区域 -->
       <main class="main" :aria-busy="store.loadingCards || detailLoading">
@@ -20,24 +22,34 @@
         </div>
         <div v-else-if="!project" class="load-state" role="status">正在加载世界观…</div>
         <!-- 图谱视图 -->
-        <div v-else-if="view === 'graph'" class="graph-view">
+        <div v-else-if="view === 'graph'" class="graph-view" :inert="graphReloading" :aria-busy="graphReloading">
           <RelationGraph
+            :key="`${projectId}:${graphRenderVersion}`"
             ref="graphRef"
             :project-id="projectId"
             :positions="graphPositions"
+            :save-status="graphSaveStatus"
+            :can-save="canEdit"
+            @retry-save="saveGraphPositions(graphPositions)"
+            @reload-positions="reloadGraphPositions"
             @select="selectCard"
             @update:positions="saveGraphPositions"
           />
         </div>
 
-        <!-- 时间线视图 -->
+        <!-- 世界编年史（多条时间线、分叉汇合、自定义历法） -->
         <div v-else-if="view === 'timeline'" class="timeline-view-wrap">
-          <TimelineView :project-id="projectId" :can-edit="isOwner" @select="selectCard" />
+          <ChronicleView :project-id="projectId" :can-edit="canEdit" :can-pane="canPane" @select="selectCard" @pane="openPane" />
+        </div>
+
+        <!-- 创作统计（创建者和协作者） -->
+        <div v-else-if="view === 'stats'" class="stats-view-wrap">
+          <WorldStats :project-id="projectId" @select="selectCard" />
         </div>
 
         <!-- 卡片视图（含导航历史） -->
-        <div v-else class="card-view" :class="{ 'is-editing': isOwner && (isCreating || editing) }">
-          <div v-if="selectedCardId && !isCreating && !editing && (isOwner || canGoBack || canGoForward)" class="history-bar">
+        <div v-else class="card-view" :class="{ 'is-editing': canEdit && (isCreating || editing) }">
+          <div v-if="selectedCardId && !isCreating && !editing && (canEdit || canGoBack || canGoForward)" class="history-bar">
             <div class="history-nav">
               <button class="nav-btn" :disabled="!canGoBack" title="后退" @click="backCard">←</button>
               <button class="nav-btn" :disabled="!canGoForward" title="前进" @click="forwardCard">→</button>
@@ -49,12 +61,14 @@
               </template>
             </nav>
             <span v-else class="history-spacer"></span>
-            <button v-if="isOwner && selectedCardDetail && !editing" class="edit-entry" @click="openEditor">✎ 编辑条目</button>
+            <button v-if="lastEditor && isMember" type="button" class="last-edit" title="查看这个条目的修改记录" @click="openRevisions(selectedCardId)">最后修改：{{ lastEditor }}</button>
+            <span v-else-if="lastEditor" class="last-edit">最后修改：{{ lastEditor }}</span>
+            <button v-if="canEdit && selectedCardDetail && !editing" class="edit-entry" @click="openEditor">✎ 编辑条目</button>
           </div>
 
           <!-- 编辑器视图 -->
           <div
-            v-if="isOwner && (isCreating || editing)"
+            v-if="canEdit && (isCreating || editing)"
             class="editor-view"
           >
           <div class="editor-topbar">
@@ -69,8 +83,8 @@
               :key="selectedCardId || 'new'"
               :project-id="projectId"
               :card-data="isCreating ? null : selectedCard"
-              @saved="onCardChanged"
-              @deleted="onCardChanged"
+              @saved="id => onCardChanged(id, true)"
+              @deleted="onCardChanged(undefined, true)"
             />
           </div>
         </div>
@@ -80,7 +94,7 @@
         <div v-else-if="detailError" class="load-state" role="alert">条目不存在、已取消公开，或暂时无法加载。<button class="btn" @click="loadRoute">重新加载</button><button class="btn" @click="showOverview">返回世界概览</button></div>
         <div v-else-if="selectedCardDetail" class="doc-layout">
           <ProjectCardDocument :key="selectedCardDetail.id"
-            :card="selectedCardDetail" :project-id="projectId" @select="selectCard" />
+            :card="selectedCardDetail" :project-id="projectId" :can-view-history="isMember" @select="selectCard" @history="openRevisions(selectedCardDetail.id)" @pane="openPane" />
           <aside v-if="outRelations.length || inRelations.length" class="doc-side-panel">
             <h3 class="panel-title">关联</h3>
             <template v-if="outRelations.length">
@@ -116,22 +130,23 @@
           </div>
           <p class="overview-intro">{{ project.description || '这个世界还没有简介，先从下面的设定开始了解吧。' }}</p>
           <div v-if="!cards.length" class="overview-start">
-            <h3>{{ isOwner ? '先写下一个设定' : '作者还在构思这个世界' }}</h3>
-            <p>{{ isOwner ? '一个人物、一处地点，或者故事背景都可以。不必一次填完所有信息。' : '有了公开的条目，就会显示在这里。' }}</p>
-            <button v-if="isOwner" class="btn-primary" @click="openCreateDialog">创建第一个条目</button>
+            <h3>{{ canEdit ? '先写下一个设定' : '作者还在构思这个世界' }}</h3>
+            <p>{{ canEdit ? '一个人物、一处地点，或者故事背景都可以。不必一次填完所有信息。' : '有了公开的条目，就会显示在这里。' }}</p>
+            <button v-if="canEdit" class="btn-primary" @click="openCreateDialog">创建第一个条目</button>
           </div>
           <div v-else class="overview-stats">
             <button v-for="group in overviewGroups" :key="group.type" class="stat-chip" @click="selectCard(group.cards[0].id)">
               <span class="stat-label">{{ group.label }}</span>
               <span class="stat-count">{{ group.cards.length }}</span>
             </button>
+            <button v-if="isMember" class="stat-chip stat-chip-stats" @click="switchToStats">📊 创作统计 →</button>
           </div>
 
           <!-- 本世界的小说 -->
           <section class="novel-block">
             <div class="novel-block-head">
               <h3>📖 小说</h3>
-              <button v-if="isOwner" class="novel-add" @click="createNovel">＋ 写本世界的小说</button>
+              <button v-if="canEdit" class="novel-add" @click="createNovel">＋ 写本世界的小说</button>
             </div>
             <ul v-if="projectNovels.length" class="novel-list">
               <li v-for="nv in projectNovels" :key="nv.id">
@@ -152,6 +167,12 @@
         </section>
         </div>
       </main>
+      <!-- 分屏：主窗口旁边最多再开两个条目一起看（屏幕太窄时先收起，加宽后还在） -->
+      <template v-if="canPane && project && !projectError">
+        <CardPane v-for="(id, i) in paneIds" :key="'pane' + i" :ref="el => setPaneRef(el, i)" class="side-pane"
+          :style="{ flex: widePane === i ? '1.6 1 0' : '1 1 0' }" :card-id="id" :project-id="projectId" :wide="widePane === i"
+          @close="closePane(i)" @main="selectCard" @navigate="nid => onPaneNavigate(i, nid)" @toggle-wide="widePane = widePane === i ? null : i" />
+      </template>
     </div>
 
     <!-- AI 整理弹窗 -->
@@ -218,27 +239,32 @@
 <script setup lang="ts">
 import { ref, computed, watch, onScopeDispose, defineAsyncComponent } from 'vue'
 import { useRouter, useRoute, onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useWorldStore } from '@/stores/world'
 import { useUserStore } from '@/stores/user'
 import type { CardDetail } from '@/api/types/world'
 import { aiConfigApi, type ImportCardItem } from '@/api/aiConfig'
+import { parseGraphPositions } from '@/utils/worldGraphLayout'
 import { groupWorldCards } from '@/utils/worldPresentation'
 import { worldNovelApi, type NovelBrief } from '@/api/worldNovel'
+import { worldApi } from '@/api/worldApi'
 import { renderMarkdown } from '@/utils/markdown'
 import { useCos } from '@/composables/useCos'
-import request from '@/utils/request'
 import ProjectHeader from './世界观组件/ProjectHeader.vue'
 import ProjectCardNavigation from './世界观组件/ProjectCardNavigation.vue'
+import WorldStats from './世界观组件/WorldStats.vue'
+import CardPane from './世界观组件/CardPane.vue'
 import ProjectCardDocument from './世界观组件/ProjectCardDocument.vue'
 
 const WorldTransfer = defineAsyncComponent(() => import('./世界观组件/WorldTransfer.vue'))
+const WorldSettings = defineAsyncComponent(() => import('./世界观组件/WorldSettings.vue'))
+const WorldHistory = defineAsyncComponent(() => import('./世界观组件/WorldHistory.vue'))
 const transferMode = ref<'import' | 'export' | null>(null)
 async function openTransfer(mode: 'import' | 'export') {
   if (await mayLeaveEditor()) transferMode.value = mode
 }
 const RelationGraph = defineAsyncComponent(() => import('./世界观组件/RelationGraph.vue'))
-const TimelineView = defineAsyncComponent(() => import('./世界观组件/TimelineView.vue'))
+const ChronicleView = defineAsyncComponent(() => import('./世界观组件/ChronicleView.vue'))
 const CardEditor = defineAsyncComponent(() => import('./世界观组件/CardEditor.vue'))
 
 const router = useRouter()
@@ -249,8 +275,53 @@ const projectId = computed(() => String(route.params.id || route.params.projectI
 const project = computed(() => store.currentProject)
 const cards = computed(() => store.cards)
 const isOwner = computed(() => Boolean(userStore.userId && userStore.userId === project.value?.ownerId))
+// 协作者：编写者能写条目/关系/布局；只读成员只能看。改名、封面、公开、删除、管理成员只有创建者。
+const myRole = computed(() => isOwner.value ? 'owner' : project.value?.myRole ?? null)
+const isMember = computed(() => Boolean(myRole.value))
+const canEdit = computed(() => isOwner.value || myRole.value === 'editor')
+const settingsTab = ref<'info' | 'members' | null>(null)
+// ---------- 修改记录 ----------
+const revisionsOpen = ref(false)
+const revisionsCard = ref<string | null>(null)
+const revisionsUser = ref<string | null>(null)
+const lastEditors = ref<Record<string, { name: string; at: string }>>({})
+const cardTitles = computed(() => Object.fromEntries(cards.value.map(c => [c.id, c.title])))
+function openRevisions(cardId?: string | null, userId?: string | null) {
+  revisionsCard.value = cardId && cardId !== 'new' ? cardId : null
+  revisionsUser.value = userId || null
+  revisionsOpen.value = true
+}
+function closeRevisions() {
+  revisionsOpen.value = false
+  // 从通知点进来带着 ?history=1，关掉后去掉，刷新页面不会再弹
+  if (route.query.history) router.replace({ query: { ...route.query, history: undefined, user: undefined } }).catch(() => {})
+}
+async function refreshLastEditors() {
+  const id = projectId.value
+  if (!id) return
+  try {
+    const rows = await worldApi.getLastEditors(id)
+    if (id !== projectId.value) return
+    lastEditors.value = Object.fromEntries(rows.filter(r => r.username).map(r => [r.cardId, { name: r.username!, at: r.createdAt }]))
+  } catch { lastEditors.value = {} }
+}
+const lastEditor = computed(() => {
+  const info = selectedCardId.value ? lastEditors.value[selectedCardId.value] : undefined
+  if (!info) return ''
+  const d = new Date(info.at.endsWith('Z') || info.at.includes('+') ? info.at : info.at + 'Z')
+  const diff = Date.now() - d.getTime()
+  const when = diff < 60000 ? '刚刚' : diff < 3600000 ? `${Math.floor(diff / 60000)} 分钟前` : diff < 86400000 ? `${Math.floor(diff / 3600000)} 小时前` : d.toLocaleDateString('zh-CN')
+  return `${info.name} · ${when}`
+})
+async function onRevisionChanged(cardId: string) {
+  await onCardChanged(cardId || selectedCardId.value || undefined)
+}
+function onLeftWorld() {
+  settingsTab.value = null
+  router.push('/world')
+}
 const searchQuery = ref('')
-const view = ref<'card' | 'graph' | 'timeline'>('card')
+const view = ref<'card' | 'graph' | 'timeline' | 'stats'>('card')
 const graphRef = ref<InstanceType<typeof RelationGraph> | null>(null)
 const selectedCardId = ref<string | null>(null)
 const selectedCardDetail = ref<CardDetail | null>(null)
@@ -260,8 +331,19 @@ let selectionVersion = 0
 const editing = ref(false)
 const cardEditorRef = ref<InstanceType<typeof CardEditor> | null>(null)
 const mayLeaveEditor = () => cardEditorRef.value?.requestLeave() ?? Promise.resolve(true)
-onBeforeRouteLeave(mayLeaveEditor)
-onBeforeRouteUpdate(mayLeaveEditor)
+async function mayLeavePage() {
+  if (!await mayLeaveEditor()) return false
+  const id = projectId.value
+  await store.waitForGraphSave(id)
+  if (!['error', 'conflict'].includes(store.graphSaves.get(id)?.status || '')) return true
+  try {
+    await ElMessageBox.confirm('节点位置尚未保存。离开会放弃本次位置调整，是否离开？', '位置保存失败', { confirmButtonText: '放弃调整并离开', cancelButtonText: '留下重试', type: 'warning' })
+    store.discardGraphSave(id)
+    return true
+  } catch { return false }
+}
+onBeforeRouteLeave(mayLeavePage)
+onBeforeRouteUpdate(mayLeavePage)
 const detailLoading = ref(false)
 const detailError = ref(false)
 const projectError = ref('')
@@ -380,7 +462,8 @@ async function loadCard(id: string) {
   selectedCardId.value = id
   selectedCardDetail.value = null
   try {
-    const detail = await store.fetchCardDetail(projectId.value, id, true)
+    // 刚保存完、store 里已经是最新内容时直接用
+    const detail = await store.fetchCardDetail(projectId.value, id, reuseDetailOnce !== id)
     if (version === selectionVersion) selectedCardDetail.value = detail
   } catch {
     if (version === selectionVersion) detailError.value = true
@@ -464,42 +547,69 @@ async function onCoverPicked(e: Event) {
 }
 
 // ===== 关系图谱节点位置（持久化） =====
-const graphPositions = computed<Record<string, { x: number; y: number }>>(() => {
-  try { return JSON.parse(project.value?.graphPositions || '{}') } catch { return {} }
-})
-let graphSaveTimer: ReturnType<typeof setTimeout> | null = null
-function saveGraphPositions(p: Record<string, { x: number; y: number }>) {
-  if (!isOwner.value) return
-  if (graphSaveTimer) clearTimeout(graphSaveTimer)
-  graphSaveTimer = setTimeout(() => {
-    // 轻量保存：只写坐标，不触发项目重取/重渲染（避免节点弹回、视野跳走）
-    void request.put(`/world/projects/${projectId.value}/graph-positions`, { positions: JSON.stringify(p) }, { silentError: true })
-  }, 600)
+const graphPositions = computed(() => parseGraphPositions(project.value?.graphPositions))
+const graphSaveStatus = computed(() => store.graphSaves.get(projectId.value)?.status || '')
+const graphRenderVersion = ref(0)
+const graphReloading = ref(false)
+async function reloadGraphPositions() {
+  const id = projectId.value
+  graphReloading.value = true
+  try {
+    if (await store.reloadGraphPositions(id) && id === projectId.value) graphRenderVersion.value++
+  } catch { ElMessage.error('最新布局读取失败，本页调整仍保留，请重试。') }
+  finally { graphReloading.value = false }
 }
+function saveGraphPositions(p: Record<string, { x: number; y: number }>) {
+  if (canEdit.value) void store.saveGraphPositions(projectId.value, JSON.stringify(p))
+}
+function guardGraphRefresh(event: BeforeUnloadEvent) {
+  if (['saving', 'error', 'conflict'].includes(graphSaveStatus.value)) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
+}
+if (typeof window !== 'undefined') window.addEventListener('beforeunload', guardGraphRefresh)
+onScopeDispose(() => { if (typeof window !== 'undefined') window.removeEventListener('beforeunload', guardGraphRefresh) })
 async function switchToGraph() {
   await router.push({ name: 'ProjectDetail', params: { id: projectId.value }, query: { view: 'graph' } })
 }
 async function switchToTimeline() {
   await router.push({ name: 'ProjectDetail', params: { id: projectId.value }, query: { view: 'timeline' } })
 }
-async function loadData() {
+async function switchToStats() {
+  await router.push({ name: 'ProjectDetail', params: { id: projectId.value }, query: { view: 'stats' } })
+}
+async function loadData(force = true) {
   const id = projectId.value
   const token = userStore.token
   projectError.value = ''
-  try { await store.fetchCards(id, true) }
+  try { await store.fetchCards(id, force) }
   catch (error: any) {
     if (id === projectId.value && token === userStore.token) projectError.value = [403, 404].includes(error?.response?.status)
       ? '这个世界未公开、已删除，或当前账号无权查看。'
       : '世界观暂时无法加载，请稍后重试。'
   }
+  void refreshLastEditors()
 }
-async function onCardChanged(savedId?: string) {
+// 从「协作者删除了条目」的通知点进来时带 ?history=1：直接打开修改记录
+// 「xxx 修改了条目」的通知还带 &user=：只看这个人的修改
+watch([() => route.query.history, isMember], ([flag, member]) => {
+  if (flag && member) openRevisions(null, typeof route.query.user === 'string' ? route.query.user : null)
+}, { immediate: true })
+// storeFresh：编辑器保存 / 删除走的是 store，保存完 store 已经把世界和条目重新读过了，这里不用再强制读一遍
+// （数据库远的时候每次重复读取都要多等一两秒）
+let reuseDetailOnce = ''
+async function onCardChanged(savedId?: string, storeFresh = false) {
   closePanel()
-  await loadData()
+  await loadData(!storeFresh)
+  if (storeFresh && savedId) reuseDetailOnce = savedId
   if (savedId && cards.value.some(card => card.id === savedId)) await selectCard(savedId)
+  reuseDetailOnce = ''
   graphRef.value?.refresh()
+  // 主窗口改了条目，旁边窗格里如果开着同一个，跟着刷新
+  paneRefs.forEach(p => p?.refresh?.(savedId))
 }
-const goBack = () => router.push(isOwner.value ? '/world' : '/world?tab=public')
+const goBack = () => router.push((isOwner.value || isMember.value) ? '/world' : '/world?tab=public')
 let routeVersion = 0
 let loadedProject = ''
 let loadedToken = ''
@@ -520,52 +630,102 @@ async function loadRoute() {
   }
   if (route.query.edit === 'new') {
     closePanel(); view.value = 'card'
-    if (isOwner.value) selectedCardId.value = 'new'
+    if (canEdit.value) selectedCardId.value = 'new'
     return
   }
   const cardId = String(route.params.cardId || route.query.edit || '')
   if (cardId) {
     await loadCard(cardId)
-    if (version === routeVersion && isOwner.value && route.query.edit === cardId && selectedCardDetail.value) editing.value = true
+    if (version === routeVersion && canEdit.value && route.query.edit === cardId && selectedCardDetail.value) editing.value = true
   } else {
     closePanel()
-    view.value = route.query.view === 'graph' || route.query.view === 'timeline' ? route.query.view : 'card'
+    view.value = route.query.view === 'graph' || route.query.view === 'timeline' || route.query.view === 'stats' ? route.query.view : 'card'
   }
 }
 watch([projectId, () => route.params.cardId, () => route.query.edit, () => route.query.view, () => userStore.token], loadRoute, { immediate: true })
 onScopeDispose(() => { selectionVersion++; routeVersion++ })
+
+// ===== 分屏（多窗口）=====
+const MAX_PANES = 2
+const paneIds = ref<string[]>([])
+const widePane = ref<number | null>(null)
+const paneRefs: any[] = []
+function setPaneRef(el: unknown, i: number) { paneRefs[i] = el }
+const paneKey = () => `taichu.world.panes:${projectId.value}`
+// 屏幕够宽（≥ 1000px）才分屏；窄的时候窗格先收起，状态还留着
+const viewportWide = ref(typeof window === 'undefined' ? true : window.innerWidth >= 1000)
+const onResize = () => { viewportWide.value = window.innerWidth >= 1000 }
+if (typeof window !== 'undefined') window.addEventListener('resize', onResize)
+onScopeDispose(() => { if (typeof window !== 'undefined') window.removeEventListener('resize', onResize) })
+const canPane = computed(() => viewportWide.value)
+function savePanes() { try { sessionStorage.setItem(paneKey(), JSON.stringify(paneIds.value)) } catch { /* 忽略 */ } }
+function openPane(id: string) {
+  if (!id) return
+  if (!canPane.value) { void selectCard(id); return } // 窄屏没法分屏，就在主窗口打开
+  if (paneIds.value.includes(id)) return
+  // 满了就替换最后一个
+  paneIds.value = paneIds.value.length >= MAX_PANES ? [...paneIds.value.slice(0, MAX_PANES - 1), id] : [...paneIds.value, id]
+  savePanes()
+}
+function closePane(i: number) {
+  paneIds.value = paneIds.value.filter((_, idx) => idx !== i)
+  paneRefs.splice(i, 1)
+  if (widePane.value === i) widePane.value = null
+  else if (widePane.value !== null && widePane.value > i) widePane.value--
+  savePanes()
+}
+function onPaneNavigate(i: number, id: string) {
+  if (paneIds.value[i] === id) return
+  const next = [...paneIds.value]; next[i] = id; paneIds.value = next
+  savePanes()
+}
+// 换了世界：读那个世界上次开着的窗格；只留还存在的条目
+watch([projectId, () => cards.value.length], ([pid], [oldPid]) => {
+  if (pid !== oldPid) {
+    widePane.value = null
+    try { paneIds.value = (JSON.parse(sessionStorage.getItem(paneKey()) || '[]') as string[]).slice(0, MAX_PANES) } catch { paneIds.value = [] }
+  }
+  if (cards.value.length) {
+    const alive = paneIds.value.filter(id => cards.value.some(c => c.id === id))
+    if (alive.length !== paneIds.value.length) { paneIds.value = alive; savePanes() }
+  }
+}, { immediate: true })
 </script>
 
 <style scoped>
 .world-overview { width: 100%; max-width: 1100px; padding: clamp(20px, 4vw, 40px); margin: 0 auto; }
-.overview-hero { position: relative; border-radius: 16px; overflow: hidden; aspect-ratio: 21 / 7; background: var(--bg-sub); margin-bottom: 24px; }
+.overview-hero { position: relative; border-radius: 0; overflow: hidden; aspect-ratio: 21 / 7; background: var(--bg-sub); margin-bottom: 24px; }
 .hero-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
 .hero-fallback { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--accent-color); background: linear-gradient(135deg, var(--accent-soft), var(--paper-card) 70%); }
 .hero-fallback-icon { font-size: clamp(32px, 5vw, 56px); line-height: 1; }
 .hero-fallback-text { font-size: 13px; color: var(--text-secondary); }
-.hero-cover-btn { position: absolute; right: 14px; bottom: 14px; padding: 7px 14px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: 13px; }
+.hero-cover-btn { position: absolute; right: 14px; bottom: 14px; padding: 7px 14px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: 13px; }
 .overview-intro { max-width: 70ch; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.9; font-size: 15px; color: var(--text-secondary); margin: 0 0 28px; }
-.overview-start { padding: 28px; border: 1px dashed var(--border-line); border-radius: 12px; }.overview-start p { color: var(--text-secondary); line-height: 1.8; }.overview-start button { margin-top: 12px; }
+.overview-start { padding: 28px; border: 1px dashed var(--border-line); border-radius: 0; }.overview-start p { color: var(--text-secondary); line-height: 1.8; }.overview-start button { margin-top: 12px; }
 .overview-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
 .novel-block { margin-top: 34px; padding-top: 20px; border-top: 1px dashed var(--border-line); }
 .novel-block-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .novel-block-head h3 { margin: 0; font-size: 1.02rem; }
-.novel-add { padding: 6px 14px; border: 1px solid var(--accent-color); border-radius: 8px; background: transparent; color: var(--accent-color); cursor: pointer; font-size: .8rem; }
+.novel-add { padding: 6px 14px; border: 1px solid var(--accent-color); border-radius: 0; background: transparent; color: var(--accent-color); cursor: pointer; font-size: .8rem; }
 .novel-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.novel-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border-line); border-radius: 10px; background: var(--paper-card); text-decoration: none; color: inherit; }
+.novel-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); text-decoration: none; color: inherit; }
 .novel-row:hover { border-color: var(--accent-color); }
-.nv-cover { width: 38px; height: 50px; flex-shrink: 0; border-radius: 6px; overflow: hidden; background: var(--accent-soft); display: grid; place-items: center; color: var(--accent-color); font-weight: 700; }
+.nv-cover { width: 38px; height: 50px; flex-shrink: 0; border-radius: 0; overflow: hidden; background: var(--accent-soft); display: grid; place-items: center; color: var(--accent-color); font-weight: 700; }
 .nv-cover img { width: 100%; height: 100%; object-fit: cover; }
 .nv-main { min-width: 0; display: grid; gap: 4px; }
 .nv-title { font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nv-meta { font-size: .72rem; color: var(--text-secondary); }
 .novel-empty { margin: 0; padding: 18px 0; color: var(--text-secondary); font-size: .84rem; }
-.stat-chip { display: inline-flex; align-items: baseline; gap: 8px; padding: 9px 18px; border: 1px solid var(--border-line); border-radius: 999px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font: inherit; transition: border-color .15s, transform .15s; }
+.stat-chip { display: inline-flex; align-items: baseline; gap: 8px; padding: 9px 18px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font: inherit; transition: border-color .15s, transform .15s; }
 .stat-chip:hover { border-color: var(--accent-color); transform: translateY(-1px); }
+.stat-chip-stats { color: var(--accent-color); border-style: dashed; }
 .stat-label { font-size: 14px; }
 .stat-count { font-size: 12px; font-weight: 600; color: var(--accent-color); }
-.edit-entry { flex-shrink: 0; white-space: nowrap; padding: 7px 14px; border: 1px solid var(--border-line); border-radius: 6px; background: var(--paper-card); color: var(--accent-color); cursor: pointer; font-size: 13px; }
-.edit-entry:hover { border-color: var(--accent-color); background: var(--accent-soft); }.load-state { padding: 36px; color: var(--text-secondary); display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }.load-state button { border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); padding: 8px 14px; cursor: pointer; }
+.edit-entry { flex-shrink: 0; white-space: nowrap; padding: 7px 14px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--accent-color); cursor: pointer; font-size: 13px; }
+.edit-entry:hover { border-color: var(--accent-color); background: var(--accent-soft); }
+.last-edit { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; padding: 0; border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 12px; }
+button.last-edit { cursor: pointer; }
+button.last-edit:hover { color: var(--accent-color); text-decoration: underline; text-underline-offset: 3px; }.load-state { padding: 36px; color: var(--text-secondary); display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }.load-state button { border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); padding: 8px 14px; cursor: pointer; }
 button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
 .load-state a { color: var(--accent-color); }.load-state p { flex-basis: 100%; margin: 0; line-height: 1.8; }
 
@@ -574,7 +734,7 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
   height: 100%;
   min-height: 0;
   border: 1px solid var(--border-line);
-  border-radius: var(--radius-md);
+  border-radius: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-main);
@@ -588,8 +748,9 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
   min-height: 0;
   overflow: hidden;
 }
+.side-pane { min-width: 0; overflow: hidden; }
 .main {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
   overflow-y: auto;
   background: var(--bg-main);
@@ -620,7 +781,7 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
   border: 1px solid var(--border-line);
   background: var(--paper-card);
   color: var(--text-primary);
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 14px;
   flex-shrink: 0;
@@ -644,19 +805,26 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
   cursor: pointer;
   font-size: 13px;
   padding: 2px 4px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 .crumb:hover { background: var(--bg-sub); color: var(--text-primary); }
 .crumb.current { color: var(--text-primary); font-weight: 600; }
 .crumb-sep { color: var(--text-secondary); font-size: 12px; }
 .graph-view {
   height: 100%;
-  padding: 20px;
+  padding: 0 8px;
+  box-sizing: border-box;
   background: var(--paper-card);
 }
 .timeline-view-wrap {
+  height: 100%;
   min-height: 100%;
   background: var(--paper-card);
+}
+.stats-view-wrap {
+  min-height: 100%;
+  padding: 20px clamp(16px, 3vw, 32px);
+  box-sizing: border-box;
 }
 .doc-layout {
   min-height: 100%;
@@ -673,8 +841,8 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 12px 24px;
 }
-@media (min-width: 1120px) {
-  .doc-layout { grid-template-columns: minmax(0, 1fr) 280px; }
+@media (min-width: 1480px) {
+  .doc-layout:has(> .doc-side-panel) { grid-template-columns: minmax(0, 1fr) 240px; }
   .doc-side-panel {
     max-width: none;
     margin: 0;
@@ -701,7 +869,7 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
   padding: 6px 8px;
   border: none;
   background: none;
-  border-radius: 6px;
+  border-radius: 0;
   cursor: pointer;
   font-size: 13px;
   color: var(--text-primary);
@@ -713,7 +881,7 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
   color: var(--accent-color);
   background: var(--accent-soft);
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: 0;
   flex-shrink: 0;
   max-width: 72px;
   overflow: hidden;
@@ -777,7 +945,7 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
   background: var(--accent-color);
   color: var(--on-accent);
   border: none;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 13px;
   cursor: pointer;
   transition: background 0.15s;
@@ -796,7 +964,7 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
 .main::-webkit-scrollbar-thumb,
 .editor-body::-webkit-scrollbar-thumb {
   background: var(--bg-sub);
-  border-radius: 3px;
+  border-radius: 0;
 }
 .main::-webkit-scrollbar-thumb:hover,
 .editor-body::-webkit-scrollbar-thumb:hover {
@@ -814,7 +982,7 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
 
 /* ===== AI 整理弹窗 ===== */
 .ai-modal-mask { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center; padding: 20px; }
-.ai-modal { width: min(760px, 100%); max-height: 86vh; display: flex; flex-direction: column; background: var(--paper-card); border-radius: 14px; overflow: hidden; }
+.ai-modal { width: min(760px, 100%); max-height: 86vh; display: flex; flex-direction: column; background: var(--paper-card); border-radius: 0; overflow: hidden; }
 .ai-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 22px; border-bottom: 1px solid var(--border-line); }
 .ai-modal-head h3 { margin: 0; font-size: 1.05rem; }
 .ai-close { border: none; background: none; font-size: 1.4rem; line-height: 1; color: var(--text-secondary); cursor: pointer; }
@@ -830,21 +998,21 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
 .ai-result :deep(ul), .ai-result :deep(ol) { margin: 0 0 12px; padding-left: 24px; }
 .ai-result :deep(li) { margin: 5px 0; }
 .ai-result :deep(blockquote) { margin: 0 0 12px; padding: 8px 14px; border-left: 3px solid var(--accent-color); background: var(--bg-sub); color: var(--text-secondary); }
-.ai-result :deep(code) { background: var(--bg-sub); padding: 1px 5px; border-radius: 4px; font-size: .88em; }
-.ai-result :deep(pre) { background: var(--bg-sub); padding: 12px; border-radius: 8px; overflow-x: auto; }
+.ai-result :deep(code) { background: var(--bg-sub); padding: 1px 5px; border-radius: 0; font-size: .88em; }
+.ai-result :deep(pre) { background: var(--bg-sub); padding: 12px; border-radius: 0; overflow-x: auto; }
 .ai-modal-foot { display: flex; justify-content: flex-end; padding: 14px 22px; border-top: 1px solid var(--border-line); }
-.ai-modal-foot .btn { padding: 8px 18px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
+.ai-modal-foot .btn { padding: 8px 18px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
 .ai-modal-foot .btn.primary { background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color); }
 .ai-modal-foot .btn:disabled { opacity: .5; cursor: default; }
 .ai-import-modal { width: min(640px, 100%); }
 .import-field { display: grid; gap: 8px; font-size: .85rem; }
-.import-field textarea { padding: 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); color: var(--text-primary); font-size: .88rem; line-height: 1.7; resize: vertical; font-family: inherit; }
+.import-field textarea { padding: 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); font-size: .88rem; line-height: 1.7; resize: vertical; font-family: inherit; }
 .import-field textarea:focus { outline: none; border-color: var(--accent-color); }
 .import-tip { margin: 0 0 12px; font-size: .85rem; color: var(--text-secondary); }
 .import-preview { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-height: 50vh; overflow-y: auto; }
-.import-preview li { padding: 12px 14px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); }
+.import-preview li { padding: 12px 14px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); }
 .import-preview strong { font-size: .9rem; }
-.import-type { margin-left: 8px; font-size: .7rem; color: var(--accent-color); background: var(--accent-soft); padding: 1px 8px; border-radius: 8px; }
+.import-type { margin-left: 8px; font-size: .7rem; color: var(--accent-color); background: var(--accent-soft); padding: 1px 8px; border-radius: 0; }
 .import-preview p { margin: 6px 0 0; font-size: .82rem; color: var(--text-secondary); line-height: 1.6; }
 .import-done { color: var(--success); font-size: .9rem; font-weight: 600; }
 .import-errors { list-style: none; margin: 8px 0 0; padding: 0; }

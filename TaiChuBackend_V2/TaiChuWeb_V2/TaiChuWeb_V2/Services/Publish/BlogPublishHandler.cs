@@ -74,6 +74,10 @@ namespace TaiChuWeb_V2.Services.Publish
                 catch { }
             }
 
+            // 没有单独设置封面时，用正文里的第一张图
+            if (string.IsNullOrWhiteSpace(coverUrl))
+                coverUrl = PublishImageFinder.FirstImageUrl(blocks.Select(b => (b.Type, b.Data))) ?? "";
+
             // 2. 提取摘要文本 (策略 1：固定摘要块)
             var fixedExcerptBlock = blocks.FirstOrDefault(b => b.Type == "blog_fixed_excerpt");
             if (fixedExcerptBlock != null && !string.IsNullOrWhiteSpace(fixedExcerptBlock.Data))
@@ -92,9 +96,10 @@ namespace TaiChuWeb_V2.Services.Publish
             // 策略 2：自动向正文截取兜底[cite: 11]
             if (string.IsNullOrEmpty(textExcerpt))
             {
-                var firstTextParagraph = blocks.FirstOrDefault(b => b.Type == "paragraph"); 
-        if (firstTextParagraph != null && !string.IsNullOrWhiteSpace(firstTextParagraph.Data))
+                // 找第一段有文字的段落（开头可能是空行或图片）
+                foreach (var firstTextParagraph in blocks.Where(b => b.Type == "paragraph" && !string.IsNullOrWhiteSpace(b.Data)))
                 {
+                    if (!string.IsNullOrEmpty(textExcerpt)) break;
                     try
                     {
                         using var doc = JsonDocument.Parse(firstTextParagraph.Data);
@@ -103,6 +108,7 @@ namespace TaiChuWeb_V2.Services.Publish
                             var text = string.Concat(contentArr.EnumerateArray()
                                        .Where(i => i.TryGetProperty("text", out _))
                                        .Select(i => i.GetProperty("text").GetString()));
+                            text = text.Trim();
                             textExcerpt = text.Length > 150 ? text.Substring(0, 150) + "..." : text;
                         }
                     }
@@ -123,4 +129,4 @@ namespace TaiChuWeb_V2.Services.Publish
             return JsonSerializer.Serialize(payload);
         }
     }
-}
+}

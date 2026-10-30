@@ -22,6 +22,17 @@ namespace TaiChuWeb_V2.Controllers
         public string? Message { get; set; }
         public bool IsAnonymous { get; set; }
         public bool IsVisible { get; set; } = true;
+
+        /// <summary>赞助平台：azz 爱赞助 / afdian 爱发电 / other 其他（Amount 直接按到手金额记）</summary>
+        public string? Platform { get; set; }
+        /// <summary>赞助者实际付的钱；平台是爱赞助 / 爱发电时，按平台抽成算出到手金额记进赞助墙和财政</summary>
+        public double? PaidAmount { get; set; }
+        /// <summary>赞助日期（补录以前的赞助用）；不填 = 现在</summary>
+        public DateTime? SponsoredAt { get; set; }
+        /// <summary>同时给这个网站账号开通 / 延长赞助特权（可选）</summary>
+        public Guid? PerkUserId { get; set; }
+        /// <summary>开通多少天特权，默认 30 天</summary>
+        public int? PerkDays { get; set; }
     }
 
     public class AfdianConfigDto
@@ -39,13 +50,33 @@ namespace TaiChuWeb_V2.Controllers
         private readonly AppDbContext _context;
         private readonly AfdianSyncService _afdianSync;
         private readonly IConfiguration _config;
+        private readonly TaiChuWeb_V2.Services.Personalization.SponsorPerkService _perks;
 
-        public SponsorController(AppDbContext context, AfdianSyncService afdianSync, IConfiguration config)
+        public SponsorController(AppDbContext context, AfdianSyncService afdianSync, IConfiguration config, TaiChuWeb_V2.Services.Personalization.SponsorPerkService perks)
         {
             _context = context;
             _afdianSync = afdianSync;
             _config = config;
+            _perks = perks;
         }
+
+        // 平台抽成：爱赞助 8%、爱发电 6%（appsettings 里 Azz:FeeRate / Afdian:FeeRate 可改）。赞助墙和财政记的都是到手金额
+        private double AzzFeeRate => Math.Clamp(double.TryParse(_config["Azz:FeeRate"], out var r) ? r : 0.08, 0, 0.5);
+        private double AfdianFeeRate => Math.Clamp(double.TryParse(_config["Afdian:FeeRate"], out var r) ? r : 0.06, 0, 0.5);
+        private double FeeRateOf(string? platform) => platform switch { "azz" => AzzFeeRate, "afdian" => AfdianFeeRate, _ => 0 };
+        private static string PlatformLabel(string? platform) => platform switch { "azz" => "爱赞助", "afdian" => "爱发电", _ => "" };
+
+        /// <summary>到手金额：填了实付金额就按平台抽成算，否则直接用 Amount</summary>
+        private double NetAmount(SponsorDto dto) =>
+            dto.PaidAmount is double paid && paid > 0 ? Math.Round(paid * (1 - FeeRateOf(dto.Platform)), 2) : Math.Max(0, dto.Amount);
+
+        private static string Project(string tier, string? platform) =>
+            PlatformLabel(platform) is { Length: > 0 } label ? $"赞助-{tier}（{label}）" : $"赞助-{tier}";
+
+        /// <summary>各平台抽成，给录入界面算到手金额</summary>
+        [HttpGet("fees")]
+        [AllowAnonymous]
+        public IActionResult Fees() => Ok(new { azz = AzzFeeRate, afdian = AfdianFeeRate });
 
         private string EncryptionSecret => _config["Ai:EncryptionKey"] ?? _config["Jwt:Key"] ?? "TaichuAiDefaultSecret";
 
@@ -95,23 +126,24 @@ namespace TaiChuWeb_V2.Controllers
             if (!await IsSuperAdmin()) return Forbid();
             if (string.IsNullOrWhiteSpace(dto.Name)) return BadRequest(new { message = "名字不能为空" });
 
+            var sponsoredAt = dto.SponsoredAt.HasValue ? DateTime.SpecifyKind(dto.SponsoredAt.Value, DateTimeKind.Utc) : DateTime.UtcNow;
             var sponsor = new Sponsor
             {
                 Name = dto.Name.Trim(),
                 Tier = string.IsNullOrWhiteSpace(dto.Tier) ? "觉醒者" : dto.Tier,
-                Amount = dto.Amount,
+                Amount = NetAmount(dto), // 到手金额（已扣平台抽成），和爱发电同步的口径一致
                 Message = dto.Message,
                 IsAnonymous = dto.IsAnonymous,
                 IsVisible = dto.IsVisible,
-                SponsoredAt = DateTime.UtcNow,
+                SponsoredAt = sponsoredAt,
                 CreatedAt = DateTime.UtcNow
             };
 
             var fin = new Financial
             {
                 ZhiChu = "赞助收入",
-                ZhiChuXiangMu = $"赞助-{sponsor.Tier}",
-                date = DateTime.Now,
+                ZhiChuXiangMu = Project(sponsor.Tier, dto.Platform),
+                date = dto.SponsoredAt.HasValue ? sponsoredAt.ToLocalTime() : DateTime.Now,
                 ShouKuan = string.IsNullOrWhiteSpace(sponsor.Name) ? "匿名支持者" : sponsor.Name,
                 Amount = sponsor.Amount,
                 PayReceive = 0 // 0 = 收入
@@ -123,7 +155,19 @@ namespace TaiChuWeb_V2.Controllers
             sponsor.FinancialIndex = fin.index;
             await _context.SaveChangesAsync();
 
-            return Ok(new { id = sponsor.Id });
+            // 同时给网站账号开通 / 延长赞助特权（爱赞助没有接口，只能在这里手动对上账号）
+            DateTime? perkUntil = null;
+            if (dto.PerkUserId is Guid perkUser && perkUser != Guid.Empty)
+            {
+                if (!await _context.Users.AnyAsync(u => u.Id == perkUser))
+                    return Ok(new { id = sponsor.Id, amount = sponsor.Amount, warning = "赞助已记录，但没找到要开通特权的账号" });
+                var label = PlatformLabel(dto.Platform);
+                var paidText = dto.PaidAmount is double p && p > 0 ? p : sponsor.Amount;
+                perkUntil = await _perks.GrantAsync(perkUser, dto.PerkDays is int d && d > 0 ? d : TaiChuWeb_V2.Services.Personalization.SponsorPerkService.DaysPerMonth,
+                    sponsor.Tier, $"{(label.Length > 0 ? label : "")}赞助 {paidText:0.##} 元（赞助墙 #{sponsor.Id}）", CurrentUserId!.Value);
+            }
+
+            return Ok(new { id = sponsor.Id, amount = sponsor.Amount, perkUntil });
         }
 
         // ===== 管理员：编辑 =====
@@ -137,7 +181,8 @@ namespace TaiChuWeb_V2.Controllers
 
             sponsor.Name = string.IsNullOrWhiteSpace(dto.Name) ? sponsor.Name : dto.Name.Trim();
             sponsor.Tier = string.IsNullOrWhiteSpace(dto.Tier) ? sponsor.Tier : dto.Tier;
-            sponsor.Amount = dto.Amount;
+            sponsor.Amount = NetAmount(dto);
+            if (dto.SponsoredAt.HasValue) sponsor.SponsoredAt = DateTime.SpecifyKind(dto.SponsoredAt.Value, DateTimeKind.Utc);
             sponsor.Message = dto.Message;
             sponsor.IsAnonymous = dto.IsAnonymous;
             sponsor.IsVisible = dto.IsVisible;
@@ -148,9 +193,10 @@ namespace TaiChuWeb_V2.Controllers
                 var fin = await _context.Financials.FirstOrDefaultAsync(f => f.index == sponsor.FinancialIndex.Value);
                 if (fin != null)
                 {
-                    fin.ZhiChuXiangMu = $"赞助-{sponsor.Tier}";
+                    fin.ZhiChuXiangMu = string.IsNullOrWhiteSpace(dto.Platform) && (fin.ZhiChuXiangMu ?? "").Contains('（') ? fin.ZhiChuXiangMu : Project(sponsor.Tier, dto.Platform);
                     fin.ShouKuan = sponsor.Name;
                     fin.Amount = sponsor.Amount;
+                    if (dto.SponsoredAt.HasValue) fin.date = sponsor.SponsoredAt.ToLocalTime();
                 }
             }
 

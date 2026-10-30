@@ -1,6 +1,6 @@
 <template>
-  <div class="form-card">
-    <h2><i class="fas fa-rocket"></i> 开启新挑战</h2>
+  <div class="form-card workbench-skin editor-surface community-surface tone-library">
+    <header class="studio-heading"><h2>开启新挑战</h2></header>
     <form @submit.prevent="handleSubmit">
       <div class="form-group">
         <label>活动名称 <span class="required">*</span></label>
@@ -37,9 +37,9 @@
       <div class="form-group">
         <label>活动形态</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button type="button" :class="{ active: form.kind === 'general' }" @click="form.kind = 'general'" style="padding:7px 16px;border:1px solid var(--border-line);border-radius:8px;background:var(--paper-card);cursor:pointer">普通活动</button>
-          <button type="button" :class="{ active: form.kind === 'match' }" @click="form.kind = 'match'" style="padding:7px 16px;border:1px solid var(--border-line);border-radius:8px;background:var(--paper-card);cursor:pointer">对战赛</button>
-          <button type="button" :class="{ active: form.kind === 'contest' }" @click="form.kind = 'contest'" style="padding:7px 16px;border:1px solid var(--border-line);border-radius:8px;background:var(--paper-card);cursor:pointer">作品赛</button>
+          <button type="button" :class="{ active: form.kind === 'general' }" @click="form.kind = 'general'" style="padding:7px 16px;border:1px solid var(--border-line);border-radius:0;background:var(--paper-card);cursor:pointer">普通活动</button>
+          <button type="button" :class="{ active: form.kind === 'match' }" @click="form.kind = 'match'" style="padding:7px 16px;border:1px solid var(--border-line);border-radius:0;background:var(--paper-card);cursor:pointer">对战赛</button>
+          <button type="button" :class="{ active: form.kind === 'contest' }" @click="form.kind = 'contest'" style="padding:7px 16px;border:1px solid var(--border-line);border-radius:0;background:var(--paper-card);cursor:pointer">作品赛</button>
         </div>
         <div class="hint">对战赛显示对阵表；作品赛显示作品墙和投票</div>
       </div>
@@ -240,7 +240,7 @@ onMounted(() => {
 .form-card {
   background: var(--paper-card);
   padding: 32px 36px;
-  border-radius: 12px;
+  border-radius: 0;
   max-width: 600px;
   border: 1px solid var(--border-line);
   margin: 0 auto;
@@ -271,7 +271,7 @@ onMounted(() => {
   width: 100%;
   padding: 10px 14px;
   border: 1px solid var(--border-line);
-  border-radius: 8px;
+  border-radius: 0;
   font-size: 0.9rem;
   font-family: inherit;
   transition: border 0.2s;
@@ -304,7 +304,7 @@ onMounted(() => {
 }
 .type-tag-option {
   padding: 4px 14px;
-  border-radius: 20px;
+  border-radius: 0;
   border: 1px solid var(--border-line);
   background: var(--paper-card);
   font-size: 0.75rem;
@@ -343,7 +343,7 @@ onMounted(() => {
 .upload-btn {
   padding: 6px 16px;
   border: 1px dashed var(--border-line);
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--paper-card);
   color: var(--text-primary);
   font-size: 0.85rem;
@@ -390,7 +390,7 @@ onMounted(() => {
   width: 100%;
   max-height: 160px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 0;
   border: 1px solid var(--border-line);
 }
 .remove-cover {
@@ -400,7 +400,7 @@ onMounted(() => {
   background: var(--overlay);
   color: var(--on-overlay);
   border: none;
-  border-radius: 50%;
+  border-radius: 0;
   width: 24px;
   height: 24px;
   cursor: pointer;
@@ -418,7 +418,7 @@ onMounted(() => {
   background: var(--info);
   color: var(--on-accent);
   border: none;
-  border-radius: 10px;
+  border-radius: 0;
   font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;

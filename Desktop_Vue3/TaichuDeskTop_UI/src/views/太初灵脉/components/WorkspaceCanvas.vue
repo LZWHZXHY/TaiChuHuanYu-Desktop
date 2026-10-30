@@ -1,13 +1,13 @@
 <template>
-  <div class="workspace-canvas-frame">
-    <header class="canvas-header">
+  <div class="workspace-canvas-frame workbench-skin editor-surface community-surface tone-world">
+    <header class="canvas-header studio-heading">
       <input 
         :value="props.title" 
         @input="onTitleInput" 
         class="canvas-title-input" 
-        placeholder="未命名图谱 / Canvas Title" 
+        aria-label="画布标题" placeholder="未命名图谱" 
       />
-      <p class="canvas-subtitle">多维交织的灵脉思绪星图</p>
+      <p class="canvas-subtitle">拖动节点调整位置，双击编辑内容，点击连线修改关系。</p>
     </header>
 
     <div class="canvas-container">
@@ -22,7 +22,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import SpiritCanvas from '@/components/SpiritCanvas.vue';
 
 const props = defineProps<{
@@ -100,7 +99,7 @@ const handleNodeDoubleClick = (targetNoteId: string) => {
 <style scoped>
 .workspace-canvas-frame { width: 100%; height: 100%; display: flex; flex-direction: column; background: var(--paper-card); }
 .canvas-header { padding: 30px 40px 10px; background: var(--paper-card); border-bottom: 1px solid var(--border-line); }
-.canvas-title-input { width: 100%; font-size: 2.2rem; font-weight: 700; border: none; background: transparent; outline: none; }
+.canvas-title-input { width: 100%; font-size: clamp(20px,3vw,30px); font-weight: 700; border: none; background: transparent; outline: none; color: var(--text-primary); }
 .canvas-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
-.canvas-container { flex: 1; position: relative; width: 100%; }
+.canvas-container { min-height: 380px; flex: 1; position: relative; width: 100%; }
 </style>

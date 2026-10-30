@@ -2,8 +2,10 @@ import request from '@/utils/request'
 import type {
   WorldProject, CreateProjectPayload, UpdateProjectPayload, CardSummary, CardDetail,
   CreateCardPayload, UpdateCardPayload, Relation, CardTypeDto, WorldQuota,
-  ProjectQuotaCheck, CardQuotaCheck, QuotaUpgradeType, QuotaUpgradeResult, QuotaHistory,
+  ProjectQuotaCheck, CardQuotaCheck, QuotaHistory,
   TimelineItem, WorldSearchResult, StartWorldRestore, WorldRestoreStatus,
+  WorldMembers, WorldMemberCandidate, CollaboratorRole,
+  WorldRevision, WorldRevisionDetail, WorldLastEditor, WorldCardBlame,
 } from './types/world'
 
 export type * from './types/world'
@@ -28,6 +30,35 @@ export const worldApi = {
   updateProject: (id: string, payload: UpdateProjectPayload) =>
     request.put<WorldProject>(`/world/projects/${id}`, payload),
   deleteProject: async (id: string): Promise<void> => { await request.delete(`/world/projects/${id}`) },
+
+  // 修改记录：查看、撤销某次修改、一键撤销某人的修改
+  getHistory: (id: string, params: { cardId?: string; userId?: string; action?: string; before?: number; take?: number } = {}) =>
+    request.get<{ items: WorldRevision[]; hasMore: boolean }>(`/world/projects/${id}/history`, { params, silentError: true }),
+  getRevision: (id: string, revisionId: number) =>
+    request.get<WorldRevisionDetail>(`/world/projects/${id}/history/${revisionId}`, { silentError: true }),
+  undoRevision: (id: string, revisionId: number) =>
+    request.post<{ message: string }>(`/world/projects/${id}/history/${revisionId}/undo`, {}, { silentError: true }),
+  revertUser: (id: string, userId: string, hours: number) =>
+    request.post<{ count: number; message: string }>(`/world/projects/${id}/history/revert-user`, { userId, hours }, { silentError: true }),
+  getCardBlame: (id: string, cardId: string) =>
+    request.get<WorldCardBlame>(`/world/projects/${id}/history/card/${cardId}/blame`, { silentError: true }),
+  getLastEditors: (id: string) =>
+    request.get<WorldLastEditor[]>(`/world/projects/${id}/history/last-editors`, { silentError: true }),
+
+  // 协作者：创建者管理，协作者可自己退出
+  getMembers: (id: string) => request.get<WorldMembers>(`/world/projects/${id}/collaborators`, { silentError: true }),
+  searchMemberCandidates: (id: string, keyword: string) =>
+    request.get<WorldMemberCandidate[]>(`/world/projects/${id}/collaborators/candidates`, { params: { keyword }, silentError: true }),
+  addMember: (id: string, userId: string, role: CollaboratorRole) =>
+    request.post<{ userId: string; username: string; role: CollaboratorRole }>(`/world/projects/${id}/collaborators`, { userId, role }, { silentError: true }),
+  updateMemberRole: (id: string, userId: string, role: CollaboratorRole) =>
+    request.put<{ userId: string; role: CollaboratorRole }>(`/world/projects/${id}/collaborators/${userId}`, { role }, { silentError: true }),
+  removeMember: async (id: string, userId: string): Promise<void> => {
+    await request.delete(`/world/projects/${id}/collaborators/${userId}`, { silentError: true })
+  },
+
+  saveGraphPositions: (id: string, positions: string, expectedPositions: string) =>
+    request.put<void>(`/world/projects/${id}/graph-positions`, { positions, expectedPositions }, { silentError: true }),
 
   getCards: (projectId: string, type?: string) =>
     request.get<CardSummary[]>(`/world/projects/${projectId}/cards`, { params: { type }, silentError: true }),
@@ -65,7 +96,5 @@ export const worldApi = {
   getQuota: () => request.get<WorldQuota>('/world/quota/my'),
   canCreateProject: () => request.get<ProjectQuotaCheck>('/world/quota/can-create-project'),
   canAddCard: (projectId: string) => request.get<CardQuotaCheck>(`/world/quota/can-add-card/${projectId}`),
-  upgradeQuota: (upgradeType: QuotaUpgradeType) =>
-    request.post<QuotaUpgradeResult>('/world/quota/upgrade', { upgradeType }),
   getQuotaHistory: (limit = 20) => request.get<QuotaHistory[]>('/world/quota/history', { params: { limit } }),
 }

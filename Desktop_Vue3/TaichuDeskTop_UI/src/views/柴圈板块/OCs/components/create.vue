@@ -1,6 +1,6 @@
 <template>
-  <div class="community-detail create-page">
-    <div class="page-header">
+  <div class="community-detail create-page workbench-skin editor-surface community-surface tone-chai">
+    <div class="page-header studio-heading"><SectionTrace />
       <h1 class="page-title">✎ 创建新 OC</h1>
       <p class="page-subtitle">为柴圈注入新的灵魂</p>
     </div>
@@ -13,6 +13,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
 import { useStickmanStore } from '../stickman_store.ts'

@@ -32,15 +32,20 @@
           <span class="group-count">{{ group.cards.length }}</span>
         </button>
         <div v-if="!isCollapsed(group.type)" class="tree-items">
-          <button
-            v-for="card in group.cards"
-            :key="card.id"
-            class="tree-item"
-            :class="{ active: selectedCardId === card.id }"
-            @click="mobileExpanded = false; $emit('select', card.id)"
-          >
-            {{ card.title }}
-          </button>
+          <!-- 点一下在主窗口看；按住 Ctrl / ⌘ 点、鼠标中键点、或点右边的 ⧉：在旁边分屏打开 -->
+          <div v-for="card in group.cards" :key="card.id" class="tree-row" :class="{ active: selectedCardId === card.id, paned: paneIds?.includes(card.id) }">
+            <button
+              class="tree-item"
+              :class="{ active: selectedCardId === card.id }"
+              @click.exact="mobileExpanded = false; $emit('select', card.id)"
+              @click.ctrl.prevent="$emit('pane', card.id)"
+              @click.meta.prevent="$emit('pane', card.id)"
+              @auxclick.prevent="e => { if (e.button === 1) $emit('pane', card.id) }"
+            >
+              {{ card.title }}
+            </button>
+            <button v-if="canPane" type="button" class="tree-pane-btn" :title="`在旁边分屏打开「${card.title}」`" :aria-label="`在旁边分屏打开「${card.title}」`" @click="$emit('pane', card.id)">⧉</button>
+          </div>
         </div>
       </div>
 
@@ -55,7 +60,7 @@
         :class="{ active: view === 'timeline' }"
         @click="$emit('timeline')"
       >
-        <span class="btn-icon">🕐</span> 时间线
+        <span class="btn-icon">📜</span> 编年史
       </button>
       <button
         class="graph-btn"
@@ -63,6 +68,14 @@
         @click="$emit('graph')"
       >
         <span class="btn-icon">🕸️</span> 关系图谱
+      </button>
+      <button
+        v-if="canStats"
+        class="graph-btn"
+        :class="{ active: view === 'stats' }"
+        @click="$emit('stats')"
+      >
+        <span class="btn-icon">📊</span> 创作统计
       </button>
     </div>
   </aside>
@@ -73,9 +86,11 @@ import { computed, ref, watch } from 'vue'
 import type { CardSummary } from '@/api/types/world'
 import { groupWorldCards } from '@/utils/worldPresentation'
 
-const props = defineProps<{ cards: CardSummary[]; loading: boolean; selectedCardId: string | null; view: 'card' | 'graph' | 'timeline' }>()
+const props = defineProps<{ cards: CardSummary[]; loading: boolean; selectedCardId: string | null; view: 'card' | 'graph' | 'timeline' | 'stats'; canStats?: boolean
+  /** 能不能分屏（屏幕够宽才显示 ⧉）；已经分屏打开的条目 */
+  canPane?: boolean; paneIds?: string[] }>()
 const searchQuery = defineModel<string>('search', { default: '' })
-defineEmits<{ select: [id: string]; graph: []; timeline: []; overview: [] }>()
+defineEmits<{ select: [id: string]; pane: [id: string]; graph: []; timeline: []; stats: []; overview: [] }>()
 
 const groupedCards = computed(() => groupWorldCards(props.cards, searchQuery.value))
 
@@ -110,7 +125,7 @@ function toggleAll() {
 <style scoped>
 * { box-sizing: border-box; }
 .mobile-directory { display: none; }
-.overview-btn { margin: 12px 12px 0; padding: 12px; text-align: left; border: 0; border-radius: 8px; background: transparent; color: var(--text-primary); cursor: pointer; font: inherit; }
+.overview-btn { margin: 12px 12px 0; padding: 12px; text-align: left; border: 0; border-radius: 0; background: transparent; color: var(--text-primary); cursor: pointer; font: inherit; }
 .overview-btn.active { background: var(--accent-soft); color: var(--accent-color); }
 .toggle-all:disabled { opacity: .5; cursor: default; }
 .btn-icon { font-size: 16px; line-height: 1; }
@@ -128,7 +143,7 @@ function toggleAll() {
   width: 100%;
   border: none;
   background: var(--bg-sub);
-  border-radius: 6px;
+  border-radius: 0;
   padding: 7px 12px;
   font-size: 13px;
   color: var(--text-primary);
@@ -158,7 +173,7 @@ function toggleAll() {
   padding: 7px 8px;
   border: none;
   background: none;
-  border-radius: 6px;
+  border-radius: 0;
   font-size: 12px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -177,7 +192,7 @@ function toggleAll() {
   color: var(--text-secondary);
   background: var(--bg-sub);
   padding: 1px 7px;
-  border-radius: 8px;
+  border-radius: 0;
 }
 .tree-items { display: flex; flex-direction: column; padding: 2px 0 6px 20px; }
 .tree-item {
@@ -189,7 +204,7 @@ function toggleAll() {
   color: var(--text-secondary);
   background: none;
   border: none;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
   white-space: nowrap;
@@ -197,6 +212,14 @@ function toggleAll() {
   text-overflow: ellipsis;
   line-height: 1.5;
 }
+.tree-row { position: relative; display: flex; align-items: center; }
+.tree-row .tree-item { flex: 1; min-width: 0; }
+.tree-pane-btn { position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 24px; height: 22px; padding: 0; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-secondary); font-size: 12px; line-height: 1; cursor: pointer; opacity: 0; transition: opacity .12s; }
+.tree-row:hover .tree-pane-btn, .tree-pane-btn:focus-visible { opacity: 1; }
+.tree-pane-btn:hover { color: var(--accent-color); border-color: var(--accent-color); }
+/* 已经在旁边窗格里打开的条目，左边一道细线标出来 */
+.tree-row.paned .tree-item { box-shadow: inset 2px 0 0 var(--accent-color); }
+@media (hover: none) { .tree-pane-btn { display: none; } }
 .tree-item:hover { background: var(--bg-sub); color: var(--text-primary); }
 .tree-item.active { background: var(--bg-sub); color: var(--text-primary); font-weight: 500; }
 .tree-empty { padding: 32px 16px; text-align: center; font-size: 13px; color: var(--text-secondary); }
@@ -212,7 +235,7 @@ function toggleAll() {
   color: var(--text-secondary);
   background: none;
   border: none;
-  border-radius: 4px;
+  border-radius: 0;
   cursor: pointer;
   transition: background 0.1s, color 0.1s;
   text-align: left;
@@ -222,7 +245,7 @@ function toggleAll() {
 
 .tree::-webkit-scrollbar { width: 6px; }
 .tree::-webkit-scrollbar-track { background: transparent; }
-.tree::-webkit-scrollbar-thumb { background: var(--bg-sub); border-radius: 3px; }
+.tree::-webkit-scrollbar-thumb { background: var(--bg-sub); border-radius: 0; }
 .tree::-webkit-scrollbar-thumb:hover { background: var(--bg-sub); }
 
 @media (max-width: 820px) {

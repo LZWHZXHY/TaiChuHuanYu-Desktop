@@ -7,6 +7,7 @@ import { useCardDraft } from './useCardDraft'
 import { useWorldStore } from '@/stores/world'
 import type { CreateCardPayload, UpdateCardPayload, CardSummary } from '@/api/types/world'
 import { cardToForm, mergeCardForms, type CardForm } from './useCardForm'
+import { serializeLayout } from '@/utils/worldLayout'
 
 export function useCardEditor(
   form: Ref<CardForm>,
@@ -30,6 +31,8 @@ export function useCardEditor(
   const conflictChoices = ref<Partial<Record<keyof CardForm, 'local' | 'server'>>>({})
   const remoteForm = ref<CardForm | null>(null)
   let remoteVersion = ''
+  /** 读进编辑器时服务器上的版本：没人同时改的话直接带着它保存，不用先把整个条目再读一遍 */
+  let knownVersion = ''
   let mergeResult: CardForm | null = null
   function resetConflict() { conflicts.value = []; conflictChoices.value = {}; remoteForm.value = null; mergeResult = null }
 
@@ -65,6 +68,7 @@ export function useCardEditor(
     resetConflict()
     const cardId = cardData?.id
     if (!cardId) {
+      knownVersion = ''
       startCreating()
       return
     }
@@ -90,6 +94,7 @@ export function useCardEditor(
       }
 
       setFormData(cardToForm(fullCard))
+      knownVersion = fullCard.updatedAt || ''
       markClean()
       draft.bind(pid, cardId)
 
@@ -119,6 +124,9 @@ export function useCardEditor(
     const remote = cardToForm(latest)
     let base: CardForm | null = null
     try { base = JSON.parse(draft.baseSnapshot.value || savedSnapshot.value) } catch { /* 旧草稿无有效基线时必须人工核对 */ }
+    // 旧版草稿的基线没有别名和区块：当作和服务器一样，不算冲突
+    if (base && !base.layout) base.layout = remote.layout
+    if (base && !Array.isArray(base.aliases)) base.aliases = remote.aliases
     const result = mergeCardForms(base, form.value, remote)
     remoteVersion = latest.updatedAt
     if (result.conflicts.length) {
@@ -153,9 +161,14 @@ export function useCardEditor(
         }
       }
 
-      if (!isCreating.value && !await prepareUpdate(version)) return
+      // 保存前先核对服务器有没有别人的新修改。没恢复过旧草稿时直接带着读入时的版本号保存（省一次完整读取）；
+      // 服务器发现版本对不上会拒绝（409），那时再读最新内容合并，没有冲突就自动重新保存一次。
+      const fastPath = !isCreating.value && Boolean(knownVersion) && (!draft.baseSnapshot.value || draft.baseSnapshot.value === savedSnapshot.value)
+      if (fastPath) remoteVersion = knownVersion
+      else if (!isCreating.value && !await prepareUpdate(version)) return
 
-      const cardPayload: CreateCardPayload = {
+      // 每次都按表单当前内容生成（合并了别人的修改后要重新生成）
+      const buildPayload = (): CreateCardPayload => ({
         title: form.value.title.trim(),
         type: form.value.type,
         coverImage: form.value.coverImage,
@@ -167,10 +180,12 @@ export function useCardEditor(
         contentBlocks: form.value.contentBlocks,
         timelineEvents: form.value.timelineEvents,
         relations: form.value.relations,
-      }
+        aliases: form.value.aliases.map(a => a.trim()).filter(Boolean),
+        layout: serializeLayout(form.value.layout),
+      })
 
       if (isCreating.value) {
-        const created = await store.createCard(pid, cardPayload)
+        const created = await store.createCard(pid, buildPayload())
         if (version !== loadVersion) return
         currentCardId.value = created.id
         isCreating.value = false
@@ -178,10 +193,22 @@ export function useCardEditor(
       } else {
         if (!currentCardId.value) throw new Error('缺少卡片 ID')
         // 未修改的字段不重写，避免把旧格式的内容或属性转换成表单默认值。
-        const baseline: CardForm = JSON.parse(savedSnapshot.value)
-        const changes: UpdateCardPayload = Object.fromEntries(Object.entries(cardPayload)
-          .filter(([key]) => JSON.stringify(form.value[key as keyof CardForm]) !== JSON.stringify(baseline[key as keyof CardForm])))
-        await store.updateCard(currentCardId.value, { ...changes, expectedUpdatedAt: remoteVersion })
+        const send = () => {
+          const baseline: CardForm = JSON.parse(savedSnapshot.value)
+          const payload = buildPayload()
+          const changes: UpdateCardPayload = Object.fromEntries(Object.entries(payload)
+            .filter(([key]) => JSON.stringify(form.value[key as keyof CardForm]) !== JSON.stringify(baseline[key as keyof CardForm])))
+          return store.updateCard(currentCardId.value, { ...changes, expectedUpdatedAt: remoteVersion })
+        }
+        let saved
+        try { saved = await send() }
+        catch (error: any) {
+          // 快速保存时撞上了别人的修改：读最新内容合并，没有冲突就再保存一次；有冲突就交给用户选
+          if (!fastPath || error?.response?.status !== 409 || error?.response?.data?.code !== 'WORLD_CARD_CONFLICT') throw error
+          if (!await prepareUpdate(version)) return
+          saved = await send()
+        }
+        if (saved?.updatedAt) knownVersion = saved.updatedAt
         ElMessage.success('已更新')
       }
 

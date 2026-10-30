@@ -106,8 +106,8 @@
 
     <Teleport to="body">
       <div v-if="showGovModal" class="modal-mask" @click.self="closeModal">
-        <div class="modal-container scroll-y workbench-skin">
-          <header class="modal-header">
+        <div class="modal-container scroll-y workbench-skin editor-surface community-surface tone-admin">
+          <header class="modal-header studio-heading">
             <div>
               <h3>管理作品</h3>
               <p class="mono font-sm">作品编号： {{ targetWork?.id }}</p>
@@ -246,10 +246,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .gallery-sub-module { display: flex; flex-direction: column; gap: 16px; animation: fadeIn 0.3s ease; }
 .sub-header { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 8px; }
 .filter-panel { display: flex; gap: 12px; flex: 1; }
-.ink-input, .ink-select { border: 1px solid var(--border-line); padding: 8px 12px; border-radius: 4px; font-size: 0.85rem; outline: none; transition: 0.2s; }
+.ink-input, .ink-select { border: 1px solid var(--border-line); padding: 8px 12px; border-radius: 0; font-size: 0.85rem; outline: none; transition: 0.2s; }
 .ink-input:focus, .ink-select:focus { border-color: var(--border-line); }
 .search-bar { width: 300px; }
-.btn-refresh { background: var(--paper-card); border: 1px solid var(--border-line); padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; transition: 0.2s; }
+.btn-refresh { background: var(--paper-card); border: 1px solid var(--border-line); padding: 8px 16px; border-radius: 0; cursor: pointer; font-size: 0.85rem; transition: 0.2s; }
 .btn-refresh:hover { border-color: var(--border-line); }
 
 .ink-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
@@ -257,15 +257,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .ink-table td { padding: 16px; border-bottom: 1px solid var(--border-line); vertical-align: middle; }
 .data-row:hover td { background-color: var(--bg-main); }
 
-.cover-preview { width: 48px; height: 32px; border-radius: 4px; overflow: hidden; background: var(--bg-sub); border: 1px solid var(--border-line); display: flex; align-items: center; justify-content: center; }
+.cover-preview { width: 48px; height: 32px; border-radius: 0; overflow: hidden; background: var(--bg-sub); border: 1px solid var(--border-line); display: flex; align-items: center; justify-content: center; }
 .cover-preview img { width: 100%; height: 100%; object-fit: cover; }
 .cover-placeholder { font-size: 0.6rem; color: var(--text-secondary); font-weight: 800; letter-spacing: 1px; }
 
 .work-base-info { display: flex; flex-direction: column; gap: 4px; }
 .work-title { font-weight: 700; color: var(--text-primary); }
 .work-tags { display: flex; gap: 6px; }
-.category-tag { font-size: 0.7rem; background: var(--bg-sub); color: var(--text-secondary); padding: 2px 6px; border-radius: 3px; }
-.feature-tag { font-size: 0.7rem; background: var(--bg-sub); color: var(--danger); border: 1px solid var(--danger-soft); padding: 1px 4px; border-radius: 3px; }
+.category-tag { font-size: 0.7rem; background: var(--bg-sub); color: var(--text-secondary); padding: 2px 6px; border-radius: 0; }
+.feature-tag { font-size: 0.7rem; background: var(--bg-sub); color: var(--danger); border: 1px solid var(--danger-soft); padding: 1px 4px; border-radius: 0; }
 .author-info { display: flex; flex-direction: column; }
 .author-name { font-weight: 600; color: var(--text-primary); }
 .text-muted { color: var(--text-secondary); }
@@ -274,8 +274,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .font-xs { font-size: 0.7rem; }
 .text-truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; display: inline-block; }
 .stats-matrix { display: flex; gap: 8px; color: var(--text-secondary); }
-.stat-item { background: var(--bg-main); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-line); }
-.status-badge { font-size: 0.75rem; font-weight: 600; padding: 4px 8px; border-radius: 4px; }
+.stat-item { background: var(--bg-main); padding: 2px 6px; border-radius: 0; border: 1px solid var(--border-line); }
+.status-badge { font-size: 0.75rem; font-weight: 600; padding: 4px 8px; border-radius: 0; }
 .status-badge.published { background: var(--success-soft); color: var(--success); }
 .status-badge.reviewing { background: var(--bg-main); color: var(--warning); }
 .status-badge.rejected { background: var(--danger-soft); color: var(--danger); text-decoration: line-through; }
@@ -286,12 +286,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-action:hover { text-decoration: underline; }
 .pagination-footer { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-top: 1px solid var(--border-line); margin-top: 10px; }
 .page-controls { display: flex; align-items: center; gap: 12px; }
-.btn-page { background: var(--paper-card); border: 1px solid var(--border-line); padding: 4px 12px; border-radius: 4px; cursor: pointer; }
+.btn-page { background: var(--paper-card); border: 1px solid var(--border-line); padding: 4px 12px; border-radius: 0; cursor: pointer; }
 .btn-page:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .modal-mask { position: fixed; inset: 0; background: var(--overlay); backdrop-filter: blur(12px); z-index: 9999; display: flex; justify-content: center; align-items: center; }
 .modal-container { background: var(--paper-card); border: 1px solid var(--border-line); width: 500px; padding: 30px; 
-  max-height: 90dvh; overflow-y: auto; border-radius: var(--radius-md);
+  max-height: 90dvh; overflow-y: auto; border-radius: 0;
 }
 .modal-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
 .close-icon { background: none; border: none; font-size: 1.5rem; cursor: pointer; }

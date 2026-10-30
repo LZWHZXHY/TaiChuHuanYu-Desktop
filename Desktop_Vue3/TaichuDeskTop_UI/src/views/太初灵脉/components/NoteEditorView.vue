@@ -2,7 +2,7 @@
   <div class="note-editor-view">
     <div v-if="isContentLoading" class="content-loading-state">
       <div class="mini-spinner"></div>
-      <p>正在感应灵脉碎片...</p>
+      <p>正在打开笔记…</p>
     </div>
 
     <MainWorkspace
@@ -20,7 +20,7 @@
     />
 
     <div v-else class="empty-state">
-      <p>请从侧边栏选择或新建一个碎片</p>
+      <p>从左侧选择一篇笔记，或点「＋ 新建」开始写</p>
     </div>
   </div>
 </template>

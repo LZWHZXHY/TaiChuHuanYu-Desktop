@@ -1,6 +1,6 @@
 <template>
-  <div class="create-simulation">
-    <header class="create-header">
+  <div class="create-simulation workbench-skin editor-surface community-surface tone-play">
+    <header class="create-header studio-heading">
       <button class="btn-back" @click="$emit('cancel')">← 返回</button>
       <h2>🌱 创建模拟游戏</h2>
       <p>配置你的模拟游戏参数</p>
@@ -32,13 +32,13 @@ defineEmits(['cancel', 'success'])
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 24px;
-  border-bottom: 1px solid var(--line-raw);
+  border-bottom: 1px solid var(--border-line);
   padding-bottom: 12px;
 }
 .btn-back {
   background: none;
   border: none;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   font-family: inherit;
   font-size: 14px;
   cursor: pointer;
@@ -46,18 +46,18 @@ defineEmits(['cancel', 'success'])
   transition: color 0.3s;
 }
 .btn-back:hover {
-  color: var(--cinnabar);
+  color: var(--accent-color);
 }
 .create-header h2 {
   font-size: 24px;
   font-weight: 400;
-  letter-spacing: 0.2em;
-  color: var(--ink-black);
+  letter-spacing: .02em;
+  color: var(--text-primary);
   margin: 0;
 }
 .create-header p {
   font-size: 14px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   letter-spacing: 0.1em;
   margin: 0 0 0 auto;
 }
@@ -65,7 +65,7 @@ defineEmits(['cancel', 'success'])
 .coming-soon-placeholder {
   text-align: center;
   padding: 60px 20px;
-  border: 1px solid var(--line-raw);
+  border: 1px solid var(--border-line);
   background: var(--paper-card);
 }
 .placeholder-icon {
@@ -75,12 +75,12 @@ defineEmits(['cancel', 'success'])
 .coming-soon-placeholder h3 {
   font-size: 22px;
   font-weight: 400;
-  color: var(--ink-black);
+  color: var(--text-primary);
   margin: 0 0 8px;
 }
 .coming-soon-placeholder p {
   font-size: 14px;
-  color: var(--ink-gray);
+  color: var(--text-secondary);
   letter-spacing: 0.1em;
   margin: 0 0 4px;
 }
@@ -91,8 +91,8 @@ defineEmits(['cancel', 'success'])
 }
 .btn-line {
   background: none;
-  border: 1px solid var(--line-raw);
-  color: var(--ink-black);
+  border: 1px solid var(--border-line);
+  color: var(--text-primary);
   padding: 6px 24px;
   font-family: inherit;
   font-size: 14px;
@@ -101,7 +101,7 @@ defineEmits(['cancel', 'success'])
   transition: all 0.3s;
 }
 .btn-line:hover {
-  border-color: var(--cinnabar);
-  color: var(--cinnabar);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
 }
 </style>

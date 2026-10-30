@@ -23,7 +23,7 @@
             <span v-else class="cover-ph">🎭</span>
           </div>
           <h3 class="name">{{ slot.item.title }}</h3>
-          <span class="author">@{{ slot.item.authorName }}</span>
+          <span class="author"><UserLink nested :id="slot.item.authorId" :name="slot.item.authorName">@{{ slot.item.authorName }}</UserLink></span>
           <span class="tier">{{ slot.item.battleTier || '青铜' }}</span>
           <span class="score">{{ slot.item.battlePoints }} 分</span>
           <span class="record">{{ slot.item.battleWins }}胜 {{ slot.item.battleLosses }}负 {{ slot.item.battleDraws }}平</span>
@@ -37,7 +37,7 @@
           <img v-if="item.coverUrl" :src="withThumbnail(item.coverUrl, 400)" alt="" loading="lazy" @error="($event.target as HTMLImageElement).hidden = true" />
           <span class="rank-info">
             <strong>{{ item.title }}</strong>
-            <small>@{{ item.authorName }} · {{ item.battleTier || '青铜' }}</small>
+            <small><UserLink nested :id="item.authorId" :name="item.authorName">@{{ item.authorName }}</UserLink> · {{ item.battleTier || '青铜' }}</small>
           </span>
           <span class="rank-score">{{ item.battlePoints }} 分 <small>{{ item.battleWins }}胜 {{ item.battleLosses }}负</small></span>
         </li>
@@ -47,6 +47,7 @@
 </template>
 
 <script setup lang="ts">
+import UserLink from '@/components/UserLink.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { stickmanApi, type StickmanBrief } from '../../OCs/stickman'
@@ -92,19 +93,19 @@ onMounted(load)
 .content-header { display: flex; justify-content: space-between; align-items: center; }
 .content-header h1 { margin: 8px 0; }
 .intro { color: var(--text-secondary); }
-.btn-line { padding: 8px 16px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; text-decoration: none; font-size: .85rem; }
+.btn-line { padding: 8px 16px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; text-decoration: none; font-size: .85rem; }
 .state { padding: 40px 0; text-align: center; color: var(--text-secondary); }
 .podium { display: grid; grid-template-columns: 1fr 1.18fr 1fr; gap: 18px; align-items: end; margin: 24px 0 28px; }
-.podium-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 14px 18px; border: 1px solid var(--border-line); border-radius: 14px; background: var(--paper-card); cursor: pointer; text-align: center; transition: transform .2s, box-shadow .2s; }
+.podium-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 14px 18px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); cursor: pointer; text-align: center; transition: transform .2s, box-shadow .2s; }
 .podium-card:hover { transform: translateY(-4px); }
 .podium-card.is-gold { padding-top: 38px; border-color: #d4af37; box-shadow: 0 12px 34px rgba(212,175,55,.20); }
 .podium-card.is-silver { border-color: #aeb7c2; }
 .podium-card.is-bronze { border-color: #b87333; }
-.medal { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; font-size: .9rem; font-weight: 700; color: #fff; background: var(--text-secondary); box-shadow: 0 3px 10px rgba(0,0,0,.18); }
+.medal { position: absolute; top: -15px; left: 50%; transform: translateX(-50%); width: 34px; height: 34px; display: grid; place-items: center; border-radius: 0; font-size: .9rem; font-weight: 700; color: #fff; background: var(--text-secondary); box-shadow: 0 3px 10px rgba(0,0,0,.18); }
 .medal.is-gold { background: linear-gradient(135deg,#f9dc82,#d4af37); }
 .medal.is-silver { background: linear-gradient(135deg,#eef1f5,#aeb7c2); color: #5a6470; }
 .medal.is-bronze { background: linear-gradient(135deg,#e4b077,#b87333); }
-.cover { width: 100%; aspect-ratio: 1/1; border-radius: 10px; overflow: hidden; background: var(--paper-sub); }
+.cover { width: 100%; aspect-ratio: 1/1; border-radius: 0; overflow: hidden; background: var(--paper-sub); }
 .cover img { width: 100%; height: 100%; object-fit: cover; }
 .cover-ph { display: grid; place-items: center; height: 100%; font-size: 2rem; }
 .name { margin: 0; font-size: 1rem; overflow-wrap: anywhere; }
@@ -117,7 +118,7 @@ onMounted(load)
 .rank-list li { display: flex; align-items: center; gap: 16px; padding: 14px 8px; border-bottom: 1px solid var(--border-line); cursor: pointer; }
 .rank-list li:hover strong { color: var(--accent-color); }
 .rank { width: 28px; text-align: center; font-size: 1.1rem; color: var(--accent-color); font-variant-numeric: tabular-nums; }
-.rank-list img { width: 52px; height: 52px; object-fit: cover; border-radius: 8px; }
+.rank-list img { width: 52px; height: 52px; object-fit: cover; border-radius: 0; }
 .rank-info { flex: 1; min-width: 0; }
 .rank-info strong { display: block; overflow-wrap: anywhere; }
 .rank-info small { display: block; margin-top: 3px; font-size: .75rem; color: var(--text-secondary); }

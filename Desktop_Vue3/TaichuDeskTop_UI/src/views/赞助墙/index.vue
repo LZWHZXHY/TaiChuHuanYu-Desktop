@@ -1,15 +1,18 @@
 <template>
-  <div class="sponsor-page content-page">
-    <header class="sp-header">
+  <div class="sponsor-page content-page community-surface tone-profile">
+    <header class="sp-header surface-heading"><SectionTrace particles="sponsors" />
       <div>
         <h1>💛 赞助墙</h1>
         <p class="sub">感谢每一位支持太初寰宇的同行者</p>
       </div>
       <div class="sp-header-actions">
-        <a class="btn sponsor-btn" :href="AFDIAN_URL" target="_blank" rel="noopener noreferrer" @click.prevent="openExternal(AFDIAN_URL)">💛 去爱发电支持</a>
+        <a class="btn sponsor-btn" :href="AZZ_URL" target="_blank" rel="noopener noreferrer" @click.prevent="openExternal(AZZ_URL)">💛 去爱赞助支持（推荐）</a>
+        <a class="btn" :href="AFDIAN_URL" target="_blank" rel="noopener noreferrer" @click.prevent="openExternal(AFDIAN_URL)">爱发电</a>
         <button v-if="isAdmin" class="btn primary" @click="openEditor()">+ 添加赞助者</button>
       </div>
     </header>
+
+    <p class="sp-notice">我们的爱发电账号一直没有通过审核，<b>推荐使用爱赞助</b>支持太初寰宇。在爱赞助赞助后，私信告诉我们你的网站用户名，就能开通网站背景等赞助特权。</p>
 
     <!-- 统计 -->
     <div class="sp-stats">
@@ -72,14 +75,40 @@
               <option v-for="t in tierList" :key="t" :value="t">{{ t }}</option>
             </select>
           </label>
-          <label class="field"><span>金额</span><input v-model.number="form.amount" type="number" min="0" step="0.01" /></label>
+          <label class="field"><span>平台</span>
+            <select v-model="form.platform">
+              <option value="azz">爱赞助（抽成 {{ pct(fees.azz) }}）</option>
+              <option value="afdian">爱发电（抽成 {{ pct(fees.afdian) }}）</option>
+              <option value="other">其他（直接填到手金额）</option>
+            </select>
+          </label>
         </div>
+        <!-- 赞助墙和财政记「实际到手」金额，和爱发电自动同步一样 -->
+        <div class="field-row">
+          <label v-if="form.platform !== 'other'" class="field"><span>对方实付（元）</span><input v-model.number="form.paidAmount" type="number" min="0" step="0.01" placeholder="订单金额" /></label>
+          <label v-else class="field"><span>到手金额（元）</span><input v-model.number="form.amount" type="number" min="0" step="0.01" /></label>
+          <label class="field"><span>赞助日期</span><input v-model="form.sponsoredAt" type="date" /></label>
+        </div>
+        <p v-if="form.platform !== 'other'" class="hint net-hint">实际到手：<b>¥{{ netAmount.toFixed(2) }}</b>（扣除平台抽成 {{ pct(feeRate) }}），赞助墙和财政按这个金额记。</p>
         <label class="field"><span>留言（可选）</span><input v-model="form.message" placeholder="想说的话" /></label>
         <div class="field-row2">
           <label class="check"><input v-model="form.isAnonymous" type="checkbox" /> 匿名展示</label>
           <label class="check"><input v-model="form.isVisible" type="checkbox" /> 公开展示</label>
         </div>
-        <p class="hint">保存后会自动在「财政」里记一笔收入流水。</p>
+        <!-- 只在新增时：顺手给网站账号开通赞助特权 -->
+        <div v-if="!editorId" class="perk-box">
+          <label class="field"><span>开通赞助特权给网站账号（可选）</span>
+            <input v-model="perkKeyword" placeholder="输入网站用户名查找" @input="searchPerkUser" />
+          </label>
+          <ul v-if="perkCandidates.length && !form.perkUserId" class="perk-list">
+            <li v-for="u in perkCandidates" :key="u.id"><button type="button" @click="pickPerkUser(u)">{{ u.username }}</button></li>
+          </ul>
+          <p v-if="form.perkUserId" class="perk-picked">将给 <b>{{ perkUserName }}</b> 开通 / 顺延
+            <input v-model.number="form.perkDays" type="number" min="1" max="3650" class="days-input" /> 天「{{ form.tier }}」特权
+            <button type="button" class="mini-btn" @click="clearPerkUser">不开通</button>
+          </p>
+        </div>
+        <p class="hint">保存后会自动在「财政」里记一笔收入流水（到手金额）。</p>
         <div class="sp-editor-actions">
           <button class="btn" @click="showEditor = false">取消</button>
           <button class="btn primary" :disabled="saving" @click="saveSponsor">{{ saving ? '保存中…' : '保存' }}</button>
@@ -90,11 +119,14 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted } from 'vue'
 import { sponsorApi, type SponsorItem, type SponsorPayload, type AfdianConfigInfo } from '@/api/sponsor'
 import { useUserStore } from '@/stores/user'
 
 const AFDIAN_URL = 'https://ifdian.net/a/taichuhuanyu'
+// 爱发电审核一直没过，推荐用爱赞助（爱赞助没有接口，赞助记录在这里手动录入）
+const AZZ_URL = 'https://azz.ee/taichuhuanyu'
 function openExternal(url: string) {
   const host = (window as any).chrome?.webview
   if (host) host.postMessage({ cmd: 'load_external_url', url })
@@ -153,8 +185,37 @@ const tierCounts = computed(() => {
   return Object.entries(map).map(([tier, count]) => ({ tier, count }))
 })
 
-const emptyForm = (): SponsorPayload => ({ name: '', tier: '觉醒者', amount: 5, message: '', isAnonymous: false, isVisible: true })
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+const emptyForm = (): SponsorPayload => ({ name: '', tier: '觉醒者', amount: 5, message: '', isAnonymous: false, isVisible: true, platform: 'azz', paidAmount: null, sponsoredAt: today(), perkUserId: null, perkDays: 30 })
 const form = ref<SponsorPayload>(emptyForm())
+
+// 平台抽成（后端读配置，默认爱赞助 8%、爱发电 6%）
+const fees = ref({ azz: 0.08, afdian: 0.06 })
+const pct = (r: number) => `${Math.round(r * 1000) / 10}%`
+const feeRate = computed(() => form.value.platform === 'azz' ? fees.value.azz : form.value.platform === 'afdian' ? fees.value.afdian : 0)
+const netAmount = computed(() => Math.round((Number(form.value.paidAmount) || 0) * (1 - feeRate.value) * 100) / 100)
+
+// 开通特权：按用户名找网站账号
+const perkKeyword = ref('')
+const perkCandidates = ref<{ id: string; username: string }[]>([])
+const perkUserName = ref('')
+let perkTimer: ReturnType<typeof setTimeout> | undefined
+function searchPerkUser() {
+  clearTimeout(perkTimer)
+  form.value.perkUserId = null
+  const k = perkKeyword.value.trim()
+  if (!k) { perkCandidates.value = []; return }
+  perkTimer = setTimeout(async () => {
+    try { perkCandidates.value = (await sponsorApi.searchUsers(k)).slice(0, 8) } catch { perkCandidates.value = [] }
+  }, 300)
+}
+function pickPerkUser(u: { id: string; username: string }) {
+  form.value.perkUserId = u.id
+  perkUserName.value = u.username
+  perkKeyword.value = u.username
+  perkCandidates.value = []
+}
+function clearPerkUser() { form.value.perkUserId = null; perkUserName.value = ''; perkKeyword.value = '' }
 
 const formatDate = (v: string) => v ? new Date(v).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
 
@@ -170,16 +231,27 @@ async function load() {
 
 function openEditor(s?: SponsorItem) {
   editorId.value = s?.id ?? null
-  form.value = s ? { name: s.name, tier: s.tier, amount: s.amount, message: s.message || '', isAnonymous: s.isAnonymous, isVisible: true } : emptyForm()
+  // 编辑已有记录：金额就是当时记的到手金额，平台按「其他」直接改
+  form.value = s
+    ? { name: s.name, tier: s.tier, amount: s.amount, message: s.message || '', isAnonymous: s.isAnonymous, isVisible: true, platform: 'other', paidAmount: null, sponsoredAt: s.sponsoredAt?.slice(0, 10) || null }
+    : emptyForm()
+  clearPerkUser()
+  perkCandidates.value = []
   showEditor.value = true
 }
 
 async function saveSponsor() {
   if (!form.value.name.trim()) { alert('请填写名字'); return }
+  if (form.value.platform !== 'other' && !(Number(form.value.paidAmount) > 0)) { alert('请填写对方实付金额'); return }
   saving.value = true
   try {
-    if (editorId.value) await sponsorApi.update(editorId.value, form.value)
-    else await sponsorApi.create(form.value)
+    const payload: SponsorPayload = { ...form.value, amount: form.value.platform === 'other' ? Number(form.value.amount) || 0 : netAmount.value }
+    if (editorId.value) await sponsorApi.update(editorId.value, payload)
+    else {
+      const res = await sponsorApi.create(payload)
+      if (res.warning) alert(res.warning)
+      else if (res.perkUntil) alert(`已记录，并给 ${perkUserName.value} 开通特权到 ${new Date(res.perkUntil).toLocaleDateString('zh-CN')}`)
+    }
     showEditor.value = false
     await load()
   } catch (e: any) {
@@ -193,7 +265,13 @@ async function removeSponsor(s: SponsorItem) {
   await load()
 }
 
-onMounted(async () => { await load(); if (isAdmin.value) await loadAfdianConfig() })
+onMounted(async () => {
+  await load()
+  if (isAdmin.value) {
+    await loadAfdianConfig()
+    try { fees.value = await sponsorApi.fees() } catch { /* 用默认抽成 */ }
+  }
+})
 </script>
 
 <style scoped>
@@ -205,54 +283,62 @@ onMounted(async () => { await load(); if (isAdmin.value) await loadAfdianConfig(
 .sp-header h1 { margin: 0; font-size: clamp(1.7rem, 3.4vw, 2.3rem); }
 .sp-header .sub { margin: 8px 0 0; color: var(--text-secondary); font-size: .9rem; }
 .sp-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
-.sp-stat { display: grid; gap: 6px; padding: 18px 20px; border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); }
+.sp-stat { display: grid; gap: 6px; padding: 18px 20px; border: 0; border-left: 2px solid var(--signal-mint); border-radius: 0; background: var(--paper-card); }
 .sp-stat .num { font-size: 1.5rem; font-weight: 700; }
 .sp-stat .lbl { font-size: .78rem; color: var(--text-secondary); }
 .tier-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-.tier-chip { font-size: .76rem; padding: 4px 12px; border-radius: 14px; border: 1px solid var(--border-line); color: var(--text-secondary); }
+.tier-chip { font-size: .76rem; padding: 4px 12px; border-radius: 0; border: 1px solid var(--border-line); color: var(--text-secondary); }
 /* 爱发电同步 */
-.sync-box { margin-bottom: 20px; border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); overflow: hidden; }
+.sync-box { margin-bottom: 20px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); overflow: hidden; }
 .sync-toggle { width: 100%; text-align: left; padding: 12px 16px; background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: .85rem; font-weight: 600; }
 .sync-toggle:hover { color: var(--text-primary); }
 .sync-panel { padding: 0 16px 16px; display: grid; gap: 12px; }
 .sync-hint { margin: 0; font-size: .78rem; color: var(--text-secondary); line-height: 1.6; }
 .sync-hint.locked { color: var(--success); font-weight: 600; }
-.webhook-url { display: inline-block; margin-top: 4px; padding: 3px 8px; border-radius: 6px; background: var(--bg-sub); font-size: .76rem; color: var(--text-primary); overflow-wrap: anywhere; word-break: break-all; }
+.webhook-url { display: inline-block; margin-top: 4px; padding: 3px 8px; border-radius: 0; background: var(--bg-sub); font-size: .76rem; color: var(--text-primary); overflow-wrap: anywhere; word-break: break-all; }
 .sync-actions { display: flex; gap: 10px; }
 .sp-empty { text-align: center; color: var(--text-secondary); padding: 48px 0; }
 .sp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
-.sp-card { padding: 18px; border: 1px solid var(--border-line); border-radius: 12px; background: var(--paper-card); border-top: 3px solid var(--border-line); }
-.sp-card.tier-awaken { border-top-color: #54b677; }
-.sp-card.tier-transcend { border-top-color: #4a90d9; }
-.sp-card.tier-great { border-top-color: #9b6dd6; }
-.sp-card.tier-lord { border-top-color: #d4a017; }
+.sp-card { display: flex; flex-direction: column; padding: 24px; border: 0; border-radius: 0; background: var(--paper-card); border-top: 3px solid var(--border-line); }
+.sp-card.tier-awaken { border-top-color: var(--success); }
+.sp-card.tier-transcend { border-top-color: var(--info); }
+.sp-card.tier-great { border-top-color: var(--accent-color); }
+.sp-card.tier-lord { border-top-color: var(--warning); }
 .sp-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.sp-badge { font-size: .72rem; padding: 2px 10px; border-radius: 10px; background: var(--bg-sub); color: var(--text-secondary); }
-.sp-badge.tier-awaken { background: #e8f6ee; color: #2da44e; }
-.sp-badge.tier-transcend { background: #e8f1fb; color: #4a90d9; }
-.sp-badge.tier-great { background: #f1eafb; color: #9b6dd6; }
-.sp-badge.tier-lord { background: #fbf3e0; color: #b8860b; }
+.sp-badge { font-size: .72rem; padding: 2px 10px; border-radius: 0; background: var(--bg-sub); color: var(--text-secondary); }
+.sp-badge.tier-awaken { background: var(--success-soft); color: var(--success); }
+.sp-badge.tier-transcend { background: var(--info-soft); color: var(--info); }
+.sp-badge.tier-great { background: var(--accent-soft); color: var(--accent-color); }
+.sp-badge.tier-lord { background: var(--warning-soft); color: var(--warning); }
 .sp-amount { font-size: .9rem; font-weight: 700; color: var(--text-primary); }
 .sp-name { margin: 12px 0 6px; font-size: 1.05rem; overflow-wrap: anywhere; }
 .sp-message { margin: 0 0 12px; font-size: .85rem; color: var(--text-secondary); line-height: 1.6; font-style: italic; }
 .sp-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
 .sp-date { font-size: .72rem; color: var(--text-secondary); }
 .sp-actions { display: flex; gap: 6px; }
-.mini-btn { padding: 3px 9px; border: 1px solid var(--border-line); border-radius: 6px; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .72rem; }
+.mini-btn { padding: 3px 9px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-secondary); cursor: pointer; font-size: .72rem; }
 .mini-btn.danger { color: var(--danger); }
 /* 编辑器 */
-.sp-mask { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; padding: 20px; }
-.sp-editor { width: min(520px, 100%); max-height: 90vh; overflow-y: auto; background: var(--paper-card); border-radius: 12px; padding: 24px; display: grid; gap: 14px; }
+.sp-mask { position: fixed; inset: 0; z-index: 100; background: var(--overlay); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.sp-editor { border-top: 2px solid var(--signal-mint); box-shadow: var(--shadow-md); width: min(520px, 100%); max-height: 90vh; overflow-y: auto; background: var(--paper-card); border-radius: 0; padding: 24px; display: grid; gap: 14px; }
 .sp-editor-title { margin: 0; font-size: 1.15rem; }
 .field { display: grid; gap: 6px; font-size: .8rem; color: var(--text-secondary); }
-.field input, .field select { padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--bg-main); color: var(--text-primary); font-size: .88rem; }
+.field input, .field select { padding: 9px 12px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); font-size: .88rem; }
 .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .field-row2 { display: flex; gap: 20px; font-size: .85rem; }
 .check { display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .hint { margin: 0; font-size: .75rem; color: var(--text-secondary); }
 .sp-editor-actions { display: flex; justify-content: flex-end; gap: 10px; }
-.btn { padding: 8px 18px; border: 1px solid var(--border-line); border-radius: 8px; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
+.btn { padding: 8px 18px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: .84rem; }
 .btn.primary { background: var(--accent-color); color: var(--on-accent); border-color: var(--accent-color); }
 .btn:disabled { opacity: .5; cursor: default; }
 @media (max-width: 640px) { .sp-stats { gap: 8px; } .sp-stat { padding: 12px; } .sp-stat .num { font-size: 1.1rem; } .sp-grid { grid-template-columns: 1fr; } }
+.sp-notice { margin: 0 0 18px; padding: 12px 16px; border-left: 3px solid var(--accent-color); background: var(--accent-soft); font-size: 13px; line-height: 1.7; color: var(--text-primary); }
+.net-hint b { color: var(--accent-color); }
+.perk-box { margin-top: 6px; padding-top: 10px; border-top: 1px dashed var(--border-line); }
+.perk-list { list-style: none; margin: 4px 0 8px; padding: 0; border: 1px solid var(--border-line); }
+.perk-list button { display: block; width: 100%; padding: 7px 10px; border: 0; background: none; color: var(--text-primary); text-align: left; font: inherit; cursor: pointer; }
+.perk-list button:hover { background: var(--bg-sub); }
+.perk-picked { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
+.days-input { width: 64px; padding: 3px 6px; border: 1px solid var(--border-line); background: var(--bg-main); color: var(--text-primary); font: inherit; }
 </style>

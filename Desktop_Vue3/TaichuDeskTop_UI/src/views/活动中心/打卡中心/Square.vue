@@ -193,7 +193,7 @@ onMounted(() => {
   align-items: center;
   background: var(--paper-card);
   border: 1px solid var(--border-line);
-  border-radius: 40px;
+  border-radius: 0;
   padding: 0 16px;
   transition: border 0.2s;
 }
@@ -227,7 +227,7 @@ onMounted(() => {
   color: var(--text-primary);
   border: none;
   padding: 10px 22px;
-  border-radius: 40px;
+  border-radius: 0;
   font-weight: 600;
   font-size: 0.9rem;
   cursor: pointer;
@@ -255,7 +255,7 @@ onMounted(() => {
 
 .filter-tab {
   padding: 8px 18px;
-  border-radius: 30px;
+  border-radius: 0;
   border: none;
   background: transparent;
   font-size: 0.85rem;
@@ -284,7 +284,7 @@ onMounted(() => {
 
 .card {
   background: var(--paper-card);
-  border-radius: 20px;
+  border-radius: 0;
   overflow: hidden;
   border: 1px solid var(--border-line);
   transition: all 0.3s cubic-bezier(0.2, 0, 0, 1);
@@ -314,16 +314,16 @@ onMounted(() => {
   backdrop-filter: blur(4px);
   color: var(--on-overlay);
   padding: 4px 14px;
-  border-radius: 30px;
+  border-radius: 0;
   font-size: 0.7rem;
   font-weight: 500;
   border: 1px solid rgba(255, 255, 255, 0.10);
 }
 
-.kind-badge { position: absolute; right: 10px; bottom: 10px; padding: 2px 9px; border-radius: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: .68rem; letter-spacing: .04em; }
+.kind-badge { position: absolute; right: 10px; bottom: 10px; padding: 2px 9px; border-radius: 0; background: rgba(0,0,0,.6); color: #fff; font-size: .68rem; letter-spacing: .04em; }
 .status-badge {
   padding: 4px 14px;
-  border-radius: 30px;
+  border-radius: 0;
   font-size: 0.7rem;
   font-weight: 500;
   color: var(--text-primary);
@@ -397,7 +397,7 @@ onMounted(() => {
 
 .card-footer .action-btn {
   padding: 8px 20px;
-  border-radius: 30px;
+  border-radius: 0;
   border: none;
   background: var(--bg-main);
   font-weight: 500;

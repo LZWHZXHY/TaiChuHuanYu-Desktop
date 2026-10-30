@@ -1,53 +1,193 @@
-<!-- src/components/KnowledgeGraph/index.vue -->
+<!-- KnowledgeGraph.vue：知识库关系图谱，用和世界观一样的「粒子星图」。每个节点是一团粒子，阵型切换时粒子飞散重组；
+     点一个节点：粒子聚成以它为中心的星环（有封面的变成粒子画像），右侧显示它的纪要和关联碎片。 -->
 <template>
-  <div class="graph-wrapper" @click="handleBackgroundClick">
-    <GraphControlPanel
-      v-model:searchQuery="searchQuery"
-      v-model:repulsionForce="repulsionForce"
-      :showLabels="showLabels"
-      @toggle:labels="handleToggleLabels"
-      @search="handleSearch"
-    />
-
-    <GraphFilterPanel
-      :availableTypes="availableTypes"
-      v-model:activeTypes="activeTypes"
-    />
-
-    <GraphDetailsPanel
-      :show="showDetails"
-      :node="selectedNode"
-      :neighbors="neighborNodes"
-      @close="closeDetailsPanel"
-      @navigate:node="navigateToNeighborNode"
-    />
-
-    <div ref="containerRef" class="graph-container"></div>
+  <div class="kg">
+    <div class="kg-bar">
+      <form class="kg-search" role="search" @submit.prevent="handleSearch">
+        <input v-model="searchQuery" type="search" placeholder="搜索节点（标题、简介和正文）" aria-label="搜索节点" @input="onSearchInput" @keydown.esc="clearSearch" />
+        <button v-if="appliedQuery" type="button" @click="clearSearch">清除</button>
+        <button v-else type="submit">搜索</button>
+        <!-- 搜索结果：所有包含关键词的节点，星图里也只留这些 -->
+        <div v-if="appliedQuery && showHits" class="kg-hits" role="listbox" aria-label="搜索结果">
+          <p class="kg-hits-head">
+            <span>{{ searchMatches.length ? `找到 ${searchMatches.length} 个节点` : `没有包含「${appliedQuery}」的节点` }}<em v-if="serverSearching"> · 正在查正文…</em></span>
+            <button type="button" aria-label="收起搜索结果" @click="showHits = false">收起</button>
+          </p>
+          <button v-for="n in searchMatches.slice(0, 80)" :key="n.id" type="button" role="option" class="kg-hit" :style="{ '--c': getTheme(n.type).color }" @click="pickHit(n.id)">
+            <i></i><span>{{ n.title || '未知节点' }}</span><small>{{ typeLabel(n.type || 'default') }}</small>
+          </button>
+          <p v-if="searchMatches.length > 80" class="kg-hits-more">还有 {{ searchMatches.length - 80 }} 个，星图里都已显示</p>
+        </div>
+      </form>
+      <div class="kg-types" role="group" aria-label="按类型筛选">
+        <button type="button" :class="{ on: !activeTypes.length }" @click="activeTypes = []">全部</button>
+        <button v-for="t in availableTypes" :key="t" type="button" :class="{ on: activeTypes.includes(t) }" :style="{ '--c': getTheme(t).color }" @click="toggleType(t)"><i></i>{{ typeLabel(t) }}</button>
+      </div>
+      <label class="kg-switch"><input v-model="showLabels" type="checkbox" />名字标签</label>
+    </div>
+    <div class="kg-body">
+      <p v-if="loading" class="kg-state" role="status">正在读取关系图谱…</p>
+      <p v-else-if="!rawNodes.length" class="kg-state">还没有可以显示的节点。</p>
+      <SpatialWorldGraph
+        v-else
+        :data="viewData"
+        :focus-id="focusId"
+        :covers="covers"
+        :formations="FORMATIONS"
+        storage-key="taichu.kb.formation"
+        :type-label="typeLabel"
+        :containers="['author', 'world', 'organization', 'location', 'folder']"
+        :neural-layers="NEURAL_LAYERS"
+        :shapes="SHAPES"
+        :labels="showLabels"
+        intro-text="太初知识库"
+        :inset-right="showDetails ? panelWidth : 0"
+        @select="selectNode"
+      />
+      <GraphDetailsPanel :show="showDetails" :node="selectedNode" :neighbors="neighborNodes" @close="closeDetailsPanel" @navigate:node="n => selectNode(n.id)" />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
-import type { GraphNode, GraphLink } from './types'
-import { useKnowledgeGraphEngine } from './useKnowledgeGraphEngine'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import type { GraphEdgeDto, GraphNode, GraphNodeDto } from './types'
 import { useKnowledgeGraphData } from './useKnowledgeGraphData'
-import GraphControlPanel from './GraphControlPanel.vue'
 import GraphDetailsPanel from './GraphDetailsPanel.vue'
-import GraphFilterPanel from './GraphFilterPanel.vue'
+import SpatialWorldGraph from '@/views/世界观管理/世界观组件/SpatialWorldGraph.vue'
+import type { Formation } from '@/views/世界观管理/世界观组件/particleWorld'
 import request from '@/utils/request'
 
+const FORMATIONS: Formation[] = ['system', 'neural', 'galaxy', 'constellation', 'tree', 'network', 'sphere', 'helix']
+const TYPE_LABELS: Record<string, string> = {
+  character: '角色', location: '地点', concept: '概念', event: '事件', organization: '组织', blog: '博客', post: '帖子',
+  wiki: '百科', setting: '设定', folder: '文件夹', file: '资源文件', default: '节点',
+  author: '创作者', artwork: '画廊作品', world: '世界观', novel: '小说', work: '柴圈作品', oc: '柴圈人设',
+}
+const typeLabel = (t: string) => TYPE_LABELS[t] ?? t
+// 「脉络」阵型：从创作者出发，经过设定、人设与世界，到作品和文章，最后是可下载资源
+const NEURAL_LAYERS = [
+  { label: '创作者', types: ['author'] },
+  { label: '设定', types: ['setting', 'concept', 'location', 'organization', 'character', 'event'] },
+  { label: '人设与世界', types: ['oc', 'world'] },
+  { label: '作品', types: ['artwork', 'work', 'novel'] },
+  { label: '文章', types: ['wiki', 'blog', 'post'] },
+  { label: '其他', types: [] },
+  { label: '可下载资源', types: ['folder', 'file'], output: true },
+]
+const SHAPES: Record<string, string> = {
+  blog: 'cloud', post: 'burst', wiki: 'sphere', setting: 'torus', concept: 'torus', folder: 'cube', file: 'crystal', organization: 'cube',
+  location: 'planet', event: 'burst', character: 'sphere', author: 'planet', artwork: 'crystal', world: 'planet', novel: 'disc', work: 'burst', oc: 'sphere',
+}
+// 创作者连线不写字（太多会糊成一片），其他关系显示名字
+const RELATION_LABELS: Record<string, string> = { DIR_LINK: '包含', FILE_LINK: '收录', AUTHOR: '', IN_WORLD: '属于', FEATURES: '出场' }
+
+const { fetchData, getTheme } = useKnowledgeGraphData()
+const loading = ref(true)
+const rawNodes = ref<GraphNodeDto[]>([])
+const rawEdges = ref<GraphEdgeDto[]>([])
 const searchQuery = ref('')
 const showLabels = ref(true)
 const showDetails = ref(false)
-const repulsionForce = ref(50)
 const selectedNode = ref<GraphNode | null>(null)
-const containerRef = ref<HTMLElement | null>(null)
-let resizeObserver: ResizeObserver | null = null
-
+const focusId = ref('')
 const availableTypes = ref<string[]>([])
 const activeTypes = ref<string[]>([])
+// 详情面板宽 min(520px, 100%)：星图的视觉中心往左让出这块
+const panelWidth = ref(520)
+const measurePanel = () => { panelWidth.value = Math.min(520, window.innerWidth) }
 
-const { fetchData } = useKnowledgeGraphData()
+function toggleType(t: string) {
+  const i = activeTypes.value.indexOf(t)
+  activeTypes.value = i < 0 ? [...activeTypes.value, t] : activeTypes.value.filter(x => x !== t)
+  focusId.value = ''
+}
+
+const nodeById = computed(() => new Map(rawNodes.value.map(n => [n.id, n])))
+const toGraphNode = (n: GraphNodeDto): GraphNode => ({ id: n.id, name: n.title || '未知节点', type: n.type || 'default', val: 1, color: getTheme(n.type).color, coverImage: n.coverImage, description: '', route: n.route, _nasPath: n._nasPath })
+// ---------- 搜索：包含关键词的节点全部显示 ----------
+const appliedQuery = ref('')
+const showHits = ref(true)
+const serverHits = ref(new Set<string>())
+const serverSearching = ref(false)
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+let searchVersion = 0
+const queryTerms = computed(() => appliedQuery.value.toLowerCase().split(/\s+/).filter(Boolean))
+/** 本地先按标题 / 简介匹配（马上出结果），再合并后端查到的正文命中 */
+const searchMatches = computed(() => {
+  const terms = queryTerms.value
+  if (!terms.length) return []
+  return rawNodes.value.filter(n => {
+    if (serverHits.value.has(n.id.toLowerCase())) return true
+    const text = `${n.title || ''} ${n.description || ''}`.toLowerCase()
+    return terms.every(t => text.includes(t))
+  })
+})
+const matchIds = computed(() => new Set(searchMatches.value.map(n => n.id)))
+
+function onSearchInput() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => applySearch(searchQuery.value), 250)
+}
+function applySearch(raw: string) {
+  const q = raw.trim().slice(0, 100)
+  appliedQuery.value = q
+  showHits.value = true
+  focusId.value = ''
+  const version = ++searchVersion
+  serverHits.value = new Set()
+  if (!q) { serverSearching.value = false; return }
+  serverSearching.value = true
+  request.get<{ ids: string[] }>('/knowledge-base/Graph/search', { params: { q }, silentError: true })
+    .then(res => { if (version === searchVersion) serverHits.value = new Set((res?.ids ?? []).map(id => String(id).toLowerCase())) })
+    .catch(() => { /* 旧后端没有正文搜索：只用标题和简介 */ })
+    .finally(() => { if (version === searchVersion) serverSearching.value = false })
+}
+function clearSearch() {
+  clearTimeout(searchTimer)
+  searchQuery.value = ''
+  applySearch('')
+}
+function pickHit(id: string) {
+  showHits.value = false
+  void selectNode(id)
+}
+
+/** 星图数据：类型筛选 + 搜索后的节点；聚焦时只留它和直接相连的 */
+const fullData = computed(() => {
+  // 聚焦某个节点时不受搜索限制，好看到它的全部关系
+  // 一个都没搜到时不清空星图（下拉里会提示没找到）
+  const searching = Boolean(appliedQuery.value) && !focusId.value && matchIds.value.size > 0
+  const nodes = rawNodes.value.filter(n => (!activeTypes.value.length || activeTypes.value.includes(n.type || 'default'))
+    && (!searching || matchIds.value.has(n.id)))
+  const ids = new Set(nodes.map(n => n.id))
+  return {
+    nodes: nodes.map(n => ({ id: n.id, title: n.title || '未知节点', type: n.type || 'default', color: getTheme(n.type).color })),
+    links: rawEdges.value.filter(e => ids.has(e.source) && ids.has(e.target) && e.source !== e.target).map(e => ({
+      source: e.source, target: e.target, label: RELATION_LABELS[e.relationType] ?? e.relationType ?? '',
+      color: getTheme(nodeById.value.get(e.source)?.type ?? 'default').color, width: 1, isEmbed: false,
+    })),
+  }
+})
+const viewData = computed(() => {
+  const d = fullData.value
+  if (!focusId.value || !d.nodes.some(n => n.id === focusId.value)) return d
+  const keep = new Set([focusId.value])
+  for (const l of d.links) { if (l.source === focusId.value) keep.add(l.target); if (l.target === focusId.value) keep.add(l.source) }
+  return { nodes: d.nodes.filter(n => keep.has(n.id)), links: d.links.filter(l => keep.has(l.source) && keep.has(l.target)) }
+})
+const covers = computed(() => {
+  const out: Record<string, string> = {}
+  for (const n of rawNodes.value) if (n.coverImage) out[n.id] = n.coverImage
+  return out
+})
+const neighborNodes = computed<GraphNode[]>(() => {
+  const id = selectedNode.value?.id
+  if (!id) return []
+  const ids = new Set<string>()
+  for (const e of rawEdges.value) { if (e.source === id) ids.add(e.target); else if (e.target === id) ids.add(e.source) }
+  return [...ids].map(x => nodeById.value.get(x)).filter((n): n is GraphNodeDto => !!n).map(toGraphNode)
+})
 
 const escapeHtml = (text: string) => {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -67,7 +207,7 @@ const extractTextFromTiptap = (node: any): string => {
     prefix = '• ';
     suffix = '\n';
   } else if (node.type === 'spiritLink') {
-    return `<span style="color: var(--info); font-weight: 600; background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px; margin: 0 2px;">【${escapeHtml(node.attrs?.title || '关联碎片')}】</span>`;
+    return `<span style="color: var(--info); font-weight: 600; background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 0; margin: 0 2px;">【${escapeHtml(node.attrs?.title || '关联碎片')}】</span>`;
   } else if (node.type === 'image') {
     const src = node.attrs?.src || '';
     const alt = escapeHtml(node.attrs?.alt || '');
@@ -121,126 +261,79 @@ const parseBlockDataToText = (rawText: string): string => {
   }
 };
 
-const {
-  graph,
-  initEngine,
-  flyCameraToNode,
-  toggleLabelsVisibility,
-  destroyEngine,
-  handleResize,
-  updateRepulsion,
-  updateVisibility
-} = useKnowledgeGraphEngine(containerRef, {
-  onNodeClick: async (node) => {
-    if (selectedNode.value?.id === node.id && showDetails.value) return
+async function selectNode(id: string) {
+  if (!id) { closeDetailsPanel(); return }
+  const raw = nodeById.value.get(id)
+  if (!raw) return
+  const node = toGraphNode(raw)
+  focusId.value = id
+  if (selectedNode.value?.id === id && showDetails.value) return
+  selectedNode.value = node
+  showDetails.value = true
+  if (node.type === 'file') {
+   const filePath = node._nasPath || '';
 
-    selectedNode.value = node
-    showDetails.value = true
-    flyCameraToNode(node)
-
-    if (node.type === 'file') {
-     const filePath = node._nasPath || '';
-
-      const customHtml = `
-        <div class="nas-attachment-card" data-filename="${filePath}">
-          <div class="nas-icon">📦</div>
-          <div class="nas-info">
-            <div class="nas-name">${node.name}</div>
-            <div class="nas-size">太初资源中枢 (MinIO)</div>
-          </div>
-          <div class="nas-download-btn">点击下载资源</div>
+    const customHtml = `
+      <div class="nas-attachment-card" data-filename="${filePath}">
+        <div class="nas-icon">📦</div>
+        <div class="nas-info">
+          <div class="nas-name">${node.name}</div>
+          <div class="nas-size">太初资源中枢 (MinIO)</div>
         </div>
-        <p style="color: var(--info); font-size: 13px; margin-top: 16px; line-height: 1.6;">
-          这是通过太初寰宇空间网络直接挂载的物理资源。底层由绿联 NAS 对象存储引擎提供高并发读取支持。
-        </p>
-      `;
+        <div class="nas-download-btn">点击下载资源</div>
+      </div>
+      <p style="color: var(--info); font-size: 13px; margin-top: 16px; line-height: 1.6;">
+        这是通过太初寰宇空间网络直接挂载的物理资源。底层由绿联 NAS 对象存储引擎提供高并发读取支持。
+      </p>
+    `;
 
-      selectedNode.value = { ...node, description: customHtml };
-      return;
-    }
+    selectedNode.value = { ...node, description: customHtml };
+    return;
+  }
 
-    try {
-      const res: any = await request.get(`/knowledge-base/Node/${node.id}`)
+  // 全站内容节点（博客、作品、世界观……）：简介已经带在节点里，再给一个「打开原内容」
+  if (raw.route || node.type === 'author') {
+    const intro = raw.description ? `<p>${escapeHtml(raw.description)}</p>` : ''
+    const open = raw.route ? `<p><a class="kb-open" href="${escapeHtml(raw.route)}" data-route="${escapeHtml(raw.route)}">打开原内容 →</a></p>` : ''
+    selectedNode.value = { ...node, description: intro + open }
+    return
+  }
 
-      const data = res.data || res;
-      const rawText = data.description || data.Description || data.content || data.Content;
+  try {
+    const res: any = await request.get(`/knowledge-base/Node/${node.id}`)
 
-      const cleanText = parseBlockDataToText(rawText);
+    const data = res.data || res;
+    const rawText = data.description || data.Description || data.content || data.Content;
 
-      if (selectedNode.value && selectedNode.value.id === node.id) {
-        selectedNode.value = {
-          ...selectedNode.value,
-          description: cleanText
-        }
+    const cleanText = parseBlockDataToText(rawText);
+
+    if (selectedNode.value && selectedNode.value.id === node.id) {
+      selectedNode.value = {
+        ...selectedNode.value,
+        description: cleanText
       }
-    } catch (error) {
-      console.error('寰宇纪要拉取失败:', error)
     }
-  }
-})
-
-watch(activeTypes, (newTypes) => {
-  updateVisibility(newTypes)
-}, { deep: true })
-
-watch(repulsionForce, (newForce) => {
-  updateRepulsion(newForce)
-})
-
-const neighborNodes = computed<GraphNode[]>(() => {
-  if (!selectedNode.value || !graph.value) return []
-  const selectedId = selectedNode.value.id
-  const { links, nodes } = graph.value.graphData()
-  const neighborIds = new Set<string>()
-
-  links.forEach((link: GraphLink) => {
-    const sourceId = typeof link.source === 'object' ? link.source.id : link.source
-    const targetId = typeof link.target === 'object' ? link.target.id : link.target
-    if (sourceId === selectedId) neighborIds.add(targetId)
-    else if (targetId === selectedId) neighborIds.add(sourceId)
-  })
-
-  return nodes.filter((n: GraphNode) => neighborIds.has(n.id) && n.id !== selectedId)
-})
-
-const handleToggleLabels = () => {
-  showLabels.value = !showLabels.value
-  toggleLabelsVisibility(showLabels.value)
-}
-
-const handleSearch = () => {
-  if (!graph.value || !searchQuery.value.trim()) return
-  const query = searchQuery.value.toLowerCase().trim()
-  const { nodes } = graph.value.graphData()
-  const targetNode = nodes.find((n: any) => n.name && n.name.toLowerCase().includes(query))
-  if (targetNode) {
-    flyCameraToNode(targetNode)
-    searchQuery.value = ''
+  } catch (error) {
+    console.error('寰宇纪要拉取失败:', error)
   }
 }
 
-const closeDetailsPanel = () => {
+function handleSearch() {
+  clearTimeout(searchTimer)
+  applySearch(searchQuery.value)
+}
+
+function closeDetailsPanel() {
   showDetails.value = false
   selectedNode.value = null
+  focusId.value = ''
 }
 
-const handleBackgroundClick = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  if (showDetails.value && !target.closest('.details-panel') && !target.closest('.control-panel') && !target.closest('.filter-panel')) {
-    closeDetailsPanel()
-  }
-}
-
-const navigateToNeighborNode = (neighborNode: GraphNode) => {
-  selectedNode.value = neighborNode
-  flyCameraToNode(neighborNode, true, 1000)
-}
-
-let disposed = false;
+let disposed = false
 onMounted(async () => {
   const res = await fetchData()
-  const graphNodes = [...res.nodes]
-  const graphEdges = [...res.edges]
+  const graphNodes: GraphNodeDto[] = [...res.nodes]
+  const graphEdges: GraphEdgeDto[] = [...res.edges]
 
   try {
     const nasRes: any = await request.get('/Resource/list')
@@ -327,123 +420,39 @@ onMounted(async () => {
     console.error('NAS 资源拉取失败，跳过渲染:', error)
   }
 
-  const typesSet = new Set<string>()
-  graphNodes.forEach((n: any) => {
-    if (n.type) typesSet.add(n.type)
-  })
-  availableTypes.value = Array.from(typesSet)
-
-  if (disposed) return;
-  initEngine(graphNodes, graphEdges, showLabels.value)
-
-  window.addEventListener('resize', handleResize)
-  if (containerRef.value) {
-    resizeObserver = new ResizeObserver(() => handleResize())
-    resizeObserver.observe(containerRef.value)
-  }
+  if (disposed) return
+  rawNodes.value = graphNodes
+  rawEdges.value = graphEdges
+  availableTypes.value = [...new Set(graphNodes.map(n => n.type || 'default'))]
+  loading.value = false
 })
-
-onBeforeUnmount(() => {
-  disposed = true;
-  window.removeEventListener('resize', handleResize)
-  resizeObserver?.disconnect()
-  document.body.style.cursor = 'default'
-  destroyEngine()
-})
+onMounted(() => { measurePanel(); window.addEventListener('resize', measurePanel) })
+onBeforeUnmount(() => { disposed = true; clearTimeout(searchTimer); searchVersion++; window.removeEventListener('resize', measurePanel) })
 </script>
 
 <style scoped>
-.graph-wrapper {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.graph-container {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  background: radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.2) 0%, var(--bg-sub) 80%);
-}
-
-:deep(canvas) {
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
-  outline: none;
-}
-
-:deep(.scene-tooltip) {
-  padding: 0 !important;
-  color: var(--text-secondary) !important;
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  pointer-events: none !important;
-}
-
-:deep(.graph-node-tooltip) {
-  position: relative;
-  min-width: 120px;
-  padding: 10px 14px;
-  background: rgba(2, 6, 23, 0.7);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  box-shadow:
-    0 4px 20px rgba(0, 0, 0, 0.5),
-    inset 0 0 15px rgba(56, 189, 248, 0.1);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  pointer-events: none;
-  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
-}
-
-:deep(.graph-node-tooltip::before) {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; width: 100%; height: 100%;
-  border: 1px solid transparent;
-  background:
-    linear-gradient(to right, var(--info) 2px, transparent 2px) 0 0,
-    linear-gradient(to bottom, var(--info) 2px, transparent 2px) 0 0,
-    linear-gradient(to left, var(--info) 2px, transparent 2px) 100% 100%,
-    linear-gradient(to top, var(--info) 2px, transparent 2px) 100% 100%;
-  background-repeat: no-repeat;
-  background-size: 8px 8px;
-  pointer-events: none;
-}
-
-:deep(.tooltip-title) {
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.4;
-  color: var(--text-primary);
-  white-space: nowrap;
-  letter-spacing: 1px;
-}
-
-:deep(.tooltip-type) {
-  margin-top: 4px;
-  color: var(--info);
-  font-size: 9px;
-  font-family: monospace;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  opacity: 0.8;
-}
-
-:deep(.relation-tooltip) {
-  padding: 4px 10px;
-  color: var(--info);
-  background: rgba(2, 6, 23, 0.9);
-  border-top: 1px solid rgba(168, 85, 247, 0.5);
-  border-bottom: 1px solid rgba(168, 85, 247, 0.5);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  pointer-events: none;
-  backdrop-filter: blur(4px);
-}
+.kg { position: relative; display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; background: var(--bg-main); color: var(--text-primary); }
+.kg-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 12px; border-bottom: 1px solid var(--border-line); background: var(--paper-card); }
+.kg-search { position: relative; display: flex; }
+.kg-hits { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; width: min(360px, 90vw); max-height: 360px; overflow: auto; padding: 6px; border: 1px solid var(--border-line); background: var(--paper-card); box-shadow: 0 10px 28px #0003; }
+.kg-hits-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 2px 4px 6px; font-size: 12px; color: var(--text-secondary); }
+.kg-hits-head em { font-style: normal; opacity: .8; }
+.kg-hits-head button { border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.kg-hit { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 0; background: none; color: var(--text-primary); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.kg-hit:hover, .kg-hit:focus-visible { background: color-mix(in srgb, var(--c) 12%, transparent); }
+.kg-hit i { flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.kg-hit span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kg-hit small { flex-shrink: 0; color: var(--text-secondary); font-size: 11px; }
+.kg-hits-more { margin: 6px 4px 2px; font-size: 11px; color: var(--text-secondary); }
+.kg-search > input { width: 200px; padding: 6px 10px; border: 1px solid var(--border-line); background: var(--bg-main); color: var(--text-primary); font: inherit; font-size: 13px; }
+.kg-search > button { padding: 6px 12px; border: 1px solid var(--accent-color); border-left: 0; background: var(--accent-color); color: var(--on-accent, #fff); font: inherit; font-size: 13px; cursor: pointer; }
+.kg-types { display: flex; flex-wrap: wrap; gap: 4px; }
+.kg-types button { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border: 1px solid var(--border-line); background: transparent; color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.kg-types button i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.kg-types button.on { border-color: var(--c, var(--accent-color)); color: var(--text-primary); background: color-mix(in srgb, var(--c, var(--accent-color)) 12%, transparent); }
+.kg-switch { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+.kg-switch input { accent-color: var(--accent-color); }
+.kg-body { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+.kg-state { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--text-secondary); font-size: 13px; }
+@media (max-width: 640px) { .kg-search > input { width: 140px; } .kg-switch { margin-left: 0; } }
 </style>

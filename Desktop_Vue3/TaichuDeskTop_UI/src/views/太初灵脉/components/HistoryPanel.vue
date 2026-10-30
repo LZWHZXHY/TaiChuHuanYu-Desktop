@@ -1,18 +1,18 @@
 <template>
   <transition name="panel-slide">
-    <aside v-if="modelValue" class="spirit-history-panel workbench-skin">
-      <div class="panel-header">
+    <aside v-if="modelValue" class="spirit-history-panel workbench-skin editor-surface community-surface tone-library">
+      <div class="panel-header studio-heading">
         <div class="header-main">
-          <h3>版本历史</h3>
+          <h3>历史版本</h3>
           <button class="close-btn" @click="$emit('update:modelValue', false)">✕</button>
         </div>
-        <p class="header-sub">最多保留最近 20 份快照</p>
+        <p class="header-sub">点击任一版本即可恢复，最多保留最近 20 个</p>
       </div>
 
       <div class="panel-body">
         <div v-if="loading" class="list-loading">
           <div class="mini-spinner"></div>
-          <span>感应时间线...</span>
+          <span>加载中…</span>
         </div>
 
         <div v-else-if="error" class="list-empty">
@@ -30,7 +30,7 @@
             <div class="card-icon">🕒</div>
             <div class="card-content">
               <div class="rev-time">{{ formatTime(rev.createdAt) }}</div>
-              <div class="rev-remark">{{ rev.remark || '自动归流' }}</div>
+              <div class="rev-remark">{{ rev.remark || '自动保存' }}</div>
               <div class="rev-tag" v-if="index === 0">最新版本</div>
             </div>
             <div class="rev-action-hint">恢复</div>
@@ -39,13 +39,13 @@
 
         <div v-else class="list-empty">
           <span class="empty-icon">🕳️</span>
-          <p>此碎片尚未留下时间印记</p>
+          <p>这篇笔记还没有历史版本</p>
         </div>
       </div>
 
       <div class="panel-footer">
         <button class="manual-save-btn" :disabled="busy || !noteId" @click="$emit('manual-save')">
-          <span class="plus">+</span> {{ busy ? '处理中…' : '固化当前版本' }}
+          <span class="plus">+</span> {{ busy ? '处理中…' : '保存当前为一个版本' }}
         </button>
       </div>
     </aside>
@@ -125,7 +125,7 @@ const handleRollback = (rev: any) => {
 
 .history-card {
   display: flex; gap: 12px; padding: 12px;
-  border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;
+  border-radius: 0; cursor: pointer; transition: all 0.2s;
   position: relative; border: 1px solid transparent;
 }
 .history-card:hover { background: var(--bg-sub); border-color: var(--border-line); }
@@ -135,7 +135,7 @@ const handleRollback = (rev: any) => {
 .rev-remark { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
 .rev-tag { 
   display: inline-block; margin-top: 6px; padding: 2px 6px; 
-  background: var(--accent-soft); color: var(--accent-color); font-size: 10px; border-radius: 4px; font-weight: 600;
+  background: var(--accent-soft); color: var(--accent-color); font-size: 10px; border-radius: 0; font-weight: 600;
 }
 
 .rev-action-hint {
@@ -148,7 +148,7 @@ const handleRollback = (rev: any) => {
 .panel-footer { padding: 20px; border-top: 1px solid var(--border-line); }
 .manual-save-btn {
   width: 100%; padding: 12px; background: var(--text-primary); color: var(--paper-card);
-  border: none; border-radius: var(--radius-sm); font-size: 13px; font-weight: 600;
+  border: none; border-radius: 0; font-size: 13px; font-weight: 600;
   cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 

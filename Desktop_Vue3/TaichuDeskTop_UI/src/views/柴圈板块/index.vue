@@ -1,6 +1,6 @@
 <template>
   <div class="home content-page community-surface tone-chai">
-    <header class="content-header"><SectionTrace /><div><p class="eyebrow">创作与同好</p><h1>柴圈社区</h1><p class="intro">为角色留下故事，找到一起创作的伙伴。</p></div><div class="content-actions"><RouterLink to="/ocs/create" class="primary">创建角色</RouterLink><RouterLink to="/joint/create">发起联合</RouterLink></div></header>
+    <header class="content-header"><SectionTrace particles="chai" /><div><p class="eyebrow">创作与同好</p><h1>柴圈社区</h1><p class="intro">为角色留下故事，找到一起创作的伙伴。</p></div><div class="content-actions"><RouterLink to="/ocs/create" class="primary">创建角色</RouterLink><RouterLink to="/joint/create">发起联合</RouterLink></div></header>
     <nav class="community-nav" aria-label="柴圈导航"><RouterLink to="/community" class="selected">社区总览</RouterLink><RouterLink to="/ocs">OC 角色</RouterLink><RouterLink to="/works">动画作品</RouterLink><RouterLink to="/joint">联合创作</RouterLink><RouterLink to="/battles">约战广场</RouterLink><RouterLink to="/battles/leaderboard">🏆 排行榜</RouterLink></nav>
 
     <!-- 主内容 -->
@@ -622,7 +622,7 @@ onMounted(() => {
   border: 1px solid var(--line-raw);
   color: var(--ink-gray);
   letter-spacing: 0.1em;
-  border-radius: 2px;
+  border-radius: 0;
   white-space: nowrap;
 }
 
@@ -685,7 +685,7 @@ onMounted(() => {
   flex-shrink: 0;
   width: 80px;
   height: 80px;
-  border-radius: 4px;
+  border-radius: 0;
   overflow: hidden;
   background: var(--paper-sub);
   display: flex;
@@ -747,13 +747,13 @@ onMounted(() => {
 .joint-home-type {
   padding: 0 10px;
   border: 1px solid var(--line-raw);
-  border-radius: 2px;
+  border-radius: 0;
 }
 
 .joint-home-status {
   padding: 0 10px;
   border: 1px solid var(--line-raw);
-  border-radius: 2px;
+  border-radius: 0;
 }
 
 .status-open {
@@ -1002,7 +1002,7 @@ footer {
     gap: 8px;
   }
 }
-.notice-board, .battle-item, .joint-home-item, .oc-card { border-radius: 12px; background: var(--paper-card); }
+.notice-board, .battle-item, .joint-home-item, .oc-card { border-radius: 0; background: var(--paper-card); }
 .notice-list a { color: var(--text-primary); text-decoration: none; }
 .notice-list a:hover { color: var(--accent-color); }
 .home .navbar { padding: 0; }

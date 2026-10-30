@@ -56,6 +56,11 @@ namespace TaiChuWeb_V2.Models.World
         [Column(TypeName = "longtext")]
         public string Content { get; set; } = "{}";
 
+        /// <summary>区块排列（背景、性格、外貌……这类文本块、图片块，以及左右并排），见 WorldLayout。
+        /// null = 老条目，按默认顺序显示。列由 WorldCollaboratorSchema 启动时自动加上。</summary>
+        [Column(TypeName = "longtext")]
+        public string? Layout { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         [ConcurrencyCheck]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

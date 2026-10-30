@@ -73,10 +73,10 @@
 
     <!-- 提交报告弹窗 -->
     <div v-if="showModal" class="modal-backdrop" @click.self="showModal = false">
-      <div class="modal-window">
-        <header class="modal-head">
+      <div role="dialog" aria-modal="true" aria-label="项目汇报" class="modal-window workbench-skin editor-surface community-surface tone-collab">
+        <header class="modal-head studio-heading">
           <h3>登记项目汇报</h3>
-          <button class="close-x" @click="showModal = false">×</button>
+          <button class="close-x" aria-label="关闭汇报" @click="showModal = false">×</button>
         </header>
 
         <div class="modal-form">
@@ -322,9 +322,9 @@ watch(() => props.projectId, () => {
 .project-reports-root { width: 100%; max-width: 900px; animation: fadeIn 0.6s ease; }
 .reports-header-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
 .filter-pills { display: flex; gap: 8px; }
-.pill-btn { background: var(--bg-main); border: 1px solid var(--border-line); padding: 6px 16px; border-radius: 20px; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
+.pill-btn { background: var(--bg-main); border: 1px solid var(--border-line); padding: 6px 16px; border-radius: 0; font-size: 0.8rem; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
 .pill-btn.active { background: var(--accent-color); color: var(--on-accent); border-color: var(--border-line); }
-.btn-create { background: var(--accent-color); color: var(--on-accent); border: none; padding: 8px 20px; border-radius: 2px; font-size: 0.85rem; cursor: pointer; transition: background 0.3s; }
+.btn-create { background: var(--accent-color); color: var(--on-accent); border: none; padding: 8px 20px; border-radius: 0; font-size: 0.85rem; cursor: pointer; transition: background 0.3s; }
 .btn-create:hover { background: var(--text-primary); }
 
 .loading-state { height: 160px; display: flex; align-items: center; justify-content: center; }
@@ -335,7 +335,7 @@ watch(() => props.projectId, () => {
 .report-entry:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.04); }
 .entry-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
 .author-info { display: flex; gap: 10px; align-items: center; }
-.avatar-box { width: 32px; height: 32px; border-radius: 50%; background: var(--text-primary); color: var(--paper-card); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold; }
+.avatar-box { width: 32px; height: 32px; border-radius: 0; background: var(--text-primary); color: var(--paper-card); display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: bold; }
 .author-name { font-size: 0.95rem; color: var(--text-primary); display: block; }
 .report-meta { font-size: 0.75rem; color: var(--text-secondary); }
 
@@ -344,7 +344,7 @@ watch(() => props.projectId, () => {
 .btn-delete { background: none; border: none; font-size: 1.3rem; color: var(--text-secondary); cursor: pointer; transition: color 0.2s; line-height: 1; padding: 0 4px; }
 .btn-delete:hover { color: var(--danger); }
 
-.type-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 2px; font-weight: 500; }
+.type-tag { font-size: 0.7rem; padding: 2px 8px; border-radius: 0; font-weight: 500; }
 .type-tag.日报 { background: var(--info-soft); color: var(--info); }
 .type-tag.周报 { background: var(--warning-soft); color: var(--warning); }
 .type-tag.月报 { background: var(--success-soft); color: var(--success); }
@@ -353,7 +353,7 @@ watch(() => props.projectId, () => {
 .content-row .label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
 .blocker-row { color: var(--danger); }
 .entry-images { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
-.entry-images img { width: 90px; height: 60px; object-fit: cover; border-radius: 2px; cursor: pointer; border: 1px solid var(--border-line); transition: transform 0.2s; }
+.entry-images img { width: 90px; height: 60px; object-fit: cover; border-radius: 0; cursor: pointer; border: 1px solid var(--border-line); transition: transform 0.2s; }
 .entry-images img:hover { transform: scale(1.05); }
 
 .modal-backdrop { position: fixed; inset: 0; background: var(--overlay); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
@@ -372,11 +372,11 @@ watch(() => props.projectId, () => {
 .drop-zone:focus, .drop-zone:hover { border-color: var(--border-line); color: var(--text-primary); background: var(--bg-main); }
 .img-preview-bar { display: flex; gap: 6px; margin-top: 6px; }
 .preview-item { position: relative; width: 60px; height: 40px; }
-.preview-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 2px; }
-.del-btn { position: absolute; top: -4px; right: -4px; background: var(--danger); color: var(--on-accent); border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.preview-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+.del-btn { position: absolute; top: -4px; right: -4px; background: var(--danger); color: var(--on-accent); border: none; border-radius: 0; width: 16px; height: 16px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 
 /* 🌟 超时预警框样式 */
-.timeout-warning { background: var(--bg-sub); border: 1px solid var(--danger-soft); padding: 12px; font-size: 0.8rem; color: var(--danger); border-radius: 2px; margin-top: 16px; text-align: center; }
+.timeout-warning { background: var(--bg-sub); border: 1px solid var(--danger-soft); padding: 12px; font-size: 0.8rem; color: var(--danger); border-radius: 0; margin-top: 16px; text-align: center; }
 
 .modal-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
 .btn-cancel { background: var(--bg-sub); border: none; padding: 8px 16px; font-size: 0.85rem; cursor: pointer; }
@@ -387,4 +387,8 @@ watch(() => props.projectId, () => {
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pulse { 0% { transform: scaleX(0.5); opacity: 0.2; } 50% { transform: scaleX(1.5); opacity: 1; } 100% { transform: scaleX(0.5); opacity: 0.2; } }
+.editor-surface { box-sizing: border-box; max-height: calc(100dvh - 32px); overflow-y: auto; }
+.editor-surface .clean-input { color: var(--text-primary); background: var(--paper-card); min-width: 0; }
+.editor-surface .form-row > * { min-width: 0; }
+@media(max-width:640px) { .editor-surface { padding: 16px; }.editor-surface .form-row { flex-direction: column; }.editor-surface .w-120 { width: 100%; }.editor-surface :is(.modal-foot,.modal-footer) { flex-wrap: wrap; gap: 12px; } }
 </style>

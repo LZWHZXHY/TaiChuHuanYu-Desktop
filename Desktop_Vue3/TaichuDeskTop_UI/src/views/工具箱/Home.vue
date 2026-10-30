@@ -78,7 +78,7 @@ console.log('合并后的 tools：', tools)
   color: inherit;
   background: var(--tb-card-bg);
   border: 1px solid var(--tb-border);
-  border-radius: 10px;
+  border-radius: 0;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -117,7 +117,7 @@ console.log('合并后的 tools：', tools)
 .tool-tag {
   font-size: 11px;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: 0;
   background: var(--tb-bg);
   color: var(--tb-text-muted);
 }

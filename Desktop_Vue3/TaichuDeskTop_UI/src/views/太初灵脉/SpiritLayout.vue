@@ -1,11 +1,11 @@
 <template>
-  <div class="spirit-link-app workbench-skin" :class="{ 'is-mobile': isMobile }">
+  <div class="spirit-link-app workbench-skin editor-surface community-surface tone-library" :class="{ 'is-mobile': isMobile }">
     <!-- 全局加载遮罩（首次加载） -->
     <transition name="fade">
       <div v-if="isLoading && notes.length === 0" class="loading-overlay">
         <div class="spirit-loading-content">
           <div class="spirit-spinner"></div>
-          <p>正在感应灵脉数据...</p>
+          <p>正在加载你的笔记…</p>
         </div>
       </div>
     </transition>
@@ -67,6 +67,7 @@
       @update-note-meta="handleUpdateNoteMeta"
       @update-space-meta="handleUpdateSpaceMeta"
       @update-filters="handleUpdateFilters"
+      @update-tags="handleUpdateTags"
       @delete="handleDeleteNote"
       @open-history="isHistoryOpen = true"
       @publish-click="handlePublishClick"
@@ -91,6 +92,7 @@
       :note-id="currentNoteId"
       :note-type="activeNote?.type || 'note'"
       :space-name="activeSpaceName"
+      :current-tags="activeNote?.tags || []"
       :before-publish="preparePublish"
       @success="onPublishSuccess"
     />
@@ -163,7 +165,7 @@ const showToast = (message: string, duration?: number) => {
 provide('showToast', showToast);
 
 const currentNoteId = computed(() => route.params.id as string || '');
-const activeSpaceName = computed(() => spaces.value.find(s => s.id === currentSpaceId.value)?.name || '未知位面');
+const activeSpaceName = computed(() => spaces.value.find(s => s.id === currentSpaceId.value)?.name || '当前空间');
 
 const currentTextLength = computed(() => {
   if (!activeNote.value) return 0;
@@ -206,7 +208,7 @@ const handleOpenQuickEditor = async (targetId: string) => {
     quickEditorNoteMeta.value = targetNote || {};
     isQuickEditorOpen.value = true;
   } catch (e) {
-    showToast('抽取本体失败');
+    showToast('打开失败，请重试');
   } finally {
     isQuickEditorLoading.value = false;
   }
@@ -219,6 +221,13 @@ const handleUpdateNoteMeta = async (updates: any) => {
   try {
     await lingmaiApi.updateNoteMeta(noteId, updates);
     Object.assign(note, updates);
+    // 移到其他空间后，跟着切换过去，笔记仍保持打开。
+    if (updates.spaceId && updates.spaceId !== currentSpaceId.value) {
+      currentSpaceId.value = updates.spaceId;
+      try { localStorage.setItem('taichu-lingmai-space', updates.spaceId); } catch { /* 仅本次有效 */ }
+      await fetchAllNotes();
+      showToast(`已移到「${activeSpaceName.value}」`);
+    }
   } catch (e: any) { showToast(e.friendlyMessage || '设置保存失败，请重试'); }
 };
 
@@ -264,9 +273,15 @@ const handleUpdateSpaceMeta = async (updates: any) => {
 };
 
 const handleUpdateFilters = (val: Record<string, boolean>) => displayFilters.value = val;
+// 设置面板改版块：写回标签并走自动保存（与右侧标签栏同一条保存路径）。
+const handleUpdateTags = (tags: string[]) => {
+  if (!activeNote.value) return;
+  activeNote.value.tags = tags;
+  triggerDebouncedSync();
+};
 
 const handleDeleteNote = async (id: string) => {
-  if (confirm('此操作不可逆，是否确定？')) {
+  if (confirm('删除这篇笔记？删除后无法恢复。')) {
     await lingmaiApi.deleteNote(id);
     await fetchAllNotes();
     if (currentNoteId.value === id) {
@@ -276,11 +291,13 @@ const handleDeleteNote = async (id: string) => {
   }
 };
 
-async function preparePublish(noteId: string) {
+async function preparePublish(noteId: string, tags?: string[]) {
   if (noteId !== currentNoteId.value || isContentLoading.value || historyBusy.value || currentDisplayNote.value?.id !== noteId)
     throw new Error('当前内容尚未准备好，请稍后重试');
   const snapshot = noteEditorRef.value?.getSnapshot();
   if (!snapshot) throw new Error('编辑器尚未就绪，请稍后重试');
+  // 发布弹窗里选的分区写回笔记标签，右侧标签栏同步显示。
+  if (tags && activeNote.value) activeNote.value.tags = tags;
   await saveNow(noteId, createNoteSyncPayload(noteId, activeNote.value, { blocks: snapshot.blocks }));
 }
 async function saveCurrentNote() {

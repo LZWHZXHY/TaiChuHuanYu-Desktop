@@ -35,6 +35,9 @@ namespace TaiChuWeb_V2.Dtos.World
 
         public string? Content { get; set; }  // 兼容旧数据
 
+        /// <summary>区块排列 JSON（见 WorldLayout）</summary>
+        public string? Layout { get; set; }
+
         public string? CoverImage { get; set; }
 
         // 省略时保留既有关系；传空数组时清空出向关系。
@@ -60,10 +63,22 @@ namespace TaiChuWeb_V2.Dtos.World
 
     public class TimelineEventDto
     {
+        /// <summary>事件 ID（前端生成，用来定位；老数据没有）</summary>
+        public string? Id { get; set; }
         public string Date { get; set; } = string.Empty;
         public string? Era { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
+        /// <summary>事件配图</summary>
+        public string? Image { get; set; }
+        public List<string>? Tags { get; set; }
+        /// <summary>和这件事有关的条目（人物、地点……）</summary>
+        public List<Guid>? CardIds { get; set; }
+        /// <summary>对访客隐藏：只有创建者和协作者能看到</summary>
+        public bool Hidden { get; set; }
+        /// <summary>事件颜色（区分战争、灾难、建国……），#RRGGBB</summary>
+        [System.ComponentModel.DataAnnotations.MaxLength(16)]
+        public string? Color { get; set; }
     }
 
     /// <summary>项目级时间线条目（聚合所有卡片的时间线事件）。</summary>
@@ -76,6 +91,8 @@ namespace TaiChuWeb_V2.Dtos.World
         public string? Era { get; set; }
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
+        public string? Image { get; set; }
+        public List<Guid>? CardIds { get; set; }
     }
 
     /// <summary>全局搜索卡片结果。</summary>

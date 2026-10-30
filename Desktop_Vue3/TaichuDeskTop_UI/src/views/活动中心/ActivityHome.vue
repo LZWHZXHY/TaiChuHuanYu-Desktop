@@ -1,6 +1,6 @@
 <template>
-  <div class="zone-home">
-    <header class="zone-header">
+  <div class="zone-home community-surface tone-play">
+    <header class="zone-header surface-heading"><SectionTrace />
       <span class="eyebrow">参与 · 记录 · 分享</span>
       <h1>让每一次参与都有回响</h1>
       <p>加入一个打卡挑战，或用一份问卷分享你的想法。</p>
@@ -37,6 +37,7 @@
 </template>
 
 <script setup lang="ts">
+import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, onMounted } from 'vue'
 import request from '@/utils/request'
 
