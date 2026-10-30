@@ -23,17 +23,16 @@ namespace TaiChuWeb_V2.Controllers
         {
             try
             {
-                // 1. 基础物理表清算：行者人数与艺术作品数
-                var userCount = await _context.Users.CountAsync(); //
-                var workCount = await _context.Artworks.CountAsync(); //
-
-                // 2. 灵脉发布区清算：方志(博客)与心声(帖子)均在 PublishedNotes 表中
-                // 严格匹配你指定的区分逻辑：Type 为 "blog" 算作博客，Type 为 "post" 算作帖子
-                var blogCount = await _context.PublishedNotes.CountAsync(n => n.Type == "blog");
-                var postCount = await _context.PublishedNotes.CountAsync(n => n.Type == "post");
-                var projectCount = await _context.Projects.CountAsync(); // 统计所有项目总数
-                // 3. 百科知识库清算：统计 wiki_articles 表中未被软删除的有效文章总数
-                var wikiCount = await _context.WikiArticles.CountAsync(a => !a.IsDeleted); //
+                // 首页给所有人看的数字：只数大家能看到的（和画廊、论坛、百科页面上看到的一致），
+                // 下架 / 审核中 / 没通过的画作、撤回或设为私密的帖子博客、删除的词条都不算。
+                // 管理面板「数据」里有包含全部内容的统计（/api/Admin/Analytics/content）。
+                var userCount = await _context.Users.CountAsync();
+                var workCount = await _context.Artworks.CountAsync(a => a.IsApproved && (a.Status == "published" || a.Status == "" || a.Status == null));
+                var visibleNotes = TaiChuWeb_V2.Controllers.LingMai.LingMaiPublishController.VisiblePublishedNotes(_context);
+                var blogCount = await visibleNotes.CountAsync(n => n.Type == "blog");
+                var postCount = await visibleNotes.CountAsync(n => n.Type == "post");
+                var projectCount = await _context.Projects.CountAsync();
+                var wikiCount = await _context.WikiArticles.CountAsync(a => !a.IsDeleted && a.CurrentRevisionId != null);
 
                 var stats = new StatsOverviewDto
                 {
@@ -67,4 +66,4 @@ namespace TaiChuWeb_V2.Controllers
 
         public int ProjectCount { get; set; }
     }
-}
+}

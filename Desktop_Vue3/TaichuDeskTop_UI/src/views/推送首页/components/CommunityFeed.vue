@@ -39,9 +39,9 @@ const hasMore = ref(false)
 const error = ref('')
 let offset = 0
 
-const badgeText = (kind: string) => kind.startsWith('quest') ? '世界任务' : kind.startsWith('world') ? '世界观' : kind.startsWith('wiki') ? '百科' : kind === 'post' ? '帖子' : kind === 'blog' ? '博客' : kind === 'artwork' ? '作品' : kind === 'user-joined' ? '新成员' : kind === 'signin' ? '签到' : kind.startsWith('comment') ? '评论' : kind === 'joint' ? '联合' : kind === 'survey' ? '问卷' : kind === 'dev-project' ? '开发进度' : '世界观'
+const badgeText = (kind: string) => kind === 'history' ? '岁月史书' : kind.startsWith('quest') ? '世界任务' : kind.startsWith('world') ? '世界观' : kind.startsWith('wiki') ? '百科' : kind === 'post' ? '帖子' : kind === 'blog' ? '博客' : kind === 'artwork' ? '作品' : kind === 'user-joined' ? '新成员' : kind === 'signin' ? '签到' : kind.startsWith('comment') ? '评论' : kind === 'joint' ? '联合' : kind === 'survey' ? '问卷' : kind === 'dev-project' ? '开发进度' : '世界观'
 const badgeKind = (kind: string) => kind.startsWith('quest') ? 'quest' : kind.startsWith('world') ? 'world' : kind.startsWith('wiki') ? 'wiki' : kind.startsWith('comment') ? 'comment' : kind === 'dev-project' ? 'dev' : kind
-const verb = (kind: string) => kind === 'quest-start' ? '开启了世界任务' : kind === 'quest-complete' ? '宣布世界任务完成：' : kind === 'world-new' ? '创建了世界观' : kind === 'world-edit' ? '在世界观' : kind === 'wiki-new' ? '创建了百科词条' : kind === 'wiki-update' ? '更新了百科词条' : kind === 'artwork' ? '发布了作品' : kind === 'post' ? '发布了帖子' : kind === 'user-joined' ? '加入了社区' : kind === 'signin' ? '签到打卡了' : kind.startsWith('comment') ? '评论了' : kind === 'joint' ? '发起了联合活动' : kind === 'survey' ? '发起了问卷调查' : kind === 'dev-project' ? '更新了开发进度' : '发布了博客'
+const verb = (kind: string) => kind === 'history' ? '在岁月史书里记了一笔：' : kind === 'quest-start' ? '开启了世界任务' : kind === 'quest-complete' ? '宣布世界任务完成：' : kind === 'world-new' ? '创建了世界观' : kind === 'world-edit' ? '在世界观' : kind === 'wiki-new' ? '创建了百科词条' : kind === 'wiki-update' ? '更新了百科词条' : kind === 'artwork' ? '发布了作品' : kind === 'post' ? '发布了帖子' : kind === 'user-joined' ? '加入了社区' : kind === 'signin' ? '签到打卡了' : kind === 'comment-history' ? '评论了岁月史书里的' : kind === 'comment-character' ? '评论了角色' : kind === 'comment-work' ? '评论了柴圈作品' : kind.startsWith('comment') ? '评论了' : kind === 'joint' ? '发起了联合活动' : kind === 'survey' ? '发起了问卷调查' : kind === 'dev-project' ? '更新了开发进度' : '发布了博客'
 
 function open(item: CommunityFeedItem) {
   if (item.kind === 'blog' || item.kind === 'post' || item.kind === 'comment-blog' || item.kind === 'comment-post') {
@@ -58,6 +58,12 @@ function open(item: CommunityFeedItem) {
     router.push(questRoute())
   } else if (item.kind === 'world-new' || item.kind === 'world-edit') {
     router.push('/world/project/' + item.targetId)
+  } else if (item.kind === 'history' || item.kind === 'comment-history') {
+    router.push({ name: 'CommunityHistory', query: { entry: item.targetId } })
+  } else if (item.kind === 'comment-work') {
+    router.push('/works/' + item.targetId)
+  } else if (item.kind === 'comment-character') {
+    router.push('/ocs/' + item.targetId)
   } else if (item.kind === 'dev-project') {
     document.getElementById('dev-progress')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   } else {
@@ -124,6 +130,7 @@ onMounted(() => load(true))
 .badge-joint { background: var(--bg-sub); color: var(--text-secondary); }
 .badge-survey { background: var(--bg-sub); color: var(--text-secondary); }
 .badge-quest { background: var(--accent-color); color: var(--on-accent); }
+.badge-history { background: color-mix(in srgb, #f59e0b 16%, transparent); color: var(--text-primary); }
 .badge-world { background: var(--accent-soft); color: var(--accent-color); }
 .feed-detail { color: var(--text-secondary); }
 .badge-dev { background: var(--accent-soft); color: var(--accent-color); }

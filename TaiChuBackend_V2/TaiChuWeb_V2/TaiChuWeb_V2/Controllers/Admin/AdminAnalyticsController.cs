@@ -2,18 +2,20 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaiChuWeb_V2.DbContext;
+using MySqlConnector;
+using TaiChuWeb_V2.Controllers.LingMai;
 using TaiChuWeb_V2.Services.Analytics;
 
 namespace TaiChuWeb_V2.Controllers.Admin
 {
     /// <summary>
-    /// 管理后台 · 社区数据分析：实时在线、活跃、签到、新用户与历史对比。
+    /// 管理后台 · 社区数据分析：实时在线、活跃、签到、新用户与历史对比；各板块的内容总量和新增（content）。
     /// 权限：System_Monitor（由 AdminAccessFilter 校验）。日期一律按中国时间。
     /// </summary>
     [Authorize]
     [ApiController]
     [Route("api/Admin/Analytics")]
-    public class AdminAnalyticsController(AppDbContext db, PresenceTracker tracker, AnalyticsStore store) : ControllerBase
+    public class AdminAnalyticsController(AppDbContext db, PresenceTracker tracker, AnalyticsStore store, IServiceScopeFactory scopes, IConfiguration configuration, ILogger<AdminAnalyticsController> logger) : ControllerBase
     {
         private static string D(DateTime d) => d.ToString("yyyy-MM-dd");
 
@@ -235,5 +237,171 @@ namespace TaiChuWeb_V2.Controllers.Admin
                 }),
             });
         }
-    }
+    
+        // ================= 各板块内容统计 =================
+
+        private sealed record ModuleStat(string Key, string Label, string Group, string? Note, long Total, long? Visible, List<DateTime> Times);
+
+        /// <summary>
+        /// 各板块的内容：总数、公开可见的数量、最近 N 天新增（和之前 N 天对比）、每天新增几条。
+        /// 每个板块单独开一个数据库连接并行查（数据库在远处时一条查询要 ~250ms，串行十几个板块会很慢）。
+        /// 某个板块查失败只影响它自己（返回 error），不影响其他板块。
+        /// </summary>
+        [HttpGet("content")]
+        public async Task<IActionResult> Content([FromQuery] int days = 30)
+        {
+            days = Math.Clamp(days, 7, 180);
+            var today = ChinaClock.Today;
+            var start = today.AddDays(-(days - 1));
+            var prevStart = start.AddDays(-days);
+            var fromUtc = ChinaClock.DayStartUtc(prevStart);
+
+            // 每个板块：(key, 名字, 分组, 说明, 查询)
+            var jobs = new List<(string Key, string Label, string Group, string? Note, Func<AppDbContext, Task<(long Total, long? Visible, List<DateTime> Times)>> Run)>
+            {
+                ("post", "帖子", "论坛 / 博客", null, async c => (
+                    await c.PublishedNotes.CountAsync(n => n.Type == "post"),
+                    await LingMaiPublishController.VisiblePublishedNotes(c).CountAsync(n => n.Type == "post"),
+                    await c.PublishedNotes.Where(n => n.Type == "post" && n.PublishedAt >= fromUtc).Select(n => n.PublishedAt).ToListAsync())),
+                ("blog", "博客", "论坛 / 博客", null, async c => (
+                    await c.PublishedNotes.CountAsync(n => n.Type == "blog"),
+                    await LingMaiPublishController.VisiblePublishedNotes(c).CountAsync(n => n.Type == "blog"),
+                    await c.PublishedNotes.Where(n => n.Type == "blog" && n.PublishedAt >= fromUtc).Select(n => n.PublishedAt).ToListAsync())),
+                ("comment", "评论", "互动", "帖子、博客、画作、柴圈作品、岁月史书下面的评论", async c => (
+                    await c.Comments.CountAsync(x => x.Content != "") + await c.CommunityHistoryComments.CountAsync(),
+                    null,
+                    (await c.Comments.Where(x => x.Content != "" && x.CreatedAt >= fromUtc).Select(x => x.CreatedAt).ToListAsync())
+                        .Concat(await c.CommunityHistoryComments.Where(x => x.CreatedAt >= fromUtc).Select(x => x.CreatedAt).ToListAsync()).ToList())),
+                ("artwork", "画廊作品", "画廊", "公开 = 审核通过且没下架", async c => (
+                    await c.Artworks.CountAsync(),
+                    await c.Artworks.CountAsync(a => a.IsApproved && (a.Status == "published" || a.Status == "" || a.Status == null)),
+                    await c.Artworks.Where(a => a.UploadAt >= fromUtc).Select(a => a.UploadAt).ToListAsync())),
+                ("wiki", "百科", "百科", "总数 = 词条；新增 = 编辑次数", async c => (
+                    await c.WikiArticles.CountAsync(a => !a.IsDeleted),
+                    await c.WikiArticles.CountAsync(a => !a.IsDeleted && a.CurrentRevisionId != null),
+                    await c.WikiArticleRevisions.Where(r => r.CreatedAt >= fromUtc).Select(r => r.CreatedAt).ToListAsync())),
+                ("world", "世界观", "世界观", "公开 = 设为公开的世界；新增 = 新建的世界", async c => (
+                    await c.WorldProjects.CountAsync(),
+                    await c.WorldProjects.CountAsync(w => w.IsPublic),
+                    await c.WorldProjects.Where(w => w.CreatedAt >= fromUtc).Select(w => w.CreatedAt).ToListAsync())),
+                ("world-card", "世界观条目", "世界观", "总数 = 条目；新增 = 新建 / 修改 / 删除次数", async c => (
+                    await c.WorldCards.CountAsync(),
+                    null,
+                    await c.WorldCardRevisions.Where(r => r.Action != "baseline" && r.CreatedAt >= fromUtc).Select(r => r.CreatedAt).ToListAsync())),
+                ("novel", "世界观小说章节", "世界观", "公开 = 公开小说里的章节", async c => (
+                    await c.WorldNovelChapters.CountAsync(),
+                    await c.WorldNovelChapters.CountAsync(ch => c.WorldNovels.Any(n => n.Id == ch.NovelId && n.IsPublic)),
+                    await c.WorldNovelChapters.Where(ch => ch.CreatedAt >= fromUtc).Select(ch => ch.CreatedAt).ToListAsync())),
+                ("chronicle", "编年史事件", "世界观", null, async c => (
+                    await c.WorldTimelineEvents.CountAsync(),
+                    await c.WorldTimelineEvents.CountAsync(e => !e.Hidden),
+                    await c.WorldTimelineEvents.Where(e => e.CreatedAt >= fromUtc).Select(e => e.CreatedAt).ToListAsync())),
+                ("history", "岁月史书", "社区", "公开 = 没被下架", async c => (
+                    await c.CommunityHistoryEntries.CountAsync(),
+                    await c.CommunityHistoryEntries.CountAsync(e => !e.Hidden),
+                    await c.CommunityHistoryEntries.Where(e => e.CreatedAt >= fromUtc).Select(e => e.CreatedAt).ToListAsync())),
+                ("chai-work", "柴圈作品", "柴圈", "公开 = 已发布", async c => (
+                    await c.ChaiWorks.CountAsync(),
+                    await c.ChaiWorks.CountAsync(w => w.Status == "published"),
+                    await c.ChaiWorks.Where(w => w.CreatedAt >= fromUtc).Select(w => w.CreatedAt).ToListAsync())),
+                ("oc", "OC 人设", "柴圈", "公开 = 已发布", async c => (
+                    await c.StickmanCharacters.CountAsync(),
+                    await c.StickmanCharacters.CountAsync(w => w.Status == "published"),
+                    await c.StickmanCharacters.Where(w => w.CreatedAt >= fromUtc).Select(w => w.CreatedAt).ToListAsync())),
+                ("quest", "世界任务报告", "我的世界", "玩家提交的报告（不含管理员直接记录）", async c => (
+                    await c.ServerQuestContributions.CountAsync(x => x.Source == "player"),
+                    null,
+                    await c.ServerQuestContributions.Where(x => x.Source == "player" && x.CreatedAt >= fromUtc).Select(x => x.CreatedAt).ToListAsync())),
+                ("signin", "签到", "社区", "签到次数", async c => (
+                    await c.UserSignLogs.CountAsync(),
+                    null,
+                    await c.UserSignLogs.Where(l => l.CreatedAt >= fromUtc).Select(l => l.CreatedAt).ToListAsync())),
+                ("like", "点赞 / 收藏", "互动", null, async c => (
+                    await c.UserInteractions.CountAsync(x => x.ActionType == "Like" || x.ActionType == "Favorite"),
+                    null,
+                    await c.UserInteractions.Where(x => (x.ActionType == "Like" || x.ActionType == "Favorite") && x.CreatedAt >= fromUtc).Select(x => x.CreatedAt).ToListAsync())),
+                ("follow", "关注", "互动", null, async c => (
+                    await c.Follows.CountAsync(),
+                    null,
+                    await c.Follows.Where(f => f.CreatedAt >= fromUtc).Select(f => f.CreatedAt).ToListAsync())),
+            };
+
+            var tasks = jobs.Select(async j =>
+            {
+                try
+                {
+                    using var scope = scopes.CreateScope();
+                    var c = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var (total, visible, times) = await j.Run(c);
+                    return (Stat: new ModuleStat(j.Key, j.Label, j.Group, j.Note, total, visible, times), Error: (string?)null);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "内容统计 {Key} 失败", j.Key);
+                    return (Stat: new ModuleStat(j.Key, j.Label, j.Group, j.Note, 0, null, new()), Error: "读取失败");
+                }
+            }).ToList();
+            // 聊天室、联机对局是服务启动后自己建的表，用原始 SQL 读
+            tasks.Add(RawModuleAsync("chat", "聊天室发言", "聊天室", "不含 AI 的发言、已删除的",
+                "SELECT COUNT(*) FROM chat_messages WHERE IsAi=0 AND Deleted=0", "SELECT CreatedAt FROM chat_messages WHERE IsAi=0 AND Deleted=0 AND CreatedAt >= @from", fromUtc));
+            tasks.Add(RawModuleAsync("game", "联机对局", "太虚游", "斗地主 / 象棋 / 围棋联机局（本地对局见「棋类记录」）",
+                "SELECT COUNT(*) FROM game_matches", "SELECT EndedAt FROM game_matches WHERE EndedAt >= @from", fromUtc));
+            var results = await Task.WhenAll(tasks);
+
+            var dates = Enumerable.Range(0, days).Select(i => start.AddDays(i)).ToList();
+            return Ok(new
+            {
+                days,
+                dates = dates.Select(D),
+                modules = results.Select(r =>
+                {
+                    var local = r.Stat.Times.Select(t => ChinaClock.ToLocal(DateTime.SpecifyKind(t, DateTimeKind.Utc)).Date).ToList();
+                    var perDay = local.Where(d => d >= start).GroupBy(d => d).ToDictionary(g => g.Key, g => g.Count());
+                    return new
+                    {
+                        key = r.Stat.Key,
+                        label = r.Stat.Label,
+                        group = r.Stat.Group,
+                        note = r.Stat.Note,
+                        total = r.Stat.Total,
+                        visible = r.Stat.Visible,
+                        current = local.Count(d => d >= start),
+                        previous = local.Count(d => d >= prevStart && d < start),
+                        today = local.Count(d => d == today),
+                        series = dates.Select(d => perDay.GetValueOrDefault(d)),
+                        error = r.Error,
+                    };
+                }),
+            });
+        }
+
+        private async Task<(ModuleStat Stat, string? Error)> RawModuleAsync(string key, string label, string group, string? note, string totalSql, string timesSql, DateTime fromUtc)
+        {
+            try
+            {
+                await using var c = new MySqlConnection(configuration.GetConnectionString("DefaultConnection"));
+                await c.OpenAsync();
+                long total;
+                await using (var cmd = c.CreateCommand()) { cmd.CommandText = totalSql; total = Convert.ToInt64(await cmd.ExecuteScalarAsync()); }
+                var times = new List<DateTime>();
+                await using (var cmd = c.CreateCommand())
+                {
+                    cmd.CommandText = timesSql;
+                    cmd.Parameters.AddWithValue("@from", fromUtc);
+                    await using var r = await cmd.ExecuteReaderAsync();
+                    while (await r.ReadAsync()) if (!r.IsDBNull(0)) times.Add(r.GetDateTime(0));
+                }
+                return (new ModuleStat(key, label, group, note, total, null, times), null);
+            }
+            catch (MySqlException ex) when (ex.ErrorCode == MySqlErrorCode.NoSuchTable)
+            {
+                return (new ModuleStat(key, label, group, note, 0, null, new()), null); // 表还没建（还没人用过）
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "内容统计 {Key} 失败", key);
+                return (new ModuleStat(key, label, group, note, 0, null, new()), "读取失败");
+            }
+        }
+}
 }

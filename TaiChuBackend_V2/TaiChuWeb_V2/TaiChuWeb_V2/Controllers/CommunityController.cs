@@ -8,7 +8,7 @@ namespace TaiChuWeb_V2.Controllers
     public sealed class CommunityFeedItem
     {
         public string Id { get; set; } = "";
-        public string Kind { get; set; } = ""; // blog | post | artwork | wiki-new | wiki-update | user-joined | signin | comment-blog | comment-post | comment-artwork | joint | survey | dev-project | world-new | world-edit | quest-start | quest-complete
+        public string Kind { get; set; } = ""; // blog | post | artwork | wiki-new | wiki-update | user-joined | signin | comment-blog | comment-post | comment-artwork | comment-work | comment-character | comment-history | joint | survey | dev-project | world-new | world-edit | quest-start | quest-complete | history
         public string ActorName { get; set; } = "";
         public string? ActorId { get; set; } // 动态发起人的用户 ID，点击进入个人主页；官方动态为空
         public string TargetTitle { get; set; } = "";
@@ -193,13 +193,38 @@ namespace TaiChuWeb_V2.Controllers
                     CreatedAt = c.CreatedAt
                 }).Take(takeCount).ToListAsync();
 
-            var commenterIds = noteCommentRows.Concat(artworkCommentRows).Select(r => r.UserId).Distinct().ToList();
+            // 柴圈作品 / OC 下面的评论（comments 表的 TargetType = work / character；只算已发布的作品）
+            var chaiCommentsRaw = await db.Comments
+                .Where(c => (c.TargetType == "work" || c.TargetType == "character") && c.Content != "" && c.ParentId == null)
+                .OrderByDescending(c => c.CreatedAt).Take(takeCount)
+                .Select(c => new { c.Id, c.UserId, c.TargetType, c.TargetId, c.CreatedAt }).ToListAsync();
+            var chaiIds = chaiCommentsRaw.Select(c => Guid.TryParse(c.TargetId, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).Distinct().ToList();
+            var chaiWorkTitles = chaiIds.Count == 0 ? new Dictionary<Guid, string>() : await db.ChaiWorks
+                .Where(w => chaiIds.Contains(w.Id) && w.Status == "published").ToDictionaryAsync(w => w.Id, w => w.Title);
+            var chaiCharacterTitles = chaiIds.Count == 0 ? new Dictionary<Guid, string>() : await db.StickmanCharacters
+                .Where(x => chaiIds.Contains(x.Id) && x.Status == "published").ToDictionaryAsync(x => x.Id, x => x.Title);
+            var chaiCommentRows = chaiCommentsRaw.Select(c =>
+            {
+                var id = Guid.TryParse(c.TargetId, out var g) ? g : Guid.Empty;
+                var titles = c.TargetType == "work" ? chaiWorkTitles : chaiCharacterTitles;
+                return titles.TryGetValue(id, out var title) ? new
+                {
+                    CommentId = c.Id,
+                    UserId = c.UserId,
+                    Kind = c.TargetType == "work" ? "comment-work" : "comment-character",
+                    TargetTitle = title,
+                    TargetId = id.ToString(),
+                    CreatedAt = c.CreatedAt
+                } : null;
+            }).Where(r => r != null).Select(r => r!).ToList();
+
+            var commenterIds = noteCommentRows.Concat(artworkCommentRows).Concat(chaiCommentRows).Select(r => r.UserId).Distinct().ToList();
             var commenterMap = await db.Users
                 .Where(u => commenterIds.Contains(u.Id.ToString()))
                 .Select(u => new { u.Id, u.Username })
                 .ToDictionaryAsync(u => u.Id.ToString(), u => u.Username);
 
-            var commentItems = noteCommentRows.Concat(artworkCommentRows).Select(r => new CommunityFeedItem
+            var commentItems = noteCommentRows.Concat(artworkCommentRows).Concat(chaiCommentRows).Select(r => new CommunityFeedItem
             {
                 Id = "comment:" + r.CommentId,
                 Kind = r.Kind,
@@ -293,7 +318,46 @@ namespace TaiChuWeb_V2.Controllers
                 return list;
             });
 
-            var feed = blogPosts.Concat(artworks).Concat(wikiItems).Concat(newUsers).Concat(signins).Concat(commentItems).Concat(joints).Concat(surveys).Concat(devProjects).Concat(worldItems).Concat(questItems)
+            // 11. 岁月史书：谁记了一段（被下架的不算）
+            var historyRows = await db.CommunityHistoryEntries.AsNoTracking().Where(e => !e.Hidden)
+                .OrderByDescending(e => e.CreatedAt).Take(takeCount)
+                .Select(e => new { e.Id, e.UserId, e.Title, e.Content, e.Images, e.CreatedAt }).ToListAsync();
+            var historyAuthorIds = historyRows.Select(r => r.UserId).Distinct().ToList();
+            var historyAuthors = historyAuthorIds.Count == 0 ? new Dictionary<Guid, string>() : await db.Users.AsNoTracking()
+                .Where(u => historyAuthorIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Username);
+            var historyItems = historyRows.Select(r =>
+            {
+                var text = r.Title.Length > 0 ? r.Title : System.Text.RegularExpressions.Regex.Replace(r.Content ?? "", @"\s+", " ").Trim();
+                if (text.Length > 40) text = text[..40] + "…";
+                return new CommunityFeedItem
+                {
+                    Id = "history:" + r.Id, Kind = "history", ActorName = historyAuthors.GetValueOrDefault(r.UserId) ?? "社区用户", ActorId = r.UserId.ToString(),
+                    TargetTitle = text.Length > 0 ? text : "一组截图", TargetId = r.Id.ToString(), CreatedAt = r.CreatedAt,
+                };
+            });
+
+            // 岁月史书下面的评论（被下架的那一段的评论不算）
+            var historyCommentRows = await db.CommunityHistoryComments.AsNoTracking()
+                .OrderByDescending(c => c.CreatedAt).Take(takeCount)
+                .Select(c => new { c.Id, c.EntryId, c.UserId, c.CreatedAt }).ToListAsync();
+            var hcEntryIds = historyCommentRows.Select(c => c.EntryId).Distinct().ToList();
+            var hcEntries = hcEntryIds.Count == 0 ? new Dictionary<long, string>() : (await db.CommunityHistoryEntries.AsNoTracking()
+                    .Where(e => hcEntryIds.Contains(e.Id) && !e.Hidden).Select(e => new { e.Id, e.Title, e.Content }).ToListAsync())
+                .ToDictionary(e => e.Id, e =>
+                {
+                    var t = e.Title.Length > 0 ? e.Title : System.Text.RegularExpressions.Regex.Replace(e.Content ?? "", @"\s+", " ").Trim();
+                    return t.Length == 0 ? "一组截图" : t.Length > 40 ? t[..40] + "…" : t;
+                });
+            var hcUserIds = historyCommentRows.Select(c => c.UserId).Distinct().ToList();
+            var hcUsers = hcUserIds.Count == 0 ? new Dictionary<Guid, string>() : await db.Users.AsNoTracking()
+                .Where(u => hcUserIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Username);
+            var historyCommentItems = historyCommentRows.Where(c => hcEntries.ContainsKey(c.EntryId)).Select(c => new CommunityFeedItem
+            {
+                Id = "history-comment:" + c.Id, Kind = "comment-history", ActorName = hcUsers.GetValueOrDefault(c.UserId) ?? "社区用户", ActorId = c.UserId.ToString(),
+                TargetTitle = hcEntries[c.EntryId], TargetId = c.EntryId.ToString(), CreatedAt = c.CreatedAt,
+            });
+
+            var feed = blogPosts.Concat(artworks).Concat(wikiItems).Concat(newUsers).Concat(signins).Concat(commentItems).Concat(joints).Concat(surveys).Concat(devProjects).Concat(worldItems).Concat(questItems).Concat(historyItems).Concat(historyCommentItems)
                 .OrderByDescending(i => i.CreatedAt)
                 .ToList();
 

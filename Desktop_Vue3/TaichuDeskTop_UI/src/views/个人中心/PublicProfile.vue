@@ -8,6 +8,7 @@ import ActivityPanel from './ActivityPanel.vue'
 import AvatarFrame from '@/components/AvatarFrame.vue'
 import { TradeApi } from '@/api/trade'
 import UserTitle from '@/components/UserTitle.vue'
+import ReportButton from '@/components/ReportButton.vue'
 import { profileDecorApi, type PublicDecor } from '@/api/appearance'
 import { useSiteBackground } from '@/composables/useSiteBackground'
 import { profileApi, type PublicProfile } from '@/api/profile'
@@ -40,7 +41,7 @@ async function loadDecor(userId: string) {
 }
 onBeforeUnmount(() => siteBg.setVisit(null))
 
-type Tab = 'posts' | 'artworks' | 'worlds' | 'characters' | 'guestbook'
+type Tab = 'posts' | 'artworks' | 'worlds' | 'novels' | 'characters' | 'chai' | 'guestbook'
 const tab = ref<Tab>('posts')
 const tabs = computed(() => {
   const c = profile.value?.counts
@@ -48,9 +49,12 @@ const tabs = computed(() => {
     { id: 'posts' as Tab, label: '帖子与博客', count: c?.posts ?? 0 },
     { id: 'artworks' as Tab, label: '画作', count: c?.artworks ?? 0 },
     { id: 'worlds' as Tab, label: '世界观', count: c?.worlds ?? 0 },
+    { id: 'novels' as Tab, label: '小说', count: c?.novels ?? 0 },
     { id: 'characters' as Tab, label: '人设', count: c?.characters ?? 0 },
+    { id: 'chai' as Tab, label: '柴圈作品', count: c?.chaiWorks ?? 0 },
     { id: 'guestbook' as Tab, label: '留言板', count: guestbookCount.value },
-  ]
+  // 小说、柴圈作品没有的时候不占位置（旧后端也没有这两项）
+  ].filter(t => !(t.id === 'novels' || t.id === 'chai') || t.count > 0)
 })
 
 async function load() {
@@ -141,6 +145,7 @@ const hide = (event: Event) => { (event.target as HTMLImageElement).hidden = tru
           </p>
         </div>
         <RouterLink v-if="isSelf" class="btn-line self-link" :to="{ name: 'UserCenter', params: { id } }">返回个人中心</RouterLink>
+        <ReportButton v-else class="profile-report" target-type="user" :target-id="profile.id" :target-title="profile.username" :target-url="`/user/${profile.id}`" text="举报这位用户" />
       </header>
       <p v-if="isSelf" class="self-note" role="status">这是别人看到的你的主页。</p>
 
@@ -217,6 +222,32 @@ const hide = (event: Event) => { (event.target as HTMLImageElement).hidden = tru
         </div>
       </section>
 
+      <!-- 小说 -->
+      <section v-else-if="tab === 'novels'" class="profile-panel" aria-label="小说">
+        <div class="card-grid">
+          <RouterLink v-for="n in profile.novels ?? []" :key="n.id" class="info-card" :to="`/novels/${n.id}`">
+            <span class="info-cover" data-depth><img v-if="n.coverUrl" :src="n.coverUrl" alt="" loading="lazy" @error="hide" /></span>
+            <strong>{{ n.title }}</strong>
+            <small>{{ n.wordCount.toLocaleString() }} 字 · {{ n.status === 'completed' ? '已完结' : '连载中' }}</small>
+          </RouterLink>
+        </div>
+        <p v-if="(profile.counts.novels ?? 0) > (profile.novels?.length ?? 0)" class="panel-note">显示最近更新的 {{ profile.novels?.length }} 部，共 {{ profile.counts.novels }} 部。</p>
+      </section>
+
+      <!-- 柴圈作品 -->
+      <section v-else-if="tab === 'chai'" class="profile-panel" aria-label="柴圈作品">
+        <div class="card-grid">
+          <RouterLink v-for="w in profile.chaiWorks ?? []" :key="w.id" class="info-card" :to="`/works/${w.id}`">
+            <span class="info-cover" data-depth><img v-if="w.coverUrl" :src="w.coverUrl" alt="" loading="lazy" @error="hide" /></span>
+            <strong>{{ w.title }}</strong>
+            <small>{{ w.description || '暂无简介' }}</small>
+          </RouterLink>
+        </div>
+        <p v-if="(profile.counts.chaiWorks ?? 0) > (profile.chaiWorks?.length ?? 0)" class="panel-note">显示最近 {{ profile.chaiWorks?.length }} 件，共 {{ profile.counts.chaiWorks }} 件。</p>
+      </section>
+
+      <p v-if="profile.counts.history" class="history-link">📖 在岁月史书里记了 <b>{{ profile.counts.history }}</b> 段 <RouterLink :to="{ path: '/history', query: { author: profile.id } }">去看看 →</RouterLink></p>
+
       <!-- 留言板：始终挂载以便统计留言数，只在选中时显示 -->
       <section v-show="tab === 'guestbook'" class="profile-panel" aria-label="留言板">
         <ProfileGuestbook :owner-id="profile.id" :owner-name="profile.username" @count="guestbookCount = $event" />
@@ -254,7 +285,7 @@ const hide = (event: Event) => { (event.target as HTMLImageElement).hidden = tru
 .self-link { flex-shrink: 0; align-self: flex-start; }
 .self-note { margin: 12px 0 0; padding: 8px 12px; border-left: 3px solid var(--signal-mint); background: var(--accent-soft); font-size: 13px; color: var(--text-secondary); }
 
-.profile-tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; margin: 24px 0 20px; border: 1px solid var(--border-line); background: var(--paper-card); }
+.profile-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0; margin: 24px 0 20px; border: 1px solid var(--border-line); background: var(--paper-card); }
 .profile-tabs button { position: relative; display: grid; gap: 2px; justify-items: start; padding: 14px 18px; border: 0; border-right: 1px solid var(--border-line); background: transparent; color: var(--text-secondary); cursor: pointer; text-align: left; font: inherit; }
 .profile-tabs button:last-child { border-right: 0; }
 .profile-tabs button strong { font: 600 22px/1.2 var(--font-mono); color: var(--text-primary); }
@@ -318,4 +349,8 @@ const hide = (event: Event) => { (event.target as HTMLImageElement).hidden = tru
   .tile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) { .profile-tabs button::after, .post-item::before, .art-tile img, .info-card { transition: none; } }
+.history-link { margin: 0 0 16px; padding: 10px 14px; background: var(--paper-card); border: 1px solid var(--border-line); font-size: 13px; color: var(--text-secondary); }
+.history-link b { color: var(--text-primary); }
+.history-link a { margin-left: 6px; color: var(--accent-color); text-decoration: none; }
+.profile-report { align-self: flex-start; margin-left: auto; }
 </style>

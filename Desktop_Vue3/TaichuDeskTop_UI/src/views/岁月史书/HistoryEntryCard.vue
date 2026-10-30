@@ -48,6 +48,7 @@
           <button v-else type="button" class="he-op" @click="emit('unhide', entry)">恢复</button>
         </template>
         <button v-if="entry.canDelete" type="button" class="he-op danger" @click="emit('delete', entry)">删除</button>
+        <ReportButton v-if="!entry.canDelete" target-type="history" :target-id="entry.id" :target-title="entry.title || (entry.content ?? '').slice(0, 60) || '（截图）'" :target-url="`/history?entry=${entry.id}`" />
       </div>
     </div>
     <HistoryComments v-if="!compact" :entry="entry" @update="patch => emit('update', { ...entry, ...patch })" />
@@ -61,6 +62,7 @@ import { withThumbnail } from '@/utils/imageThumb'
 import UserLink from '@/components/UserLink.vue'
 import AvatarFrame from '@/components/AvatarFrame.vue'
 import HistoryComments from './HistoryComments.vue'
+import ReportButton from '@/components/ReportButton.vue'
 
 const props = defineProps<{ entry: HistoryEntry; canManage?: boolean; busy?: boolean; compact?: boolean }>()
 const emit = defineEmits<{

@@ -35,6 +35,7 @@ public sealed class AdminAccessFilter(AppDbContext db) : IAsyncAuthorizationFilt
             "AdminTrade" or "AdminProduct" or "AdminShowcase" => AdminPermission.Trade_Manage,
             "AdminUser" when action.ActionName != "UpdatePermissions" => AdminPermission.User_Audit,
             "AdminChat" => AdminPermission.User_Audit,
+            "AdminReports" => AdminPermission.User_Audit,
             "AdminWiki" => AdminPermission.Wiki_Editor,
             "AdminData" or "AdminAnalytics" => AdminPermission.System_Monitor,
             _ => null

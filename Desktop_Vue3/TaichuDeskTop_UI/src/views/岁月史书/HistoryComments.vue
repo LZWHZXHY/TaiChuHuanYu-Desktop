@@ -16,6 +16,7 @@
             <time :datetime="c.createdAt" :title="fullTime(c.createdAt)">{{ shortTime(c.createdAt) }}</time>
             <button v-if="userStore.isLoggedIn" type="button" class="hcm-op" @click="startReply(c)">回复</button>
             <button v-if="c.canDelete" type="button" class="hcm-op danger" @click="remove(c)">删除</button>
+            <ReportButton v-else target-type="history-comment" :target-id="c.id" :target-title="c.content.slice(0, 60)" :target-url="`/history?entry=${entry.id}`" class="hcm-report" />
           </div>
         </div>
       </li>
@@ -46,6 +47,7 @@ import { historyApi, errorText, type HistoryComment, type HistoryEntry } from '@
 import { useUserStore } from '@/stores/user'
 import { LOGIN_PATH } from '@/router/auth'
 import UserLink from '@/components/UserLink.vue'
+import ReportButton from '@/components/ReportButton.vue'
 
 const props = defineProps<{ entry: HistoryEntry }>()
 const emit = defineEmits<{ update: [patch: Pick<HistoryEntry, 'commentCount' | 'recentComments'>] }>()
@@ -136,6 +138,7 @@ function shortTime(iso: string) {
 .hcm-op { padding: 0; border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 11px; cursor: pointer; }
 .hcm-op:hover { color: var(--accent-color); }
 .hcm-op.danger:hover { color: #dc2626; }
+.hcm-report :deep(.report-btn) { padding: 0; font-size: 11px; }
 .hcm-all { margin: 0 0 8px; padding: 0; border: 0; background: none; color: var(--accent-color); font: inherit; font-size: 12px; cursor: pointer; }
 .hcm-form { display: grid; gap: 4px; }
 .hcm-replying { display: inline-flex; align-items: center; gap: 4px; justify-self: start; padding: 1px 6px; background: color-mix(in srgb, var(--accent-color) 12%, transparent); font-size: 12px; }

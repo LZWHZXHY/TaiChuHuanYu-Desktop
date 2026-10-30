@@ -34,6 +34,7 @@
           <button class="interact-btn" :class="{ active: liked }" @click="toggleLike">❤ {{ likeCount }}</button>
           <button class="interact-btn" :class="{ active: favorited }" @click="toggleFavorite">⭐ {{ favoriteCount }}</button>
           <span class="interact-count">💬 {{ work.commentCount || 0 }}</span>
+          <ReportButton v-if="!isAuthor" target-type="work" :target-id="workId" :target-title="work.title" />
         </div>
 
         <ChaiComments :target-type="'work'" :target-id="workId" />
@@ -57,6 +58,7 @@
 
 <script setup lang="ts">
 import UserLink from '@/components/UserLink.vue'
+import ReportButton from '@/components/ReportButton.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { chaiWorkApi, type ChaiWork } from '@/api/chaiWork'

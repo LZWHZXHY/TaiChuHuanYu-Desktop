@@ -75,6 +75,7 @@
                 target-type="Artwork"
                 :initial-stats="artwork"
               />
+              <ReportButton v-if="artwork.id && !artwork.canEdit" target-type="artwork" :target-id="artwork.id" :target-title="artwork.title" />
             </div>
             <p v-if="artwork.canInteract === false" class="detail-state">作品尚未公开，暂不开放互动和评论。</p>
             <ArtworkComments v-else :key="artwork.id" :artwork-id="artwork.id" :initial-count="artwork.commentsCount" />
@@ -94,6 +95,7 @@
 
 <script setup lang="ts">
 import UserLink from '@/components/UserLink.vue'
+import ReportButton from '@/components/ReportButton.vue'
 import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { artworkApi } from '../../api/artwork'

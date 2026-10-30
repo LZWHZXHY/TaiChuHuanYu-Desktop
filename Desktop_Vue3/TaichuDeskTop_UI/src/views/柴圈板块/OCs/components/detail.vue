@@ -136,6 +136,7 @@
             <span class="stat">👁 {{ character.views }}</span>
             <button class="stat action-btn" :class="{ active: liked }" @click="toggleLike">❤ {{ likeCount }}</button>
             <button class="stat action-btn" :class="{ active: favorited }" @click="toggleFavorite">⭐ {{ favoriteCount }}</button>
+            <ReportButton v-if="!isOwner" target-type="character" :target-id="character.id" :target-title="character.title" />
           </div>
           <button class="btn-line" @click="goBattle">⚔ 发起约战</button>
         </div>
@@ -148,6 +149,7 @@
 
 <script setup lang="ts">
 import UserLink from '@/components/UserLink.vue'
+import ReportButton from '@/components/ReportButton.vue'
 import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'

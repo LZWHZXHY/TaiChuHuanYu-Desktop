@@ -8,14 +8,14 @@ using TaiChuWeb_V2.DbContext;
 namespace TaiChuWeb_V2.Controllers.Users
 {
     /// <summary>
-    /// 个人主页的「社区活跃」统计：发帖、博客、评论、画作、百科、世界观、签到、聊天、对局、世界任务……
+    /// 个人主页的「社区活跃」统计：发帖、博客、评论、画作、百科、世界观（含编年史）、小说、柴圈作品、OC、岁月史书、签到、聊天、对局、世界任务……
     /// 每天做了几件事（活跃日历）、加入第几天、活跃天数、连续活跃、几点最活跃。
     /// 只给次数，不给内容；「上站天数」只有本人能看到。日期按北京时间。
     /// </summary>
     [ApiController]
     [Route("api/users/{userId:guid}/activity")]
     [AllowAnonymous]
-    public class UserActivityController(AppDbContext db, IConfiguration configuration, ILogger<UserActivityController> logger) : ControllerBase
+    public class UserActivityController(AppDbContext db, IServiceScopeFactory scopes, IConfiguration configuration, ILogger<UserActivityController> logger) : ControllerBase
     {
         private static readonly TimeSpan Beijing = TimeSpan.FromHours(8);
 
@@ -23,10 +23,11 @@ namespace TaiChuWeb_V2.Controllers.Users
         private static readonly (string Key, string Label)[] Kinds =
         {
             ("post", "帖子"), ("blog", "博客"), ("comment", "评论"), ("artwork", "画作"), ("wiki", "百科"),
-            ("world", "世界观"), ("quest", "世界任务"), ("history", "岁月史书"), ("game", "对局"), ("chat", "聊天"), ("signin", "签到"),
+            ("world", "世界观"), ("novel", "小说"), ("chai", "柴圈作品"), ("oc", "OC"), ("quest", "世界任务"), ("history", "岁月史书"), ("game", "对局"), ("chat", "聊天"), ("signin", "签到"),
         };
 
         private sealed record Event(DateTime At, string Kind, bool HasTime);
+        private sealed record HistoryRow(long Id, string Kind, string Title, string? Content, string Images, DateTime HappenedOn, string DatePrecision, DateTime CreatedAt);
 
         [HttpGet]
         public async Task<IActionResult> Get(Guid userId)
@@ -35,70 +36,119 @@ namespace TaiChuWeb_V2.Controllers.Users
             if (user == null) return NotFound(new { message = "没有这位用户" });
             var isSelf = Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var me) && me == userId;
             var idText = userId.ToString();
-            var events = new List<Event>();
-
-            // 帖子 / 博客：作者 = 所在空间的主人
-            var spaceIds = await db.Spaces.AsNoTracking().Where(s => s.UserId == idText).Select(s => s.Id).ToListAsync();
-            if (spaceIds.Count > 0)
+            // 十几张表互不相关：每张表开自己的数据库连接并行查（远程数据库一条查询要 ~250ms，串行要好几秒）
+            async Task<List<Event>> Q(Func<AppDbContext, Task<IEnumerable<Event>>> run)
             {
-                var published = await db.PublishedNotes.AsNoTracking()
-                    .Where(p => spaceIds.Contains(p.SpaceId) && (p.Type == "post" || p.Type == "blog"))
-                    .Select(p => new { p.Type, p.PublishedAt }).ToListAsync();
-                events.AddRange(published.Select(p => new Event(p.PublishedAt, p.Type == "post" ? "post" : "blog", true)));
+                try
+                {
+                    using var scope = scopes.CreateScope();
+                    return (await run(scope.ServiceProvider.GetRequiredService<AppDbContext>())).ToList();
+                }
+                catch (Exception ex) { logger.LogWarning(ex, "社区活跃：读取某一类活动失败"); return new(); }
             }
-            // 评论（帖子、博客、画作下面的都算）
-            events.AddRange((await db.Comments.AsNoTracking().Where(c => c.UserId == idText && c.Content != "")
-                .Select(c => c.CreatedAt).ToListAsync()).Select(t => new Event(t, "comment", true)));
-            // 画作：别人只看得到审核通过、公开的
-            var artQuery = db.Artworks.AsNoTracking().Where(a => a.UploaderId == userId);
-            if (!isSelf) artQuery = artQuery.Where(a => a.IsApproved && (a.Status == "published" || a.Status == "" || a.Status == null));
-            events.AddRange((await artQuery.Select(a => a.UploadAt).ToListAsync()).Select(t => new Event(t, "artwork", true)));
-            // 百科编辑
-            events.AddRange((await db.WikiArticleRevisions.AsNoTracking().Where(r => r.ContributorId == idText)
-                .Select(r => r.CreatedAt).ToListAsync()).Select(t => new Event(t, "wiki", true)));
-            // 世界观条目的新建 / 修改（只给次数，不暴露是哪个世界）
-            events.AddRange((await db.WorldCardRevisions.AsNoTracking().Where(r => r.UserId == userId && r.Action != "baseline")
-                .Select(r => r.CreatedAt).ToListAsync()).Select(t => new Event(t, "world", true)));
-            // 世界任务报告
-            events.AddRange((await db.ServerQuestContributions.AsNoTracking().Where(c => c.UserId == userId && c.Source == "player")
-                .Select(c => c.CreatedAt).ToListAsync()).Select(t => new Event(t, "quest", true)));
-            // 岁月史书：记的每一段（被下架的只算给本人看），在岁月史书里的评论也算「评论」
-            var historyQuery = db.CommunityHistoryEntries.AsNoTracking().Where(e => e.UserId == userId);
-            if (!isSelf) historyQuery = historyQuery.Where(e => !e.Hidden);
-            var historyRows = await historyQuery.OrderByDescending(e => e.CreatedAt)
-                .Select(e => new { e.Id, e.Kind, e.Title, e.Content, e.Images, e.HappenedOn, e.DatePrecision, e.CreatedAt }).ToListAsync();
-            events.AddRange(historyRows.Select(h => new Event(h.CreatedAt, "history", true)));
-            events.AddRange((await db.CommunityHistoryComments.AsNoTracking().Where(c => c.UserId == userId)
-                .Select(c => c.CreatedAt).ToListAsync()).Select(t => new Event(t, "comment", true)));
-            // 签到（只有日期，不算进「几点活跃」）
-            events.AddRange((await db.UserSignLogs.AsNoTracking().Where(s => s.UserId == userId)
-                .Select(s => s.SignDate).ToListAsync()).Select(t => new Event(t, "signin", false)));
-            // 棋类对局（五子棋 / 围棋 / 象棋的本地记录）
-            events.AddRange((await db.BoardGameRecords.AsNoTracking().Where(r => r.Player1Id == userId || r.Player2Id == userId)
-                .Select(r => r.CreatedAt).ToListAsync()).Select(t => new Event(t, "game", true)));
+            static IEnumerable<Event> E(IEnumerable<DateTime> times, string kind, bool hasTime = true) => times.Select(t => new Event(t, kind, hasTime));
+
+            // 岁月史书：记的每一段（被下架的只算给本人看）；要拿最近三段显示在主页上，单独留着
+            var historyTask = Task.Run(async () =>
+            {
+                using var scope = scopes.CreateScope();
+                var c = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                var q = c.CommunityHistoryEntries.AsNoTracking().Where(e => e.UserId == userId);
+                if (!isSelf) q = q.Where(e => !e.Hidden);
+                return await q.OrderByDescending(e => e.CreatedAt)
+                    .Select(e => new HistoryRow(e.Id, e.Kind, e.Title, e.Content, e.Images, e.HappenedOn, e.DatePrecision, e.CreatedAt)).ToListAsync();
+            });
+
+            var tasks = new List<Task<List<Event>>>
+            {
+                // 帖子 / 博客：作者 = 所在空间的主人
+                Q(async c =>
+                {
+                    var spaceIds = await c.Spaces.AsNoTracking().Where(s => s.UserId == idText).Select(s => s.Id).ToListAsync();
+                    if (spaceIds.Count == 0) return Enumerable.Empty<Event>();
+                    var published = await c.PublishedNotes.AsNoTracking()
+                        .Where(p => spaceIds.Contains(p.SpaceId) && (p.Type == "post" || p.Type == "blog"))
+                        .Select(p => new { p.Type, p.PublishedAt }).ToListAsync();
+                    return published.Select(p => new Event(p.PublishedAt, p.Type == "post" ? "post" : "blog", true));
+                }),
+                // 评论（帖子、博客、画作、柴圈作品下面的；岁月史书的评论在另一张表）
+                Q(async c => E(await c.Comments.AsNoTracking().Where(x => x.UserId == idText && x.Content != "").Select(x => x.CreatedAt).ToListAsync(), "comment")),
+                Q(async c => E(await c.CommunityHistoryComments.AsNoTracking().Where(x => x.UserId == userId).Select(x => x.CreatedAt).ToListAsync(), "comment")),
+                // 画作：别人只看得到审核通过、公开的
+                Q(async c =>
+                {
+                    var q = c.Artworks.AsNoTracking().Where(a => a.UploaderId == userId);
+                    if (!isSelf) q = q.Where(a => a.IsApproved && (a.Status == "published" || a.Status == "" || a.Status == null));
+                    return E(await q.Select(a => a.UploadAt).ToListAsync(), "artwork");
+                }),
+                // 百科编辑
+                Q(async c => E(await c.WikiArticleRevisions.AsNoTracking().Where(r => r.ContributorId == idText).Select(r => r.CreatedAt).ToListAsync(), "wiki")),
+                // 世界观条目的新建 / 修改、编年史里写的事件（只给次数，不暴露是哪个世界）
+                Q(async c => E(await c.WorldCardRevisions.AsNoTracking().Where(r => r.UserId == userId && r.Action != "baseline").Select(r => r.CreatedAt).ToListAsync(), "world")),
+                Q(async c => E(await c.WorldTimelineEvents.AsNoTracking().Where(e => e.CreatedBy == userId).Select(e => e.CreatedAt).ToListAsync(), "world")),
+                // 世界观小说：写的章节（别人只算公开小说里的）
+                Q(async c =>
+                {
+                    var q = c.WorldNovels.AsNoTracking().Where(n => n.AuthorId == userId);
+                    if (!isSelf) q = q.Where(n => n.IsPublic);
+                    var ids = await q.Select(n => n.Id).ToListAsync();
+                    return ids.Count == 0 ? Enumerable.Empty<Event>()
+                        : E(await c.WorldNovelChapters.AsNoTracking().Where(ch => ids.Contains(ch.NovelId)).Select(ch => ch.CreatedAt).ToListAsync(), "novel");
+                }),
+                // 柴圈作品、OC（别人只算已发布的）
+                Q(async c =>
+                {
+                    var q = c.ChaiWorks.AsNoTracking().Where(w => w.AuthorId == userId);
+                    if (!isSelf) q = q.Where(w => w.Status == "published");
+                    return E(await q.Select(w => w.CreatedAt).ToListAsync(), "chai");
+                }),
+                Q(async c =>
+                {
+                    var q = c.StickmanCharacters.AsNoTracking().Where(x => x.AuthorId == userId);
+                    if (!isSelf) q = q.Where(x => x.Status == "published");
+                    return E(await q.Select(x => x.CreatedAt).ToListAsync(), "oc");
+                }),
+                // 世界任务报告
+                Q(async c => E(await c.ServerQuestContributions.AsNoTracking().Where(x => x.UserId == userId && x.Source == "player").Select(x => x.CreatedAt).ToListAsync(), "quest")),
+                // 签到（只有日期，不算进「几点活跃」）
+                Q(async c => E(await c.UserSignLogs.AsNoTracking().Where(x => x.UserId == userId).Select(x => x.SignDate).ToListAsync(), "signin", false)),
+                // 棋类对局（五子棋 / 围棋 / 象棋的本地记录）
+                Q(async c => E(await c.BoardGameRecords.AsNoTracking().Where(r => r.Player1Id == userId || r.Player2Id == userId).Select(r => r.CreatedAt).ToListAsync(), "game")),
+            };
 
             // 下面几张表是服务启动后自己建的（聊天、联机对局、上站记录），表不存在就跳过
             var visitDays = 0;
             List<object>? visits = null;
-            try
+            var rawTask = Task.Run(async () =>
             {
-                await using var c = new MySqlConnection(configuration.GetConnectionString("DefaultConnection"));
-                await c.OpenAsync();
-                foreach (var t in await ReadTimesAsync(c, "SELECT CreatedAt FROM chat_messages WHERE UserId=@u AND IsAi=0 AND Deleted=0", idText))
-                    events.Add(new Event(t, "chat", true));
-                foreach (var t in await ReadTimesAsync(c, "SELECT m.EndedAt FROM game_match_players p JOIN game_matches m ON m.Id = p.MatchId WHERE p.UserId=@u", idText))
-                    events.Add(new Event(t, "game", true));
-                if (isSelf)
+                var list = new List<Event>();
+                try
                 {
-                    // 上站天数只给本人看
-                    var days = await ReadTimesAsync(c, "SELECT Day FROM analytics_user_days WHERE UserId=@u", idText);
-                    visitDays = days.Count;
-                    var today = Today();
-                    visits = days.Where(d => d.Date > today.AddDays(-371)).OrderBy(d => d)
-                        .Select(d => (object)new { d = d.ToString("yyyy-MM-dd"), n = 1 }).ToList();
+                    await using var c = new MySqlConnection(configuration.GetConnectionString("DefaultConnection"));
+                    await c.OpenAsync();
+                    foreach (var t in await ReadTimesAsync(c, "SELECT CreatedAt FROM chat_messages WHERE UserId=@u AND IsAi=0 AND Deleted=0", idText))
+                        list.Add(new Event(t, "chat", true));
+                    foreach (var t in await ReadTimesAsync(c, "SELECT m.EndedAt FROM game_match_players p JOIN game_matches m ON m.Id = p.MatchId WHERE p.UserId=@u", idText))
+                        list.Add(new Event(t, "game", true));
+                    if (isSelf)
+                    {
+                        // 上站天数只给本人看
+                        var days = await ReadTimesAsync(c, "SELECT Day FROM analytics_user_days WHERE UserId=@u", idText);
+                        visitDays = days.Count;
+                        var today = Today();
+                        visits = days.Where(d => d.Date > today.AddDays(-371)).OrderBy(d => d)
+                            .Select(d => (object)new { d = d.ToString("yyyy-MM-dd"), n = 1 }).ToList();
+                    }
                 }
-            }
-            catch (Exception ex) { logger.LogDebug(ex, "读取聊天 / 对局 / 上站记录失败"); }
+                catch (Exception ex) { logger.LogDebug(ex, "读取聊天 / 对局 / 上站记录失败"); }
+                return list;
+            });
+
+            var events = (await Task.WhenAll(tasks)).SelectMany(x => x).Concat(await rawTask).ToList();
+            List<HistoryRow> historyRows;
+            try { historyRows = await historyTask; }
+            catch (Exception ex) { logger.LogWarning(ex, "社区活跃：读取岁月史书失败"); historyRows = new(); }
+            events.AddRange(historyRows.Select(h => new Event(h.CreatedAt, "history", true)));
 
             var stats = await db.UserStats.AsNoTracking().Where(s => s.UserId == userId)
                 .Select(s => new { s.LikesReceived, s.FollowersCount, s.Experience, s.MaxSignStreak }).FirstOrDefaultAsync();

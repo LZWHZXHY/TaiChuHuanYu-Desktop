@@ -202,8 +202,9 @@ namespace TaiChuWeb_V2.Controllers
 
         private static string BuildLink(string targetType, string targetId) => targetType switch
         {
-            "work" => "/community",
-            "character" => "/community",
+            // 直接打开那件作品 / 那个角色（以前都跳到柴圈首页，还得自己找）
+            "work" => $"/works/{targetId}",
+            "character" => $"/ocs/{targetId}",
             "MustEat" => "/must-eat",
             ProfileTarget => $"/user/{targetId}?tab=guestbook", // 主人打开的是个人中心的留言板标签，别人打开的是公开主页的留言板
             _ => "/"

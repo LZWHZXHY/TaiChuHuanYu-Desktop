@@ -79,6 +79,8 @@ builder.Services.AddHostedService<TaiChuWeb_V2.Services.Quest.ServerQuestSchema>
 builder.Services.AddScoped<TaiChuWeb_V2.Services.Quest.ServerQuestService>();
 // 岁月史书：启动时建表
 builder.Services.AddHostedService<TaiChuWeb_V2.Services.CommunityHistory.CommunityHistorySchema>();
+// 举报：启动时建表
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Reports.ContentReportSchema>();
 // 旧博客补列表封面（正文有图但没设封面的，取第一张图）
 builder.Services.AddHostedService<TaiChuWeb_V2.Services.Publish.BlogCoverBackfill>();
 

@@ -12,10 +12,13 @@ export interface PublicProfile {
   title?: string | null;
   maxSignStreak: number;
   likesReceived: number;
-  counts: { posts: number; artworks: number; worlds: number; characters: number };
+  /** chaiWorks / novels / history 是后来加的，旧后端没有 */
+  counts: { posts: number; artworks: number; worlds: number; characters: number; chaiWorks?: number; novels?: number; history?: number };
   artworks: { id: number; title: string; coverImageUrl?: string | null }[];
   worlds: { id: string; name: string; description?: string | null; coverImage?: string | null }[];
   characters: { id: string; title: string; coverUrl?: string | null; description?: string | null }[];
+  chaiWorks?: { id: string; title: string; coverUrl?: string | null; description?: string | null; mediaType?: string }[];
+  novels?: { id: string; title: string; coverUrl?: string | null; description?: string | null; wordCount: number; status: string }[];
 }
 
 export const profileApi = {

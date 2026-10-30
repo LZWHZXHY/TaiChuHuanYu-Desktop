@@ -72,6 +72,7 @@
             <div class="footer-divider" aria-hidden="true"><i></i></div>
             <p class="end-mark">— 阅读完毕 · END OF RECORD —</p>
             <p class="footer-sign">喜欢这篇内容？可以复制引用链接分享给社区。</p>
+            <p v-if="!post.canEdit" class="footer-report"><ReportButton :target-type="post.type === 'blog' ? 'blog' : 'post'" :target-id="post.id" :target-title="post.title || '短帖'" text="这篇内容有问题？举报" /></p>
           </footer>
         </article>
 
@@ -88,6 +89,7 @@
 
 <script setup lang="ts">
 import UserLink from '@/components/UserLink.vue'
+import ReportButton from '@/components/ReportButton.vue'
 import UserTitle from '@/components/UserTitle.vue'
 import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
@@ -349,4 +351,5 @@ onUnmounted(() => {
 @media(max-width: 720px) { .md-viewport { padding: 0 16px 60px; } .md-wrapper { padding: 20px; } .metadata { font-size: .8rem; gap: 8px; } }
 @media(max-width: 720px) { .detail-atmosphere { opacity: .5; } .title { font-size: 1.8rem; padding-left: 12px; } }
 @media(prefers-reduced-motion: reduce) { .animate-fade-up, .md-loading-bar { animation: none; } }
+.footer-report { margin: 8px 0 0; text-align: center; }
 </style>

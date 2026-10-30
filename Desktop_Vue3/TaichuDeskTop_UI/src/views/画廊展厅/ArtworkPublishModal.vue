@@ -9,7 +9,9 @@
         <button class="close-btn" aria-label="关闭作品编辑与发布" @click="close">✕</button>
       </header>
 
-      <fieldset class="modal-body" :disabled="submitting">
+      <!-- fieldset 只负责「保存时整块禁用」；滚动放在里面的 div 上：Chrome 里 fieldset 自己当滚动区域时滚不动（图片多了下面的看不到） -->
+      <fieldset class="modal-body-wrap" :disabled="submitting">
+      <div class="modal-body">
         <!-- 左侧：图像管理与上传 -->
         <div class="media-section">
           <label class="section-label">作品图片 ({{ imageList.length }}P)</label>
@@ -92,6 +94,7 @@
 
           <div class="form-group"><label for="artwork-tags">标签（可选）</label><input id="artwork-tags" v-model="form.tags" class="text-input" placeholder="例如：风景，原创，练习；用逗号分隔" maxlength="510" /><p class="sub-hint">标签用于分类与搜索，不要求关联人设、世界观或笔记。</p></div>
         </div>
+      </div>
       </fieldset>
       <p v-if="submitting && !artwork" class="form-error" role="status">{{ progress < 100 ? `上传中 ${progress}%` : '图片已上传，正在处理并保存，请稍候…' }}</p>
       <p v-if="error" class="form-error" role="alert">{{ error }}</p>
@@ -191,7 +194,9 @@ async function handleSubmit() {
 </script>
 
 <style scoped>
-.modal-body { margin: 0; border: 0; min-width: 0; min-height: 0; flex: 1; }
+/* fieldset 不参与排版（display: contents），里面的 .modal-body 直接当弹窗的滚动区域；禁用照样生效 */
+.modal-body-wrap { display: contents; }
+.modal-body { min-width: 0; min-height: 0; flex: 1; }
 .form-error { margin: 0; padding: 12px 32px; color: var(--accent-color); }
 input, textarea, select { color: var(--text-primary); background: var(--paper-card); }
 button:disabled { opacity: .5; cursor: default; }
@@ -321,6 +326,8 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
 }
 
 .meta-section { display: flex; flex-direction: column; gap: 20px; }
+/* 图片多的时候往下翻，右边的标题、说明一直留在眼前 */
+.meta-section { position: sticky; top: 0; align-self: start; }
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group label { font-size: 0.85rem; font-weight: 600; color: var(--text-primary); }
 .required { color: #eb4d4b; }
@@ -354,6 +361,7 @@ button:focus-visible, .dropzone:focus-visible { outline: 2px solid var(--accent-
 
 @media (max-width: 768px) {
   .modal-body { grid-template-columns: 1fr; padding: 20px; gap: 24px; }
+  .meta-section { position: static; }
   .modal-header, .modal-footer { padding: 20px; }
   .item-mask { opacity: 1; }
 }

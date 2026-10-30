@@ -45,9 +45,30 @@ export interface SignStats {
   topStreaks: { id: string; name: string; avatar?: string | null; streak: number; best: number }[]
 }
 
+/** 某个板块的内容统计 */
+export interface ContentModule {
+  key: string
+  label: string
+  group: string
+  note: string | null
+  /** 全部（含下架 / 私密 / 审核中） */
+  total: number
+  /** 大家看得到的（这个板块没有「公开」概念时为 null） */
+  visible: number | null
+  /** 最近 N 天新增 / 之前 N 天新增 / 今天 */
+  current: number
+  previous: number
+  today: number
+  /** 最近 N 天每天新增几条（和 dates 对应） */
+  series: number[]
+  error: string | null
+}
+export interface ContentStats { days: number; dates: string[]; modules: ContentModule[] }
+
 export const analyticsApi = {
   live: () => request.get<LiveStats>('/Admin/Analytics/live', { silentError: true }),
   trend: (days: number) => request.get<TrendStats>('/Admin/Analytics/trend', { params: { days }, silentError: true }),
   onlineCurve: (date?: string) => request.get<OnlineCurves>('/Admin/Analytics/online-curve', { params: { date }, silentError: true }),
   sign: () => request.get<SignStats>('/Admin/Analytics/sign', { silentError: true }),
+  content: (days: number) => request.get<ContentStats>('/Admin/Analytics/content', { params: { days }, silentError: true }),
 }

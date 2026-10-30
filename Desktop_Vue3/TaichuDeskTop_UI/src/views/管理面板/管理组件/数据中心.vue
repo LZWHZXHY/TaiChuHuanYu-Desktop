@@ -137,8 +137,36 @@
       </div>
     </section>
 
-    <!-- ⑤ 内容分布 -->
-    <section v-if="distItems.length" class="block">
+    <!-- ⑤ 各板块内容：总数、公开的、最近 N 天新增（和之前对比）、每天新增 -->
+    <section v-if="content" class="block">
+      <div class="block-head">
+        <h3 class="block-title">各板块内容 <small>总数含下架 / 私密 / 审核中；「公开」是大家看得到的；新增按北京时间、和趋势用同一个时间范围（{{ content.days }} 天）</small></h3>
+      </div>
+      <div class="table-wrap content-wrap">
+        <table class="content-table">
+          <thead><tr><th>板块</th><th class="num">总数</th><th class="num">公开</th><th class="num">今天</th><th class="num">最近 {{ content.days }} 天</th><th class="num">较之前 {{ content.days }} 天</th><th>每天新增</th></tr></thead>
+          <tbody>
+            <template v-for="g in contentGroups" :key="g.name">
+              <tr class="group-row"><td colspan="7">{{ g.name }}</td></tr>
+              <tr v-for="m in g.modules" :key="m.key" :class="{ 'row-error': m.error }">
+                <td :title="m.note || ''">{{ m.label }}<small v-if="m.note" class="row-note">{{ m.note }}</small></td>
+                <template v-if="m.error"><td colspan="6" class="muted">{{ m.error }}</td></template>
+                <template v-else>
+                  <td class="num">{{ m.total.toLocaleString() }}</td>
+                  <td class="num">{{ m.visible == null ? '—' : m.visible.toLocaleString() }}<small v-if="m.visible != null && m.total > m.visible" class="row-note">{{ (m.total - m.visible).toLocaleString() }} 不公开</small></td>
+                  <td class="num">{{ m.today }}</td>
+                  <td class="num"><b>{{ m.current.toLocaleString() }}</b></td>
+                  <td class="num"><span class="metric-trend" :class="delta(m.current, m.previous).cls">{{ delta(m.current, m.previous).text }}</span> <small class="muted">{{ m.previous }}</small></td>
+                  <td><span class="spark" :title="sparkTitle(m)"><i v-for="(v, i) in m.series" :key="i" :style="{ height: sparkH(m, v) }"></i></span></td>
+                </template>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <!-- 旧接口兜底：新接口读不到（后端还没更新）时显示原来的内容总量 -->
+    <section v-else-if="distItems.length" class="block">
       <h3 class="block-title">内容总量</h3>
       <div v-for="item in distItems" :key="item.label" class="dist-row">
         <span class="dist-label">{{ item.label }}</span>
@@ -154,7 +182,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import type { ECharts } from 'echarts/core'
 import request from '@/utils/request'
 import UserLink from '@/components/UserLink.vue'
-import { analyticsApi, type LiveStats, type OnlineCurves, type SignStats, type TrendRow, type TrendStats } from '@/api/analytics'
+import { analyticsApi, type ContentModule, type ContentStats, type LiveStats, type OnlineCurves, type SignStats, type TrendRow, type TrendStats } from '@/api/analytics'
 
 type MetricKey = 'active' | 'signed' | 'newUsers' | 'peakOnline' | 'visitors'
 const RANGES = [7, 30, 90] as const
@@ -172,6 +200,7 @@ const trend = ref<TrendStats | null>(null)
 const curves = ref<OnlineCurves | null>(null)
 const sign = ref<SignStats | null>(null)
 const overview = ref<Record<string, number> | null>(null)
+const content = ref<ContentStats | null>(null)
 const days = ref<number>(30)
 const metric = ref<MetricKey>('active')
 const showTable = ref(false)
@@ -234,6 +263,27 @@ const summaryCards = computed(() => {
   ]
 })
 const metricLabel = computed(() => METRICS.find(m => m.key === metric.value)?.label ?? '')
+
+// 各板块内容：按分组排（顺序跟着接口）
+const contentGroups = computed(() => {
+  const out: { name: string; modules: ContentModule[] }[] = []
+  for (const m of content.value?.modules ?? []) {
+    let g = out.find(x => x.name === m.group)
+    if (!g) { g = { name: m.group, modules: [] }; out.push(g) }
+    g.modules.push(m)
+  }
+  return out
+})
+const sparkH = (m: ContentModule, v: number) => { const max = Math.max(1, ...m.series); return v ? `${Math.max(8, Math.round(v / max * 100))}%` : '0' }
+const sparkTitle = (m: ContentModule) => {
+  const dates = content.value?.dates ?? []
+  const max = Math.max(...m.series)
+  const i = m.series.indexOf(max)
+  return max > 0 ? `最多的一天：${dates[i]}（${max}）` : '这段时间没有新增'
+}
+async function loadContent() {
+  try { content.value = await analyticsApi.content(days.value) } catch { content.value = null }
+}
 
 const distItems = computed(() => {
   const o = overview.value
@@ -367,13 +417,13 @@ async function refreshAll() {
   try {
     await loadLive()
     await Promise.all([
-      loadTrend(), loadCurves(), loadSign(),
+      loadTrend(), loadCurves(), loadSign(), loadContent(),
       request.get<Record<string, number>>('/DataPanel/overview', { silentError: true }).then(o => { overview.value = o }).catch(() => undefined),
     ])
   } finally { loading.value = false }
 }
 
-function setDays(d: number) { if (days.value !== d) { days.value = d; void loadTrend() } }
+function setDays(d: number) { if (days.value !== d) { days.value = d; void loadTrend(); void loadContent() } }
 watch(metric, drawTrend)
 
 function exportCsv() {
@@ -482,6 +532,16 @@ th { position: sticky; top: 0; background: var(--paper-card); color: var(--text-
 .rank li small { color: var(--text-secondary); font-size: 11px; }
 .retention { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 14px; }
 
+.table-wrap.content-wrap { max-height: none; }
+.content-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.content-table th, .content-table td { padding: 7px 10px; border-bottom: 1px solid var(--border-line); text-align: left; vertical-align: middle; }
+.content-table th { font-size: 12px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
+.content-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.content-table .group-row td { padding-top: 14px; font-size: 12px; font-weight: 600; color: var(--accent-color); border-bottom: 0; }
+.content-table .row-note { display: block; font-size: 11px; font-weight: 400; color: var(--text-secondary); }
+.content-table .row-error td { color: var(--text-secondary); }
+.spark { display: flex; align-items: flex-end; gap: 1px; width: 160px; height: 26px; }
+.spark i { flex: 1; min-width: 1px; background: var(--accent-color); opacity: .75; }
 .dist-row { display: flex; align-items: center; gap: 14px; font-size: 14px; margin-top: 10px; }
 .dist-label { width: 48px; flex-shrink: 0; color: var(--text-secondary); }
 .dist-bar { flex: 1; height: 10px; background: var(--bg-sub); overflow: hidden; }

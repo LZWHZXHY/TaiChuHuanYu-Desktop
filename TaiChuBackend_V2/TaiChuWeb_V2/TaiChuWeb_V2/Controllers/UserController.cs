@@ -117,13 +117,19 @@ public class UserController : ControllerBase
             .Where(a => a.UploaderId == id && a.IsApproved && (a.Status == "published" || a.Status == "" || a.Status == null));
         var worlds = _context.WorldProjects.AsNoTracking().Where(w => w.OwnerId == id && w.IsPublic);
         var characters = _context.StickmanCharacters.AsNoTracking().Where(c => c.AuthorId == id && c.Status == "published");
+        var chaiWorks = _context.ChaiWorks.AsNoTracking().Where(w => w.AuthorId == id && w.Status == "published");
+        var novels = _context.WorldNovels.AsNoTracking().Where(n => n.AuthorId == id && n.IsPublic);
 
         var counts = new
         {
             Posts = await notes.CountAsync(),
             Artworks = await artworks.CountAsync(),
             Worlds = await worlds.CountAsync(),
-            Characters = await characters.CountAsync()
+            Characters = await characters.CountAsync(),
+            ChaiWorks = await chaiWorks.CountAsync(),
+            Novels = await novels.CountAsync(),
+            // 岁月史书里记的（被下架的不算），主页上点了打开「只看 TA 记的」
+            History = await _context.CommunityHistoryEntries.AsNoTracking().CountAsync(e => e.UserId == id && !e.Hidden)
         };
 
         var recentArtworks = await artworks.OrderByDescending(a => a.UploadAt).Take(12)
@@ -134,6 +140,13 @@ public class UserController : ControllerBase
             .ToListAsync();
         var publishedCharacters = await characters.OrderByDescending(c => c.UpdatedAt ?? c.CreatedAt).Take(8)
             .Select(c => new { c.Id, c.Title, c.CoverUrl, c.Description })
+            .ToListAsync();
+
+        var recentChaiWorks = await chaiWorks.OrderByDescending(w => w.CreatedAt).Take(8)
+            .Select(w => new { w.Id, w.Title, w.CoverUrl, w.Description, w.MediaType })
+            .ToListAsync();
+        var publicNovels = await novels.OrderByDescending(n => n.UpdatedAt).Take(6)
+            .Select(n => new { n.Id, n.Title, n.CoverUrl, n.Description, n.WordCount, n.Status })
             .ToListAsync();
 
         return Ok(new
@@ -151,7 +164,9 @@ public class UserController : ControllerBase
             Counts = counts,
             Artworks = recentArtworks,
             Worlds = publicWorlds,
-            Characters = publishedCharacters
+            Characters = publishedCharacters,
+            ChaiWorks = recentChaiWorks,
+            Novels = publicNovels
         });
     }
 
@@ -313,4 +328,4 @@ public class UserController : ControllerBase
             return StatusCode(500, new { message = "数据库同步失败", detail = ex.Message });
         }
     }
-}
+}

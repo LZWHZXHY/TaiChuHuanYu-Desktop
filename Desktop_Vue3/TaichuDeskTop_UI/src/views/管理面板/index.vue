@@ -6,7 +6,7 @@
     </header>
     <nav class="admin-modules" aria-label="管理模块">
       <button v-for="menu in menus" :key="menu.id" type="button" class="nav-item" :class="{ 'is-active': activeTab === menu.id }" :aria-pressed="activeTab === menu.id" @click="activeTab = menu.id">
-        <span aria-hidden="true">{{ menu.icon }}</span>{{ menu.label }}
+        <span aria-hidden="true">{{ menu.icon }}</span>{{ menu.label }}<b v-if="menu.id === 'reports' && pendingReports" class="nav-badge" :aria-label="`${pendingReports} 条待处理`">{{ pendingReports }}</b>
       </button>
     </nav>
     <main class="admin-main">
@@ -21,7 +21,7 @@
 <script setup lang="ts">
 import SectionTrace from '@/components/SectionTrace.vue'
 import { useUserStore } from '@/stores/user'
-import { ref, computed, watch} from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import 交易行组件 from './管理组件/交易行组件.vue';
 import 活动组件 from './管理组件/活动组件.vue';
 import 反馈组件 from './管理组件/反馈组件.vue';
@@ -39,6 +39,8 @@ import 年度最佳组件 from './管理组件/年度最佳组件.vue';
 import 聊天室组件 from './管理组件/聊天室组件.vue';
 import 游戏展示组件 from './管理组件/游戏展示组件.vue';
 import 背景特权组件 from './管理组件/背景特权组件.vue';
+import 举报组件 from './管理组件/举报组件.vue';
+import { reportApi } from '@/api/reports';
 import { useRoute } from 'vue-router';
 
 
@@ -57,6 +59,7 @@ const allMenus = [
   { id: 'manual', label: '手册', icon: '📖', component: 用户手册组件 },
   { id: 'event', label: '活动', icon: '◒', component: 活动组件 },
   { id: 'feedback', label: '反馈', icon: '✉', component: 反馈组件 },
+  { id: 'reports', label: '举报', icon: '⚑', component: 举报组件 },
   { id: 'news', label: '公告', icon: '☖', component: 公告组件 },
   { id: 'email', label: '邮件', icon: '＠', component: 邮件管理 },
   { id: 'wiki', label: '维基', icon: '▤', component: 维基组件 },
@@ -67,13 +70,22 @@ const allMenus = [
   { id: 'showcase', label: 'Steam 游戏', icon: '▶', component: 游戏展示组件 },
   { id: 'appearance', label: '背景与赞助特权', icon: '◩', component: 背景特权组件 }, // 仅超级管理员
 ];
-const modulePermissions: Record<string,string> = { data: 'System_Monitor', trade: 'Trade_Manage', users: 'User_Audit', product: 'Trade_Manage', wiki: 'Wiki_Editor', chat: 'User_Audit', showcase: 'Trade_Manage' }
+const modulePermissions: Record<string,string> = { data: 'System_Monitor', trade: 'Trade_Manage', users: 'User_Audit', product: 'Trade_Manage', wiki: 'Wiki_Editor', chat: 'User_Audit', reports: 'User_Audit', showcase: 'Trade_Manage' }
 const menus = computed(() => allMenus.filter(menu => user.permissions.includes('SuperAdmin') || (modulePermissions[menu.id] && user.permissions.includes(modulePermissions[menu.id]))))
 watch(menus, items => { if (!items.some(item => item.id === activeTab.value)) activeTab.value = items[0]?.id || '' }, { immediate: true })
 const currentView = computed(() => {
   const menu = menus.value.find(m => m.id === activeTab.value);
   return menu?.component; // 建议兜底与 activeTab 默认值一致
 });
+
+// 举报菜单上的待处理数（没有权限的账号不请求）
+const pendingReports = ref(0)
+async function refreshPendingReports() {
+  if (!menus.value.some(m => m.id === 'reports')) return
+  try { pendingReports.value = (await reportApi.adminPendingCount()).count } catch { /* 读不到就不显示 */ }
+}
+onMounted(refreshPendingReports)
+watch(activeTab, (now, before) => { if (before === 'reports') void refreshPendingReports() })
 
 const activeMenuLabel = computed(() => {
   return menus.value.find(m => m.id === activeTab.value)?.label || '';
@@ -90,6 +102,7 @@ h1 { font-size: clamp(28px, 3vw, 40px); letter-spacing: -.04em; line-height: 1.2
 .nav-item { position: relative; display: inline-flex; gap: 8px; align-items: center; padding: 12px 16px; border: 0; border-radius: 0; background: transparent; color: var(--text-secondary); font-size: 13px; cursor: pointer; }
 .nav-item::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--signal-color); transform: scaleX(0); transform-origin: left; transition: transform .2s; }
 .nav-item:is(:hover,:focus-visible) { background: var(--bg-sub); color: var(--text-primary); }.nav-item:is(:hover,:focus-visible)::after, .nav-item.is-active::after { transform: scaleX(1); }
+.nav-badge { min-width: 18px; padding: 0 5px; background: #dc2626; color: #fff; font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; }
 .nav-item.is-active { background: var(--inverse-bg); color: var(--inverse-text); }
 .admin-main, .content-body { min-width: 0; }.module-caption { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; font-size: 13px; }.module-caption > :last-child { font: 10px var(--font-mono); letter-spacing: .12em; color: var(--text-secondary); }
 .content-body :deep(table) { width: 100%; }.content-body :deep(.table-container), .content-body :deep(.table-wrapper) { overflow-x: auto; }

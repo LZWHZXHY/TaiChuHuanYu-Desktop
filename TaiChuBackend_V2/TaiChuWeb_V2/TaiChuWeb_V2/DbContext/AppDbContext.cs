@@ -232,6 +232,8 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryEntry> CommunityHistoryEntries { get; set; }
         public DbSet<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryReaction> CommunityHistoryReactions { get; set; }
         public DbSet<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryComment> CommunityHistoryComments { get; set; }
+        // 举报（表由 ContentReportSchema 启动时创建）
+        public DbSet<TaiChuWeb_V2.Models.Reports.ContentReport> ContentReports { get; set; }
         public DbSet<WorldCard> WorldCards { get; set; }
         public DbSet<WorldRelation> WorldRelations { get; set; }
         public DbSet<WorldNovel> WorldNovels { get; set; }
@@ -451,6 +453,7 @@ namespace TaiChuWeb_V2.DbContext
             // 岁月史书：表由 CommunityHistorySchema 启动时创建，不参与 EF 迁移
             modelBuilder.Entity<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryEntry>(entity => entity.ToTable("CommunityHistoryEntries", t => t.ExcludeFromMigrations()));
             modelBuilder.Entity<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryComment>(entity => entity.ToTable("CommunityHistoryComments", t => t.ExcludeFromMigrations()));
+            modelBuilder.Entity<TaiChuWeb_V2.Models.Reports.ContentReport>(entity => entity.ToTable("ContentReports", t => t.ExcludeFromMigrations()));
             modelBuilder.Entity<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryReaction>(entity =>
             {
                 entity.ToTable("CommunityHistoryReactions", t => t.ExcludeFromMigrations());
