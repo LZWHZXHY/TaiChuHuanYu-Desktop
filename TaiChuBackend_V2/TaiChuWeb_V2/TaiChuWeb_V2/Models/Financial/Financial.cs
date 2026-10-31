@@ -16,7 +16,9 @@ namespace TaiChuWeb_V2.Models.Financial
         [Required]
         public string ZhiChuXiangMu { get; set; }
 
+        // 这一列存的是服务器本地时间（不是 UTC），原样输出，不加时区
         [Required]
+        [global::System.Text.Json.Serialization.JsonConverter(typeof(global::TaiChuWeb_V2.Utils.NaiveDateTimeConverter))]
         public DateTime date { get; set; }
 
         [Required]

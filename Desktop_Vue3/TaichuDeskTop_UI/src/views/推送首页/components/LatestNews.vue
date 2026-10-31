@@ -66,9 +66,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import DOMPurify from 'dompurify';
 import { newsApi } from '@/api/news';
+import { serverDate } from '@/utils/serverTime';
 
 const newsList = ref<any[]>([]);
 const loading = ref(false);
@@ -97,7 +99,7 @@ function renderContent(text: string): string {
 // 只展示仍有效的公告（定时公告到期后自动隐藏）
 function isActive(n: any): boolean {
   if (!n) return false;
-  if (n.noticeKind === 'scheduled' && n.expireAt) return new Date(n.expireAt).getTime() > Date.now();
+  if (n.noticeKind === 'scheduled' && n.expireAt) return serverDate(n.expireAt).getTime() > Date.now();
   return true;
 }
 // 排序：重要等级（紧急 > 重要 > 普通）→ 常驻优先 → 发布时间倒序
@@ -116,7 +118,7 @@ const activeNews = computed(() => {
 });
 
 function remainingText(expireAt: string): string {
-  const ms = new Date(expireAt).getTime() - Date.now();
+  const ms = serverDate(expireAt).getTime() - Date.now();
   if (ms <= 0) return '已结束';
   const days = Math.floor(ms / 86400000);
   const hours = Math.floor((ms % 86400000) / 3600000);
@@ -138,6 +140,16 @@ const fetchNews = async () => {
 };
 
 onMounted(fetchNews);
+
+// 从首页社区动态点进来：/?news=公告编号，读完列表后直接打开那条
+const route = useRoute();
+const router = useRouter();
+watch([() => route.query.news, () => newsList.value.length], ([id]) => {
+  if (typeof id !== 'string' || !newsList.value.length) return;
+  const item = newsList.value.find((n: any) => String(n.id) === id);
+  if (item) openDetail(item);
+  void router.replace({ query: { ...route.query, news: undefined } }).catch(() => {});
+}, { immediate: true });
 
 const openDetail = (item: any) => {
   selectedNews.value = item;

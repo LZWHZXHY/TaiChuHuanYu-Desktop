@@ -5,6 +5,10 @@ import path from 'node:path'
 
 export default defineConfig(({ command }) => ({
   plugins: [vue(), command === 'serve' && VueDevTools()],
+  // 打包时间：首页和版本更新页用它自动判断「当前版本」（见 src/utils/appVersion.ts）
+  define: {
+    __APP_BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+  },
   resolve: {
     alias: [
       { find: '@', replacement: path.resolve(__dirname, './src') },

@@ -1,9 +1,16 @@
 <template>
   <article class="home-page content-page">
-    <div class="page-index"><span><b class="index-file">FILE 00</b>TAICHU / COMMUNITY</span><span class="index-meta">创作 · 相遇 · 共建<i class="index-barcode" aria-hidden="true"></i></span></div>
+    <div class="page-index"><span><b class="index-file">FILE 00</b>TAICHU / COMMUNITY</span><span class="index-meta"><RouterLink v-if="siteVersion" to="/changelog" class="index-version" :title="versionTitle">v{{ siteVersion }}</RouterLink>创作 · 相遇 · 共建<i class="index-barcode" aria-hidden="true"></i></span></div>
     <header ref="heroElement" class="home-hero" :class="{ 'motion-paused': !heroMotion }">
       <div class="hero-copy">
         <p class="hero-eyebrow"><span aria-hidden="true"></span>每一种想象，都值得被看见</p>
+        <RouterLink v-if="siteVersion" to="/changelog" class="hero-version" :title="versionTitle">
+          <span class="hv-label">{{ isLocalDev ? 'LOCAL' : 'VERSION' }}</span>
+          <strong class="hv-number">v{{ siteVersion }}</strong>
+          <span class="hv-text">{{ isLocalDev ? '本地运行中' : '当前版本' }}</span>
+          <span v-if="betaVersion" class="hv-beta">v{{ betaVersion }} 内测中</span>
+          <span class="hv-arrow" aria-hidden="true">更新说明 →</span>
+        </RouterLink>
         <h1>让想象<br />成为<span class="title-outline">世界</span><span class="title-stop">.</span></h1>
         <p class="hero-intro">分享一幅画，写下一个故事。<br />从自己的灵感出发，在这里遇见同路的人。</p>
         <dl class="hero-spec">
@@ -59,7 +66,7 @@
         <div class="home-block feed-block"><div class="block-index" aria-hidden="true">01 / COMMUNITY</div><CommunityFeed /></div>
         <div class="home-block news-block"><div class="block-index" aria-hidden="true">02 / NOTICES</div><LatestNews /></div>
         <div class="home-block"><div class="block-index" aria-hidden="true">03 / DEVELOPMENT</div><DevProgress /></div>
-        <RouterLink to="/changelog" class="release-link"><span><strong>版本更新</strong><small>查看更新说明与开发记录</small></span><span aria-hidden="true">↗</span></RouterLink>
+        <RouterLink to="/changelog" class="release-link"><span><strong>版本更新<em v-if="siteVersion" class="release-current">当前版本 v{{ siteVersion }}</em></strong><small>{{ betaVersion ? `v${betaVersion} 正在内测，` : '' }}查看更新说明与开发记录</small></span><span aria-hidden="true">↗</span></RouterLink>
       </section>
       <aside class="side-widgets" aria-label="社区服务与数据">
         <div class="home-block"><SignCard /></div>
@@ -72,12 +79,23 @@
     <div class="footer-particles" aria-hidden="true">
       <ParticleMorph :shapes="footerShapes" :interval="5000" :fill="0.96" :density="38" :colors="['--accent-color', '--signal-mint', '--text-secondary']" />
     </div>
-    <footer class="home-footer"><span><i class="footer-caution" aria-hidden="true"></i>TAICHU HUANYU · END OF INDEX</span><span>想象不设限 · 创作有回响</span><span class="footer-icp"><a class="icp-link" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备2022020268号-2</a></span></footer>
+    <footer class="home-footer"><span><i class="footer-caution" aria-hidden="true"></i>TAICHU HUANYU · END OF INDEX</span><span>想象不设限 · 创作有回响</span><span v-if="siteVersion" class="footer-version">VERSION {{ siteVersion }}</span><span class="footer-icp"><a class="icp-link" href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">京ICP备2022020268号-2</a></span></footer>
   </article>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useVisibleMotion } from '@/composables/useVisibleMotion'
+import { releaseApi, type ReleaseItem } from '@/api/release'
+import { versionSummary, formatBuildTime, IS_LOCAL_DEV } from '@/utils/appVersion'
+
+// 当前版本号：自动取「打包时间之前发布的最新版本」，不用手动改（见 utils/appVersion.ts）
+const releases = ref<ReleaseItem[]>([])
+const versions = computed(() => versionSummary(releases.value))
+const siteVersion = computed(() => versions.value.current?.version ?? '')
+const betaVersion = computed(() => versions.value.beta?.version ?? '')
+const isLocalDev = IS_LOCAL_DEV
+const versionTitle = computed(() => `${IS_LOCAL_DEV ? '本地开发版' : '当前版本'} v${siteVersion.value}，打包于 ${formatBuildTime()}${betaVersion.value ? `；v${betaVersion.value} 内测中` : ''}`)
+onMounted(async () => { try { releases.value = await releaseApi.list() } catch { /* 读不到就不显示版本号 */ } })
 const heroElement = ref<HTMLElement>()
 const heroMotion = useVisibleMotion(heroElement)
 const footerShapes: ParticleShape[] = [
@@ -123,6 +141,18 @@ import DevProgress from './components/DevProgress.vue'
 .home-hero { position: relative; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; padding: 40px 0; align-items: center; }
 .hero-eyebrow { display: flex; gap: 9px; align-items: center; font-size: 12px; margin: 0 0 20px; }
 .hero-eyebrow > span { width: 7px; height: 7px; background: var(--signal-color); }
+/* 首页版本号：标题上方一枚醒目的标签，点了看更新说明 */
+.hero-version { display: inline-flex; align-items: stretch; flex-wrap: wrap; max-width: 100%; margin: -6px 0 18px; border: 1px solid var(--accent-color); background: var(--paper-card); color: var(--text-primary); text-decoration: none; font-size: 13px; line-height: 1; box-shadow: 3px 3px 0 var(--accent-soft); transition: box-shadow .2s, transform .2s; }
+.hero-version > * { display: inline-flex; align-items: center; padding: 8px 10px; }
+.hv-label { background: var(--accent-color); color: var(--on-accent); font: 700 10px/1 var(--font-mono); letter-spacing: .16em; }
+.hv-number { padding-right: 4px; font-family: var(--font-mono); font-size: 17px; font-weight: 700; letter-spacing: -.02em; color: var(--accent-color); }
+.hv-text { padding-left: 0; color: var(--text-secondary); font-size: 12px; }
+.hv-beta { border-left: 1px dashed var(--border-line); color: #b45309; font-size: 12px; font-weight: 600; }
+.hv-arrow { border-left: 1px solid var(--border-line); color: var(--text-secondary); font-size: 12px; }
+.hero-version:is(:hover, :focus-visible) { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--accent-soft); }
+.hero-version:is(:hover, :focus-visible) .hv-arrow { color: var(--accent-color); }
+@media (max-width: 520px) { .hv-arrow { display: none; } .hero-version > * { padding: 7px 8px; } }
+@media (prefers-reduced-motion: reduce) { .hero-version { transition: none; } .hero-version:is(:hover, :focus-visible) { transform: none; } }
 .home-page.content-page h1 { font-family: var(--font-display); font-size: clamp(42px, 4.8vw, 76px); line-height: 1.16; letter-spacing: -.055em; margin: 0; font-weight: 800; }
 .title-outline { position: relative; color: transparent; -webkit-text-stroke: 1px var(--text-primary); }
 .title-outline::after { content: ''; position: absolute; z-index: -1; left: 0; right: -4px; bottom: -.1em; height: .13em; background: color-mix(in srgb,var(--signal-mint) 50%,transparent); transform: skewX(-12deg); }
@@ -185,6 +215,10 @@ import DevProgress from './components/DevProgress.vue'
 .news-block :deep(.pulse-dot) { animation: none; background: currentColor; }
 .home-footer { border-top: 1px solid var(--text-primary); padding: 20px 0; margin-top: 24px; flex-wrap: wrap; }
 /* ICP 备案号：按规定放在首页底部，链接到工信部备案系统 */
+.footer-version { font-family: var(--font-mono); }
+.index-version { margin-right: 12px; font-family: var(--font-mono); color: var(--accent-color); text-decoration: none; letter-spacing: .06em; }
+.index-version:hover { text-decoration: underline; }
+.release-current { margin-left: 10px; padding: 1px 7px; background: var(--accent-soft); color: var(--accent-color); font-family: var(--font-mono); font-size: 11px; font-style: normal; font-weight: 600; letter-spacing: .04em; vertical-align: 2px; }
 .footer-icp { flex-basis: 100%; text-align: center; letter-spacing: .04em; }
 .icp-link { color: var(--text-secondary); text-decoration: none; }
 .icp-link:hover, .icp-link:focus-visible { color: var(--accent-color); text-decoration: underline; text-underline-offset: 3px; }

@@ -115,7 +115,7 @@ namespace TaiChuWeb_V2.Services.Afdian
                         Tier = string.IsNullOrWhiteSpace(s.TierName) ? "觉醒者" : s.TierName,
                         Amount = netAmount,
                         Message = string.IsNullOrWhiteSpace(remark) ? null : remark,
-                        SponsoredAt = s.CreateTime > 0 ? DateTimeOffset.FromUnixTimeSeconds(s.CreateTime).LocalDateTime : DateTime.UtcNow
+                        SponsoredAt = s.CreateTime > 0 ? DateTimeOffset.FromUnixTimeSeconds(s.CreateTime).UtcDateTime : DateTime.UtcNow
                     });
                 }
                 else

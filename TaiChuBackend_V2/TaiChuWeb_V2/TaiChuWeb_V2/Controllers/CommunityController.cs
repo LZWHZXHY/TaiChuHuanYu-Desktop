@@ -8,7 +8,7 @@ namespace TaiChuWeb_V2.Controllers
     public sealed class CommunityFeedItem
     {
         public string Id { get; set; } = "";
-        public string Kind { get; set; } = ""; // blog | post | artwork | wiki-new | wiki-update | user-joined | signin | comment-blog | comment-post | comment-artwork | comment-work | comment-character | comment-history | joint | survey | dev-project | world-new | world-edit | quest-start | quest-complete | history
+        public string Kind { get; set; } = ""; // blog | post | artwork | wiki-new | wiki-update | user-joined | signin | comment-blog | comment-post | comment-artwork | comment-work | comment-character | comment-history | joint | survey | dev-project | world-new | world-edit | quest-start | quest-complete | history | chai-work | oc | battle | novel-new | novel-chapter | chronicle | activity | checkin | comment-activity | quest-report | news | release | must-eat | trade-item | sponsor
         public string ActorName { get; set; } = "";
         public string? ActorId { get; set; } // 动态发起人的用户 ID，点击进入个人主页；官方动态为空
         public string TargetTitle { get; set; } = "";
@@ -357,7 +357,10 @@ namespace TaiChuWeb_V2.Controllers
                 TargetTitle = hcEntries[c.EntryId], TargetId = c.EntryId.ToString(), CreatedAt = c.CreatedAt,
             });
 
-            var feed = blogPosts.Concat(artworks).Concat(wikiItems).Concat(newUsers).Concat(signins).Concat(commentItems).Concat(joints).Concat(surveys).Concat(devProjects).Concat(worldItems).Concat(questItems).Concat(historyItems).Concat(historyCommentItems)
+            // 13. 其他板块：柴圈作品 / OC / 对战、小说、编年史、打卡活动、世界任务贡献、公告、版本更新、必吃榜、交易行上新、赞助
+            var moreItems = await MoreFeedAsync(takeCount);
+
+            var feed = blogPosts.Concat(artworks).Concat(wikiItems).Concat(newUsers).Concat(signins).Concat(commentItems).Concat(joints).Concat(surveys).Concat(devProjects).Concat(worldItems).Concat(questItems).Concat(historyItems).Concat(historyCommentItems).Concat(moreItems)
                 .OrderByDescending(i => i.CreatedAt)
                 .ToList();
 
@@ -365,6 +368,237 @@ namespace TaiChuWeb_V2.Controllers
             var page = feed.Skip(offset).Take(limit).ToList();
 
             return Ok(new { items = page, hasMore });
+        }
+
+        private static readonly TimeSpan China = TimeSpan.FromHours(8);
+        private static string Clip(string? text, int max)
+        {
+            var t = System.Text.RegularExpressions.Regex.Replace(text ?? "", @"\s+", " ").Trim();
+            return t.Length > max ? t[..max] + "…" : t;
+        }
+
+        /// <summary>
+        /// 其他板块的动态。每一类最多取 takeCount 条（分页时 offset 越大取得越多），刷屏型的（打卡、小说更新、编年史）按「同一天」合并成一条。
+        /// </summary>
+        private async Task<List<CommunityFeedItem>> MoreFeedAsync(int takeCount)
+        {
+            var items = new List<CommunityFeedItem>();
+            var userIds = new HashSet<Guid>();
+            var pending = new List<(CommunityFeedItem Item, Guid? UserId)>(); // 最后统一查用户名
+
+            // 柴圈作品（已发布）
+            var works = await db.ChaiWorks.AsNoTracking().Where(w => w.Status == "published")
+                .OrderByDescending(w => w.CreatedAt).Take(takeCount)
+                .Select(w => new { w.Id, w.Title, w.AuthorId, w.AuthorName, w.CreatedAt }).ToListAsync();
+            items.AddRange(works.Select(w => new CommunityFeedItem
+            {
+                Id = "chai-work:" + w.Id, Kind = "chai-work", ActorName = w.AuthorName, ActorId = w.AuthorId.ToString(),
+                TargetTitle = w.Title, TargetId = w.Id.ToString(), CreatedAt = w.CreatedAt,
+            }));
+
+            // OC（已发布）
+            var ocs = await db.StickmanCharacters.AsNoTracking().Where(c => c.Status == "published")
+                .OrderByDescending(c => c.CreatedAt).Take(takeCount)
+                .Select(c => new { c.Id, c.Title, c.AuthorId, c.AuthorName, c.CreatedAt }).ToListAsync();
+            items.AddRange(ocs.Select(c => new CommunityFeedItem
+            {
+                Id = "oc:" + c.Id, Kind = "oc", ActorName = c.AuthorName, ActorId = c.AuthorId.ToString(),
+                TargetTitle = c.Title, TargetId = c.Id.ToString(), CreatedAt = c.CreatedAt,
+            }));
+
+            // 柴圈对战（发起人 = 最早加入的参与者）
+            var battles = await db.Battles.AsNoTracking().Where(b => b.Status != "cancelled")
+                .OrderByDescending(b => b.CreatedAt).Take(takeCount)
+                .Select(b => new { b.Id, b.Title, b.CreatedAt }).ToListAsync();
+            if (battles.Count > 0)
+            {
+                var battleIds = battles.Select(b => b.Id).ToList();
+                var initiators = (await db.BattleParticipants.AsNoTracking().Where(p => battleIds.Contains(p.BattleId))
+                        .Select(p => new { p.BattleId, p.UserId, p.UserName, p.JoinedAt }).ToListAsync())
+                    .GroupBy(p => p.BattleId).ToDictionary(g => g.Key, g => g.OrderBy(p => p.JoinedAt).First());
+                items.AddRange(battles.Select(b =>
+                {
+                    initiators.TryGetValue(b.Id, out var who);
+                    return new CommunityFeedItem
+                    {
+                        Id = "battle:" + b.Id, Kind = "battle", ActorName = who?.UserName ?? "柴圈玩家", ActorId = who?.UserId.ToString(),
+                        TargetTitle = b.Title, TargetId = b.Id, CreatedAt = b.CreatedAt,
+                    };
+                }));
+            }
+
+            // 世界观小说（公开的）：开始连载；新章节（同一本同一天合成一条）
+            var novels = await db.WorldNovels.AsNoTracking().Where(n => n.IsPublic)
+                .OrderByDescending(n => n.CreatedAt).Take(takeCount)
+                .Select(n => new { n.Id, n.Title, n.AuthorId, n.AuthorName, n.CreatedAt }).ToListAsync();
+            items.AddRange(novels.Select(n => new CommunityFeedItem
+            {
+                Id = "novel:" + n.Id, Kind = "novel-new", ActorName = n.AuthorName, ActorId = n.AuthorId.ToString(),
+                TargetTitle = n.Title, TargetId = n.Id.ToString(), CreatedAt = n.CreatedAt,
+            }));
+            var publicNovelIds = await db.WorldNovels.AsNoTracking().Where(n => n.IsPublic).Select(n => n.Id).ToListAsync();
+            var chapters = await db.WorldNovelChapters.AsNoTracking()
+                .Where(c => publicNovelIds.Contains(c.NovelId))
+                .OrderByDescending(c => c.CreatedAt).Take(takeCount * 5)
+                .Select(c => new { c.NovelId, c.Number, c.Title, c.CreatedAt }).ToListAsync();
+            if (chapters.Count > 0)
+            {
+                var novelIds = chapters.Select(c => c.NovelId).Distinct().ToList();
+                var novelInfo = await db.WorldNovels.AsNoTracking().Where(n => novelIds.Contains(n.Id))
+                    .ToDictionaryAsync(n => n.Id, n => new { n.Title, n.AuthorId, n.AuthorName, n.CreatedAt });
+                foreach (var g in chapters.GroupBy(c => new { c.NovelId, Day = (c.CreatedAt + China).Date }))
+                {
+                    if (!novelInfo.TryGetValue(g.Key.NovelId, out var n)) continue;
+                    var list = g.OrderBy(c => c.Number).ToList();
+                    items.Add(new CommunityFeedItem
+                    {
+                        Id = $"novel-chapter:{g.Key.NovelId}:{g.Key.Day:yyyyMMdd}", Kind = "novel-chapter", ActorName = n.AuthorName, ActorId = n.AuthorId.ToString(),
+                        TargetTitle = n.Title, TargetId = g.Key.NovelId.ToString(), CreatedAt = g.Max(c => c.CreatedAt),
+                        Detail = list.Count == 1 ? $"第 {list[0].Number} 章《{Clip(list[0].Title, 30)}》" : $"第 {list[0].Number}–{list[^1].Number} 章，共 {list.Count} 章",
+                    });
+                }
+            }
+
+            // 编年史（公开世界里没隐藏的事件；同一人同一世界同一天合成一条）
+            // 先查出公开的世界再筛（编年史表是启动时建的，和 EF 建的表排序规则可能不同，不做跨表子查询）
+            var publicWorldIds = await db.WorldProjects.AsNoTracking().Where(p => p.IsPublic).Select(p => p.Id).ToListAsync();
+            var chronicle = await db.WorldTimelineEvents.AsNoTracking()
+                .Where(e => !e.Hidden && e.CreatedBy != null && publicWorldIds.Contains(e.ProjectId))
+                .OrderByDescending(e => e.CreatedAt).Take(takeCount * 5)
+                .Select(e => new { e.ProjectId, UserId = e.CreatedBy!.Value, e.Title, e.CreatedAt }).ToListAsync();
+            if (chronicle.Count > 0)
+            {
+                var worldIds = chronicle.Select(e => e.ProjectId).Distinct().ToList();
+                var worldNames = await db.WorldProjects.AsNoTracking().Where(p => worldIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name);
+                // 标题里可能有 {CARD:id} 引用，换成条目名
+                var refIds = chronicle.SelectMany(e => System.Text.RegularExpressions.Regex.Matches(e.Title, @"\{CARD:([0-9a-fA-F-]{36})\}").Select(m => Guid.TryParse(m.Groups[1].Value, out var g) ? g : Guid.Empty))
+                    .Where(g => g != Guid.Empty).Distinct().ToList();
+                var cardNames = refIds.Count == 0 ? new Dictionary<Guid, string>() : await db.WorldCards.AsNoTracking().Where(c => refIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id, c => c.Title);
+                string Plain(string title) => System.Text.RegularExpressions.Regex.Replace(title, @"\{CARD:([0-9a-fA-F-]{36})\}",
+                    m => Guid.TryParse(m.Groups[1].Value, out var g) && cardNames.TryGetValue(g, out var name) ? name : "");
+                foreach (var g in chronicle.GroupBy(e => new { e.ProjectId, e.UserId, Day = (e.CreatedAt + China).Date }))
+                {
+                    if (!worldNames.TryGetValue(g.Key.ProjectId, out var world)) continue;
+                    var titles = g.OrderByDescending(e => e.CreatedAt).Select(e => Clip(Plain(e.Title), 24)).Where(t => t.Length > 0).Distinct().ToList();
+                    var item = new CommunityFeedItem
+                    {
+                        Id = $"chronicle:{g.Key.ProjectId}:{g.Key.UserId}:{g.Key.Day:yyyyMMdd}", Kind = "chronicle", ActorId = g.Key.UserId.ToString(),
+                        TargetTitle = world, TargetId = g.Key.ProjectId.ToString(), CreatedAt = g.Max(e => e.CreatedAt),
+                        Detail = $"记下了 {g.Count()} 件事" + (titles.Count > 0 ? "：" + string.Join("", titles.Take(3).Select(t => "「" + t + "」")) + (titles.Count > 3 ? " 等" : "") : ""),
+                    };
+                    items.Add(item); pending.Add((item, g.Key.UserId));
+                }
+            }
+
+            // 打卡活动：发起了活动；打卡（同一个活动同一天合成一条）；讨论区留言 / 回复
+            var activities = await db.Activities.AsNoTracking().OrderByDescending(a => a.CreatedAt).Take(takeCount)
+                .Select(a => new { a.Id, a.Title, a.OwnerId, a.CreatedAt }).ToListAsync();
+            foreach (var a in activities)
+            {
+                var item = new CommunityFeedItem { Id = "activity:" + a.Id, Kind = "activity", ActorId = a.OwnerId.ToString(), TargetTitle = a.Title, TargetId = a.Id.ToString(), CreatedAt = a.CreatedAt };
+                items.Add(item); pending.Add((item, a.OwnerId));
+            }
+            var checkins = await db.Records.AsNoTracking().Where(r => r.IsCompleted)
+                .OrderByDescending(r => r.CreatedAt).Take(takeCount * 10)
+                .Select(r => new { r.Id, r.CreatedAt, r.Member.ActivityId, r.Member.UserId }).ToListAsync();
+            var activityPosts = await db.Posts.AsNoTracking().OrderByDescending(p => p.CreatedAt).Take(takeCount)
+                .Select(p => new { p.Id, p.ActivityId, p.AuthorId, p.CreatedAt }).ToListAsync();
+            var activityReplies = await db.Replies.AsNoTracking().OrderByDescending(r => r.CreatedAt).Take(takeCount)
+                .Select(r => new { r.Id, r.Post.ActivityId, r.AuthorId, r.CreatedAt }).ToListAsync();
+            var activityIds = checkins.Select(c => c.ActivityId).Concat(activityPosts.Select(p => p.ActivityId)).Concat(activityReplies.Select(r => r.ActivityId)).Distinct().ToList();
+            var activityTitles = activityIds.Count == 0 ? new Dictionary<int, string>() : await db.Activities.AsNoTracking().Where(a => activityIds.Contains(a.Id)).ToDictionaryAsync(a => a.Id, a => a.Title);
+            foreach (var g in checkins.GroupBy(c => new { c.ActivityId, Day = (c.CreatedAt + China).Date }))
+            {
+                if (!activityTitles.TryGetValue(g.Key.ActivityId, out var title)) continue;
+                var latest = g.OrderByDescending(c => c.CreatedAt).First();
+                var people = g.Select(c => c.UserId).Distinct().Count();
+                var item = new CommunityFeedItem
+                {
+                    Id = $"checkin:{g.Key.ActivityId}:{g.Key.Day:yyyyMMdd}", Kind = "checkin", ActorId = latest.UserId.ToString(),
+                    TargetTitle = title, TargetId = g.Key.ActivityId.ToString(), CreatedAt = latest.CreatedAt,
+                    Detail = people > 1 ? $"（这一天共 {people} 人打卡）" : null,
+                };
+                items.Add(item); pending.Add((item, latest.UserId));
+            }
+            foreach (var p in activityPosts.Select(p => new { Key = "post:" + p.Id, p.ActivityId, p.AuthorId, p.CreatedAt })
+                         .Concat(activityReplies.Select(r => new { Key = "reply:" + r.Id, r.ActivityId, r.AuthorId, r.CreatedAt })))
+            {
+                if (!activityTitles.TryGetValue(p.ActivityId, out var title)) continue;
+                var item = new CommunityFeedItem { Id = "activity-" + p.Key, Kind = "comment-activity", ActorId = p.AuthorId.ToString(), TargetTitle = title, TargetId = p.ActivityId.ToString(), CreatedAt = p.CreatedAt };
+                items.Add(item); pending.Add((item, p.AuthorId));
+            }
+
+            // 世界任务：玩家提交、已通过的贡献
+            var contributions = await db.ServerQuestContributions.AsNoTracking().Where(c => c.Source == "player" && c.Status == "approved")
+                .OrderByDescending(c => c.ReviewedAt ?? c.CreatedAt).Take(takeCount)
+                .Select(c => new { c.Id, c.QuestId, c.UserId, c.PlayerName, c.Amount, c.CreatedAt, c.ReviewedAt }).ToListAsync();
+            if (contributions.Count > 0)
+            {
+                var questIds = contributions.Select(c => c.QuestId).Distinct().ToList();
+                var quests = await db.ServerQuests.AsNoTracking().Where(q => questIds.Contains(q.Id)).ToDictionaryAsync(q => q.Id, q => new { q.Title, q.Kind, q.Unit });
+                foreach (var c in contributions)
+                {
+                    if (!quests.TryGetValue(c.QuestId, out var q)) continue;
+                    var item = new CommunityFeedItem
+                    {
+                        Id = "quest-report:" + c.Id, Kind = "quest-report", ActorName = c.PlayerName ?? "", ActorId = c.UserId?.ToString(),
+                        TargetTitle = q.Title, TargetId = c.QuestId.ToString(), CreatedAt = c.ReviewedAt ?? c.CreatedAt,
+                        Detail = q.Kind == "goal" ? "提交了完成记录" : $"提交了贡献 +{c.Amount:N0} {q.Unit}",
+                    };
+                    items.Add(item); pending.Add((item, c.UserId));
+                }
+            }
+
+            // 官方：公告（发布中、没过期）、版本更新、交易行上新
+            var now = DateTime.UtcNow;
+            items.AddRange(await db.News.AsNoTracking()
+                .Where(n => n.IsPublished && (n.NoticeKind != "scheduled" || n.ExpireAt == null || n.ExpireAt > now))
+                .OrderByDescending(n => n.CreatedAt).Take(takeCount)
+                .Select(n => new CommunityFeedItem { Id = "news:" + n.Id, Kind = "news", ActorName = "太初官方", TargetTitle = n.Title, TargetId = n.Id, CreatedAt = n.CreatedAt })
+                .ToListAsync());
+            items.AddRange(await db.Releases.AsNoTracking().Where(r => r.IsPublished)
+                .OrderByDescending(r => r.ReleasedAt).Take(takeCount)
+                .Select(r => new CommunityFeedItem { Id = "release:" + r.Id, Kind = "release", ActorName = "太初官方", TargetTitle = "v" + r.Version + " " + r.Title, TargetId = r.Id.ToString(), CreatedAt = r.ReleasedAt })
+                .ToListAsync());
+            var storeItems = await db.StoreItems.AsNoTracking().Where(i => i.IsActive)
+                .OrderByDescending(i => i.CreatedAt).Take(takeCount)
+                .Select(i => new { i.Id, i.Name, i.Benefit, i.CreatedAt }).ToListAsync();
+            items.AddRange(storeItems.Select(i => new CommunityFeedItem
+            {
+                Id = "trade-item:" + i.Id, Kind = "trade-item", ActorName = "太初官方", TargetTitle = i.Name, TargetId = i.Id.ToString(),
+                CreatedAt = i.CreatedAt, Detail = string.IsNullOrWhiteSpace(i.Benefit) ? null : "（" + Clip(i.Benefit, 30) + "）",
+            }));
+
+            // 必吃榜：收录的新条目
+            var mustEat = await db.MustEatItems.AsNoTracking().Where(m => m.IsVisible && m.Status == "approved")
+                .OrderByDescending(m => m.CreatedAt).Take(takeCount)
+                .Select(m => new { m.Id, m.Title, m.Category, m.SubmittedByUserId, m.CreatedAt }).ToListAsync();
+            foreach (var m in mustEat)
+            {
+                var item = new CommunityFeedItem { Id = "must-eat:" + m.Id, Kind = "must-eat", ActorName = "太初官方", TargetTitle = m.Title, TargetId = m.Id.ToString(), CreatedAt = m.CreatedAt, Detail = "（" + m.Category + "）" };
+                items.Add(item);
+                if (m.SubmittedByUserId.HasValue) pending.Add((item, m.SubmittedByUserId));
+            }
+
+            // 赞助（赞助墙上公开显示的；匿名的不写名字，不写金额）
+            var sponsors = await db.Sponsors.AsNoTracking().Where(s => s.IsVisible)
+                .OrderByDescending(s => s.SponsoredAt).Take(takeCount)
+                .Select(s => new { s.Id, s.Name, s.IsAnonymous, s.Tier, s.SponsoredAt }).ToListAsync();
+            items.AddRange(sponsors.Select(s => new CommunityFeedItem
+            {
+                Id = "sponsor:" + s.Id, Kind = "sponsor", ActorName = s.IsAnonymous || string.IsNullOrWhiteSpace(s.Name) ? "一位匿名支持者" : s.Name,
+                TargetTitle = s.Tier, TargetId = s.Id.ToString(), CreatedAt = s.SponsoredAt,
+            }));
+
+            // 统一补上用户名
+            foreach (var (_, uid) in pending) if (uid.HasValue) userIds.Add(uid.Value);
+            var names = userIds.Count == 0 ? new Dictionary<Guid, string>() : await db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Username);
+            foreach (var (item, uid) in pending)
+            {
+                if (uid.HasValue && names.TryGetValue(uid.Value, out var name)) { item.ActorName = name; item.ActorId = uid.Value.ToString(); }
+                else if (string.IsNullOrEmpty(item.ActorName)) item.ActorName = "社区用户";
+            }
+            return items;
         }
 
         private async Task<List<CommunityFeedItem>> WorldFeedAsync(int takeCount)

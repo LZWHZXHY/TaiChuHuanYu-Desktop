@@ -254,7 +254,7 @@ namespace TaiChuWeb_V2.Controllers
                         if (secret == null) return (Error: "卡密已经发完了", Data: "");
                         secret.IsUsed = true;
                         secret.AssignedUserId = userId;
-                        secret.AssignedAt = DateTime.Now;
+                        secret.AssignedAt = DateTime.UtcNow;
                         data = secret.SecretCode;
                     }
                     else if (tracked.Delivery == DeliveryType.Link)

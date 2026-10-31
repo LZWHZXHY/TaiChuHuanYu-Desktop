@@ -43,7 +43,7 @@ namespace TaiChuWeb_V2.Services.Trade
 
                     secret.IsUsed = true;
                     secret.AssignedUserId = userId;
-                    secret.AssignedAt = DateTime.Now;
+                    secret.AssignedAt = DateTime.UtcNow;
                     deliveryContent = secret.SecretCode;
                 }
                 else if (item.Delivery == DeliveryType.Link)

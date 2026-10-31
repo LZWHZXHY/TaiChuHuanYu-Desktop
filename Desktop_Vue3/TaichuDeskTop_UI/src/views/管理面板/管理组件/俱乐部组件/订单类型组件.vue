@@ -257,6 +257,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue';
 import request from '@/utils/request';
+import { serverDate } from '@/utils/serverTime';
 
 interface ClubGame {
   code: string;
@@ -346,7 +347,7 @@ const modeLabel = (mode: string) => ({
 
 const toLocalInput = (iso?: string | null): string => {
   if (!iso) return '';
-  const d = new Date(iso);
+  const d = serverDate(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
@@ -359,8 +360,8 @@ const toIso = (local?: string): string | null => {
 const getStatus = (t: ClubOrderType): 'active' | 'upcoming' | 'expired' | 'disabled' => {
   if (!t.isActive) return 'disabled';
   const now = Date.now();
-  if (t.startAt && new Date(t.startAt).getTime() > now) return 'upcoming';
-  if (t.endAt && new Date(t.endAt).getTime() < now) return 'expired';
+  if (t.startAt && serverDate(t.startAt).getTime() > now) return 'upcoming';
+  if (t.endAt && serverDate(t.endAt).getTime() < now) return 'expired';
   return 'active';
 };
 
@@ -389,7 +390,7 @@ const formatTimeRange = (start?: string | null, end?: string | null): string => 
   if (!start && !end) return '永久';
   const fmt = (iso?: string | null) => {
     if (!iso) return null;
-    const d = new Date(iso);
+    const d = serverDate(iso);
     return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
   return `${fmt(start) ?? '立即'} ~ ${fmt(end) ?? '永久'}`;

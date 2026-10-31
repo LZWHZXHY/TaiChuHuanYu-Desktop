@@ -7,7 +7,8 @@
         <p class="sub">社区网站的每一次版本迭代，都会记录在这里。</p>
       </div>
       <div class="rel-actions">
-        <span v-if="current" class="rel-current">当前版本 <strong>v{{ current.version }}</strong></span>
+        <span v-if="current" class="rel-current">{{ IS_LOCAL_DEV ? '本地运行的版本' : '当前线上版本' }} <strong>v{{ current.version }}</strong></span>
+        <span v-if="beta" class="rel-current beta">内测中 <strong>v{{ beta.version }}</strong></span>
         <button v-if="groups.length > 1" class="btn" @click="toggleAll">{{ allExpanded ? '全部收起' : '全部展开' }}</button>
         <button v-if="isAdmin" class="btn primary" @click="openEditor()">+ 发布新版本</button>
       </div>
@@ -24,14 +25,15 @@
           <span class="rel-group-count">{{ g.items.length }} 个版本</span>
         </button>
         <ol v-show="isExpanded(g.major)" class="rel-timeline">
-          <li v-for="(r, idx) in g.items" :key="r.id" class="rel-item" :class="{ latest: g.major === topMajor && idx === 0 && r.isPublished }">
+          <li v-for="r in g.items" :key="r.id" class="rel-item" :class="'stage-' + stageOf(r)">
             <div class="rel-dot"></div>
             <div class="rel-card">
               <div class="rel-card-head">
                 <div class="rel-version-row">
                   <span class="rel-version">v{{ r.version }}</span>
-                  <span v-if="g.major === topMajor && idx === 0 && r.isPublished" class="rel-badge">最新</span>
-                  <span v-if="!r.isPublished" class="rel-badge draft">草稿</span>
+                  <span v-if="stageOf(r) === 'current'" class="rel-badge">{{ IS_LOCAL_DEV ? '本地运行中' : '当前版本 · 线上' }}</span>
+                  <span v-else-if="stageOf(r) === 'beta'" class="rel-badge beta" title="更新说明已经写好，这个版本还没部署到正式网站">内测版 · 未上架</span>
+                  <span v-else-if="stageOf(r) === 'draft'" class="rel-badge draft" title="只有管理员看得到">草稿 · 未公开</span>
                 </div>
                 <span class="rel-date">{{ formatDate(r.releasedAt) }}</span>
               </div>
@@ -57,6 +59,7 @@
           <label class="field"><span>版本号</span><input v-model="form.version" placeholder="7.0.0" /></label>
           <label class="field"><span>发布日期</span><input v-model="form.releasedAt" type="datetime-local" /></label>
         </div>
+        <p class="rel-hint">当前看到的网站打包于 {{ buildTimeText }}{{ IS_LOCAL_DEV ? '（本地开发）' : '' }}。发布日期晚于打包时间的版本显示为「内测版 · 未上架」；重新打包部署后，它会自动变成当前版本，上一个版本变成历史版本。所以请在打包之前写好更新说明。</p>
         <label class="field"><span>版本标题</span><input v-model="form.title" placeholder="例如：接入 DSH，开启 7.0.0" /></label>
         <label class="field"><span>更新内容（支持换行）</span>
           <textarea v-model="form.content" rows="10" placeholder="新增：&#10;- 站内通知系统&#10;- 必吃榜&#10;修复：&#10;- 财政图表小数精度"></textarea>
@@ -76,13 +79,20 @@ import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted } from 'vue'
 import { releaseApi, type ReleaseItem, type ReleasePayload } from '@/api/release'
 import { useUserStore } from '@/stores/user'
+import { serverDate } from '@/utils/serverTime'
+import { versionSummary, formatBuildTime, IS_LOCAL_DEV } from '@/utils/appVersion'
 import UpdateLog from '@/views/推送首页/components/updateLog.vue'
 
 const userStore = useUserStore()
 const releases = ref<ReleaseItem[]>([])
 const loading = ref(false)
 const isAdmin = computed(() => userStore.permissions?.includes('SuperAdmin') ?? false)
-const current = computed(() => releases.value.find(r => r.isPublished) ?? null)
+// 线上版本 / 内测版：按「前端打包时间」自动判断，见 utils/appVersion.ts
+const summary = computed(() => versionSummary(releases.value))
+const current = computed(() => summary.value.current)
+const beta = computed(() => summary.value.beta)
+const stageOf = (r: ReleaseItem) => summary.value.stages.get(r.id) ?? 'past'
+const buildTimeText = formatBuildTime()
 
 // 按大版本自动分组（5.x 一组、7.x 一组）
 const groups = computed(() => {
@@ -95,7 +105,6 @@ const groups = computed(() => {
   }
   return [...map.values()].sort((a, b) => b.major - a.major)
 })
-const topMajor = computed(() => groups.value[0]?.major ?? -1)
 
 // 折叠状态：默认只展开最新一组
 const expandedGroups = ref<Set<number>>(new Set())
@@ -115,14 +124,14 @@ const editorId = ref<number | null>(null)
 const saving = ref(false)
 
 const toLocalInput = (iso: string | null) => {
-  const d = iso ? new Date(iso) : new Date()
+  const d = iso ? serverDate(iso) : new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 // 自动建议下一个版本号：在最新版本的主版本号 +1（6.0.0 → 7.0.0）
 function nextVersion(): string {
-  const latest = current.value?.version
+  const latest = releases.value[0]?.version // 包括内测版和草稿里最大的版本号
   if (!latest) return '1.0.0'
   const m = latest.match(/(\d+)\.(\d+)\.(\d+)/)
   if (!m) return latest
@@ -160,7 +169,7 @@ async function removeItem(r: ReleaseItem) {
   await load()
 }
 
-const formatDate = (v: string) => v ? new Date(v).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
+const formatDate = (v: string) => v ? serverDate(v).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
 
 async function load() {
   loading.value = true
@@ -200,14 +209,20 @@ onMounted(load)
 .rel-timeline::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 8px; width: 2px; background: var(--border-line); }
 .rel-item { position: relative; padding-left: 34px; margin-bottom: 22px; }
 .rel-dot { position: absolute; left: 0; top: 18px; width: 16px; height: 16px; border-radius: 50%; background: var(--paper-card); border: 2px solid var(--border-line); }
-.rel-item.latest .rel-dot { border-color: var(--accent-color); background: var(--accent-color); box-shadow: 0 0 0 4px var(--accent-soft); }
+.rel-item.stage-current .rel-dot { border-color: var(--accent-color); background: var(--accent-color); box-shadow: 0 0 0 4px var(--accent-soft); }
+.rel-item.stage-beta .rel-dot { border-style: dashed; border-color: #d97706; }
+.rel-item.stage-beta .rel-card { border-top: 2px dashed #d97706; }
+.rel-item.stage-draft .rel-card { opacity: .75; }
 .rel-card { border: 0; border-top: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); padding: 18px 20px; }
-.rel-item.latest .rel-card { border-top: 2px solid var(--accent-color); background: linear-gradient(115deg,var(--accent-soft),var(--paper-card) 65%); }
+.rel-item.stage-current .rel-card { border-top: 2px solid var(--accent-color); background: linear-gradient(115deg,var(--accent-soft),var(--paper-card) 65%); }
 .rel-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .rel-version-row { display: flex; align-items: center; gap: 8px; }
 .rel-version { font-size: 1.3rem; font-weight: 700; letter-spacing: -.5px; color: var(--text-primary); }
 .rel-badge { font-size: .68rem; padding: 1px 8px; border-radius: 0; background: var(--accent-soft); color: var(--accent-color); font-weight: 600; }
 .rel-badge.draft { background: var(--bg-sub); color: var(--text-secondary); }
+.rel-badge.beta { background: color-mix(in srgb, #d97706 16%, transparent); color: #b45309; }
+.rel-current.beta strong { color: #b45309; }
+.rel-hint { margin: -4px 0 0; font-size: .76rem; line-height: 1.6; color: var(--text-secondary); }
 .rel-date { font-size: .78rem; color: var(--text-secondary); }
 .rel-title { margin: 10px 0 6px; font-size: 1.02rem; font-weight: 500; }
 .rel-content { margin: 0; font-size: .88rem; line-height: 1.8; color: var(--text-primary); white-space: pre-wrap; word-break: break-word; }

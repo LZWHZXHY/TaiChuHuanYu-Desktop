@@ -163,7 +163,7 @@ namespace TaiChuWeb_V2.Controllers.Admin
         {
             if (Validate(dto, out var effect, out var value) is { } err) return BadRequest(new { message = err });
             if (await CheckBackgroundAsync(effect, value, 0) is { } bgErr) return BadRequest(new { message = bgErr });
-            var item = new StoreItem { CreatedAt = DateTime.Now };
+            var item = new StoreItem { CreatedAt = DateTime.UtcNow };
             Apply(item, dto);
             _context.StoreItems.Add(item);
             await _context.SaveChangesAsync();

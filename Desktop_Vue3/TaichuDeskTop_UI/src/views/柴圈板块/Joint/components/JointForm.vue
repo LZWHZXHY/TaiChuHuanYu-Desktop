@@ -127,6 +127,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { useCos } from '@/composables/useCos'
 import { useUserStore } from '@/stores/user'
+import { serverDate } from '@/utils/serverTime'
 import type { JointStatus, JointType, JointActivity } from '../joint'
 
 const props = defineProps<{
@@ -199,7 +200,7 @@ watch(
 
 // ===== 格式化日期时间为 datetime-local 需要的格式 =====
 function formatDateTimeLocal(dateStr: string): string {
-  const d = new Date(dateStr)
+  const d = serverDate(dateStr)
   const year = d.getFullYear()
   const month = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
@@ -261,9 +262,9 @@ function handleSubmit() {
   // 如果用户没有权限，强制设为 user（防止伪造请求）
   const organizerType = canCreateOfficial.value ? form.organizerType : 'user'
 
-  // ✅ 将 datetime-local 格式转换为 ISO 格式（加秒）
-  const startDate = form.startDate ? form.startDate + ':00' : ''
-  const endDate = form.endDate ? form.endDate + ':00' : null
+  // datetime-local 是填写人自己的本地时间，转成带时区的 UTC 时间再交给后端（后端按 UTC 存、按 UTC 比较）
+  const startDate = form.startDate ? new Date(form.startDate).toISOString() : ''
+  const endDate = form.endDate ? new Date(form.endDate).toISOString() : null
 
   const data = {
     title: form.title.trim(),

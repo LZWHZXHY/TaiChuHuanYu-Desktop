@@ -46,7 +46,8 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddSignalR();
+builder.Services.AddSignalR()
+    .AddJsonProtocol(o => o.PayloadSerializerOptions.Converters.Add(new TaiChuWeb_V2.Utils.UtcDateTimeConverter()));
 builder.Services.AddScoped<IWorldRelationService, WorldRelationService>();
 builder.Services.AddScoped<ICardTypeService, CardTypeService>();
 builder.Services.AddScoped<IWorldCardService, WorldCardService>();
@@ -81,6 +82,7 @@ builder.Services.AddScoped<TaiChuWeb_V2.Services.Quest.ServerQuestService>();
 builder.Services.AddHostedService<TaiChuWeb_V2.Services.CommunityHistory.CommunityHistorySchema>();
 // 举报：启动时建表
 builder.Services.AddHostedService<TaiChuWeb_V2.Services.Reports.ContentReportSchema>();
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Maintenance.TimeZoneDataFix>();
 // 旧博客补列表封面（正文有图但没设封面的，取第一张图）
 builder.Services.AddHostedService<TaiChuWeb_V2.Services.Publish.BlogCoverBackfill>();
 
@@ -169,6 +171,8 @@ builder.Services.AddControllers(options => {
 })
 .AddJsonOptions(options => {
     options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    // 数据库里的时间都是 UTC：输出时带上 Z，各地浏览器自己换算（否则国内看美国刚发的会显示“8 小时前”）
+    options.JsonSerializerOptions.Converters.Add(new TaiChuWeb_V2.Utils.UtcDateTimeConverter());
 });
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

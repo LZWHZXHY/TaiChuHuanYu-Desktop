@@ -11,7 +11,7 @@
       <li v-for="item in items" :key="item.id" class="feed-item" role="link" tabindex="0" @click="open(item)" @keydown.enter="open(item)">
         <span class="feed-badge" :class="'badge-' + badgeKind(item.kind)">{{ badgeText(item.kind) }}</span>
         <div class="feed-body">
-          <p class="feed-line"><UserLink nested :id="item.actorId" :name="item.actorName"><strong>{{ item.actorName }}</strong></UserLink> {{ verb(item.kind) }}<strong v-if="item.targetTitle" class="feed-title">{{ item.kind.startsWith('world') ? `《${item.targetTitle}》` : item.targetTitle }}</strong><span v-if="item.detail" class="feed-detail">{{ item.kind === 'world-edit' ? '里' : item.kind.startsWith('quest') ? '，' : '' }}{{ item.detail }}</span></p>
+          <p class="feed-line"><UserLink nested :id="item.actorId" :name="item.actorName"><strong>{{ item.actorName }}</strong></UserLink> {{ verb(item.kind) }}<strong v-if="item.targetTitle" class="feed-title">{{ meta(item.kind).book ? `《${item.targetTitle}》` : item.targetTitle }}</strong><span v-if="item.detail" class="feed-detail">{{ meta(item.kind).joiner ?? '' }}{{ item.detail }}</span></p>
           <time class="feed-time" :datetime="item.createdAt">{{ formatTime(item.createdAt) }}</time>
         </div>
       </li>
@@ -27,7 +27,7 @@
 import ParticleState from '@/components/ParticleState.vue'
 import UserLink from '@/components/UserLink.vue'
 import { onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { communityApi, type CommunityFeedItem } from '@/api/community'
 import { questRoute } from '@/utils/forumBoards'
 
@@ -39,36 +39,64 @@ const hasMore = ref(false)
 const error = ref('')
 let offset = 0
 
-const badgeText = (kind: string) => kind === 'history' ? '岁月史书' : kind.startsWith('quest') ? '世界任务' : kind.startsWith('world') ? '世界观' : kind.startsWith('wiki') ? '百科' : kind === 'post' ? '帖子' : kind === 'blog' ? '博客' : kind === 'artwork' ? '作品' : kind === 'user-joined' ? '新成员' : kind === 'signin' ? '签到' : kind.startsWith('comment') ? '评论' : kind === 'joint' ? '联合' : kind === 'survey' ? '问卷' : kind === 'dev-project' ? '开发进度' : '世界观'
-const badgeKind = (kind: string) => kind.startsWith('quest') ? 'quest' : kind.startsWith('world') ? 'world' : kind.startsWith('wiki') ? 'wiki' : kind.startsWith('comment') ? 'comment' : kind === 'dev-project' ? 'dev' : kind
-const verb = (kind: string) => kind === 'history' ? '在岁月史书里记了一笔：' : kind === 'quest-start' ? '开启了世界任务' : kind === 'quest-complete' ? '宣布世界任务完成：' : kind === 'world-new' ? '创建了世界观' : kind === 'world-edit' ? '在世界观' : kind === 'wiki-new' ? '创建了百科词条' : kind === 'wiki-update' ? '更新了百科词条' : kind === 'artwork' ? '发布了作品' : kind === 'post' ? '发布了帖子' : kind === 'user-joined' ? '加入了社区' : kind === 'signin' ? '签到打卡了' : kind === 'comment-history' ? '评论了岁月史书里的' : kind === 'comment-character' ? '评论了角色' : kind === 'comment-work' ? '评论了柴圈作品' : kind.startsWith('comment') ? '评论了' : kind === 'joint' ? '发起了联合活动' : kind === 'survey' ? '发起了问卷调查' : kind === 'dev-project' ? '更新了开发进度' : '发布了博客'
+/**
+ * 每种动态怎么显示、点了去哪：badge = 左边的小标签，tone = 标签配色，verb = 名字后面那句话，
+ * book = 标题加书名号，joiner = 补充说明前面接的字，go = 点击后去的页面。
+ */
+type Meta = { badge: string; tone: string; verb: string; book?: boolean; joiner?: string; go: (item: CommunityFeedItem) => RouteLocationRaw | (() => void) }
+const stream = (item: CommunityFeedItem): RouteLocationRaw => ({ name: 'CommunityStream', query: { post: item.targetId } })
+const artwork = (item: CommunityFeedItem): RouteLocationRaw => ({ name: 'KnowledgeHome', query: { detailType: 'artwork', detail: item.targetId } })
+const historyEntry = (item: CommunityFeedItem): RouteLocationRaw => ({ name: 'CommunityHistory', query: { entry: item.targetId } })
+const checkin = (item: CommunityFeedItem): RouteLocationRaw => `/activity/checkin/detail/${item.targetId}`
+const world = (item: CommunityFeedItem): RouteLocationRaw => '/world/project/' + item.targetId
+const META: Record<CommunityFeedItem['kind'], Meta> = {
+  blog: { badge: '博客', tone: 'blog', verb: '发布了博客', go: stream },
+  post: { badge: '帖子', tone: 'post', verb: '发布了帖子', go: stream },
+  artwork: { badge: '作品', tone: 'artwork', verb: '发布了作品', go: artwork },
+  'wiki-new': { badge: '百科', tone: 'wiki', verb: '创建了百科词条', go: item => ({ name: 'WikiDetail', params: { id: item.targetId } }) },
+  'wiki-update': { badge: '百科', tone: 'wiki', verb: '更新了百科词条', go: item => ({ name: 'WikiDetail', params: { id: item.targetId } }) },
+  'user-joined': { badge: '新成员', tone: 'user', verb: '加入了社区', go: item => ({ name: 'UserCenter', params: { id: item.targetId } }) },
+  signin: { badge: '签到', tone: 'user', verb: '签到打卡了', go: item => ({ name: 'UserCenter', params: { id: item.targetId } }) },
+  'comment-blog': { badge: '评论', tone: 'comment', verb: '评论了', go: stream },
+  'comment-post': { badge: '评论', tone: 'comment', verb: '评论了', go: stream },
+  'comment-artwork': { badge: '评论', tone: 'comment', verb: '评论了', go: artwork },
+  'comment-work': { badge: '评论', tone: 'comment', verb: '评论了柴圈作品', go: item => '/works/' + item.targetId },
+  'comment-character': { badge: '评论', tone: 'comment', verb: '评论了角色', go: item => '/ocs/' + item.targetId },
+  'comment-history': { badge: '评论', tone: 'comment', verb: '评论了岁月史书里的', go: historyEntry },
+  'comment-activity': { badge: '评论', tone: 'comment', verb: '在打卡活动的讨论区留言：', go: checkin },
+  joint: { badge: '联合', tone: 'joint', verb: '发起了联合活动', go: item => '/joint/' + item.targetId },
+  survey: { badge: '问卷', tone: 'survey', verb: '发起了问卷调查', go: item => ({ name: 'FillSurvey', params: { id: item.targetId } }) },
+  'dev-project': { badge: '开发进度', tone: 'dev', verb: '更新了开发进度', go: () => () => document.getElementById('dev-progress')?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+  'world-new': { badge: '世界观', tone: 'world', verb: '创建了世界观', book: true, go: world },
+  'world-edit': { badge: '世界观', tone: 'world', verb: '在世界观', book: true, joiner: '里', go: world },
+  chronicle: { badge: '编年史', tone: 'world', verb: '在世界观', book: true, joiner: '的编年史里', go: item => ({ path: '/world/project/' + item.targetId, query: { view: 'timeline' } }) },
+  'novel-new': { badge: '小说', tone: 'world', verb: '开始连载小说', book: true, go: item => '/novels/' + item.targetId },
+  'novel-chapter': { badge: '小说', tone: 'world', verb: '更新了小说', book: true, joiner: '：', go: item => '/novels/' + item.targetId },
+  'quest-start': { badge: '世界任务', tone: 'quest', verb: '开启了世界任务', joiner: '，', go: () => questRoute() },
+  'quest-complete': { badge: '世界任务', tone: 'quest', verb: '宣布世界任务完成：', joiner: '，', go: () => questRoute() },
+  'quest-report': { badge: '世界任务', tone: 'quest', verb: '为世界任务', joiner: ' ', go: () => questRoute() },
+  history: { badge: '岁月史书', tone: 'history', verb: '在岁月史书里记了一笔：', go: historyEntry },
+  'chai-work': { badge: '柴圈', tone: 'chai', verb: '发布了柴圈作品', go: item => '/works/' + item.targetId },
+  oc: { badge: '柴圈', tone: 'chai', verb: '创建了角色', go: item => '/ocs/' + item.targetId },
+  battle: { badge: '柴圈', tone: 'chai', verb: '发起了对战', go: item => '/battles/' + item.targetId },
+  activity: { badge: '打卡', tone: 'joint', verb: '发起了打卡活动', go: checkin },
+  checkin: { badge: '打卡', tone: 'joint', verb: '完成了打卡：', go: checkin },
+  news: { badge: '公告', tone: 'official', verb: '发布了公告', go: item => ({ name: 'root', query: { news: item.targetId } }) },
+  release: { badge: '版本', tone: 'official', verb: '发布了版本更新', go: () => '/changelog' },
+  'trade-item': { badge: '交易行', tone: 'official', verb: '交易行上新：', go: () => '/trade' },
+  'must-eat': { badge: '必吃榜', tone: 'official', verb: '在必吃榜收录了', go: () => '/must-eat' },
+  sponsor: { badge: '赞助', tone: 'history', verb: '赞助了社区，成为', go: () => '/sponsors' },
+}
+const FALLBACK: Meta = { badge: '动态', tone: 'user', verb: '更新了', go: () => '/' }
+const meta = (kind: string) => META[kind as CommunityFeedItem['kind']] ?? FALLBACK
+const badgeText = (kind: string) => meta(kind).badge
+const badgeKind = (kind: string) => meta(kind).tone
+const verb = (kind: string) => meta(kind).verb
 
 function open(item: CommunityFeedItem) {
-  if (item.kind === 'blog' || item.kind === 'post' || item.kind === 'comment-blog' || item.kind === 'comment-post') {
-    router.push({ name: 'CommunityStream', query: { post: item.targetId } })
-  } else if (item.kind === 'artwork' || item.kind === 'comment-artwork') {
-    router.push({ name: 'KnowledgeHome', query: { detailType: 'artwork', detail: item.targetId } })
-  } else if (item.kind === 'user-joined' || item.kind === 'signin') {
-    router.push({ name: 'UserCenter', params: { id: item.targetId } })
-  } else if (item.kind === 'joint') {
-    router.push('/joint/' + item.targetId)
-  } else if (item.kind === 'survey') {
-    router.push({ name: 'FillSurvey', params: { id: item.targetId } })
-  } else if (item.kind === 'quest-start' || item.kind === 'quest-complete') {
-    router.push(questRoute())
-  } else if (item.kind === 'world-new' || item.kind === 'world-edit') {
-    router.push('/world/project/' + item.targetId)
-  } else if (item.kind === 'history' || item.kind === 'comment-history') {
-    router.push({ name: 'CommunityHistory', query: { entry: item.targetId } })
-  } else if (item.kind === 'comment-work') {
-    router.push('/works/' + item.targetId)
-  } else if (item.kind === 'comment-character') {
-    router.push('/ocs/' + item.targetId)
-  } else if (item.kind === 'dev-project') {
-    document.getElementById('dev-progress')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  } else {
-    router.push({ name: 'WikiDetail', params: { id: item.targetId } })
-  }
+  const target = meta(item.kind).go(item)
+  if (typeof target === 'function') target()
+  else void router.push(target)
 }
 
 const formatTime = (value: string) => {
@@ -134,6 +162,8 @@ onMounted(() => load(true))
 .badge-world { background: var(--accent-soft); color: var(--accent-color); }
 .feed-detail { color: var(--text-secondary); }
 .badge-dev { background: var(--accent-soft); color: var(--accent-color); }
+.badge-chai { background: color-mix(in srgb, #ea580c 14%, transparent); color: var(--text-primary); }
+.badge-official { background: var(--inverse-bg, #111); color: var(--inverse-text, #fff); }
 .feed-body { flex: 1; min-width: 0; }
 .feed-line { margin: 0; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
 .feed-line strong { font-weight: 600; }

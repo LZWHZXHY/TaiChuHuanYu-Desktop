@@ -128,6 +128,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
+import { serverDate } from '@/utils/serverTime';
 import { newsApi, type CreateNewsDto } from '@/api/news'; 
 import { useCos } from '@/composables/useCos'; 
 
@@ -173,7 +174,7 @@ const openModal = () => {
 // ISO 时间 → datetime-local 输入框格式（本地时间）
 const toLocalInput = (iso: string | null) => {
   if (!iso) return null;
-  const d = new Date(iso);
+  const d = serverDate(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
@@ -207,7 +208,7 @@ const handleUploadCover = async (event: Event) => {
 // 5. 🌟 新增：上下架切换
 // 定时公告是否已过期（用于展示「定时到期 · 已自动下架」）
 const isExpired = (item: any) =>
-  item?.noticeKind === 'scheduled' && !!item?.expireAt && new Date(item.expireAt).getTime() <= Date.now();
+  item?.noticeKind === 'scheduled' && !!item?.expireAt && serverDate(item.expireAt).getTime() <= Date.now();
 
 const handleTogglePublish = async (item: any) => {
   const original = item.isPublished;
