@@ -1,5 +1,5 @@
 <template>
-  <div class="world-index community-surface tone-world" :class="{ 'detail-mode': !isListPage, 'content-page': isListPage }">
+  <div class="world-index community-surface tone-world" :class="{ 'detail-mode': isWorkspace, 'content-page': isListPage }">
     <template v-if="isListPage">
       <header class="world-heading content-header"><SectionTrace particles="world" />
         <div><p class="eyebrow">共同想象 · 世界观</p><h1>世界观</h1><p>{{ userStore.isLoggedIn ? '从一个人物、一处地点开始，慢慢写出你的世界。' : '走进创作者的世界，阅读人物、地点与故事设定。' }}</p></div>
@@ -90,6 +90,8 @@ const store = useWorldStore()
 const userStore = useUserStore()
 const activeMenu = ref<'projects' | 'public'>(userStore.isLoggedIn && route.query.tab !== 'public' ? 'projects' : 'public')
 const isListPage = computed(() => /^\/world\/?$/.test(route.path))
+/** 世界观详情 / 条目页：整页占满窗口、里面自己滚。创建世界等普通页面不算（以前创建页也被锁住，屏幕矮的看不到「创建世界」按钮，也滚不下去） */
+const isWorkspace = computed(() => /^\/world\/project\//.test(route.path))
 const loading = computed(() => activeMenu.value === 'projects' ? store.loadingProjects : store.loadingPublicProjects)
 const displayProjects = computed(() => activeMenu.value === 'projects' ? store.projects : store.publicProjects)
 const loadError = ref(false)

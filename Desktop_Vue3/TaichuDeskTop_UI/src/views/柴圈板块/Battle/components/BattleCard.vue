@@ -7,7 +7,8 @@
       <span class="bc-tags">
         <span>{{ battle.battleType || '自定义' }}</span>
         <span>{{ battle.judgmentType === 'vote' ? '投票制' : '内定制' }}</span>
-        <span v-if="!battle.isPublic">指定对手</span>
+        <span v-if="selfMatch">自己对打</span>
+        <span v-else-if="!battle.isPublic">指定对手</span>
         <span v-if="role" class="bc-role">{{ role }}</span>
       </span>
       <time class="bc-time" :datetime="battle.createdAt">{{ relDay(battle.createdAt) }}</time>
@@ -53,7 +54,7 @@ import { computed } from 'vue'
 import UserLink from '@/components/UserLink.vue'
 import { withThumbnail } from '@/utils/imageThumb'
 import type { Battle } from '../battle_api'
-import { outcomeOf, relDay, resultHeadline, splitSides, stageIndex, statusLabel, type BattleSide } from '../battleView'
+import { isSelfMatch, outcomeOf, relDay, resultHeadline, splitSides, stageIndex, statusLabel, type BattleSide } from '../battleView'
 
 const props = defineProps<{
   battle: Battle
@@ -65,6 +66,7 @@ const props = defineProps<{
 const emit = defineEmits<{ (e: 'open', id: string): void }>()
 
 const sides = computed(() => splitSides(props.battle))
+const selfMatch = computed(() => isSelfMatch(props.battle))
 const stage = computed(() => stageIndex(props.battle.status))
 const outcome = computed(() => outcomeOf(props.battle))
 const headline = computed(() => resultHeadline(props.battle))

@@ -127,6 +127,8 @@
           </div>
           <CoverFocusEditor :open="focusOpen" :url="project.coverImage || ''" :saving="focusSaving" @close="focusOpen = false" @save="saveCoverFocus" />
           <p class="overview-intro">{{ project.description || '这个世界还没有简介，先从下面的设定开始了解吧。' }}</p>
+          <!-- 点赞、收藏、评论（看得到这个世界的人都能点） -->
+          <WorldSocialBar class="overview-social" kind="world" :target-id="projectId" comment-anchor="world-comments" />
           <div v-if="!cards.length" class="overview-start">
             <h3>{{ canEdit ? '先写下一个设定' : '作者还在构思这个世界' }}</h3>
             <p>{{ canEdit ? '一个人物、一处地点，或者故事背景都可以。不必一次填完所有信息。' : '有了公开的条目，就会显示在这里。' }}</p>
@@ -168,6 +170,11 @@
 
           <!-- 柴圈人设：关联到这个世界的柴圈 OC（没有就不显示） -->
           <WorldOcList :project-id="projectId" />
+
+          <!-- 评论区：对整个世界观的讨论（每个条目底下还有自己的评论区） -->
+          <section id="world-comments" class="world-comments">
+            <ChaiComments target-type="world" :target-id="projectId" />
+          </section>
         </section>
         </div>
       </main>
@@ -270,6 +277,8 @@ import WorldStats from './世界观组件/WorldStats.vue'
 import CardPane from './世界观组件/CardPane.vue'
 import ProjectCardDocument from './世界观组件/ProjectCardDocument.vue'
 import WorldOcList from './世界观组件/WorldOcList.vue'
+import WorldSocialBar from '@/components/WorldSocialBar.vue'
+import ChaiComments from '@/views/柴圈板块/components/ChaiComments.vue'
 import RelationStar from './世界观组件/RelationStar.vue'
 import ParticleMorph from '@/components/ParticleMorph.vue'
 import { firstGlyph, globeShape, hexShape, type ParticleShape } from '@/utils/particleShapes'
@@ -910,6 +919,8 @@ watch([projectId, () => cards.value.length], ([pid], [oldPid]) => {
 .hero-particles { position: absolute; inset: 0; width: 100%; height: 100%; }
 .hero-fallback-text { position: relative; margin: 0 0 14px 16px; padding: 2px 8px; font: 11px/1.6 var(--font-mono, monospace); letter-spacing: .06em; color: var(--text-secondary); background: var(--paper-card); border-left: 2px solid var(--signal-mint); }
 .hero-cover-btn { position: absolute; right: 14px; bottom: 14px; padding: 7px 14px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: 13px; }
+.overview-social { margin: -12px 0 24px; }
+.world-comments { scroll-margin-top: 16px; }
 .overview-intro { max-width: 70ch; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.9; font-size: 15px; color: var(--text-secondary); margin: 0 0 28px; }
 .overview-start { padding: 28px; border: 1px dashed var(--border-line); border-radius: 0; }.overview-start p { color: var(--text-secondary); line-height: 1.8; }.overview-start button { margin-top: 12px; }
 .overview-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 4px; }
@@ -1166,6 +1177,15 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
   .main { overflow: visible; }
   .graph-view { height: auto; min-height: 65dvh; }
   .editor-body { overflow: visible; padding: 20px 16px; }
+}
+/* 窗口太矮（外层不再锁住）：详情页跟着整页滚，左右分栏不变 */
+@media (min-width: 821px) and (max-height: 559px) {
+  .card-view.is-editing { height: auto; }
+  .project-detail { height: auto; min-height: 0; overflow: visible; }
+  .layout { overflow: visible; }
+  .main { overflow: visible; }
+  .graph-view { height: auto; min-height: 420px; }
+  .editor-body { overflow: visible; }
 }
 
 /* ===== AI 整理弹窗 ===== */

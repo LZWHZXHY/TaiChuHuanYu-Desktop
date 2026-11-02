@@ -6,7 +6,7 @@
           <button class="back-btn" @click="router.back()">‹ 返回</button>
           <h1>发起约战</h1>
         </div>
-        <p class="subtitle">选好双方出战的 OC，写清规则，发出战书。对手应战后，由你来推进报名 → 创作 → 判定。</p>
+        <p class="subtitle">选好双方出战的 OC，写清规则，发出战书。对手应战后，由你来推进报名 → 创作 → 判定。手里有两个 OC 也可以自己约着打。</p>
       </div>
     </header>
 
@@ -21,9 +21,10 @@
         <div class="team-section team-a">
           <div class="team-header">
             <span class="team-label">A 队 <small>你这边</small></span>
-            <button type="button" class="btn-add-member" @click="addMember('A')">＋ 添加成员</button>
+            <button v-if="!selfMode" type="button" class="btn-add-member" @click="addMember('A')">＋ 添加成员</button>
           </div>
-          <p class="hint">默认包含你，可添加其他画师组队</p>
+          <p class="hint">{{ selfMode ? '自己对打：A 队只有你，选你要派上场的 OC' : '默认包含你，可添加其他画师组队' }}</p>
+          <p v-if="selfMode && teamA.length > 1" class="team-empty warn">自己对打时 A 队只能是你自己，请先移除其他成员（或者对手改回「别人」）。</p>
 
           <div
             v-for="(member, index) in teamA"
@@ -53,12 +54,30 @@
               <div class="member-field">
                 <label class="sub-label">出战 OC</label>
 
+                <!-- 我的 OC：点一下就上场，不用搜索 -->
+                <div v-if="index === 0 && myOcs.length" class="my-oc-chips compact" aria-label="我的 OC">
+                  <button
+                    v-for="oc in myOcs"
+                    :key="oc.id"
+                    type="button"
+                    class="my-oc-chip"
+                    :class="{ on: member.ocIds.includes(oc.id) }"
+                    :aria-pressed="member.ocIds.includes(oc.id)"
+                    :disabled="selfMode && selfOcIds.includes(oc.id)"
+                    :title="selfMode && selfOcIds.includes(oc.id) ? '已经在 B 队出战' : ''"
+                    @click="toggleMyOcA(oc)"
+                  >
+                    <span class="my-oc-name">{{ oc.title }}</span>
+                    <small v-if="selfMode && selfOcIds.includes(oc.id)">在 B 队</small>
+                  </button>
+                </div>
+
                 <!-- ⭐ 搜索框 -->
                 <div class="search-wrapper">
                   <input
                     v-model="member.searchKeyword"
                     type="text"
-                    placeholder="输入 OC 名字或用户 ID 搜索"
+                    :placeholder="index === 0 ? '搜索你的 OC 名字' : '输入 OC 名字或用户 ID 搜索'"
                     @input="onMemberSearchInput('A', index)"
                   />
                   <button
@@ -124,9 +143,45 @@
         <!-- ===== 队伍B ===== -->
         <div class="team-section team-b">
           <div class="team-header">
-            <span class="team-label">B 队 <small>对手</small></span>
-            <button type="button" class="btn-add-member" @click="addMember('B')">＋ 添加成员</button>
+            <span class="team-label">B 队 <small>{{ selfMode ? '也是你' : '对手' }}</small></span>
+            <button v-if="!selfMode" type="button" class="btn-add-member" @click="addMember('B')">＋ 添加成员</button>
           </div>
+
+          <!-- 对手是谁：别人 / 我自己的 OC（自己约自己打） -->
+          <div class="opp-mode" role="radiogroup" aria-label="对手是谁">
+            <button type="button" role="radio" :aria-checked="!selfMode" :class="{ on: !selfMode }" @click="setSelfMode(false)">别人</button>
+            <button type="button" role="radio" :aria-checked="selfMode" :class="{ on: selfMode }" @click="setSelfMode(true)">🪞 我自己的 OC</button>
+          </div>
+
+          <template v-if="selfMode">
+            <p class="hint">两边都是你的 OC，自己约着打。发布后直接进入创作期，交一份作品就行；别人不能报名，但可以围观、评论{{ form.judgmentType === 'vote' ? '、投票' : '' }}。打完两边的战绩都会记上。</p>
+            <p v-if="myOcsLoading" class="searching-hint">正在读取你的 OC…</p>
+            <p v-else-if="!myOcs.length" class="team-empty">你还没有「已发布、开启了约战」的 OC。先发布人设，并打开「参与约战」。</p>
+            <template v-else>
+              <p v-if="myOcs.length < 2" class="team-empty">你只有 1 个能约战的 OC，自己对打至少要 2 个（两边各一个）。</p>
+              <div class="my-oc-chips" aria-label="选 B 队出战的 OC">
+                <button
+                  v-for="oc in myOcs"
+                  :key="oc.id"
+                  type="button"
+                  class="my-oc-chip"
+                  :class="{ on: selfOcIds.includes(oc.id) }"
+                  :aria-pressed="selfOcIds.includes(oc.id)"
+                  :disabled="teamA[0]?.ocIds.includes(oc.id)"
+                  :title="teamA[0]?.ocIds.includes(oc.id) ? '已经在 A 队出战' : ''"
+                  @click="toggleSelfOc(oc.id)"
+                >
+                  <img v-if="oc.coverUrl" :src="withThumbnail(oc.coverUrl, 96)" alt="" class="my-oc-cover" loading="lazy" />
+                  <span v-else class="my-oc-cover my-oc-glyph" aria-hidden="true">{{ (oc.title || '?').slice(0, 1) }}</span>
+                  <span class="my-oc-name">{{ oc.title }}</span>
+                  <small v-if="teamA[0]?.ocIds.includes(oc.id)">在 A 队</small>
+                </button>
+              </div>
+              <BattlePanelReminder :oc-ids="selfOcIds" :names="selfOcIds.map(id => getOcTitle(allOcList, id))" own />
+            </template>
+          </template>
+
+          <template v-else>
           <p class="hint">添加对手成员（支持多人混战）。不加对手就是公开约战，谁都能来报名。</p>
           <p v-if="!teamB.length" class="team-empty">还没有指定对手：发布后是<strong>公开约战</strong>，任何人都可以带 OC 报名。</p>
 
@@ -233,6 +288,7 @@
               </div>
             </div>
           </div>
+          </template>
         </div>
         </div>
       </section>
@@ -326,6 +382,7 @@ import { useCos } from '@/composables/useCos'
 import { stickmanApi } from '../../OCs/stickman'
 import BattlePanelReminder from './BattlePanelReminder.vue'
 import { useUserStore } from '@/stores/user'
+import { withThumbnail } from '@/utils/imageThumb'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -366,6 +423,14 @@ const teamA = ref<Member[]>([
 // ===== 队伍 B =====
 const teamB = ref<Member[]>([])
 
+// ===== 和自己约战：B 队也是自己的 OC =====
+// 切回「别人」时 B 队原来填的成员还在，不会丢
+const selfMode = ref(route.query.self === '1')
+const selfOcIds = ref<string[]>([])
+/** 我自己「已发布、开启了约战」的 OC（A 队快捷选择、B 队自己对打都用） */
+const myOcs = ref<any[]>([])
+const myOcsLoading = ref(false)
+
 const form = reactive({
   title: '',
   coverUrl: '',
@@ -377,6 +442,12 @@ const form = reactive({
 // ===== 计算属性 =====
 const isValid = computed(() => {
   if (!form.title.trim() || !form.battleType.trim() || !form.rules.trim()) return false
+
+  if (selfMode.value) {
+    const a = teamA.value[0]
+    if (!userId.value || teamA.value.length !== 1 || a?.userId !== userId.value || !a.ocIds.length) return false
+    return selfOcIds.value.length > 0 && !selfOcIds.value.some(id => a.ocIds.includes(id))
+  }
 
   const members = [...teamA.value, ...teamB.value]
   if (!userId.value || teamA.value[0]?.userId !== userId.value) return false
@@ -393,6 +464,11 @@ const missing = computed(() => {
   if (!form.battleType.trim()) list.push('战斗类型')
   if (!form.rules.trim()) list.push('详细规则')
   if (!teamA.value[0]?.ocIds.length) list.push('你的出战 OC')
+  if (selfMode.value) {
+    if (!selfOcIds.value.length) list.push('B 队的 OC（也是你的）')
+    if (teamA.value.length > 1) list.push('（自己对打时 A 队只能有你）')
+    return list
+  }
   const others = [...teamA.value.slice(1), ...teamB.value]
   if (others.some(m => !m.userId.trim())) list.push('成员的用户 ID')
   if (others.some(m => !m.ocIds.length)) list.push('成员的出战 OC')
@@ -405,6 +481,44 @@ const missing = computed(() => {
 const getOcTitle = (list: any[], id: string) => {
   const oc = list.find((o: any) => o.id === id)
   return oc ? oc.title : id
+}
+
+// ===== 我自己的 OC =====
+const fetchMyOcs = async () => {
+  myOcsLoading.value = true
+  try {
+    const res = await stickmanApi.getMyCharacters({ status: 'published' })
+    myOcs.value = (Array.isArray(res) ? res : []).filter((oc: any) => oc.status === 'published' && oc.isBattleEnabled !== false)
+    // 名字查找表里也放一份（已选标签显示名字用）
+    for (const oc of myOcs.value) if (!allOcList.value.some(item => item.id === oc.id)) allOcList.value.push(oc)
+  } catch (error) {
+    console.error('获取我的 OC 失败:', error)
+  } finally {
+    myOcsLoading.value = false
+  }
+}
+
+/** A 队（我）点「我的 OC」：选上 / 取消 */
+const toggleMyOcA = (oc: any) => {
+  const me = teamA.value[0]
+  if (!me) return
+  if (me.ocIds.includes(oc.id)) me.ocIds = me.ocIds.filter(id => id !== oc.id)
+  else addOcToMember('A', 0, oc)
+}
+
+/** 自己对打：B 队选上 / 取消一个自己的 OC */
+const toggleSelfOc = (id: string) => {
+  if (teamA.value[0]?.ocIds.includes(id)) {
+    ElMessage.warning('这个 OC 已经在 A 队出战了，同一个 OC 不能两边都上')
+    return
+  }
+  selfOcIds.value = selfOcIds.value.includes(id) ? selfOcIds.value.filter(x => x !== id) : [...selfOcIds.value, id]
+}
+
+const setSelfMode = (on: boolean) => {
+  selfMode.value = on
+  // 自己对打默认内定制（自己说了算）；想让路人投票也可以再改回投票制
+  if (on && form.judgmentType !== 'internal') form.judgmentType = 'internal'
 }
 
 // ===== 加载所有 OC =====
@@ -490,6 +604,10 @@ const addOcToMember = (team: 'A' | 'B', index: number, oc: any) => {
   const member = team === 'A' ? teamA.value[index] : teamB.value[index]
   if (!member) return
 
+  if (team === 'A' && selfMode.value && selfOcIds.value.includes(oc.id)) {
+    ElMessage.warning(`「${oc.title}」已经在 B 队出战了，同一个 OC 不能两边都上`)
+    return
+  }
   if (!member.ocIds.includes(oc.id)) {
     member.ocIds.push(oc.id)
     if (!allOcList.value.some(item => item.id === oc.id)) allOcList.value.push(oc)
@@ -590,10 +708,12 @@ const handleSubmit = async () => {
   }
 
   // 发起者只提交自己的 OC；同队成员和对手都需要本人接受邀请。
+  // 自己对打：B 队的 OC 放在 selfOpponentOcIds 里，不邀请任何人，发布后直接进入创作期
   const challengerOcIds = [...teamA.value[0].ocIds]
-  const opponentOcIds = Object.fromEntries([...teamA.value.slice(1), ...teamB.value]
+  const self = selfMode.value
+  const opponentOcIds = self ? {} : Object.fromEntries([...teamA.value.slice(1), ...teamB.value]
     .map(member => [member.userId.trim(), [...member.ocIds]]))
-  const teams = Object.fromEntries([
+  const teams = self ? { [teamA.value[0].userId.trim()]: 1 } : Object.fromEntries([
     ...teamA.value.map(member => [member.userId.trim(), 1]),
     ...teamB.value.map(member => [member.userId.trim(), 2]),
   ])
@@ -611,12 +731,19 @@ const handleSubmit = async () => {
       battleConfigJson: JSON.stringify({ teams }),
     }
 
-    if (Object.keys(opponentOcIds).length > 0) {
+    if (self) {
+      data.selfOpponentOcIds = [...selfOcIds.value]
+    } else if (Object.keys(opponentOcIds).length > 0) {
       data.opponentOcIds = opponentOcIds
     }
 
     const battle = await battleStore.create(data)
-    ElMessage.success('约战发布成功！')
+    if (self && battle.status === 'open') {
+      // 后端还是旧版本（不认识自己对打）：会变成一场公开约战，提醒一下
+      ElMessage.warning('后端还没更新「自己对打」，这场变成了公开约战；更新后端后可以取消重发')
+    } else {
+      ElMessage.success(self ? '开打！两边都是你的 OC，已经进入创作期，交一份作品就行' : '约战发布成功！')
+    }
     router.push(`/battles/${battle.id}`)
   } catch (error: any) {
     console.error('创建失败:', error)
@@ -629,7 +756,7 @@ const handleSubmit = async () => {
 onUnmounted(() => clearTimeout(searchTimer))
 
 onMounted(async () => {
-  await fetchAllOcs()
+  await Promise.all([fetchAllOcs(), fetchMyOcs()])
   if (teamA.value.length > 0 && userId.value) {
     teamA.value[0].userId = userId.value
   }
@@ -1280,6 +1407,83 @@ onMounted(async () => {
 
 /* ===== 响应式 ===== */
 /* 窄屏：两队上下排，VS 牌横在中间 */
+/* ===== 对手是谁：别人 / 我自己的 OC ===== */
+.opp-mode {
+  display: inline-flex;
+  margin: 6px 0 4px;
+  border: 1px solid var(--border-line);
+}
+.opp-mode button {
+  padding: 5px 14px;
+  border: 0;
+  background: var(--paper-card);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.opp-mode button + button { border-left: 1px solid var(--border-line); }
+.opp-mode button:hover { color: var(--text-primary); }
+.opp-mode button.on { background: #d97706; color: #fff; }
+.opp-mode button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 1px; }
+.team-empty.warn { border-color: var(--warning, #d97706); color: var(--warning, #d97706); }
+
+/* ===== 我的 OC 小卡片（点一下上场） ===== */
+.my-oc-chips {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 10px 0 4px;
+}
+.my-oc-chips.compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+.my-oc-chip {
+  --chip: #d97706;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border-line);
+  background: var(--paper-card);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, translate .15s;
+}
+.team-a .my-oc-chip { --chip: var(--accent-color); }
+.my-oc-chips.compact .my-oc-chip { padding: 3px 10px; font-size: 12px; }
+.my-oc-chip:hover:not(:disabled) { border-color: var(--chip); translate: 0 -1px; }
+.my-oc-chip.on {
+  border-color: var(--chip);
+  background: color-mix(in srgb, var(--chip) 12%, var(--paper-card));
+  box-shadow: inset 3px 0 0 var(--chip);
+}
+.my-oc-chip:disabled { opacity: .45; cursor: not-allowed; }
+.my-oc-chip:focus-visible { outline: 2px solid var(--chip); outline-offset: 1px; }
+.my-oc-chip small { margin-left: auto; font-size: 11px; color: var(--text-secondary); white-space: nowrap; }
+.my-oc-cover {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border: 1px solid var(--border-line);
+}
+.my-oc-glyph {
+  display: grid;
+  place-items: center;
+  background: var(--bg-sub);
+  font-weight: 600;
+}
+.my-oc-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 @media (max-width: 860px) {
   .teams {
     grid-template-columns: minmax(0, 1fr);

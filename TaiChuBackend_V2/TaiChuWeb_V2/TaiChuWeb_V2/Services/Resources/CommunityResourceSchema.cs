@@ -22,6 +22,7 @@ public class CommunityResourceSchema(IServiceScopeFactory scopes, ILogger<Commun
   Category VARCHAR(16) NOT NULL DEFAULT '其他',
   Folder VARCHAR(200) NULL,
   Storage VARCHAR(16) NULL,
+  OcId CHAR(36) NULL,
   Tags VARCHAR(300) NOT NULL DEFAULT '',
   ObjectKey VARCHAR(400) NOT NULL,
   FileName VARCHAR(200) NOT NULL,
@@ -46,7 +47,8 @@ public class CommunityResourceSchema(IServiceScopeFactory scopes, ILogger<Commun
   PRIMARY KEY (Id),
   KEY IX_cres_status (Status, DeletedAt, PublishedAt),
   KEY IX_cres_uploader (UploaderId, DeletedAt),
-  KEY IX_cres_created (Status, CreatedAt)
+  KEY IX_cres_created (Status, CreatedAt),
+  KEY IX_cres_oc (OcId, DeletedAt)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 
     private const string PartsSql = @"CREATE TABLE IF NOT EXISTS community_resource_parts (
@@ -110,6 +112,7 @@ public class CommunityResourceSchema(IServiceScopeFactory scopes, ILogger<Commun
                 {
                     ("community_resources", "Folder", "VARCHAR(200) NULL AFTER Category"), // 位置（展示用的虚拟文件夹）
                     ("community_resources", "Storage", "VARCHAR(16) NULL"), // 文件存在哪：NULL / nas = NAS，cos = 腾讯云
+                    ("community_resources", "OcId", "CHAR(36) NULL"), // 挂在哪个柴圈 OC 下（OC 页的「部件图」），NULL = 普通资源
                 })
                 {
                     await using var check = connection.CreateCommand();
@@ -117,6 +120,19 @@ public class CommunityResourceSchema(IServiceScopeFactory scopes, ILogger<Commun
                     if (Convert.ToInt64(await check.ExecuteScalarAsync(cancellationToken)) > 0) continue;
                     await using var alter = connection.CreateCommand();
                     alter.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {definition}";
+                    await alter.ExecuteNonQueryAsync(cancellationToken);
+                }
+                // 后来加的索引（同样：没有才加，不动数据）
+                foreach (var (table, index, columns) in new[]
+                {
+                    ("community_resources", "IX_cres_oc", "OcId, DeletedAt"),
+                })
+                {
+                    await using var check = connection.CreateCommand();
+                    check.CommandText = $"SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '{table}' AND INDEX_NAME = '{index}'";
+                    if (Convert.ToInt64(await check.ExecuteScalarAsync(cancellationToken)) > 0) continue;
+                    await using var alter = connection.CreateCommand();
+                    alter.CommandText = $"ALTER TABLE {table} ADD INDEX {index} ({columns})";
                     await alter.ExecuteNonQueryAsync(cancellationToken);
                 }
             }

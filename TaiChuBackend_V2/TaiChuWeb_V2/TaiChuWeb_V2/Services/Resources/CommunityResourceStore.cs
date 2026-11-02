@@ -17,6 +17,8 @@ public sealed class ResourceRow
     public string? Folder { get; set; }
     /// <summary>文件存在哪：null / "nas" = NAS 的 MinIO，"cos" = 腾讯云（ResourceStorage.Nas / Cos）</summary>
     public string? Storage { get; set; }
+    /// <summary>挂在哪个柴圈 OC 下（OC 页的「部件图」）；null = 普通资源</summary>
+    public Guid? OcId { get; set; }
     /// <summary>逗号分隔</summary>
     public string Tags { get; set; } = "";
     public string ObjectKey { get; set; } = "";
@@ -73,9 +75,9 @@ public sealed class CommunityResourceStore(IConfiguration configuration)
         return c;
     }
 
-    private const string FullColumns = "Id, UploaderId, Title, Description, Category, Tags, ObjectKey, FileName, Size, ContentType, Price, Status, ReviewNote, ReviewerId, ReviewedAt, DownloadCount, UniqueDownloadCount, ExpEarned, UploadId, PartSize, CreatedAt, UpdatedAt, PublishedAt, DeletedAt, Folder, Storage";
+    private const string FullColumns = "Id, UploaderId, Title, Description, Category, Tags, ObjectKey, FileName, Size, ContentType, Price, Status, ReviewNote, ReviewerId, ReviewedAt, DownloadCount, UniqueDownloadCount, ExpEarned, UploadId, PartSize, CreatedAt, UpdatedAt, PublishedAt, DeletedAt, Folder, Storage, OcId";
     /// <summary>列表用：介绍只取前 300 字（卡片只显示摘要，完整介绍在详情里）</summary>
-    private const string ListColumns = "Id, UploaderId, Title, LEFT(Description, 300) AS Description, Category, Tags, ObjectKey, FileName, Size, ContentType, Price, Status, ReviewNote, ReviewerId, ReviewedAt, DownloadCount, UniqueDownloadCount, ExpEarned, UploadId, PartSize, CreatedAt, UpdatedAt, PublishedAt, DeletedAt, Folder, Storage";
+    private const string ListColumns = "Id, UploaderId, Title, LEFT(Description, 300) AS Description, Category, Tags, ObjectKey, FileName, Size, ContentType, Price, Status, ReviewNote, ReviewerId, ReviewedAt, DownloadCount, UniqueDownloadCount, ExpEarned, UploadId, PartSize, CreatedAt, UpdatedAt, PublishedAt, DeletedAt, Folder, Storage, OcId";
 
     // ---------- 读取助手 ----------
     /// <summary>CHAR(36) 列：MySqlConnector 默认读成 Guid，也兼容读成字符串的情况</summary>
@@ -119,6 +121,7 @@ public sealed class CommunityResourceStore(IConfiguration configuration)
         Folder = ReadStringOrNull(r, 24),
         // Storage 也是后来加的，接在 Folder 后面
         Storage = ReadStringOrNull(r, 25),
+        OcId = ReadGuidOrNull(r, 26),
     };
 
     private static async Task<List<ResourceRow>> ReadRowsAsync(MySqlCommand cmd, CancellationToken ct)
@@ -149,8 +152,8 @@ public sealed class CommunityResourceStore(IConfiguration configuration)
 
     public async Task InsertAsync(ResourceRow x, CancellationToken ct)
     {
-        await ExecAsync(@"INSERT INTO community_resources (Id, UploaderId, Title, Description, Category, Tags, ObjectKey, FileName, Size, ContentType, Price, Status, UploadId, PartSize, CreatedAt, UpdatedAt, Folder, Storage)
-VALUES (@id, @u, @t, @d, @c, @tags, @k, @f, @s, @ct, @p, @st, @up, @ps, @now, @now, @folder, @storage)", ct, ("@folder", x.Folder), ("@storage", x.Storage),
+        await ExecAsync(@"INSERT INTO community_resources (Id, UploaderId, Title, Description, Category, Tags, ObjectKey, FileName, Size, ContentType, Price, Status, UploadId, PartSize, CreatedAt, UpdatedAt, Folder, Storage, OcId)
+VALUES (@id, @u, @t, @d, @c, @tags, @k, @f, @s, @ct, @p, @st, @up, @ps, @now, @now, @folder, @storage, @oc)", ct, ("@folder", x.Folder), ("@storage", x.Storage), ("@oc", x.OcId?.ToString()),
             ("@id", x.Id.ToString()), ("@u", x.UploaderId.ToString()), ("@t", x.Title), ("@d", x.Description), ("@c", x.Category), ("@tags", x.Tags),
             ("@k", x.ObjectKey), ("@f", x.FileName), ("@s", x.Size), ("@ct", x.ContentType), ("@p", x.Price), ("@st", x.Status),
             ("@up", x.UploadId), ("@ps", x.PartSize), ("@now", x.CreatedAt));
@@ -168,6 +171,14 @@ VALUES (@id, @u, @t, @d, @c, @tags, @k, @f, @s, @ct, @p, @st, @up, @ps, @now, @n
     {
         await using var c = await OpenAsync(ct);
         await using var cmd = Command(c, $"SELECT {ListColumns} FROM community_resources WHERE Status='approved' AND DeletedAt IS NULL ORDER BY PublishedAt DESC LIMIT 5000");
+        return await ReadRowsAsync(cmd, ct);
+    }
+
+    /// <summary>挂在某个 OC 下的资源（没删除、已经开始审核流程的；上传中的不算）</summary>
+    public async Task<List<ResourceRow>> ByOcAsync(Guid ocId, CancellationToken ct)
+    {
+        await using var c = await OpenAsync(ct);
+        await using var cmd = Command(c, $"SELECT {ListColumns} FROM community_resources WHERE OcId=@oc AND DeletedAt IS NULL AND Status<>'uploading' ORDER BY CreatedAt DESC LIMIT 200", null, ("@oc", ocId.ToString()));
         return await ReadRowsAsync(cmd, ct);
     }
 

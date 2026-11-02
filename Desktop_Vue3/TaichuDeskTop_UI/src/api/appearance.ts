@@ -6,6 +6,9 @@ export type BgKind = 'image' | 'video'
 export type BgFocus = 'center' | 'top' | 'bottom' | 'left' | 'right'
 
 export interface BgMedia { url: string; kind: BgKind; poster: string | null }
+/** 黑夜模式用的背景：same = 和白天一样 */
+export type NightSource = 'same' | BgSource
+export interface NightView { source: NightSource; presetId: number | null; custom: BgMedia | null }
 export interface BgPreset extends BgMedia {
   id: number; title: string; sortOrder: number; enabled: boolean
   /** 交易行在卖的背景：要先兑换才能保存使用 */
@@ -49,6 +52,8 @@ export interface AppearanceView {
   sponsor: SponsorInfo
   /** 选的是自定义背景但特权已到期 */
   customLocked: boolean
+  /** 黑夜模式的背景（后端没更新时没有，当作和白天一样） */
+  night?: NightView | null
 }
 
 export interface SaveAppearance {
@@ -62,6 +67,8 @@ export interface SaveAppearance {
   grid: boolean
   focus: BgFocus
   nav: number
+  /** 黑夜模式的背景；不传 = 不改 */
+  night?: { source: NightSource; presetId: number | null; url: string | null; kind: BgKind; poster: string | null }
 }
 
 export const appearanceApi = {

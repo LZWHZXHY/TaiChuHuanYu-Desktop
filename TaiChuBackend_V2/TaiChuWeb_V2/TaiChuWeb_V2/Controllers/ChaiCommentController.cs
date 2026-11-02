@@ -6,6 +6,7 @@ using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Models.LingMai;
 using TaiChuWeb_V2.Models.Interact;
 using TaiChuWeb_V2.Services.Notify;
+using TaiChuWeb_V2.Services.World;
 
 namespace TaiChuWeb_V2.Controllers
 {
@@ -17,7 +18,7 @@ namespace TaiChuWeb_V2.Controllers
         public Guid? ParentId { get; set; }
     }
 
-    /// <summary>柴圈作品/OC、必吃榜、个人主页留言板通用评论（复用 comments 表，TargetType + TargetId 多态）。</summary>
+    /// <summary>柴圈作品/OC、必吃榜、个人主页留言板、世界观 / 设定条目 / 小说通用评论（复用 comments 表，TargetType + TargetId 多态）。</summary>
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
@@ -35,6 +36,9 @@ namespace TaiChuWeb_V2.Controllers
             if (string.IsNullOrWhiteSpace(targetType) || string.IsNullOrWhiteSpace(targetId))
                 return BadRequest(new { message = "目标无效" });
             targetId = NormalizeTargetId(targetType, targetId);
+            // 世界观 / 设定 / 小说：私有的、草稿的，看不到的人也看不到评论
+            if (!await CanSeeTargetAsync(targetType, targetId))
+                return NotFound(new { message = "内容不存在或无权查看" });
 
             var comments = await _context.Comments
                 .Where(c => c.TargetType == targetType && c.TargetId == targetId)
@@ -120,6 +124,9 @@ namespace TaiChuWeb_V2.Controllers
             // 约战：目标必须是存在的约战（所有登录用户都能评论，不限参赛者）
             if (req.TargetType == "battle" && !await _context.Battles.AnyAsync(b => b.Id == req.TargetId))
                 return NotFound(new { message = "这场约战不存在或已删除" });
+            // 世界观 / 设定 / 小说：必须存在，而且自己看得到（私有世界只有成员能评论）
+            if (IsWorldTarget(req.TargetType) && !await CanSeeTargetAsync(req.TargetType, req.TargetId))
+                return NotFound(new { message = "内容不存在或无权查看" });
             // 个人主页留言板：目标必须是存在的用户。
             if (req.TargetType == ProfileTarget)
             {
@@ -143,7 +150,7 @@ namespace TaiChuWeb_V2.Controllers
 
             // 站内通知：回复 → 通知被回复者；新评论 → 通知目标作者
             var notifier = new NotificationService(_context);
-            var link = BuildLink(req.TargetType, req.TargetId);
+            var link = await BuildLinkAsync(req.TargetType, req.TargetId);
             if (req.ParentId.HasValue)
             {
                 var parentUserId = await _context.Comments.Where(c => c.Id == req.ParentId).Select(c => c.UserId).FirstOrDefaultAsync();
@@ -181,7 +188,10 @@ namespace TaiChuWeb_V2.Controllers
             // 本人可以删除自己的评论；主页主人也可以删除自己留言板上的留言。
             var isAuthor = comment.UserId == CurrentUserId.Value.ToString();
             var isWallOwner = comment.TargetType == ProfileTarget && comment.TargetId == CurrentUserId.Value.ToString();
-            if (!isAuthor && !isWallOwner) return Forbid();
+            // 世界观的创建者可以删自己世界（和条目）下的评论，小说作者可以删自己小说下的评论
+            var isWorldOwner = !isAuthor && IsWorldTarget(comment.TargetType)
+                && await ResolveOwnerAsync(comment.TargetType!, comment.TargetId ?? "") == CurrentUserId.Value;
+            if (!isAuthor && !isWallOwner && !isWorldOwner) return Forbid();
 
             comment.Content = ""; // 软删除：内容置空
             await _context.SaveChangesAsync();
@@ -190,9 +200,26 @@ namespace TaiChuWeb_V2.Controllers
 
         private const string ProfileTarget = "profile";
 
-        // 用户 ID 统一成小写标准格式，避免大小写不同导致留言对不上。
+        private const string WorldProjectTarget = "world", WorldCardTarget = "world-card", NovelTarget = "novel";
+        private static bool IsWorldTarget(string? targetType) => targetType is WorldProjectTarget or WorldCardTarget or NovelTarget;
+
+        // 用户 ID、世界观 / 条目 / 小说 ID 统一成小写标准格式，避免大小写不同导致评论对不上。
         private static string NormalizeTargetId(string targetType, string targetId)
-            => targetType == ProfileTarget && Guid.TryParse(targetId, out var id) ? id.ToString() : targetId;
+            => (targetType == ProfileTarget || IsWorldTarget(targetType)) && Guid.TryParse(targetId, out var id) ? id.ToString() : targetId;
+
+        /// <summary>世界观 / 设定 / 小说：当前用户看不看得到（私有世界只有成员、草稿小说只有作者）。其他类型照旧不限制</summary>
+        private async Task<bool> CanSeeTargetAsync(string targetType, string targetId)
+        {
+            if (!IsWorldTarget(targetType)) return true;
+            if (!Guid.TryParse(targetId, out var id)) return false;
+            var me = CurrentUserId ?? Guid.Empty;
+            return targetType switch
+            {
+                WorldProjectTarget => await _context.WorldProjects.AsNoTracking().ReadableBy(me).AnyAsync(p => p.Id == id),
+                WorldCardTarget => await WorldAccess.CanReadCardAsync(_context, id, me),
+                _ => await _context.WorldNovels.AsNoTracking().AnyAsync(n => n.Id == id && (n.IsPublic || (me != Guid.Empty && n.AuthorId == me))),
+            };
+        }
 
         private static string TargetLabel(string targetType) => targetType switch
         {
@@ -201,8 +228,22 @@ namespace TaiChuWeb_V2.Controllers
             "character" => "角色",
             "MustEat" => "推荐",
             "battle" => "约战",
+            WorldProjectTarget => "世界观",
+            WorldCardTarget => "设定",
+            NovelTarget => "小说",
             _ => "内容"
         };
+
+        /// <summary>通知里的链接；设定条目要带上所在的世界</summary>
+        private async Task<string> BuildLinkAsync(string targetType, string targetId)
+        {
+            if (targetType == WorldCardTarget && Guid.TryParse(targetId, out var cardId))
+            {
+                var projectId = await _context.WorldCards.AsNoTracking().Where(c => c.Id == cardId).Select(c => (Guid?)c.ProjectId).FirstOrDefaultAsync();
+                return projectId.HasValue ? $"/world/project/{projectId}/card/{targetId}" : "/world";
+            }
+            return BuildLink(targetType, targetId);
+        }
 
         private static string BuildLink(string targetType, string targetId) => targetType switch
         {
@@ -212,6 +253,8 @@ namespace TaiChuWeb_V2.Controllers
             "MustEat" => "/must-eat",
             "battle" => $"/battles/{targetId}",
             ProfileTarget => $"/user/{targetId}?tab=guestbook", // 主人打开的是个人中心的留言板标签，别人打开的是公开主页的留言板
+            WorldProjectTarget => $"/world/project/{targetId}",
+            NovelTarget => $"/novels/{targetId}",
             _ => "/"
         };
 
@@ -225,6 +268,10 @@ namespace TaiChuWeb_V2.Controllers
                 ProfileTarget => id, // 留言板的主人就是这个用户
                 // 约战：通知发起人（最早加入的参与者）
                 "battle" => await _context.BattleParticipants.Where(p => p.BattleId == targetId).OrderBy(p => p.JoinedAt).Select(p => p.UserId).FirstOrDefaultAsync(),
+                // 世界观、设定条目：通知世界的创建者；小说：通知作者
+                WorldProjectTarget => await _context.WorldProjects.Where(p => p.Id == id).Select(p => p.OwnerId).FirstOrDefaultAsync(),
+                WorldCardTarget => await _context.WorldCards.Where(c => c.Id == id).Select(c => c.Project != null ? c.Project.OwnerId : Guid.Empty).FirstOrDefaultAsync(),
+                NovelTarget => await _context.WorldNovels.Where(n => n.Id == id).Select(n => n.AuthorId).FirstOrDefaultAsync(),
                 _ => Guid.Empty
             };
         }

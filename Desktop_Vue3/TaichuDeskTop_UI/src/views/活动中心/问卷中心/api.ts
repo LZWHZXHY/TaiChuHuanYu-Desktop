@@ -156,3 +156,8 @@ export const getSurveyDetail = async (id: number) => {
 export const updateSurvey = (id: number, data: any) => {
   return request.put(`/survey/${id}`, data)
 }
+
+// 修改封面（草稿、发布中、已结束都能改；传空字符串去掉封面）
+export const updateSurveyCover = (id: number, coverImage: string) => {
+  return request.put(`/survey/${id}/cover`, { coverImage })
+}

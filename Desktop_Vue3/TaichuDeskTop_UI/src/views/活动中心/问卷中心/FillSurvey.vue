@@ -13,6 +13,7 @@
     <!-- 问卷内容 -->
     <div v-else>
       <div class="survey-header">
+        <img v-if="survey.coverImage" :src="survey.coverImage" alt="" class="survey-cover" />
         <h1>{{ survey.title }}</h1>
         <p class="desc">{{ survey.description }}</p>
         <div class="progress-info">
@@ -385,6 +386,7 @@ onMounted(fetchSurvey)
 </script>
 
 <style scoped>
+.survey-cover { display: block; width: 100%; aspect-ratio: 2 / 1; max-height: 280px; object-fit: cover; margin: 0 0 18px; border: 1px solid var(--border-line); }
 /* 保留你原有的所有样式，新增矩阵样式 */
 
 .fill-survey-container {

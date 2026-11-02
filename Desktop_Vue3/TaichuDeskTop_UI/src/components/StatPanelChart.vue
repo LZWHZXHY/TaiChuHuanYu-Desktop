@@ -22,11 +22,11 @@
       <g v-for="(s, si) in shapes" :key="'s' + si" class="spc-shape" :style="{ '--sp-color': s.color }">
         <polygon class="spc-area" :class="{ dashed: s.dashed, multi: isMulti }" :points="s.area" />
         <template v-for="(p, i) in s.points" :key="'p' + i">
-          <!-- ∞：从最外圈一直冲出去，出圈的那段画成流动的虚线，尖上一个会呼吸的圈和 ∞ 记号 -->
+          <!-- ∞：从最外圈一直冲出去，出圈的那段画成流动的虚线，尖上一个会呼吸的圈；对比图（轴上不写值）在尖上再标一个 ∞（单张图轴标签里已经写了 ∞，不再重复） -->
           <template v-if="p.inf">
             <line class="spc-inf-ray" :x1="p.rim.x" :y1="p.rim.y" :x2="p.x" :y2="p.y" />
             <circle class="spc-inf-halo" :cx="p.x" :cy="p.y" :r="dotR * 3.2" />
-            <text v-if="!mini" class="spc-inf-mark" :x="p.x" :y="p.y" dy="-0.9em" text-anchor="middle" :font-size="font * 1.25">∞</text>
+            <text v-if="!mini && isMulti" class="spc-inf-mark" :x="p.x" :y="p.y" dy="-0.9em" text-anchor="middle" :font-size="font * 1.25">∞</text>
           </template>
           <circle v-if="p.show" class="spc-dot" :class="{ inf: p.inf }" :cx="p.x" :cy="p.y" :r="p.inf ? dotR * 1.6 : dotR"><title>{{ p.title }}</title></circle>
         </template>
@@ -191,7 +191,11 @@ const labels = computed(() => {
   })
 })
 
-/** 按网格和所有标签算出刚好装得下的 viewBox（不会被裁掉，也不会留一大片空白） */
+/**
+ * 按网格和所有标签算出装得下的 viewBox（不会被裁掉）。
+ * 上下、左右都以圆心对称：某一条轴是 ∞、冲出去很远时，对面也留出同样的空，圆心永远在图的正中间。
+ * 这样两张面板并排时（比如 OC 详情页的能力面板和约战面板），雷达图的中心高度一致，不会一高一低。
+ */
 const box = computed(() => {
   const r = R.value * 1.1
   let left = -r, right = r, top = -r, bottom = r
@@ -200,7 +204,8 @@ const box = computed(() => {
     top = Math.min(top, l.box.top); bottom = Math.max(bottom, l.box.bottom)
   }
   const pad = 4
-  left -= pad; top -= pad; right += pad; bottom += pad
+  const halfW = Math.max(-left, right) + pad, halfH = Math.max(-top, bottom) + pad
+  left = -halfW; right = halfW; top = -halfH; bottom = halfH
   return { viewBox: `${fmt(left)} ${fmt(top)} ${fmt(right - left)} ${fmt(bottom - top)}`, width: right - left }
 })
 
@@ -208,8 +213,8 @@ const overall = computed(() => !isMulti.value && props.panel.overall ? overallOf
 </script>
 
 <style scoped>
-.spc { margin: 0; display: grid; gap: 8px; min-width: 0; justify-items: center; }
-.spc-head { justify-self: stretch; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.spc { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; height: 100%; }
+.spc-head { align-self: stretch; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .spc-title { font-size: 14px; letter-spacing: .15em; color: var(--text-primary); }
 .spc-overall { margin-left: auto; padding: 1px 10px; border: 1px solid var(--sp-color); color: var(--text-secondary); font-size: 12px; letter-spacing: .1em; cursor: help; }
 .spc-overall b { color: var(--sp-color); font-size: 15px; }
@@ -217,7 +222,8 @@ const overall = computed(() => !isMulti.value && props.panel.overall ? overallOf
 .spc-mini .spc-overall { padding: 0 6px; font-size: 11px; }
 .spc-mini .spc-overall b { font-size: 13px; }
 /* 宽度 100%：容器变窄时整张图等比缩小；最大宽度在模板里按 viewBox 算 */
-.spc-svg { display: block; width: 100%; height: auto; overflow: visible; }
+.spc-svg { display: block; width: 100%; height: auto; overflow: visible; margin-block: auto; }
+/* 和别的面板并排、卡片被拉高时，图在中间（圆心对齐），图例、表格、说明贴在下面 */
 .spc-ring { fill: none; stroke: var(--border-line); stroke-width: 1; }
 .spc-ring.outer { stroke: var(--text-secondary); stroke-opacity: .6; }
 .spc-axis { stroke: var(--border-line); stroke-width: 1; }
@@ -237,16 +243,17 @@ const overall = computed(() => !isMulti.value && props.panel.overall ? overallOf
 .spc-name { fill: var(--text-secondary); }
 .spc-value { fill: var(--sp-color); font-weight: 700; }
 .spc-value.special { fill: var(--text-primary); }
+.spc-legend, .spc-table, .spc-note { flex-shrink: 0; }
 .spc-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; font-size: 13px; color: var(--text-primary); }
 .spc-legend li { display: flex; align-items: center; gap: 6px; }
 .spc-legend i { width: 18px; height: 0; border-top: 3px solid var(--sp-color); }
 .spc-legend i.dashed { border-top-style: dashed; }
-.spc-table { justify-self: stretch; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 13px; }
+.spc-table { align-self: stretch; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 4px 12px; font-size: 13px; }
 .spc-table div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px dashed var(--border-line); min-width: 0; }
 .spc-table dt { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .spc-table dd { margin: 0; color: var(--sp-color); font-weight: 700; white-space: nowrap; }
 .spc-table dd.special { color: var(--text-primary); }
 .spc-table small { color: var(--text-secondary); font-weight: 400; }
-.spc-note { justify-self: stretch; margin: 0; font-size: 13px; line-height: 1.7; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; }
+.spc-note { align-self: stretch; margin: 0; font-size: 13px; line-height: 1.7; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; }
 .spc-mini .spc-note { font-size: 12px; }
 </style>

@@ -70,6 +70,7 @@
         <RouterLink to="/changelog" class="release-link"><span><strong>版本更新<em v-if="siteVersion" class="release-current">当前版本 v{{ siteVersion }}</em></strong><small>{{ betaVersion ? `v${betaVersion} 正在内测，` : '' }}查看更新说明与开发记录</small></span><span aria-hidden="true">↗</span></RouterLink>
       </section>
       <aside class="side-widgets" aria-label="社区服务与数据">
+        <div class="home-block sponsor-block"><SponsorSpotlight /></div>
         <div class="home-block"><SignCard /></div>
         <div class="home-block"><CommunityLinks /></div>
         <div class="home-block"><FinancePanel /></div>
@@ -132,6 +133,7 @@ import LatestNews from './components/LatestNews.vue'
 import DataPanel from './components/DataPanel.vue'
 import FinancePanel from './components/FinancePanel.vue'
 import CommunityLinks from './components/CommunityLinks.vue'
+import SponsorSpotlight from './components/SponsorSpotlight.vue'
 import DevProgress from './components/DevProgress.vue'
 </script>
 <style scoped>

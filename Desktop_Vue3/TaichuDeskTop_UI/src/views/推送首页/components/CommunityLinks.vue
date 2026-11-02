@@ -51,20 +51,6 @@
         <span class="link-arrow" aria-hidden="true">↗</span>
       </a>
 
-      <a
-        class="link-item sponsor"
-        :href="AZZ_URL"
-        target="_blank"
-        rel="noopener noreferrer"
-        @click.prevent="openExternal(AZZ_URL)"
-      >
-        <span class="link-emoji" aria-hidden="true">💛</span>
-        <div class="link-body">
-          <strong>赞助支持</strong>
-          <p>爱赞助 · 支持太初寰宇继续创造</p>
-        </div>
-        <span class="link-arrow" aria-hidden="true">↗</span>
-      </a>
     </div>
   </div>
 </template>
@@ -73,11 +59,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { bilibiliApi } from '@/api/bilibili'
 
-// 🌟 社区对外入口：OOPZ 语音房 + QQ 外群
+// 🌟 社区对外入口：B 站 + OOPZ 语音房 + QQ 外群
 const OOPZ_URL = 'https://oopz.cn/i/iZDd74'
 const QQ_GROUP_URL = 'https://qm.qq.com/q/D8EaBjOygo'
-// 💛 赞助入口：爱发电一直没通过认证、不能提现，只用爱赞助（爱发电入口的开关在 utils/sponsorChannels.ts）
-const AZZ_URL = 'https://azz.ee/taichuhuanyu'
+// 💛 赞助入口挪到了侧栏最上面单独的「赞助」卡片（SponsorSpotlight.vue）
 // 📺 B 站官号
 const BILIBILI_URL = 'https://space.bilibili.com/zh-Hans/3546736970696727'
 
@@ -120,8 +105,6 @@ function openExternal(url: string) {
   transition: border-color .2s, background .2s, transform .2s;
 }
 .link-item:hover { background: var(--paper-card); border-color: var(--accent-color); transform: translateY(-1px); }
-.link-item.sponsor { border-color: var(--accent-color); background: var(--accent-soft); }
-.link-item.sponsor .link-body strong { color: var(--accent-color); }
 .link-item.bilibili { border-color: var(--border-line); background: var(--bg-sub); }
 .link-item.bilibili .link-body strong { color: var(--text-primary); }
 .link-emoji { font-size: 1.2rem; line-height: 1; }

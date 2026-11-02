@@ -221,7 +221,7 @@ const openImg = (url: string) => window.open(url, '_blank');
 .log-card-gallery img { width: 90px; height: 60px; object-fit: cover; border-radius: 0; cursor: pointer; }
 
 .modal-mask { position: fixed; inset: 0; background: var(--overlay); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-.modal-card { background: var(--paper-card); border-radius: 0; padding: 20px; width: 480px; }
+.modal-card { background: var(--paper-card); border-radius: 0; padding: 20px; width: min(480px, calc(100vw - 32px)); /* 屏幕矮 / 窄时不超出屏幕，里面能滚 */ max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; overscroll-behavior: contain; }
 .modal-title { display: flex; justify-content: space-between; margin-bottom: 16px; }
 .close-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; }
 .form-row { display: flex; gap: 10px; }

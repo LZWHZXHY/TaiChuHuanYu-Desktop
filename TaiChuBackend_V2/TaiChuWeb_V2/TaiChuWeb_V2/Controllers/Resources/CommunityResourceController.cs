@@ -81,6 +81,7 @@ public class CommunityResourceController(
         // 位置：上传者没填就用分类名（只是展示 / 整理用的，NAS 上的真实位置不变）
         ["folder"] = ResourceRules.EffectiveFolder(r.Folder, r.Category),
         ["tags"] = r.TagList,
+        ["ocId"] = r.OcId, // 挂在哪个柴圈 OC 下（部件图）；没有是 null
         ["fileName"] = r.FileName,
         ["ext"] = ResourceRules.ExtensionOf(r.FileName),
         ["size"] = r.Size,
@@ -298,6 +299,32 @@ public class CommunityResourceController(
         return Ok(mine || reviewer ? OwnerView(row, users, mine) : PublicView(row, users, purchased, mine));
     }
 
+    /// <summary>
+    /// 柴圈 OC 页的「部件图」：挂在这个 OC 下的资源。已公开的谁都能看；审核中 / 被打回的只有上传者和管理员看得到。
+    /// canUpload = 当前用户是 OC 的作者（显示「上传部件图」按钮）
+    /// </summary>
+    [HttpGet("by-oc/{ocId:guid}")]
+    public async Task<IActionResult> ByOc(Guid ocId, CancellationToken ct)
+    {
+        var me = Me;
+        var ocAuthor = await db.StickmanCharacters.AsNoTracking().Where(c => c.Id == ocId).Select(c => (Guid?)c.AuthorId).FirstOrDefaultAsync(ct);
+        if (ocAuthor == null) return NotFound(Fail("OC 不存在"));
+        List<ResourceRow> rows;
+        try { rows = await store.ByOcAsync(ocId, ct); }
+        catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogError(ex, "读取 OC 部件图失败 {Oc}", ocId); return StatusCode(500, Fail("部件图读取失败，请稍后再试")); }
+        var reviewer = me is Guid uid && rows.Any(r => r.Status != ResourceStatus.Approved && r.UploaderId != uid) && await IsReviewerAsync(uid);
+        var visible = rows.Where(r => r.Status == ResourceStatus.Approved || r.UploaderId == me || reviewer).ToList();
+        var users = await UsersAsync(visible.Select(r => r.UploaderId));
+        var purchased = me is Guid buyer && visible.Any(r => r.Price > 0) ? await store.PurchasedIdsAsync(buyer, ct) : new HashSet<Guid>();
+        return Ok(new
+        {
+            canUpload = me != null && me == ocAuthor,
+            items = visible.Select(r => r.UploaderId == me || (reviewer && r.Status != ResourceStatus.Approved)
+                ? OwnerView(r, users, r.UploaderId == me)
+                : PublicView(r, users, purchased.Contains(r.Id), false)),
+        });
+    }
+
     /// <summary>荣誉墙「资源贡献」榜：by=count 按公开的资源数，by=downloads 按被多少人下载过（同一个人重复下载只算一次，防刷）</summary>
     [HttpGet("leaderboard")]
     public async Task<IActionResult> Leaderboard([FromQuery] string by = "count", [FromQuery] int limit = 50, CancellationToken ct = default)
@@ -443,6 +470,8 @@ public class CommunityResourceController(
         public string? Folder { get; set; }
         /// <summary>存到哪：nas（默认）/ cos（腾讯云）</summary>
         public string? Storage { get; set; }
+        /// <summary>挂到哪个柴圈 OC 下（OC 页的「部件图」）；只有 OC 的作者能挂</summary>
+        public Guid? OcId { get; set; }
     }
 
     private sealed record CleanMeta(string Title, string Description, string Category, string Tags, int Price);
@@ -496,6 +525,13 @@ public class CommunityResourceController(
         if (mineCounts.GetValueOrDefault(ResourceStatus.Pending) >= ResourceRules.MaxPendingPerUser)
             return BadRequest(Fail($"你已经有 {ResourceRules.MaxPendingPerUser} 个资源在等审核了，等审核完再传吧", "too_many_pending"));
 
+        if (dto.OcId is Guid ocId)
+        {
+            var ocAuthor = await db.StickmanCharacters.AsNoTracking().Where(c => c.Id == ocId).Select(c => (Guid?)c.AuthorId).FirstOrDefaultAsync(ct);
+            if (ocAuthor == null) return BadRequest(Fail("这个 OC 不存在或者已经删除了"));
+            if (ocAuthor != me) return StatusCode(403, Fail("只有 OC 的作者能给它上传部件图"));
+        }
+
         var target = string.IsNullOrWhiteSpace(dto.Storage) ? ResourceStorage.Nas : dto.Storage.Trim().ToLowerInvariant();
         if (target != ResourceStorage.Nas && target != ResourceStorage.Cos) return BadRequest(Fail("存放位置不对，请重新选择"));
         if (target == ResourceStorage.Cos && !storage.CosAvailable) return BadRequest(Fail("网站还没有配置腾讯云存储，请选 NAS", "storage_unavailable"));
@@ -514,6 +550,7 @@ public class CommunityResourceController(
             // 腾讯云上放在 community-resources/ 下面（前端的临时密钥写不了这个目录）
             ObjectKey = (target == ResourceStorage.Cos ? ResourceRules.CosKeyPrefix : "") + ResourceRules.ObjectKeyFor(me, id, fileName),
             Storage = target == ResourceStorage.Cos ? ResourceStorage.Cos : null,
+            OcId = dto.OcId,
             FileName = fileName,
             Size = dto.Size,
             ContentType = ResourceRules.CleanContentType(dto.ContentType),

@@ -37,6 +37,18 @@ namespace TaiChuWeb_V2.Controllers.Users
             public string Focus { get; set; } = "center";
             /// <summary>左侧导航栏不透明度 30–100（%）；不传按 80</summary>
             public int? Nav { get; set; }
+            /// <summary>黑夜模式的背景；不传 = 不改原来的设置（旧版前端不会把它清掉）</summary>
+            public NightDto? Night { get; set; }
+        }
+
+        /// <summary>黑夜模式的背景：Source = same（和白天一样）/ default / preset / custom</summary>
+        public sealed class NightDto
+        {
+            public string Source { get; set; } = "same";
+            public int? PresetId { get; set; }
+            public string? Url { get; set; }
+            public string Kind { get; set; } = "image";
+            public string? Poster { get; set; }
         }
 
         public sealed class BindDto
@@ -85,7 +97,14 @@ namespace TaiChuWeb_V2.Controllers.Users
                 updatedAt = a.UpdatedAt,
                 sponsor = SponsorView(perk, perks.MinAmount),
                 // 选的是自定义背景但特权已到期：暂时显示默认，续费后自动恢复
-                customLocked = a.Source == "custom" && !SponsorPerkService.HasFeature(perk, CustomFeature),
+                customLocked = (a.Source == "custom" || a.Night?.Source == "custom") && !SponsorPerkService.HasFeature(perk, CustomFeature),
+                // 黑夜模式（网站切到深色时自动换上）；source = same 表示和白天一样
+                night = new
+                {
+                    source = a.Night?.Source ?? "same",
+                    presetId = a.Night?.PresetId,
+                    custom = a.Night?.Url == null ? null : new { url = a.Night.Url, kind = a.Night.Kind, poster = a.Night.Poster },
+                },
             };
         }
 
@@ -162,7 +181,37 @@ namespace TaiChuWeb_V2.Controllers.Users
             }
             if (source == "custom" && url == null) return BadRequest(new { message = "请先上传一张图片或一段视频" });
 
-            var saved = await appearance.SaveAsync(uid, new UserAppearanceService.Appearance(source, source == "preset" ? dto.PresetId : null, url, kind, poster, dto.Veil, dto.Blur, dto.Grid, dto.Focus ?? "center", null, dto.Nav ?? current.Nav));
+            // ---------- 黑夜模式（和白天同样的规则；不传就保留原来的） ----------
+            var night = current.Night ?? UserAppearanceService.SameAsDay;
+            if (dto.Night != null)
+            {
+                var ns = UserAppearanceService.NightSources.Contains(dto.Night.Source) ? dto.Night.Source : "same";
+                if (ns == "preset")
+                {
+                    if (dto.Night.PresetId is not int npid || await appearance.GetPresetAsync(npid) is not { Enabled: true })
+                        return BadRequest(new { message = "黑夜用的官方背景已经下架了，换一个吧" });
+                    var keepNight = night.Source == "preset" && night.PresetId == npid;
+                    if (!keepNight && (await shop.BackgroundItemsAsync()).ContainsKey(npid)
+                        && !await shop.OwnsAsync(uid, ShopService.EffectBackground, npid.ToString()))
+                        return StatusCode(403, new { message = "黑夜用的这个背景需要先在交易行用经验或土豆兑换" });
+                }
+                if (ns == "custom" && !canCustom)
+                    return StatusCode(403, new { message = "自定义背景是赞助用户的特权。赞助后就能上传自己的图片或视频。" });
+                string? nUrl = night.Url, nPoster = night.Poster;
+                var nKind = night.Kind;
+                if (canCustom && !string.IsNullOrEmpty(dto.Night.Url))
+                {
+                    if (!UserAppearanceService.IsSafeUrl(dto.Night.Url)) return BadRequest(new { message = "黑夜背景地址无效，请重新上传" });
+                    if (!string.IsNullOrEmpty(dto.Night.Poster) && !UserAppearanceService.IsSafeUrl(dto.Night.Poster)) return BadRequest(new { message = "黑夜视频封面地址无效，请重新上传" });
+                    nUrl = dto.Night.Url;
+                    nKind = dto.Night.Kind ?? "image";
+                    nPoster = dto.Night.Poster;
+                }
+                if (ns == "custom" && nUrl == null) return BadRequest(new { message = "请先给黑夜上传一张图片或一段视频" });
+                night = new UserAppearanceService.NightLook(ns, ns == "preset" ? dto.Night.PresetId : null, nUrl, nKind, nPoster);
+            }
+
+            var saved = await appearance.SaveAsync(uid, new UserAppearanceService.Appearance(source, source == "preset" ? dto.PresetId : null, url, kind, poster, dto.Veil, dto.Blur, dto.Grid, dto.Focus ?? "center", null, dto.Nav ?? current.Nav, night));
             return Ok(await ViewAsync(uid, saved));
         }
 

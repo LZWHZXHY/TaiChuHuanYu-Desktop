@@ -341,6 +341,11 @@ const handleSubmit = async () => {
   padding: 2.5rem 2rem;
   position: relative;
   box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+  /* 屏幕矮时弹窗不超出屏幕，里面能滚（以前上下被裁掉，按钮点不到） */
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modal-close-btn {

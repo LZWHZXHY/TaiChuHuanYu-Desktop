@@ -91,7 +91,7 @@
     <Teleport to="body">
       <Transition name="fade">
         <div v-if="isModalOpen" class="modal-overlay" @click.self="closeEventDetail">
-          <div class="modal-content">
+          <div class="modal-content sign-modal">
             <button class="modal-close-btn" @click="closeEventDetail">×</button>
             
             <div class="modal-header">
@@ -378,6 +378,15 @@ const getStatusClass = (status?: number) => {
   box-shadow: 0 20px 40px rgba(0,0,0,0.1);
   font-family: system-ui, -apple-system, sans-serif;
   color: var(--text-primary);
+}
+
+/* 签到弹窗：屏幕矮时不超出屏幕，里面能滚（以前上下被裁掉，按钮点不到）。
+   只加在这个弹窗上：这段样式是全局的，别的页面也有叫 modal-content 的弹窗 */
+.modal-content.sign-modal {
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* 关闭按钮 */

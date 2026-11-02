@@ -1,8 +1,12 @@
 import { computed, reactive, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
-import { appearanceApi, type AppearanceView, type BgFocus, type BgKind, type BgMedia, type BgPreset, type BgSource, type SponsorInfo } from '@/api/appearance'
+import { appearanceApi, type AppearanceView, type BgFocus, type BgKind, type BgMedia, type BgPreset, type BgSource, type NightSource, type SponsorInfo } from '@/api/appearance'
 
-export type { BgFocus, BgKind, BgMedia, BgPreset, BgSource, SponsorInfo }
+export type { BgFocus, BgKind, BgMedia, BgPreset, BgSource, NightSource, SponsorInfo }
+
+/** 黑夜模式（网站切到深色时）用的背景：source = same 表示和白天一样；custom 是黑夜单独上传的素材（没在用时也保留） */
+export interface NightLook { source: NightSource; presetId: number | null; custom: BgMedia | null }
+export const SAME_AS_DAY: NightLook = { source: 'same', presetId: null, custom: null }
 
 /**
  * 网站背景（只有自己能看到）。
@@ -25,10 +29,12 @@ export interface SiteBackground {
   focus: BgFocus
   /** 左侧导航栏不透明度 30–100（%）：越小越透、越能看到背景 */
   nav: number
+  /** 黑夜模式的背景（遮罩、模糊、位置、网格和白天共用） */
+  night: NightLook
 }
 
 export const CUSTOM_FEATURE = 'custom-background'
-export const DEFAULT_BACKGROUND: SiteBackground = { source: 'default', presetId: null, custom: null, veil: 55, blur: 0, grid: true, focus: 'center', nav: 80 }
+export const DEFAULT_BACKGROUND: SiteBackground = { source: 'default', presetId: null, custom: null, veil: 55, blur: 0, grid: true, focus: 'center', nav: 80, night: { ...SAME_AS_DAY } }
 export const FOCUS_POSITION: Record<BgFocus, string> = { center: 'center', top: 'center top', bottom: 'center bottom', left: 'left center', right: 'right center' }
 
 const CACHE_KEY = 'taichu.siteBackground'
@@ -44,8 +50,13 @@ const state = reactive({
   presetsLoaded: false,
   sponsor: null as SponsorInfo | null,
   customLocked: false,
-  /** 服务器数据回来之前，先用缓存里的「实际显示的背景」 */
+  /** 服务器数据回来之前，先用缓存里的「实际显示的背景」（白天 / 黑夜各一份） */
   cachedMedia: null as BgMedia | null,
+  cachedNight: null as BgMedia | null,
+  /** 网站现在是不是深色（跟着 html 的 data-theme 走） */
+  dark: false,
+  /** 设置页正在调白天还是黑夜：预览时按它显示（不管网站现在是深色还是浅色） */
+  previewSide: null as 'day' | 'night' | null,
   remoteLoaded: false,
 })
 
@@ -71,42 +82,62 @@ export function normalize(raw: Partial<SiteBackground> | null | undefined): Site
     grid: v.grid !== false,
     focus,
     nav: Math.min(100, Math.max(30, Math.round(Number(v.nav) || 80))),
+    night: normalizeNight(v.night),
   }
+}
+
+function normalizeNight(raw: Partial<NightLook> | null | undefined): NightLook {
+  const src = raw?.source
+  const source: NightSource = src === 'default' || src === 'preset' || src === 'custom' ? src : 'same'
+  const presetId = typeof raw?.presetId === 'number' ? raw.presetId : null
+  const custom = normalizeMedia(raw?.custom)
+  const fixed: NightSource = source === 'preset' && presetId == null ? 'same' : source === 'custom' && !custom ? 'same' : source
+  return { source: fixed, presetId: fixed === 'preset' ? presetId : null, custom }
 }
 
 export function canUseCustom(sponsor: SponsorInfo | null) {
   return Boolean(sponsor?.features?.[CUSTOM_FEATURE]?.unlocked)
 }
 
-/** 这套设置实际要显示的素材；null 表示默认坐标纸 */
-export function resolveMedia(bg: SiteBackground, presets: BgPreset[], sponsor: SponsorInfo | null): BgMedia | null {
-  if (bg.source === 'preset') {
-    const p = presets.find(item => item.id === bg.presetId)
+function resolveLook(source: BgSource, presetId: number | null, custom: BgMedia | null, presets: BgPreset[], sponsor: SponsorInfo | null): BgMedia | null {
+  if (source === 'preset') {
+    const p = presets.find(item => item.id === presetId)
     return p ? { url: p.url, kind: p.kind, poster: p.poster ?? null } : null
   }
-  if (bg.source === 'custom') return canUseCustom(sponsor) ? bg.custom : null
+  if (source === 'custom') return canUseCustom(sponsor) ? custom : null
   return null
 }
 
-function readCache(owner: string): { value: SiteBackground; media: BgMedia | null } | null {
+/** 这套设置实际要显示的素材；null 表示默认坐标纸。night = true 时用黑夜的设置（黑夜设成「和白天一样」就还是白天的） */
+export function resolveMedia(bg: SiteBackground, presets: BgPreset[], sponsor: SponsorInfo | null, night = false): BgMedia | null {
+  if (night && bg.night.source !== 'same') return resolveLook(bg.night.source, bg.night.presetId, bg.night.custom, presets, sponsor)
+  return resolveLook(bg.source, bg.presetId, bg.custom, presets, sponsor)
+}
+
+function readCache(owner: string): { value: SiteBackground; media: BgMedia | null; nightMedia: BgMedia | null } | null {
   try {
     const raw = localStorage.getItem(CACHE_KEY)
     if (!raw) return null
-    const parsed = JSON.parse(raw) as { owner?: string; value?: Partial<SiteBackground>; media?: Partial<BgMedia> }
-    return parsed.owner === owner ? { value: normalize(parsed.value), media: normalizeMedia(parsed.media) } : null
+    const parsed = JSON.parse(raw) as { owner?: string; value?: Partial<SiteBackground>; media?: Partial<BgMedia>; nightMedia?: Partial<BgMedia> }
+    if (parsed.owner !== owner) return null
+    const media = normalizeMedia(parsed.media)
+    // 旧缓存没有 nightMedia：当作和白天一样
+    return { value: normalize(parsed.value), media, nightMedia: 'nightMedia' in parsed ? normalizeMedia(parsed.nightMedia) : media }
   } catch { return null }
 }
 function writeCache() {
   try {
-    const media = state.remoteLoaded && state.presetsLoaded ? resolveMedia(state.saved, state.presets, state.sponsor) : state.cachedMedia
-    if (state.remoteLoaded && state.presetsLoaded) state.cachedMedia = media
-    if (!state.owner || !media) localStorage.removeItem(CACHE_KEY)
-    else localStorage.setItem(CACHE_KEY, JSON.stringify({ owner: state.owner, value: state.saved, media }))
+    const ready = state.remoteLoaded && state.presetsLoaded
+    const media = ready ? resolveMedia(state.saved, state.presets, state.sponsor) : state.cachedMedia
+    const nightMedia = ready ? resolveMedia(state.saved, state.presets, state.sponsor, true) : state.cachedNight
+    if (ready) { state.cachedMedia = media; state.cachedNight = nightMedia }
+    if (!state.owner || (!media && !nightMedia)) localStorage.removeItem(CACHE_KEY)
+    else localStorage.setItem(CACHE_KEY, JSON.stringify({ owner: state.owner, value: state.saved, media, nightMedia }))
   } catch { /* 隐私模式等情况下忽略 */ }
 }
 
 function applyView(view: AppearanceView) {
-  state.saved = normalize(view)
+  state.saved = normalize({ ...view, night: view.night ?? undefined })
   state.sponsor = view.sponsor ?? null
   state.customLocked = Boolean(view.customLocked)
   state.remoteLoaded = true
@@ -124,11 +155,13 @@ async function loadFor(owner: string) {
   if (!owner) {
     state.saved = { ...DEFAULT_BACKGROUND }
     state.cachedMedia = null
+    state.cachedNight = null
     return
   }
   const cached = readCache(owner)
   state.saved = cached?.value ?? { ...DEFAULT_BACKGROUND }
   state.cachedMedia = cached?.media ?? null
+  state.cachedNight = cached?.nightMedia ?? null
   try {
     const view = await appearanceApi.get()
     if (version === loadVersion && view) applyView(view)
@@ -159,6 +192,12 @@ export function setupSiteBackground() {
     void loadFor(owner)
     if (owner) void loadPresets()
   }, { immediate: true })
+  // 白天 / 黑夜：跟着 html 的 data-theme（useTheme 设置的）走，切换主题时背景自动换
+  if (typeof document !== 'undefined') {
+    const read = () => { state.dark = document.documentElement.dataset.theme === 'dark' }
+    read()
+    new MutationObserver(read).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+  }
   // 导航栏不透明度：写成全站 CSS 变量（OperationTerminal 读取），调整时实时预览
   watch(() => (state.preview ?? state.saved).nav, nav => {
     if (typeof document !== 'undefined') document.documentElement.style.setProperty('--nav-opacity', String((nav ?? 80) / 100))
@@ -168,10 +207,13 @@ export function setupSiteBackground() {
 export function useSiteBackground() {
   /** 当前实际显示的素材（有预览时显示预览；服务器数据回来前用缓存） */
   const media = computed<BgMedia | null>(() => {
-    if (state.preview) return resolveMedia(state.preview, state.presets, state.sponsor)
+    // 设置页在调黑夜时按黑夜预览（哪怕网站现在是浅色），调白天时按白天预览
+    const night = state.previewSide ? state.previewSide === 'night' : state.dark
+    if (state.preview) return resolveMedia(state.preview, state.presets, state.sponsor, night)
     if (state.visit) return state.visit.media
-    if (!state.remoteLoaded || (state.saved.source === 'preset' && !state.presetsLoaded)) return state.cachedMedia
-    return resolveMedia(state.saved, state.presets, state.sponsor)
+    const look = night && state.saved.night.source !== 'same' ? state.saved.night : state.saved
+    if (!state.remoteLoaded || (look.source === 'preset' && !state.presetsLoaded)) return night ? state.cachedNight : state.cachedMedia
+    return resolveMedia(state.saved, state.presets, state.sponsor, night)
   })
   const active = computed(() => state.preview ?? state.visit?.look ?? state.saved)
   const style = computed(() => {
@@ -197,6 +239,8 @@ export function useSiteBackground() {
     canCustom: computed(() => canUseCustom(state.sponsor)),
     loadPresets,
     setPreview: (value: SiteBackground | null) => { state.preview = value ? normalize(value) : null },
+    /** 设置页在调白天 / 黑夜：预览按这一边显示；null = 跟着网站的主题 */
+    setPreviewSide: (side: 'day' | 'night' | null) => { state.previewSide = side },
     /** 个人主页的整页背景：传 null 恢复自己的网站背景 */
     setVisit: (value: { url: string; kind: BgKind; poster: string | null; veil: number; blur: number; focus: BgFocus } | null) => {
       const media = value ? normalizeMedia(value) : null
@@ -209,6 +253,7 @@ export function useSiteBackground() {
       const view = await appearanceApi.save({
         source: v.source, presetId: v.presetId, url: v.custom?.url ?? null, kind: v.custom?.kind ?? 'image', poster: v.custom?.poster ?? null,
         veil: v.veil, blur: v.blur, grid: v.grid, focus: v.focus, nav: v.nav,
+        night: { source: v.night.source, presetId: v.night.presetId, url: v.night.custom?.url ?? null, kind: v.night.custom?.kind ?? 'image', poster: v.night.custom?.poster ?? null },
       })
       applyView(view)
       state.preview = null
@@ -222,7 +267,7 @@ export function useSiteBackground() {
     /** 绑定爱发电订单后刷新特权状态 */
     setSponsor(info: SponsorInfo) {
       state.sponsor = info
-      state.customLocked = state.saved.source === 'custom' && !canUseCustom(info)
+      state.customLocked = (state.saved.source === 'custom' || state.saved.night.source === 'custom') && !canUseCustom(info)
       writeCache()
     },
   }

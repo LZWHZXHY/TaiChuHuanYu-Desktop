@@ -6,13 +6,14 @@
       <header class="rud-head">
         <div>
           <p class="rud-eyebrow">RESOURCE / UPLOAD</p>
-          <h2>{{ resume ? '继续上传' : '上传资源' }}</h2>
+          <h2>{{ resume ? '继续上传' : oc ? '上传部件图' : '上传资源' }}</h2>
         </div>
         <button type="button" class="rud-x" aria-label="关闭" @click="requestClose">×</button>
       </header>
 
       <!-- 1. 选文件 + 填资料 -->
       <form v-if="step === 'form'" class="rud-body" @submit.prevent="submit">
+        <p v-if="oc && !resume" class="rud-note">给 OC <b>《{{ oc.title }}》</b>上传部件图：审核通过后显示在这个 OC 页的「部件图」里（知识库「下载资源」里也能找到）。可以是分好层的 PSD、拆好的 PNG 压缩包等。</p>
         <p v-if="resume" class="rud-note">
           《{{ resume.title }}》上次没传完。请重新选择当初那个文件 <b>{{ resume.fileName }}</b>（{{ formatBytes(resume.size) }}），已经传上去的部分不用再传。
         </p>
@@ -113,6 +114,8 @@ import {
 const props = defineProps<{
   /** 继续上传：资源编号、标题、文件名、大小（来自「我的资源」） */
   resume?: { id: string; title: string; fileName: string; size: number } | null
+  /** 给柴圈 OC 传「部件图」：传完挂在这个 OC 页上（分类默认「部件图」，标题默认「OC名 部件图」） */
+  oc?: { id: string; title: string } | null
 }>()
 const emit = defineEmits<{ close: []; submitted: []; openMine: [] }>()
 
@@ -125,7 +128,9 @@ const inputId = useId()
 const dragOver = ref(false)
 const busy = ref(false)
 const error = ref('')
-const meta = ref<ResourceMeta>({ title: '', description: '', category: '其他', tags: [], price: 0, folder: '' })
+const meta = ref<ResourceMeta>(props.oc
+  ? { title: `${props.oc.title} 部件图`.slice(0, 60), description: '', category: '部件图', tags: [props.oc.title.slice(0, 20)], price: 0, folder: `部件图/${props.oc.title}`.slice(0, 200) }
+  : { title: '', description: '', category: '其他', tags: [], price: 0, folder: '' })
 const progress = reactive<UploadProgress>({ loaded: 0, total: 0, speed: 0, eta: null, doneParts: 0, partCount: 0, retrying: [] })
 const percent = computed(() => (progress.total > 0 ? Math.min(100, Math.floor((progress.loaded / progress.total) * 100)) : 0))
 
@@ -179,7 +184,7 @@ function useFile(f: File | undefined | null) {
   }
   file.value = f
   // 没填标题时，用文件名（去掉扩展名）当默认标题
-  if (!props.resume && !meta.value.title) meta.value.title = (dot > 0 ? f.name.slice(0, dot) : f.name).slice(0, config.value?.titleMax ?? 60)
+  if (!props.resume && !props.oc && !meta.value.title) meta.value.title = (dot > 0 ? f.name.slice(0, dot) : f.name).slice(0, config.value?.titleMax ?? 60)
 }
 function onPick(e: Event) { const input = e.target as HTMLInputElement; useFile(input.files?.[0]); input.value = '' }
 function onDrop(e: DragEvent) { dragOver.value = false; useFile(e.dataTransfer?.files?.[0]) }
@@ -200,7 +205,7 @@ async function startNew(f: File) {
   if (!meta.value.title.trim()) { error.value = '请填写标题'; return }
   const target = cosAvailable.value ? storageKey.value : 'nas'
   try { localStorage.setItem(STORE_KEY, target) } catch { /* 记不住就算了 */ }
-  const res = await resourceApi.initUpload({ ...meta.value, fileName: f.name, size: f.size, contentType: f.type || 'application/octet-stream', ...(target === 'cos' ? { storage: target } : {}) })
+  const res = await resourceApi.initUpload({ ...meta.value, fileName: f.name, size: f.size, contentType: f.type || 'application/octet-stream', ...(target === 'cos' ? { storage: target } : {}), ...(props.oc ? { ocId: props.oc.id } : {}) })
   uploadingTo.value = target
   resourceId = res.id
   fileName.value = res.fileName

@@ -10,8 +10,31 @@ import { IMAGE_ACCEPT, MediaError, VIDEO_ACCEPT, uploadImage, uploadVideo } from
 const bg = useSiteBackground()
 const { uploadFile, isUploading, progress } = useCos()
 
-const clone = (v: SiteBackground): SiteBackground => ({ ...v, custom: v.custom ? { ...v.custom } : null })
+const clone = (v: SiteBackground): SiteBackground => ({ ...v, custom: v.custom ? { ...v.custom } : null, night: { ...v.night, custom: v.night.custom ? { ...v.night.custom } : null } })
+
+// 正在编辑的设置（要先声明：下面白天 / 黑夜的 watch 是立即执行的，会马上读它）
 const draft = ref<SiteBackground>(clone(bg.state.saved))
+
+// ===== 白天 / 黑夜：可以各用一张背景，网站切到深色时自动换 =====
+const side = ref<'day' | 'night'>('day')
+/** 黑夜单独设置了（不是「和白天一样」） */
+const split = computed(() => draft.value.night.source !== 'same')
+/** 现在在改哪一边：没分开时只有白天 */
+const editingNight = computed(() => split.value && side.value === 'night')
+/** 正在改的那一边的「来源、官方背景、自定义素材」 */
+const cur = computed(() => editingNight.value
+  ? { source: draft.value.night.source as SiteBackground['source'], presetId: draft.value.night.presetId, custom: draft.value.night.custom }
+  : { source: draft.value.source, presetId: draft.value.presetId, custom: draft.value.custom })
+function toggleSplit(on: boolean) {
+  const d = draft.value
+  // 打开时黑夜先照着白天来（素材也带过去），再按需要改；关掉时黑夜素材保留，下次打开还在
+  draft.value = on
+    ? { ...d, night: { source: d.source, presetId: d.presetId, custom: d.night.custom ?? d.custom } }
+    : { ...d, night: { ...d.night, source: 'same', presetId: null } }
+  side.value = on ? 'night' : 'day'
+}
+// 预览跟着正在改的那一边（在浅色下也能看到黑夜的效果）；没分开就跟着网站主题
+watch([split, side], () => bg.setPreviewSide(split.value ? side.value : null), { immediate: true })
 const imageInput = ref<HTMLInputElement | null>(null)
 const videoInput = ref<HTMLInputElement | null>(null)
 const busy = ref(false)
@@ -28,9 +51,12 @@ const needsBuy = (p: { id: number; locked?: boolean; owned?: boolean }) =>
   !!p.locked && !p.owned && !(bg.state.saved.source === 'preset' && bg.state.saved.presetId === p.id)
 const draftNeedsBuy = computed(() => {
   const d = draft.value
-  if (d.source !== 'preset') return false
-  const p = presets.value.find(x => x.id === d.presetId)
-  return !!p && needsBuy(p)
+  const ids = [d.source === 'preset' ? d.presetId : null, d.night.source === 'preset' ? d.night.presetId : null]
+  return ids.some(id => {
+    const p = id == null ? undefined : presets.value.find(x => x.id === id)
+    // 黑夜原本就在用的也不算
+    return !!p && needsBuy(p) && !(bg.state.saved.night.source === 'preset' && bg.state.saved.night.presetId === p.id)
+  })
 })
 const sponsor = computed(() => bg.state.sponsor)
 const canCustom = bg.canCustom
@@ -42,7 +68,7 @@ watch(() => bg.state.saved, (saved, old) => { if (JSON.stringify(draft.value) ==
 // 调整时整站实时预览；离开页面未保存则自动还原
 watch(draft, value => bg.setPreview(sameAsSaved(value) ? null : value), { deep: true })
 onMounted(() => { void bg.loadPresets(true) })
-onBeforeUnmount(() => bg.setPreview(null))
+onBeforeUnmount(() => { bg.setPreview(null); bg.setPreviewSide(null) })
 
 const fmtDate = (iso: string | null | undefined) => iso ? new Date(iso).toLocaleString('zh-CN', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
 const daysLeft = computed(() => {
@@ -63,9 +89,12 @@ function say(text: string, isError = false) {
 function choose(source: SiteBackground['source'], presetId: number | null = null) {
   if (source === 'custom') {
     if (!canCustom.value) return say('自定义背景是赞助用户的特权，下面有开通方法。', true)
-    if (!draft.value.custom) return say('先在下面上传一张图片或一段视频。', true)
+    if (!cur.value.custom) return say(editingNight.value ? '先在下面给黑夜上传一张图片或一段视频。' : '先在下面上传一张图片或一段视频。', true)
   }
-  draft.value = { ...draft.value, source, presetId: source === 'preset' ? presetId : null }
+  const pid = source === 'preset' ? presetId : null
+  draft.value = editingNight.value
+    ? { ...draft.value, night: { ...draft.value.night, source, presetId: pid } }
+    : { ...draft.value, source, presetId: pid }
   say('')
 }
 
@@ -79,7 +108,10 @@ async function onPick(event: Event, type: 'image' | 'video') {
     const upload = (f: File) => uploadFile(f, 'backgrounds')
     const onStage = (s: 'convert' | 'upload') => { stage.value = s }
     const media = type === 'image' ? await uploadImage(file, upload, onStage) : await uploadVideo(file, upload, onStage)
-    draft.value = { ...draft.value, source: 'custom', presetId: null, custom: { url: media.url, kind: media.kind, poster: media.poster } }
+    const m = { url: media.url, kind: media.kind, poster: media.poster }
+    draft.value = editingNight.value
+      ? { ...draft.value, night: { source: 'custom', presetId: null, custom: m } }
+      : { ...draft.value, source: 'custom', presetId: null, custom: m }
     say(`${media.note}${type === 'image' ? '图片已上传，' : ''}现在看到的就是效果。满意的话点「保存」。`)
   } catch (e) {
     say(e instanceof MediaError ? e.message : '上传失败，请稍后再试', true)
@@ -136,20 +168,30 @@ async function unbind() {
     <!-- 选择背景 -->
     <section class="bg-section">
       <h4>选择背景</h4>
+      <!-- 白天 / 黑夜各用一张：网站切到深色（黑夜模式）时自动换 -->
+      <label class="ctl ctl-inline split-row">
+        <span class="ctl-name">白天和黑夜用不同的背景<small>网站切到黑夜模式（深色）时自动换成黑夜那张；遮罩、模糊、位置等下面的设置两边共用</small></span>
+        <span class="ink-toggle"><input type="checkbox" :checked="split" @change="toggleSplit(($event.target as HTMLInputElement).checked)" /><span class="toggle-slider"></span></span>
+      </label>
+      <div v-if="split" class="side-tabs" role="tablist" aria-label="正在设置白天还是黑夜的背景">
+        <button type="button" role="tab" :aria-selected="side === 'day'" :class="{ on: side === 'day' }" @click="side = 'day'">☀ 白天</button>
+        <button type="button" role="tab" :aria-selected="side === 'night'" :class="{ on: side === 'night' }" @click="side = 'night'">☾ 黑夜</button>
+        <span class="side-hint">现在预览的是{{ side === 'day' ? '白天' : '黑夜' }}的背景</span>
+      </div>
       <div class="tiles" role="radiogroup" aria-label="网站背景">
-        <button type="button" role="radio" class="tile" :aria-checked="draft.source === 'default'" :class="{ on: draft.source === 'default' }" @click="choose('default')">
+        <button type="button" role="radio" class="tile" :aria-checked="cur.source === 'default'" :class="{ on: cur.source === 'default' }" @click="choose('default')">
           <span class="tile-thumb default-thumb" aria-hidden="true"></span>
           <span class="tile-name">默认坐标纸</span>
         </button>
-        <button v-for="p in presets" :key="p.id" type="button" role="radio" class="tile" :aria-checked="draft.source === 'preset' && draft.presetId === p.id" :class="{ on: draft.source === 'preset' && draft.presetId === p.id }" @click="choose('preset', p.id)">
+        <button v-for="p in presets" :key="p.id" type="button" role="radio" class="tile" :aria-checked="cur.source === 'preset' && cur.presetId === p.id" :class="{ on: cur.source === 'preset' && cur.presetId === p.id }" @click="choose('preset', p.id)">
           <span class="tile-thumb" :style="thumbOf(p)" aria-hidden="true"><em v-if="p.kind === 'video'" class="video-tag">▶ 动态</em><b v-if="needsBuy(p)" class="shop-tag">🔒 交易行</b><b v-else-if="p.locked && p.owned" class="shop-tag owned">已兑换</b></span>
           <span class="tile-name">{{ p.title }}<small v-if="p.author" class="tile-author"> · {{ p.author }}</small></span>
         </button>
-        <button type="button" role="radio" class="tile custom-tile" :aria-checked="draft.source === 'custom'" :class="{ on: draft.source === 'custom', locked: !canCustom }" @click="choose('custom')">
-          <span class="tile-thumb" :style="thumbOf(draft.custom)" aria-hidden="true">
-            <i v-if="!draft.custom">{{ canCustom ? '上传后可选' : '🔒 赞助特权' }}</i>
+        <button type="button" role="radio" class="tile custom-tile" :aria-checked="cur.source === 'custom'" :class="{ on: cur.source === 'custom', locked: !canCustom }" @click="choose('custom')">
+          <span class="tile-thumb" :style="thumbOf(cur.custom)" aria-hidden="true">
+            <i v-if="!cur.custom">{{ canCustom ? '上传后可选' : '🔒 赞助特权' }}</i>
             <i v-else-if="!canCustom" class="lock-cover">🔒</i>
-            <em v-if="draft.custom?.kind === 'video'" class="video-tag">▶ 视频</em>
+            <em v-if="cur.custom?.kind === 'video'" class="video-tag">▶ 视频</em>
           </span>
           <span class="tile-name">我的自定义</span>
         </button>
@@ -227,7 +269,7 @@ async function unbind() {
       </label>
     </section>
 
-    <fieldset class="bg-controls" :disabled="draft.source === 'default'">
+    <fieldset class="bg-controls" :disabled="draft.source === 'default' && (draft.night.source === 'same' || draft.night.source === 'default')">
       <legend class="sr-only">显示参数</legend>
       <label class="ctl">
         <span class="ctl-name">遮罩强度 <b>{{ draft.veil }}%</b></span>
@@ -319,6 +361,13 @@ h4 { margin: 0; font-size: .92rem; }
 .ctl small { color: var(--text-secondary); font-size: .78rem; }
 .ctl input[type=range] { width: 100%; max-width: 420px; accent-color: var(--accent-color); }
 .ctl-inline { display: flex; justify-content: space-between; align-items: center; max-width: 420px; }
+.split-row { max-width: 560px; gap: 16px; margin-bottom: 12px; }
+.split-row .ctl-name small { display: block; margin-top: 2px; font-weight: 400; }
+.side-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 0; margin-bottom: 12px; }
+.side-tabs button { padding: 6px 16px; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-secondary); font: inherit; font-size: .88rem; cursor: pointer; }
+.side-tabs button + button { border-left: 0; }
+.side-tabs button.on { background: var(--accent-color); border-color: var(--accent-color); color: var(--on-accent); }
+.side-hint { margin-left: 12px; font-size: .78rem; color: var(--text-secondary); }
 .focus-row { display: flex; flex-wrap: wrap; gap: 6px; }
 .focus-row button { padding: 5px 12px; border: 1px solid var(--border-line); background: transparent; color: var(--text-primary); font: inherit; font-size: .82rem; cursor: pointer; }
 .focus-row button.on { border-color: var(--accent-color); background: var(--accent-color); color: var(--on-accent); }

@@ -40,6 +40,8 @@ export interface ResourceItem {
   purchased: boolean
   /** 我上传的 */
   mine: boolean
+  /** 挂在哪个柴圈 OC 下（OC 页的「部件图」）；没有是 null（后端没更新时没有这个字段） */
+  ocId?: string | null
 }
 
 /** 我的资源 / 管理员看到的额外字段 */
@@ -165,7 +167,7 @@ export interface MyExp { experience: number; level: number; experienceAfter: num
 export const folderText = (folder: string | null | undefined) => (folder ? folder : '根目录')
 
 /** 资源分类（和后端 ResourceRules.Categories 一致） */
-export const RESOURCE_CATEGORIES = ['音效', '素材', '模板', '工具', '软件', '字体', '模型', '其他']
+export const RESOURCE_CATEGORIES = ['音效', '素材', '部件图', '模板', '工具', '软件', '字体', '模型', '其他']
 
 /** 价格写成「✦ 30 经验」；0 是「免费」 */
 export const priceText = (price: number) => (price > 0 ? `✦ ${price} 经验` : '免费')
@@ -183,7 +185,10 @@ export const resourceApi = {
   download: (id: string, confirmPrice?: number) =>
     request.post<DownloadResult>(`/resources/${encodeURIComponent(id)}/download`, { confirmPrice: confirmPrice ?? null }, { silentError: true }),
 
-  initUpload: (body: ResourceMeta & { fileName: string; size: number; contentType: string; storage?: ResourceStorageKey }) =>
+  /** 柴圈 OC 页的「部件图」：挂在这个 OC 下的资源；canUpload = 我是 OC 的作者 */
+  byOc: (ocId: string) =>
+    request.get<{ canUpload: boolean; items: (ResourceItem & Partial<MyResourceItem>)[] }>(`/resources/by-oc/${encodeURIComponent(ocId)}`, { silentError: true }),
+  initUpload: (body: ResourceMeta & { fileName: string; size: number; contentType: string; storage?: ResourceStorageKey; ocId?: string }) =>
     request.post<InitUploadResult>('/resources/upload/init', body, { silentError: true }),
   refreshUrls: (id: string, parts: number[]) =>
     request.post<{ expiresAt: string; parts: PartUrl[] }>(`/resources/upload/${encodeURIComponent(id)}/urls`, { parts }, { silentError: true }),

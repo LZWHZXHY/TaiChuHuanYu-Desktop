@@ -32,6 +32,10 @@
             maxlength="1000"
           ></textarea>
         </div>
+        <div class="form-group">
+          <label>封面</label>
+          <SurveyCoverPicker v-model="form.coverImage" />
+        </div>
         <div class="form-row">
           <div class="form-group">
             <label>开始时间 <span class="required">*</span></label>
@@ -342,6 +346,7 @@ import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import draggable from 'vuedraggable'
+import SurveyCoverPicker from './SurveyCoverPicker.vue'
 import {
   createSurvey,
   getSurveyDetail,
@@ -373,6 +378,7 @@ const questionTypes = [
 const form = ref({
   title: '',
   description: '',
+  coverImage: '',
   startTime: '',
   endTime: '',
   isPublic: true,
@@ -425,6 +431,7 @@ const loadSurvey = async () => {
     const res = await getSurveyDetail(surveyId.value)
     form.value.title = res.title || ''
     form.value.description = res.description || ''
+    form.value.coverImage = res.coverImage || ''
     form.value.isPublic = res.isPublic ?? true
     form.value.allowAnonymous = res.allowAnonymous ?? false
 
@@ -561,6 +568,8 @@ const buildPayload = () => {
   const payload: any = {
     title: form.value.title.trim(),
     description: form.value.description?.trim() || undefined,
+    // 空字符串 = 去掉封面（编辑时后端收到 "" 会清空）
+    coverImage: form.value.coverImage || (isEditMode.value ? '' : undefined),
     startTime: new Date(form.value.startTime).toISOString(),
     endTime: new Date(form.value.endTime).toISOString(),
     isPublic: form.value.isPublic,

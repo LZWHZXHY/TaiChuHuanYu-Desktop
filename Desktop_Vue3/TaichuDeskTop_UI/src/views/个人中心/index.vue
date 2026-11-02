@@ -22,6 +22,8 @@ import type { RenameResult } from '@/api/rename'
 import ClubCard from './ClubCard.vue'
 import ProfileGuestbook from './ProfileGuestbook.vue'
 import ArtworkInfiniteGrid from '../画廊展厅/ArtworkInfiniteGrid.vue'
+import WorldFavorites from './WorldFavorites.vue'
+import SteamSettings from './SteamSettings.vue'
 const userStore = useUserStore()
 
 const experienceLogs = ref<{id:number;change:number;reason:string;createdAt:string}[]>([])
@@ -46,7 +48,7 @@ const defaultAvatar = 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix'
 // 🌟 新增 Tab 状态控制 (增加 'manual')
 const activeTab = ref('overview') // 'overview' | 'guestbook' | 'favorites' | 'community' | 'settings' | 'ai' | 'manual'
 // 从留言通知点进来时（?tab=guestbook）直接打开留言板。
-watch(() => route.query.tab, tab => { if (tab === 'guestbook' || tab === 'appearance' || tab === 'profile') activeTab.value = tab }, { immediate: true })
+watch(() => route.query.tab, tab => { if (tab === 'guestbook' || tab === 'appearance' || tab === 'profile' || tab === 'steam') activeTab.value = tab }, { immediate: true })
 
 // 打开画廊作品详情
 const openArtwork = (id: number | string) => router.push({ path: '/gallery', query: { workId: String(id) } })
@@ -181,7 +183,7 @@ onUnmounted(() => loadVersion++)
     <div class="content-layout">
       <section class="main-content">
         <nav class="content-tabs" aria-label="个人中心分区">
-          <button v-for="tab in [{id:'overview',name:'我的内容'}, {id:'guestbook',name:'留言板'}, {id:'favorites',name:'我的收藏'}, {id:'community',name:'社区事务'}, {id:'settings',name:'偏好设置'}, {id:'appearance',name:'网站背景'}, {id:'profile',name:'主页装扮'}, {id:'ai',name:'AI 助手'}, {id:'manual',name:'操作手册'}]" :key="tab.id" :class="{active:activeTab===tab.id}" :aria-pressed="activeTab===tab.id" @click="activeTab=tab.id">{{ tab.name }}</button>
+          <button v-for="tab in [{id:'overview',name:'我的内容'}, {id:'guestbook',name:'留言板'}, {id:'favorites',name:'我的收藏'}, {id:'community',name:'社区事务'}, {id:'settings',name:'偏好设置'}, {id:'appearance',name:'网站背景'}, {id:'profile',name:'主页装扮'}, {id:'steam',name:'Steam'}, {id:'ai',name:'AI 助手'}, {id:'manual',name:'操作手册'}]" :key="tab.id" :class="{active:activeTab===tab.id}" :aria-pressed="activeTab===tab.id" @click="activeTab=tab.id">{{ tab.name }}</button>
         </nav>
         <section v-if="activeTab === 'overview'" class="content-panel library-panel">
           <div class="section-heading"><div><h2>我的创作</h2><p>查看已发布内容，或继续未完成的草稿。仅你自己可见。</p></div><RouterLink class="btn-line" :to="currentType.create">新建{{ currentType.label }}</RouterLink></div>
@@ -202,7 +204,8 @@ onUnmounted(() => loadVersion++)
           <ProfileGuestbook v-if="userStore.userId" :owner-id="String(userStore.userId)" :owner-name="userStore.userInfo.username" />
         </section>
         <section v-else-if="activeTab === 'favorites'" class="content-panel library-panel">
-          <div class="section-heading"><div><h2>我的收藏</h2><p>你收藏过的画廊作品，按收藏时间倒序。</p></div></div>
+          <div class="section-heading"><div><h2>我的收藏</h2><p>你收藏过的世界观、小说和画廊作品，按收藏时间倒序。</p></div></div>
+          <WorldFavorites />
           <ArtworkInfiniteGrid favorites @on-click="openArtwork" />
         </section>
         <section v-else-if="activeTab === 'community'" class="community-content">
@@ -212,6 +215,7 @@ onUnmounted(() => loadVersion++)
         <PreferenceSettings v-else-if="activeTab === 'settings'" />
         <BackgroundSettings v-else-if="activeTab === 'appearance'" />
         <ProfileDecorSettings v-else-if="activeTab === 'profile'" />
+        <SteamSettings v-else-if="activeTab === 'steam'" />
         <AiSettings v-else-if="activeTab === 'ai'" />
         <UserManualViewer v-else-if="activeTab === 'manual'" />
       </section>

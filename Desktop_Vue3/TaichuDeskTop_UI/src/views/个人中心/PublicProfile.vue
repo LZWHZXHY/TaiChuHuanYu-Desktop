@@ -6,6 +6,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import ProfileGuestbook from './ProfileGuestbook.vue'
 import ActivityPanel from './ActivityPanel.vue'
+import SteamCard from '@/components/SteamCard.vue'
 import AvatarFrame from '@/components/AvatarFrame.vue'
 import { TradeApi } from '@/api/trade'
 import UserTitle from '@/components/UserTitle.vue'
@@ -152,6 +153,9 @@ const hide = (event: Event) => { (event.target as HTMLImageElement).hidden = tru
 
       <!-- 社区活跃：活跃日历、活跃天数、各类活动次数 -->
       <ActivityPanel :user-id="profile.id" />
+
+      <!-- Steam 卡片（绑定了 Steam 才显示） -->
+      <SteamCard :user-id="profile.id" />
 
       <nav class="profile-tabs" aria-label="主页分区">
         <button v-for="item in tabs" :key="item.id" type="button" :class="{ active: tab === item.id }" :aria-pressed="tab === item.id" @click="tab = item.id">

@@ -118,9 +118,115 @@ CREATE TABLE IF NOT EXISTS sponsor_perk_log (
   KEY IX_sponsor_perk_log_user (UserId, Id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
                 await cmd.ExecuteNonQueryAsync(ct);
+                // 赞助头衔（fix181）：以前的赞助者也补发一次（只做一次）
+                try { await BackfillTierTitlesAsync(c, ct); }
+                catch { /* 补发失败不影响赞助特权本身，下次启动再试 */ }
                 _ready = true;
             }
             finally { _schemaLock.Release(); }
+        }
+
+        // ===================== 赞助头衔（fix181） =====================
+        // 赞助到哪一档就自动得到同名头衔（觉醒者 / 超凡者 / 大超凡者 / 君者），放进「我的头衔」里，永久保留（到期也不收回）。
+        // 自动戴上的规则：现在没戴头衔，或者戴的是更低一档的赞助头衔，就换成新的；戴着别的头衔（交易行买的、管理员给的）不动。
+        // 头衔存在交易行那张 user_cosmetics 表（Kind = title），和交易行、管理员授予的头衔在同一个地方管理。
+
+        /// <summary>和 ShopService 里的建表语句一样（谁先用谁建）</summary>
+        private const string CosmeticsTableSql = @"CREATE TABLE IF NOT EXISTS user_cosmetics (
+  UserId CHAR(36) NOT NULL,
+  Kind VARCHAR(10) NOT NULL,
+  ItemKey VARCHAR(100) NOT NULL,
+  Source VARCHAR(60) NOT NULL,
+  CreatedAt DATETIME NOT NULL,
+  PRIMARY KEY (UserId, Kind, ItemKey)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+
+        /// <summary>给一个人发这一档的赞助头衔，必要时自动戴上。只认四个正式档位，别的方案名不发头衔</summary>
+        public async Task GrantTierTitleAsync(Guid userId, string? tier, CancellationToken ct = default)
+        {
+            var rank = TierRank(tier);
+            if (rank <= 0) return;
+            var title = Tiers[rank - 1];
+            await using var c = new MySqlConnection(_connectionString);
+            await c.OpenAsync(ct);
+            await using (var make = c.CreateCommand()) { make.CommandText = CosmeticsTableSql; await make.ExecuteNonQueryAsync(ct); }
+            await using (var add = c.CreateCommand())
+            {
+                add.CommandText = "INSERT IGNORE INTO user_cosmetics (UserId, Kind, ItemKey, Source, CreatedAt) VALUES (@u, 'title', @k, @s, @t)";
+                add.Parameters.AddWithValue("@u", userId.ToString());
+                add.Parameters.AddWithValue("@k", title);
+                add.Parameters.AddWithValue("@s", $"赞助 · {title}");
+                add.Parameters.AddWithValue("@t", DateTime.UtcNow);
+                await add.ExecuteNonQueryAsync(ct);
+            }
+            await EquipIfBetterAsync(c, userId, title, ct);
+        }
+
+        /// <summary>没戴头衔、或者戴的是更低档的赞助头衔时，换成这一档</summary>
+        private static async Task EquipIfBetterAsync(MySqlConnection c, Guid userId, string title, CancellationToken ct)
+        {
+            var lower = Tiers.Take(Math.Max(0, TierRank(title) - 1)).ToList();
+            await using var eq = c.CreateCommand();
+            var inList = lower.Count == 0 ? "" : " OR Title IN (" + string.Join(", ", lower.Select((_, i) => $"@l{i}")) + ")";
+            eq.CommandText = $"UPDATE UserStats SET Title = @k WHERE UserId = @u AND (Title IS NULL OR Title = ''{inList})";
+            eq.Parameters.AddWithValue("@k", title);
+            eq.Parameters.AddWithValue("@u", userId.ToString());
+            for (var i = 0; i < lower.Count; i++) eq.Parameters.AddWithValue($"@l{i}", lower[i]);
+            await eq.ExecuteNonQueryAsync(ct);
+        }
+
+        /// <summary>
+        /// 上线这个功能前就赞助过的人：按赞助记录里出现过的每一档都补发头衔；现在还在有效期内、又没戴头衔的，戴上最高那一档。
+        /// 只做一次（记在 sponsor_title_backfill 表里），之后不会把别人主动摘掉的头衔又戴回去
+        /// </summary>
+        private static async Task BackfillTierTitlesAsync(MySqlConnection c, CancellationToken ct)
+        {
+            await using (var make = c.CreateCommand())
+            {
+                make.CommandText = CosmeticsTableSql + ";\nCREATE TABLE IF NOT EXISTS sponsor_title_backfill (Id INT NOT NULL PRIMARY KEY, DoneAt DATETIME NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+                await make.ExecuteNonQueryAsync(ct);
+            }
+            await using (var done = c.CreateCommand())
+            {
+                done.CommandText = "SELECT COUNT(*) FROM sponsor_title_backfill WHERE Id = 1";
+                if (Convert.ToInt64(await done.ExecuteScalarAsync(ct)) > 0) return;
+            }
+            // 每个人出现过的每一档（赞助记录 + 现在的档位）
+            var pairs = new HashSet<(string User, string Tier)>();
+            await using (var read = c.CreateCommand())
+            {
+                read.CommandText = "SELECT UserId, Tier FROM sponsor_perk_log WHERE Tier IS NOT NULL AND Source <> 'revoke' UNION SELECT UserId, Tier FROM sponsor_perks WHERE Tier IS NOT NULL";
+                await using var r = await read.ExecuteReaderAsync(ct);
+                while (await r.ReadAsync(ct)) pairs.Add((Convert.ToString(r.GetValue(0))!, r.GetString(1)));
+            }
+            foreach (var (user, tier) in pairs)
+            {
+                var rank = TierRank(tier);
+                if (rank <= 0 || !Guid.TryParse(user, out var uid)) continue;
+                await using var add = c.CreateCommand();
+                add.CommandText = "INSERT IGNORE INTO user_cosmetics (UserId, Kind, ItemKey, Source, CreatedAt) VALUES (@u, 'title', @k, @s, @t)";
+                add.Parameters.AddWithValue("@u", uid.ToString());
+                add.Parameters.AddWithValue("@k", Tiers[rank - 1]);
+                add.Parameters.AddWithValue("@s", $"赞助 · {Tiers[rank - 1]}");
+                add.Parameters.AddWithValue("@t", DateTime.UtcNow);
+                await add.ExecuteNonQueryAsync(ct);
+            }
+            // 还在有效期内的：没戴头衔就戴上现在这一档
+            var active = new List<(Guid User, string Tier)>();
+            await using (var read = c.CreateCommand())
+            {
+                read.CommandText = "SELECT UserId, Tier FROM sponsor_perks WHERE Tier IS NOT NULL AND Until > UTC_TIMESTAMP()";
+                await using var r = await read.ExecuteReaderAsync(ct);
+                while (await r.ReadAsync(ct))
+                    if (Guid.TryParse(Convert.ToString(r.GetValue(0)), out var uid) && TierRank(r.GetString(1)) > 0) active.Add((uid, Tiers[TierRank(r.GetString(1)) - 1]));
+            }
+            foreach (var (uid, tier) in active) await EquipIfBetterAsync(c, uid, tier, ct);
+            await using (var mark = c.CreateCommand())
+            {
+                mark.CommandText = "INSERT IGNORE INTO sponsor_title_backfill (Id, DoneAt) VALUES (1, @t)";
+                mark.Parameters.AddWithValue("@t", DateTime.UtcNow);
+                await mark.ExecuteNonQueryAsync(ct);
+            }
         }
 
         private static DateTime? ReadDate(MySqlDataReader r, int i) => r.IsDBNull(i) ? null : DateTime.SpecifyKind(r.GetDateTime(i), DateTimeKind.Utc);
@@ -236,6 +342,8 @@ ON DUPLICATE KEY UPDATE AfdianUserId = @a, UpdatedAt = @t";
                     await WriteAsync(c, tx, Guid.Parse(userText!), newUntil, tier, "afdian", o.OutTradeNo, days, $"爱发电赞助 {o.TotalAmount} 元", null, ct);
                     await tx.CommitAsync(ct);
                     applied++;
+                    // 赞助头衔：发不出去也不影响特权（下次同步 / 管理员开通时还会再发）
+                    try { await GrantTierTitleAsync(Guid.Parse(userText!), tier, ct); } catch { }
                 }
                 catch
                 {
@@ -295,6 +403,7 @@ VALUES (@u, @s, @ref, @d, @tier, @until, @note, @op, @t)";
             var newUntil = (until is DateTime u && u > now ? u : now).AddDays(days);
             await WriteAsync(c, tx, userId, newUntil, NormalizeTier(tier), "manual", null, days, note ?? "管理员开通", operatorId, ct);
             await tx.CommitAsync(ct);
+            try { await GrantTierTitleAsync(userId, tier, ct); } catch { }
             return newUntil;
         }
 

@@ -28,7 +28,15 @@ namespace TaiChuWeb_V2.Services.Personalization
         /// <param name="Kind">image 图片（含 GIF）/ video 视频（MP4、WebM）</param>
         /// <param name="Poster">视频的封面帧（视频加载完成前先显示它）</param>
         /// <param name="Nav">左侧导航栏的不透明度（30–100，%），越小越透、越能看到背景</param>
-        public sealed record Appearance(string Source, int? PresetId, string? Url, string Kind, string? Poster, int Veil, int Blur, bool Grid, string Focus, DateTime? UpdatedAt, int Nav = DefaultNav);
+        public sealed record Appearance(string Source, int? PresetId, string? Url, string Kind, string? Poster, int Veil, int Blur, bool Grid, string Focus, DateTime? UpdatedAt, int Nav = DefaultNav, NightLook? Night = null);
+
+        /// <summary>
+        /// 黑夜模式用的背景（网站切到深色时自动换上）。Source：same = 和白天一样（默认）/ default / preset / custom。
+        /// Url 等是黑夜单独上传的素材（没在用时也保留，方便切回来）。遮罩、模糊、位置、网格、导航栏透明度和白天共用。
+        /// </summary>
+        public sealed record NightLook(string Source, int? PresetId, string? Url, string Kind, string? Poster);
+        public static readonly string[] NightSources = ["same", "default", "preset", "custom"];
+        public static NightLook SameAsDay => new("same", null, null, "image", null);
 
         public const int DefaultNav = 80;
 
@@ -88,6 +96,12 @@ CREATE TABLE IF NOT EXISTS site_backgrounds (
                 await AddColumnIfMissingAsync(c, "BgPresetId", "INT NULL AFTER BgEnabled", ct);
                 await AddColumnIfMissingAsync(c, "AuthorId", "CHAR(36) NULL AFTER Poster", ct, "site_backgrounds");
                 await AddColumnIfMissingAsync(c, "BgNav", "INT NOT NULL DEFAULT 80 AFTER BgFocus", ct);
+                // 黑夜模式单独的背景（NULL = 和白天一样）
+                await AddColumnIfMissingAsync(c, "BgNightSource", "VARCHAR(8) NULL", ct);
+                await AddColumnIfMissingAsync(c, "BgNightPresetId", "INT NULL", ct);
+                await AddColumnIfMissingAsync(c, "BgNightUrl", "VARCHAR(1000) NULL", ct);
+                await AddColumnIfMissingAsync(c, "BgNightKind", "VARCHAR(8) NULL", ct);
+                await AddColumnIfMissingAsync(c, "BgNightPoster", "VARCHAR(1000) NULL", ct);
                 if (await AddColumnIfMissingAsync(c, "BgSource", "VARCHAR(8) NOT NULL DEFAULT 'default' AFTER BgEnabled", ct))
                 {
                     // 第一版只有「自定义图片」，已经开启的记录算作 custom
@@ -132,7 +146,7 @@ CREATE TABLE IF NOT EXISTS site_backgrounds (
         {
             await using var c = await OpenAsync(ct);
             await using var cmd = c.CreateCommand();
-            cmd.CommandText = "SELECT BgSource, BgPresetId, BgUrl, BgKind, BgPoster, BgVeil, BgBlur, BgGrid, BgFocus, UpdatedAt, BgNav FROM user_appearance WHERE UserId = @u";
+            cmd.CommandText = "SELECT BgSource, BgPresetId, BgUrl, BgKind, BgPoster, BgVeil, BgBlur, BgGrid, BgFocus, UpdatedAt, BgNav, BgNightSource, BgNightPresetId, BgNightUrl, BgNightKind, BgNightPoster FROM user_appearance WHERE UserId = @u";
             cmd.Parameters.AddWithValue("@u", userId.ToString());
             await using var r = await cmd.ExecuteReaderAsync(ct);
             if (!await r.ReadAsync(ct)) return Default;
@@ -147,7 +161,13 @@ CREATE TABLE IF NOT EXISTS site_backgrounds (
                 Convert.ToBoolean(r.GetValue(7)),
                 r.GetString(8),
                 DateTime.SpecifyKind(r.GetDateTime(9), DateTimeKind.Utc),
-                r.IsDBNull(10) ? DefaultNav : Convert.ToInt32(r.GetValue(10)));
+                r.IsDBNull(10) ? DefaultNav : Convert.ToInt32(r.GetValue(10)),
+                new NightLook(
+                    r.IsDBNull(11) ? "same" : r.GetString(11),
+                    r.IsDBNull(12) ? null : Convert.ToInt32(r.GetValue(12)),
+                    r.IsDBNull(13) ? null : r.GetString(13),
+                    r.IsDBNull(14) ? "image" : r.GetString(14),
+                    r.IsDBNull(15) ? null : r.GetString(15)));
         }
 
         /// <summary>保存（调用方负责检查 custom 是否有赞助特权、preset 是否存在）。</summary>
@@ -164,13 +184,24 @@ CREATE TABLE IF NOT EXISTS site_backgrounds (
             var focus = Focuses.Contains(a.Focus) ? a.Focus : "center";
             var nav = Math.Clamp(a.Nav, 30, 100);
             var now = DateTime.UtcNow;
+            // 黑夜：和白天一样的规则整理一遍
+            var n = a.Night ?? SameAsDay;
+            var nUrl = IsSafeUrl(n.Url) ? n.Url : null;
+            var nKind = Kinds.Contains(n.Kind) ? n.Kind : "image";
+            var nPoster = nKind == "video" && IsSafeUrl(n.Poster) ? n.Poster : null;
+            var nSource = NightSources.Contains(n.Source) ? n.Source : "same";
+            if (nSource == "custom" && nUrl == null) nSource = "same";
+            if (nSource == "preset" && n.PresetId == null) nSource = "same";
+            var nPreset = nSource == "preset" ? n.PresetId : null;
 
             await using var c = await OpenAsync(ct);
             await using var cmd = c.CreateCommand();
             cmd.CommandText = @"
-INSERT INTO user_appearance (UserId, BgEnabled, BgSource, BgPresetId, BgUrl, BgKind, BgPoster, BgVeil, BgBlur, BgGrid, BgFocus, BgNav, UpdatedAt)
-VALUES (@u, @e, @s, @pid, @url, @k, @p, @v, @b, @g, @f, @n, @t)
-ON DUPLICATE KEY UPDATE BgEnabled = @e, BgSource = @s, BgPresetId = @pid, BgUrl = @url, BgKind = @k, BgPoster = @p, BgVeil = @v, BgBlur = @b, BgGrid = @g, BgFocus = @f, BgNav = @n, UpdatedAt = @t";
+INSERT INTO user_appearance (UserId, BgEnabled, BgSource, BgPresetId, BgUrl, BgKind, BgPoster, BgVeil, BgBlur, BgGrid, BgFocus, BgNav, UpdatedAt,
+  BgNightSource, BgNightPresetId, BgNightUrl, BgNightKind, BgNightPoster)
+VALUES (@u, @e, @s, @pid, @url, @k, @p, @v, @b, @g, @f, @n, @t, @ns, @npid, @nurl, @nk, @np)
+ON DUPLICATE KEY UPDATE BgEnabled = @e, BgSource = @s, BgPresetId = @pid, BgUrl = @url, BgKind = @k, BgPoster = @p, BgVeil = @v, BgBlur = @b, BgGrid = @g, BgFocus = @f, BgNav = @n, UpdatedAt = @t,
+  BgNightSource = @ns, BgNightPresetId = @npid, BgNightUrl = @nurl, BgNightKind = @nk, BgNightPoster = @np";
             cmd.Parameters.AddWithValue("@u", userId.ToString());
             cmd.Parameters.AddWithValue("@e", source != "default");
             cmd.Parameters.AddWithValue("@s", source);
@@ -184,8 +215,13 @@ ON DUPLICATE KEY UPDATE BgEnabled = @e, BgSource = @s, BgPresetId = @pid, BgUrl 
             cmd.Parameters.AddWithValue("@f", focus);
             cmd.Parameters.AddWithValue("@n", nav);
             cmd.Parameters.AddWithValue("@t", now);
+            cmd.Parameters.AddWithValue("@ns", nSource == "same" ? DBNull.Value : (object)nSource);
+            cmd.Parameters.AddWithValue("@npid", nPreset == null ? DBNull.Value : (object)nPreset.Value);
+            cmd.Parameters.AddWithValue("@nurl", nUrl == null ? DBNull.Value : (object)nUrl);
+            cmd.Parameters.AddWithValue("@nk", nKind);
+            cmd.Parameters.AddWithValue("@np", nPoster == null ? DBNull.Value : (object)nPoster);
             await cmd.ExecuteNonQueryAsync(ct);
-            return new Appearance(source, a.PresetId, url, kind, poster, veil, blur, a.Grid, focus, now, nav);
+            return new Appearance(source, a.PresetId, url, kind, poster, veil, blur, a.Grid, focus, now, nav, new NightLook(nSource, nPreset, nUrl, nKind, nPoster));
         }
 
         public async Task ResetAsync(Guid userId, CancellationToken ct = default)

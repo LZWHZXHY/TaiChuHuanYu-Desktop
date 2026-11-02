@@ -4,3 +4,6 @@
  * 认证通过后把这里改成 true 就全部恢复（后端的爱发电自动同步、管理员后台不受影响）。
  */
 export const AFDIAN_ENABLED = false
+
+/** 爱赞助主页（首页赞助卡片用） */
+export const AZZ_URL = 'https://azz.ee/taichuhuanyu'

@@ -74,7 +74,7 @@ import { useUserStore } from '@/stores/user'
 import { useBattleStore } from '../battle_Store'
 import type { Battle } from '../battle_api'
 import BattleCard from './BattleCard.vue'
-import { STATUS_LABEL, outcomeOf, resultLabel } from '../battleView'
+import { STATUS_LABEL, isSelfMatch, outcomeOf, resultHeadline, resultLabel } from '../battleView'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -120,6 +120,8 @@ const participatedList = computed(() => allBattles.value.filter(item => !isMine(
 /** 我在这场的结果（结束了才显示） */
 function myResult(b: Battle): string {
   if (b.status !== 'finished') return ''
+  // 自己对打：两边都是我，显示哪个 OC 赢了
+  if (isSelfMatch(b)) { const h = resultHeadline(b); return `${h.icon} ${h.text}` }
   const me = b.participants?.find(p => same(p.userId))
   return me ? resultLabel(me.result, outcomeOf(b)) : ''
 }

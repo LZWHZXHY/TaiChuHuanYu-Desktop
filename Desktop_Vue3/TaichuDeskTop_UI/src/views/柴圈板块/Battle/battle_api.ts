@@ -103,6 +103,8 @@ export interface CreateBattleRequest {
   challengerOcIds: string[]
   // ⭐ 对手 OC 字典：用户ID → OC ID 列表
   opponentOcIds?: Record<string, string[]>
+  /** 和自己约战：B 队也是自己的 OC（填了就不能再指定别人，发布后直接进入创作期） */
+  selfOpponentOcIds?: string[]
   battleConfigJson?: string
 }
 
@@ -207,6 +209,12 @@ export const battleApi = {
   /** 修改自己已提交的作品（创作期内）。以前这里指向一个不存在的接口 */
   updateSubmission: (id: string, data: SubmitWorkRequest) =>
     request.put<Battle>(`/Battle/${id}/submit`, data),
+  /** 管理员改别人的作品（reason 会写进给作者的通知） */
+  adminEditSubmission: (submissionId: string, data: SubmitWorkRequest & { reason?: string }) =>
+    request.put<Battle>(`/Battle/submissions/${submissionId}/admin`, data, { silentError: true }),
+  /** 管理员替还没交的参赛者交作品 */
+  adminSubmit: (id: string, participantId: string, data: SubmitWorkRequest & { reason?: string }) =>
+    request.post<Battle>(`/Battle/${id}/participants/${participantId}/admin-submit`, data, { silentError: true }),
 
   setInternalResult: (id: string, data: InternalResultRequest) =>
     request.post<Battle>(`/Battle/${id}/set-internal-result`, data),

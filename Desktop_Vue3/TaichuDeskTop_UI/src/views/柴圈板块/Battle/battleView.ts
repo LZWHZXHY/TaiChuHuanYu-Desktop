@@ -77,6 +77,17 @@ function teamsConfig(json?: string): Record<string, number> {
   } catch { return {} }
 }
 
+/**
+ * 和自己约战：两边都是同一个人的 OC（后端在 battleConfigJson 里记了 selfMatch；
+ * 老数据没有这个标记时，参战记录不止一条而且全是同一个人也算）
+ */
+export function isSelfMatch(b?: Pick<Battle, 'participants' | 'battleConfigJson'> | null): boolean {
+  if (!b) return false
+  try { if (b.battleConfigJson && JSON.parse(b.battleConfigJson)?.selfMatch === true) return true } catch { /* 配置坏了按下面的办法判断 */ }
+  const ps = b.participants ?? []
+  return ps.length > 1 && new Set(ps.map(p => (p.userId || '').toLowerCase())).size === 1
+}
+
 /** 团队战：两队都有人，而且总人数超过 2（和后端投票、录结果的判断一致） */
 export function isTeamBattle(ps: BattleParticipant[]): boolean {
   return ps.length > 2 && ps.some(p => p.teamNumber === 1) && ps.some(p => p.teamNumber === 2)
@@ -98,6 +109,11 @@ export function splitSides(b: Pick<Battle, 'participants' | 'opponentOcIds' | 'b
   const pendingB = pendingIds.length - pendingA
   // 哪边超过一个人（算上没应战的）就叫「队」
   const team = a.length + pendingA > 1 || bb.length + pendingB > 1
+  // 和自己约战：两边都是自己，叫「A 方 / B 方」（叫发起方、应战方就怪了）
+  if (isSelfMatch(b)) return [
+    { key: 'A', label: 'A 方', members: a, pending: 0 },
+    { key: 'B', label: 'B 方', members: bb, pending: 0 },
+  ]
   return [
     { key: 'A', label: team ? 'A 队' : '发起方', members: a, pending: pendingA },
     { key: 'B', label: team ? 'B 队' : '应战方', members: bb, pending: pendingB },
@@ -114,6 +130,13 @@ export function sideOf(b: Pick<Battle, 'participants' | 'opponentOcIds' | 'battl
 }
 
 const names = (ps: BattleParticipant[]) => ps.map(p => p.userName).join('、')
+/** 和自己约战时，用 OC 名字区分两边（人名两边一样） */
+const ocNamesOf = (ps: BattleParticipant[]) => ps.map(p => p.ocNames?.join('、') || p.userName).join('、')
+
+/** 一个参与者在列表里怎么称呼：平时是人名；和自己约战时是 OC 名字 */
+export function participantName(b: Pick<Battle, 'participants' | 'battleConfigJson'> | null | undefined, p: BattleParticipant): string {
+  return isSelfMatch(b) ? (p.ocNames?.join('、') || p.userName) : p.userName
+}
 
 /** 结果横幅的大字：🏆 张三 胜 / 🩸 A 队（张三、李四）惨胜 / 🤝 平手 …… */
 export function resultHeadline(b: Battle): { icon: string; text: string; outcome: BattleOutcome | '' } {
@@ -123,7 +146,10 @@ export function resultHeadline(b: Battle): { icon: string; text: string; outcome
     const winners = (b.participants ?? []).filter(p => p.result === 'win')
     const [a, bb] = splitSides(b)
     const side = [a, bb].find(s => s.members.length > 1 && winners.length && s.members.every(m => m.result === 'win'))
-    const who = side ? `${side.label}（${names(side.members)}）` : names(winners) || '胜者'
+    const self = isSelfMatch(b)
+    const who = self
+      ? ocNamesOf(winners) || '胜者'
+      : side ? `${side.label}（${names(side.members)}）` : names(winners) || '胜者'
     return { icon: meta!.icon, text: `${who} ${o === 'pyrrhic' ? '惨胜' : '胜'}`, outcome: o }
   }
   if (meta) return { icon: meta.icon, text: meta.label, outcome: o }

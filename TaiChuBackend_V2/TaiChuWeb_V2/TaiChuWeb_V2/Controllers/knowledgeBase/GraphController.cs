@@ -277,9 +277,18 @@ namespace TaiChuWeb_V2.Controllers.knowledgeBase
             // 开发进度和列表一样：只有管理员和赞助会员能搜到
             var perks = HttpContext.RequestServices.GetService<SponsorPerkService>();
             var devlogOk = perks != null && (await DevProgressAccess.CheckAsync(_context, perks, User)).CanView;
-            var query = await KnowledgeSearch.FilterAsync(_context,
-                CatalogController.Query(_context, "all", includeSettings: true, includeDevlog: devlogOk).AsNoTracking(), terms);
-            var total = await query.CountAsync();
+            var log = HttpContext.RequestServices.GetService<ILogger<GraphController>>();
+            var unfiltered = CatalogController.Query(_context, "all", includeSettings: true, includeDevlog: devlogOk).AsNoTracking();
+            var query = await KnowledgeSearch.FilterAsync(_context, unfiltered, terms, log: log);
+            int total;
+            try { total = await query.CountAsync(); }
+            catch (Exception ex)
+            {
+                // 和列表一样：完整搜索出错就退回简单搜索，错误写进日志
+                log?.LogError(ex, "图谱搜索出错，改用简单搜索 {Search}", q);
+                query = await KnowledgeSearch.FilterAsync(_context, unfiltered, terms, simple: true);
+                total = await query.CountAsync();
+            }
             var hits = await query.Select(i => new { i.Type, i.Id }).Take(5000).ToListAsync();
             var ids = hits.Select(h => KnowledgeSearch.GraphNodeId(h.Type, h.Id)).Where(id => id != null)
                 .Select(id => id!.ToLowerInvariant()).Distinct().ToList();

@@ -25,7 +25,7 @@
           <ul class="bd-meta">
             <li>{{ battle.judgmentType === 'vote' ? '📊 投票制：路人投票定胜负' : '🤝 内定制：参与者协商定胜负' }}</li>
             <li>{{ battle.battleType || '自定义' }}</li>
-            <li>{{ battle.isPublic ? '🌐 公开报名' : '🔒 指定对手' }}</li>
+            <li>{{ selfMatch ? '🪞 自己对打：两边都是同一位作者的 OC' : battle.isPublic ? '🌐 公开报名' : '🔒 指定对手' }}</li>
             <li v-if="isInitiator" class="bd-meta-mine">你发起的约战</li>
           </ul>
         </header>
@@ -104,7 +104,8 @@
                     <b>{{ mySubmission.title }}</b>
                     <span v-if="mySubmission.reviewStatus" class="bd-chip" :class="mySubmission.reviewStatus">{{ reviewLabel(mySubmission.reviewStatus) }}</span>
                   </div>
-                  <a v-if="isWebLink(mySubmission.contentUrl)" :href="mySubmission.contentUrl" target="_blank" rel="noopener noreferrer" class="bd-mywork-link">{{ mySubmission.contentUrl }}</a>
+                  <!-- 作品链接：B 站视频自动显示封面，站内视频直接播放 -->
+                  <VideoLinkCard v-if="isWebLink(mySubmission.contentUrl)" :url="mySubmission.contentUrl" :title="mySubmission.title" compact class="bd-work-card" />
                   <p class="bd-tip">{{ reviewTip(mySubmission) }}</p>
                 </div>
                 <div v-if="canEditMine" class="bd-btns">
@@ -113,7 +114,8 @@
                 </div>
               </template>
               <template v-else-if="battle.status === 'ongoing'">
-                <p class="bd-tip">创作期进行中：作品做好后，把作品的网址交上来（视频、漫画、图文都行）。发起人点「结束创作」后就不能再交了，抓紧哦。</p>
+                <p v-if="selfMatch" class="bd-tip">自己对打：两边都是你的 OC，交一份作品就行（两边一起算）。交完点「结束创作」进入判定，再录入谁赢。</p>
+                <p v-else class="bd-tip">创作期进行中：作品做好后，把作品的网址交上来（视频、漫画、图文都行）。发起人点「结束创作」后就不能再交了，抓紧哦。</p>
                 <div class="bd-btns">
                   <button class="bd-btn main" @click="showSubmitModal = true">提交作品</button>
                 </div>
@@ -146,7 +148,7 @@
                 <div class="bd-progress-num"><b>{{ progress.done }}</b> / {{ progress.total }} 人已交作品</div>
                 <div class="bd-progress-bar" aria-hidden="true"><span :style="{ width: progress.total ? `${(progress.done / progress.total) * 100}%` : '0%' }"></span></div>
                 <ul class="bd-progress-list">
-                  <li v-for="p in battle.participants" :key="p.id" :class="{ ok: submittedIds.has(p.id) }">{{ submittedIds.has(p.id) ? '✓' : '○' }} {{ p.userName }}</li>
+                  <li v-for="p in battle.participants" :key="p.id" :class="{ ok: submittedIds.has(p.id) }">{{ submittedIds.has(p.id) ? '✓' : '○' }} {{ participantName(battle, p) }}</li>
                 </ul>
               </div>
               <p class="bd-tip">等大家都交了再结束创作。结束后进入判定期，不能再交、也不能再改作品。</p>
@@ -204,6 +206,8 @@
                   <template v-if="ownerOf(sub)?.ocNames?.length">（{{ ownerOf(sub)!.ocNames.join('、') }}）</template>
                 </span>
                 <p v-if="sub.description" class="bd-work-desc">{{ sub.description }}</p>
+                <!-- 作品：B 站视频自动抓封面，站内视频直接播放，其他链接显示网站名 -->
+                <VideoLinkCard v-if="isWebLink(sub.contentUrl)" :url="sub.contentUrl" :title="sub.title" compact class="bd-work-card" />
                 <!-- 作品链接要管理员审核通过后，别人才看得到 -->
                 <span v-if="sub.reviewStatus && sub.reviewStatus !== 'approved'" class="bd-chip" :class="sub.reviewStatus">
                   {{ reviewLabel(sub.reviewStatus) }}<template v-if="sub.reviewNote">：{{ sub.reviewNote }}</template>
@@ -211,9 +215,10 @@
               </div>
               <div class="bd-work-side">
                 <!-- 只把 http(s) 链接做成可点的，防止 javascript: 之类的链接 -->
-                <a v-if="isWebLink(sub.contentUrl)" :href="sub.contentUrl" target="_blank" rel="noopener noreferrer" class="bd-btn">打开作品 ↗</a>
-                <span v-else-if="sub.contentUrl" class="bd-work-url">{{ sub.contentUrl }}</span>
-                <span v-else class="bd-work-url muted">审核通过后可以查看</span>
+                <span v-if="sub.contentUrl && !isWebLink(sub.contentUrl)" class="bd-work-url">{{ sub.contentUrl }}</span>
+                <span v-else-if="!sub.contentUrl" class="bd-work-url muted">审核通过后可以查看</span>
+                <!-- 管理员：直接改这件作品（链接填错、作者改不了的时候） -->
+                <button v-if="battle.canReview" type="button" class="bd-text-btn" :disabled="actionBusy" @click="openAdminEdit(sub)">修改（管理员）</button>
                 <!-- 审核员：通过 / 打回 -->
                 <span v-if="battle.canReview && sub.reviewStatus !== 'approved'" class="bd-review">
                   <button type="button" class="bd-text-btn" :disabled="actionBusy" @click="reviewWork(sub.id, true)">通过</button>
@@ -247,6 +252,7 @@
               <UserLink class="bd-roster-name" :id="p.userId" :name="p.userName" />
               <span class="bd-roster-oc">{{ p.ocNames?.join('、') || '无OC' }}</span>
               <span class="bd-roster-status" :class="p.status">{{ participantStatusLabel(p.status) }}</span>
+              <button v-if="canAdminSubmit(p)" type="button" class="bd-text-btn" :disabled="actionBusy" @click="openAdminSubmit(p)">代交作品（管理员）</button>
               <span v-if="battle.status === 'finished'" class="bd-roster-result" :class="p.result || 'none'">{{ resultLabel(p.result, headline.outcome) }}</span>
             </li>
           </ul>
@@ -283,28 +289,35 @@
         </el-dialog>
 
         <!-- ===== 提交 / 修改作品弹窗 ===== -->
-        <el-dialog v-model="showSubmitModal" :title="editingSubmission ? '修改作品' : '提交作品'" width="min(520px, calc(100vw - 32px))" class="battle-dialog" :close-on-click-modal="!actionBusy && !joining" :close-on-press-escape="!actionBusy && !joining" :show-close="!actionBusy && !joining">
+        <el-dialog v-model="showSubmitModal" :title="adminWork ? (adminWork.mode === 'edit' ? `修改作品（管理员）· ${adminWork.name}` : `替 ${adminWork.name} 交作品（管理员）`) : editingSubmission ? '修改作品' : '提交作品'" width="min(520px, calc(100vw - 32px))" class="battle-dialog" :close-on-click-modal="!actionBusy && !joining" :close-on-press-escape="!actionBusy && !joining" :show-close="!actionBusy && !joining">
           <div class="modal-body">
-            <p class="modal-hint">交上来的作品要管理员审核，通过后其他人才能看到链接{{ editingSubmission ? '；改过的作品会重新审核' : '' }}。</p>
+            <p v-if="adminWork" class="modal-hint warn">{{ adminWork.mode === 'edit' ? '改完直接算审核通过，会通知作者，并留下修改记录（改之前、改之后）。' : '作品记在 Ta 名下，直接算审核通过，会通知 Ta，并留下记录。' }}</p>
+            <p v-else class="modal-hint">交上来的作品要管理员审核，通过后其他人才能看到链接{{ editingSubmission ? '；改过的作品会重新审核' : '' }}。</p>
             <div class="form-group">
               <label for="bd-work-title">作品标题 <span class="required">*</span></label>
               <input id="bd-work-title" v-model="submitForm.title" maxlength="100" placeholder="给作品起个名字" />
             </div>
             <div class="form-group">
               <label for="bd-work-url">作品链接 <span class="required">*</span></label>
-              <input id="bd-work-url" v-model="submitForm.contentUrl" maxlength="500" inputmode="url" placeholder="https://…（视频 / 漫画 / 图文等的网址）" :aria-invalid="!!urlError" aria-describedby="bd-work-url-hint" />
+              <input id="bd-work-url" v-model="submitForm.contentUrl" maxlength="500" inputmode="url" @blur="tidyUrl" @paste="onUrlPaste" placeholder="https://…（视频 / 漫画 / 图文等的网址）" :aria-invalid="!!urlError" aria-describedby="bd-work-url-hint" />
               <p v-if="urlError" id="bd-work-url-hint" class="hint error" role="alert">{{ urlError }}</p>
-              <p v-else id="bd-work-url-hint" class="hint">填网址（以 http:// 或 https:// 开头），大家点击就能查看；创作期结束前都可以再改</p>
+              <p v-else id="bd-work-url-hint" class="hint">填网址（以 http:// 或 https:// 开头），B 站 App 里点「分享 → 复制链接」直接粘进来就行，会自动显示封面</p>
+              <!-- 预览：B 站视频会抓到封面和标题 -->
+              <VideoLinkCard v-if="isWebLink(submitForm.contentUrl)" :url="submitForm.contentUrl.trim()" compact class="bd-url-preview" />
             </div>
             <div class="form-group">
               <label for="bd-work-desc">简介</label>
               <textarea id="bd-work-desc" v-model="submitForm.description" rows="3" maxlength="2000" placeholder="简要描述作品内容（可不填）"></textarea>
             </div>
+            <div v-if="adminWork" class="form-group">
+              <label for="bd-work-reason">原因（会写进给 Ta 的通知，可不填）</label>
+              <input id="bd-work-reason" v-model="adminReason" maxlength="200" :placeholder="adminWork.mode === 'edit' ? '比如：链接填成了个人主页，帮你换成作品地址' : '比如：你在群里发了作品，帮你交上来'" />
+            </div>
           </div>
           <template #footer>
             <el-button :disabled="actionBusy || joining" @click="showSubmitModal = false">取消</el-button>
             <el-button type="primary" @click="handleSubmitWork" :loading="actionBusy" :disabled="!submitForm.title.trim() || !submitForm.contentUrl.trim() || !!urlError">
-              {{ editingSubmission ? '保存修改' : '提交作品' }}
+              {{ adminWork ? (adminWork.mode === 'edit' ? '保存修改' : '代交作品') : editingSubmission ? '保存修改' : '提交作品' }}
             </el-button>
           </template>
         </el-dialog>
@@ -348,12 +361,14 @@ import BattleVersus from './BattleVersus.vue'
 import BattleStageBar from './BattleStageBar.vue'
 import BattleOutcomePicker from './BattleOutcomePicker.vue'
 import BattleAftermath from './BattleAftermath.vue'
+import VideoLinkCard from '@/components/VideoLinkCard.vue'
+import { extractLink, fetchBilibiliMeta } from '@/utils/videoLink'
 import { ref, computed, watch, onUnmounted, h } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useBattleStore } from '../battle_Store'
 import { battleApi, type BattleOutcome, type BattleSubmission } from '../battle_api'
-import { RECORD_TEXT, fmtDuration, fmtTime, outcomeMeta, outcomeOf, recordPreview, resultHeadline, resultLabel, sideOf, splitSides, statusLabel } from '../battleView'
+import { RECORD_TEXT, fmtDuration, fmtTime, isSelfMatch, outcomeMeta, outcomeOf, participantName, recordPreview, resultHeadline, resultLabel, sideOf, splitSides, statusLabel } from '../battleView'
 import { stickmanApi } from '../../OCs/stickman'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -375,7 +390,26 @@ const showSubmitModal = ref(false)
 // 修改已提交的作品：打开同一个弹窗，内容预先填好
 const editingSubmission = ref(false)
 const isWebLink = (url?: string | null) => /^https?:\/\/\S+$/i.test((url ?? '').trim())
-watch(showSubmitModal, open => { if (!open) editingSubmission.value = false })
+watch(showSubmitModal, open => { if (!open) { editingSubmission.value = false; adminWork.value = null } })
+
+// ===== 管理员改作品 / 代交作品 =====
+const adminWork = ref<null | { mode: 'edit'; submissionId: string; name: string } | { mode: 'submit'; participantId: string; name: string }>(null)
+const adminReason = ref('')
+function openAdminEdit(sub: BattleSubmission) {
+  const owner = ownerOf(sub)
+  adminWork.value = { mode: 'edit', submissionId: sub.id, name: owner ? participantName(battle.value, owner) : '作者' }
+  adminReason.value = ''
+  submitForm.value = { title: sub.title, description: sub.description ?? '', contentUrl: sub.contentUrl }
+  showSubmitModal.value = true
+}
+/** 还没交作品的参赛者，管理员能替他交（报名期、已取消的不行） */
+const canAdminSubmit = (p: { id: string }) => !!battle.value?.canReview && ['ongoing', 'judging', 'finished'].includes(battle.value.status) && !submittedIds.value.has(p.id)
+function openAdminSubmit(p: { id: string; userName: string; ocNames?: string[]; userId: string }) {
+  adminWork.value = { mode: 'submit', participantId: p.id, name: participantName(battle.value, p as any) }
+  adminReason.value = ''
+  submitForm.value = { title: '', description: '', contentUrl: '' }
+  showSubmitModal.value = true
+}
 function openEditSubmission() {
   const mine = mySubmission.value
   if (!mine) return
@@ -403,6 +437,26 @@ const submitForm = ref({
   description: '',
   contentUrl: '',
 })
+/** 粘贴「【视频标题】 https://b23.tv/xxx」这种分享文字时只留网址 */
+function onUrlPaste(e: ClipboardEvent) {
+  const text = e.clipboardData?.getData('text') ?? ''
+  const link = extractLink(text)
+  if (link === text.trim()) return
+  e.preventDefault()
+  submitForm.value.contentUrl = link
+  // 分享文字里的【标题】顺手填进作品标题（标题还没填的话）
+  const m = /【([^】]{1,100})】/.exec(text)
+  if (m && !submitForm.value.title.trim()) submitForm.value.title = m[1]!.trim()
+}
+const tidyUrl = () => { submitForm.value.contentUrl = extractLink(submitForm.value.contentUrl) }
+// B 站视频：标题还空着就用视频标题填上
+watch(() => submitForm.value.contentUrl, async url => {
+  const link = url.trim()
+  if (!isWebLink(link)) return
+  const meta = await fetchBilibiliMeta(link)
+  if (meta?.title && submitForm.value.contentUrl.trim() === link && !submitForm.value.title.trim()) submitForm.value.title = meta.title.slice(0, 100)
+})
+
 /** 作品链接当场校验：后端只收 http(s) 开头的网址，以前要点了提交才弹提示 */
 const urlError = computed(() => {
   const u = submitForm.value.contentUrl.trim()
@@ -474,14 +528,23 @@ const sides = computed(() => (battle.value ? splitSides(battle.value) : splitSid
 const headline = computed(() => (battle.value ? resultHeadline(battle.value) : { icon: '', text: '', outcome: '' as const }))
 /** 判定期：发起人是不是已经录入过结果了 */
 const recorded = computed(() => !!outcomeOf(battle.value))
-/** 交作品的进度（发起人结束创作前要看） */
-const submittedIds = computed(() => new Set((battle.value?.submissions ?? []).map(s => ownerOf(s)?.id).filter((x): x is string => !!x)))
+/** 和自己约战（两边都是同一个人的 OC） */
+const selfMatch = computed(() => isSelfMatch(battle.value))
+/**
+ * 交作品的进度（发起人结束创作前要看）：按「人」算交没交。
+ * 平时一人一条参战记录，和以前一样；和自己约战时同一个人有两条记录，交一份作品两边都算交了
+ */
+const submittedIds = computed(() => {
+  const ps = battle.value?.participants ?? []
+  const users = new Set((battle.value?.submissions ?? []).map(s => (ownerOf(s)?.userId || '').toLowerCase()).filter(Boolean))
+  return new Set(ps.filter(p => users.has((p.userId || '').toLowerCase())).map(p => p.id))
+})
 const progress = computed(() => {
   const ps = battle.value?.participants ?? []
   return {
     done: ps.filter(p => submittedIds.value.has(p.id)).length,
     total: ps.length,
-    missing: ps.filter(p => !submittedIds.value.has(p.id)).map(p => p.userName),
+    missing: ps.filter(p => !submittedIds.value.has(p.id)).map(p => participantName(battle.value, p)),
   }
 })
 /** 发起人操作区：报名期、创作期、判定期才有 */
@@ -747,12 +810,24 @@ const handleSubmitWork = async () => {
   }
   // 先记下是不是在改：关弹窗会把 editingSubmission 清掉
   const wasEditing = editingSubmission.value
+  const admin = adminWork.value
   actionBusy.value = true
   try {
     const data = {
       title: submitForm.value.title.trim(),
       description: submitForm.value.description || undefined,
       contentUrl: submitForm.value.contentUrl.trim(),
+    }
+    if (admin) {
+      const payload = { ...data, reason: adminReason.value.trim() || undefined }
+      const done = admin.mode === 'edit'
+        ? await battleApi.adminEditSubmission(admin.submissionId, payload)
+        : await battleApi.adminSubmit(battle.value.id, admin.participantId, payload)
+      if (battleStore.currentBattle?.id === done.id) battleStore.currentBattle = done
+      showSubmitModal.value = false
+      submitForm.value = { title: '', description: '', contentUrl: '' }
+      ElMessage.success(admin.mode === 'edit' ? '已修改，已经通知作者' : `已替 ${admin.name} 交上作品，已经通知 Ta`)
+      return
     }
     const updated = wasEditing
       ? await battleApi.updateSubmission(battle.value.id, data)
@@ -903,6 +978,8 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.bd-work-card { margin-top: 8px; }
+.bd-url-preview { margin-top: 8px; }
 /* ============================================================
    约战详情。外层 .community-detail 的公共样式（detail.css）优先级很高，
    这里的类名都用 bd- 开头，避免和它的 .page-header / .detail-section / .btn-primary 撞上

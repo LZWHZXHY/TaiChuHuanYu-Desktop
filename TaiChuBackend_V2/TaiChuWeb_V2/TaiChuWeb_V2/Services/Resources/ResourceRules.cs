@@ -61,7 +61,7 @@ public static class ResourceRules
     public const int ReasonMax = 300;
 
     /// <summary>分类（前端显示的选项也从接口拿这个列表）</summary>
-    public static readonly IReadOnlyList<string> Categories = new List<string> { "音效", "素材", "模板", "工具", "软件", "字体", "模型", "其他" };
+    public static readonly IReadOnlyList<string> Categories = new List<string> { "音效", "素材", "部件图", "模板", "工具", "软件", "字体", "模型", "其他" };
 
     // ---------------- 位置（展示 / 整理用的虚拟文件夹，NAS 上真实的文件位置不变） ----------------
 

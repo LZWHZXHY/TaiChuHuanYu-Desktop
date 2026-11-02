@@ -297,7 +297,8 @@ onMounted(async ()=> {
 /* 编辑工作区占满剩余空间，滚动由内部文档承接。 */
 .viewport:has(:deep(.spirit-link-app)) { padding: 16px; overflow: hidden; }
 .viewport-content:has(:deep(.spirit-link-app)) { height: 100%; }
-@media (min-width: 821px) {
+/* 只在窗口够高时锁住外层、让世界观详情里面自己滚；窗口太矮（小笔记本 + 系统缩放 125%/150%）就按普通页面整页滚，免得内容被裁掉 */
+@media (min-width: 821px) and (min-height: 560px) {
   .viewport:has(:deep(.world-index.detail-mode)) { padding: 16px; overflow: hidden; }
   .viewport-content:has(:deep(.world-index.detail-mode)), :deep(.world-index.detail-mode) { height: 100%; }
 }

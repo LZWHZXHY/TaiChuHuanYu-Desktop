@@ -85,11 +85,13 @@ const choices = computed(() => {
       }]
     })
   }
+  // 和自己约战：两边是同一个人，按 OC 名字选（不然两个选项都是你的名字）
+  const self = ps.length > 1 && new Set(ps.map(p => (p.userId || '').toLowerCase())).size === 1
   return ps.map((p, i) => ({
     value: p.id,
     side: p.teamNumber === 2 || (!p.teamNumber && i > 0) ? 'b' : 'a',
-    title: p.userName,
-    sub: p.ocNames?.length ? p.ocNames.join('、') : '没选 OC',
+    title: self ? (p.ocNames?.length ? p.ocNames.join('、') : `${p.teamNumber === 2 ? 'B' : 'A'} 方`) : p.userName,
+    sub: self ? `${p.teamNumber === 2 ? 'B' : 'A'} 方` : p.ocNames?.length ? p.ocNames.join('、') : '没选 OC',
   }))
 })
 

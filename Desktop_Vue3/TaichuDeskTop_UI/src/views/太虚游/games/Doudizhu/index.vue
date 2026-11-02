@@ -466,7 +466,12 @@ function onReaction(r: ReactionEvent) {
   showToast(r.kind, r.line.text)
   // 页面在后台时不播动画（回来时早就过去了）
   if (document.hidden || !feltEl.value || !fxLayer.value) return
-  playReactionFx(feltEl.value, fxLayer.value, r.fromSeat, r.toSeat, r.kind, () => flashHit(r.toSeat, r.kind))
+  // 音效：扔出去「嗖」一声，落地时番茄「啪叽」、点赞「叮」（音效开关关了就不响）
+  sfx.toss()
+  playReactionFx(feltEl.value, fxLayer.value, r.fromSeat, r.toSeat, r.kind, () => {
+    flashHit(r.toSeat, r.kind)
+    if (r.kind === 'tomato') sfx.splat(); else sfx.like()
+  })
 }
 
 function onChat(line: ChatLine) {

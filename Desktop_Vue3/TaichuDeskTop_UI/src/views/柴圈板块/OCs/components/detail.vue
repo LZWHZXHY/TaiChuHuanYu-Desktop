@@ -122,6 +122,9 @@
           <p class="desc-text">暂无图库图片</p>
         </div>
 
+        <!-- 部件图：挂在这个 OC 下的知识库资源（点开就能下载）；作者可以上传 -->
+        <OcPartsPanel v-if="character.id" :character-id="character.id" :oc-title="character.title" />
+
         <!-- 世界观：收录于哪些世界观；作者可以关联、复制到世界观、从对应条目更新、查看备份 -->
         <OcWorldPanel v-if="character.id" :character-id="character.id" @changed="reloadCharacter" />
 
@@ -172,6 +175,7 @@ import { followApi } from '@/api/follow'
 import ChaiComments from '../../components/ChaiComments.vue'
 import OcPanelsView from './OcPanelsView.vue'
 import OcWorldPanel from './OcWorldPanel.vue'
+import OcPartsPanel from './OcPartsPanel.vue'
 import OcBattleHistory from './OcBattleHistory.vue'
 import { statusTone, type OcCurrentStatus } from '@/api/battleAftermath'
 import { withThumbnail } from '@/utils/imageThumb'

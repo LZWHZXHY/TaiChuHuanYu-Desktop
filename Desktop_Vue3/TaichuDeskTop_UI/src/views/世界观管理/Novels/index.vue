@@ -46,7 +46,7 @@
         <h2 class="modal-title studio-heading">写一部新小说</h2>
         <label class="field"><span>标题 *</span><input v-model="form.title" placeholder="小说的名字" /></label>
         <label class="field"><span>简介</span><textarea v-model="form.description" rows="3" placeholder="一句话说明这是个什么故事"></textarea></label>
-        <label class="field"><span>封面图链接</span><input v-model="form.coverUrl" placeholder="https://…（可选）" /></label>
+        <div class="field"><span>封面（可选）</span><NovelCoverPicker v-model="coverModel" :fallback-text="form.title" /></div>
         <label class="field"><span>绑定世界观</span>
           <select v-model="form.projectId">
             <option :value="null">不绑定（独立小说）</option>
@@ -81,7 +81,8 @@
 <script setup lang="ts">
 import ParticleState from '@/components/ParticleState.vue'
 import UserLink from '@/components/UserLink.vue'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import NovelCoverPicker from './NovelCoverPicker.vue'
 import { useRouter, useRoute } from 'vue-router'
 import { worldNovelApi, type NovelBrief, type NovelPayload } from '@/api/worldNovel'
 import { useUserStore } from '@/stores/user'
@@ -101,6 +102,8 @@ const createError = ref('')
 
 const emptyForm = (): NovelPayload => ({ title: '', description: '', coverUrl: '', status: 'ongoing', isPublic: true, projectId: null })
 const form = ref<NovelPayload>(emptyForm())
+/** 封面上传组件用字符串（表单里可能是 null） */
+const coverModel = computed({ get: () => form.value.coverUrl || '', set: (v: string) => { form.value.coverUrl = v } })
 
 const formatWords = (n: number) => (n >= 10000 ? `${(n / 10000).toFixed(1)} 万` : `${n}`)
 

@@ -63,8 +63,17 @@
           <tr v-for="survey in surveys" :key="survey.id">
             <td>#{{ survey.id }}</td>
             <td>
-              <span class="survey-title">{{ survey.title }}</span>
-              <span class="survey-desc">{{ survey.description || '' }}</span>
+              <div class="survey-cell">
+                <!-- 封面：点一下就能换（发布中、已结束的也能换） -->
+                <button type="button" class="cover-thumb" :class="{ empty: !survey.coverImage }" :title="survey.coverImage ? '更换封面' : '添加封面'" @click="openCover(survey)">
+                  <img v-if="survey.coverImage" :src="survey.coverImage" alt="" loading="lazy" />
+                  <span v-else>＋封面</span>
+                </button>
+                <span class="survey-text">
+                  <span class="survey-title">{{ survey.title }}</span>
+                  <span class="survey-desc">{{ survey.description || '' }}</span>
+                </span>
+              </div>
             </td>
             <td>
               <span class="status-badge" :class="statusClass(survey.status)">
@@ -130,13 +139,26 @@
         <button class="btn-page" :disabled="currentPage >= totalPages" @click="changePage(currentPage + 1)">下一页</button>
       </div>
     </div>
+    <!-- 改封面 -->
+    <div v-if="coverEditing" class="cover-mask" @click.self="closeCover">
+      <div class="cover-dialog" role="dialog" aria-modal="true" aria-label="修改问卷封面">
+        <h3>修改封面 · {{ coverEditing.title }}</h3>
+        <p class="cover-tip">发布中、已结束的问卷也能换封面，不影响题目和已经交上来的答卷。</p>
+        <SurveyCoverPicker v-model="coverDraft" :disabled="coverSaving" />
+        <div class="cover-actions">
+          <button type="button" class="btn-page" :disabled="coverSaving" @click="closeCover">取消</button>
+          <button type="button" class="btn-primary" :disabled="coverSaving || coverDraft === (coverEditing.coverImage || '')" @click="saveCover">{{ coverSaving ? '保存中…' : '保存' }}</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getSurveyList, publishSurvey, closeSurvey, deleteSurvey } from './api'
+import { getSurveyList, publishSurvey, closeSurvey, deleteSurvey, updateSurveyCover } from './api'
+import SurveyCoverPicker from './SurveyCoverPicker.vue'
 
 const router = useRouter()
 
@@ -235,6 +257,25 @@ const handlePublish = async (id: number) => {
   }
 }
 
+// ===== 改封面 =====
+const coverEditing = ref<any | null>(null)
+const coverDraft = ref('')
+const coverSaving = ref(false)
+const openCover = (survey: any) => { coverEditing.value = survey; coverDraft.value = survey.coverImage || '' }
+const closeCover = () => { if (!coverSaving.value) coverEditing.value = null }
+const saveCover = async () => {
+  const s = coverEditing.value
+  if (!s) return
+  coverSaving.value = true
+  try {
+    await updateSurveyCover(s.id, coverDraft.value)
+    s.coverImage = coverDraft.value
+    coverEditing.value = null
+  } catch (error: any) {
+    alert(error.response?.data?.message || '保存失败，请重试')
+  } finally { coverSaving.value = false }
+}
+
 const handleClose = async (id: number) => {
   if (!confirm('确认结束此问卷吗？结束后用户将无法继续填写。')) return
   try {
@@ -261,6 +302,17 @@ onMounted(loadSurveys)
 </script>
 
 <style scoped>
+.survey-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.survey-text { display: grid; min-width: 0; }
+.cover-thumb { flex-shrink: 0; width: 72px; height: 36px; padding: 0; overflow: hidden; border: 1px solid var(--border-line); background: var(--bg-sub); color: var(--text-secondary); font: inherit; font-size: 11px; cursor: pointer; }
+.cover-thumb.empty { border-style: dashed; }
+.cover-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cover-thumb:hover, .cover-thumb:focus-visible { border-color: var(--accent-color); color: var(--accent-color); }
+.cover-mask { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; background: var(--overlay, rgba(0,0,0,.4)); }
+.cover-dialog { width: min(540px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; padding: 20px 22px; background: var(--paper-card); border: 1px solid var(--border-line); }
+.cover-dialog h3 { margin: 0 0 6px; font-size: 16px; }
+.cover-tip { margin: 0 0 14px; font-size: 13px; color: var(--text-secondary); }
+.cover-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 .manage-container {
   max-width: 1200px;
   margin: 0 auto;

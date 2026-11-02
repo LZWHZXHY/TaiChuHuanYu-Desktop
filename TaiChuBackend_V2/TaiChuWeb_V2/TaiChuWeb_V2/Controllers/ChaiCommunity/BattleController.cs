@@ -39,6 +39,45 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             foreach (var p in battle.Participants) Notify(p.UserId, from, battle, content(p));
         }
         /// <summary>作品链接只收 http(s)，防止 javascript: 之类的链接被别人点到</summary>
+        private static bool _selfMatchIndexReady;
+        private static readonly SemaphoreSlim SelfMatchIndexLock = new(1, 1);
+
+        /// <summary>
+        /// BattleParticipants 原来的唯一索引是 (BattleId, UserId)：同一个人在一场约战里只能有一条记录，自己对打存不进去。
+        /// 换成 (BattleId, UserId, TeamNumber)：先建新索引，再删旧索引。只动索引，不改表、不动数据；已经换过就什么都不做。
+        /// （老数据一定满足新索引：旧索引更严格）
+        /// </summary>
+        private async Task EnsureSelfMatchIndexAsync()
+        {
+            if (_selfMatchIndexReady) return;
+            await SelfMatchIndexLock.WaitAsync();
+            try
+            {
+                if (_selfMatchIndexReady) return;
+                var conn = _context.Database.GetDbConnection();
+                if (conn.State != System.Data.ConnectionState.Open) await conn.OpenAsync();
+                var unique = new List<(string Name, string Cols)>();
+                await using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"SELECT INDEX_NAME, GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',')
+FROM information_schema.STATISTICS
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'BattleParticipants' AND NON_UNIQUE = 0
+GROUP BY INDEX_NAME";
+                    await using var r = await cmd.ExecuteReaderAsync();
+                    while (await r.ReadAsync()) unique.Add((r.GetString(0), r.GetString(1)));
+                }
+                if (!unique.Any(u => u.Cols.Equals("BattleId,UserId,TeamNumber", StringComparison.OrdinalIgnoreCase)))
+                    await _context.Database.ExecuteSqlRawAsync("CREATE UNIQUE INDEX UX_BattleParticipants_Battle_User_Team ON BattleParticipants (BattleId, UserId, TeamNumber)");
+                foreach (var old in unique.Where(u => u.Cols.Equals("BattleId,UserId", StringComparison.OrdinalIgnoreCase)))
+                    await _context.Database.ExecuteSqlRawAsync($"DROP INDEX `{old.Name.Replace("`", "")}` ON BattleParticipants");
+                _selfMatchIndexReady = true;
+            }
+            finally { SelfMatchIndexLock.Release(); }
+        }
+
+        /// <summary>和自己约战：参战记录不止一条，而且全是同一个人</summary>
+        private static bool IsSelfMatch(Battle battle)
+            => battle.Participants.Count > 1 && battle.Participants.Select(p => p.UserId).Distinct().Count() == 1;
         private static bool IsWebLink(string? url)
             => Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var u) && (u.Scheme == Uri.UriSchemeHttp || u.Scheme == Uri.UriSchemeHttps);
 
@@ -217,13 +256,40 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 }
             }
 
+            // ===== 1.5 和自己约战：对面（B 方）也是自己的 OC，比如手里两个 OC 自己约着打 =====
+            var selfOcIds = request.SelfOpponentOcIds?.Distinct().ToList() ?? new List<Guid>();
+            var selfMatch = selfOcIds.Count > 0;
+            var selfOcs = new List<StickmanCharacter>();
+            if (selfMatch)
+            {
+                if (request.OpponentOcIds != null && request.OpponentOcIds.Any())
+                    return BadRequest(new { message = "和自己约战时不能再邀请别人，两边都只能是你自己的 OC" });
+                if (selfOcIds.Any(ocIds.Contains))
+                    return BadRequest(new { message = "同一个 OC 不能两边都上场" });
+                selfOcs = await _context.StickmanCharacters
+                    .Where(c => selfOcIds.Contains(c.Id) && c.AuthorId == userId)
+                    .ToListAsync();
+                if (selfOcs.Count != selfOcIds.Count)
+                    return BadRequest(new { message = "对面的 OC 不存在或不属于你" });
+                foreach (var oc in selfOcs)
+                {
+                    if (oc.Status != "published")
+                        return BadRequest(new { message = $"OC「{oc.Title}」未发布" });
+                    if (!oc.IsBattleEnabled)
+                        return BadRequest(new { message = $"OC「{oc.Title}」不允许参与约战" });
+                    var ocIdJson = $"\"{oc.Id}\"";
+                    if (existingBattles.Any(b => b.Participants.Any(p => p.OcIdsJson.Contains(ocIdJson))))
+                        return BadRequest(new { message = $"OC「{oc.Title}」已在其他进行中的约战中" });
+                }
+            }
+
             // ===== 2. 验证对手OC（但不要添加为参与者） =====
             foreach (var invitation in request.OpponentOcIds ?? new())
             {
                 var opponentUserId = invitation.Key;
                 var opponentOcIds = invitation.Value?.Distinct().ToList();
                 if (opponentUserId == userId)
-                    return BadRequest(new { message = "不能邀请自己，请在发起者栏选择自己的OC" });
+                    return BadRequest(new { message = "不能邀请自己。想让自己的两个 OC 对打，请在对手那栏选「我自己的 OC」" });
 
                 if (opponentOcIds == null || !opponentOcIds.Any())
                     return BadRequest(new { message = "对手OC列表不能为空" });
@@ -263,6 +329,9 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 teams[userId] = 1;
                 configuration = System.Text.Json.Nodes.JsonNode.Parse(request.BattleConfigJson ?? "{}")!.AsObject();
                 configuration["teams"] = JsonSerializer.SerializeToNode(teams);
+                // 和自己约战的标记（前端用来显示「自己对打」；不改表）
+                if (selfMatch) configuration["selfMatch"] = true;
+                else configuration.Remove("selfMatch");
             }
             catch (Exception ex) when (ex is JsonException or InvalidOperationException)
             {
@@ -280,13 +349,16 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                 Rules = request.Rules,
                 JudgmentType = request.JudgmentType ?? "vote",
                 BattleConfigJson = configuration.ToJsonString(),
-                IsPublic = request.OpponentOcIds == null || !request.OpponentOcIds.Any(),
+                // 和自己约战：不公开报名（别人不能来报名），也没有要等的对手
+                IsPublic = !selfMatch && (request.OpponentOcIds == null || !request.OpponentOcIds.Any()),
                 OpponentOcIds = request.OpponentOcIds != null && request.OpponentOcIds.Any()
                     ? JsonSerializer.Serialize(request.OpponentOcIds)
                     : null,
-                Status = "open",
+                // 和自己约战：两边都是自己，不用等人报名，直接进入创作期
+                Status = selfMatch ? "ongoing" : "open",
                 CreatedAt = DateTime.UtcNow
             };
+            if (selfMatch) battle.RegistrationDeadline = DateTime.UtcNow;
 
             // ===== 4. 安全序列化辅助函数 =====
             string SafeSerialize<T>(T obj)
@@ -319,7 +391,37 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             };
             battle.Participants.Add(initiatorParticipant);
 
+            // 和自己约战：B 方也是自己（同一个人两条参战记录，A 方 = 1 队、B 方 = 2 队）。
+            // 加入时间比发起方晚一秒，保证「按加入时间排第一个的是发起方」这条老规则不变
+            if (selfMatch)
+            {
+                battle.Participants.Add(new BattleParticipant
+                {
+                    Id = Guid.NewGuid().ToString(),
+                    BattleId = battle.Id,
+                    UserId = userId,
+                    UserName = username,
+                    TeamNumber = 2,
+                    OcIdsJson = SafeSerialize(selfOcIds),
+                    OcNamesJson = SafeSerialize(selfOcIds.Select(id => selfOcs.First(o => o.Id == id).Title).ToList()),
+                    Status = "registered",
+                    JoinedAt = initiatorParticipant.JoinedAt.AddSeconds(1)
+                });
+            }
+
             // ⭐ 不再自动添加对手参与者
+
+            // 自己对打：同一个人要有两条参战记录（A 方、B 方）。老表上有「同一场约战同一个人只能有一条」的唯一索引，
+            // 这里换成「同一场约战、同一个人、同一队只能有一条」（只换索引，不动任何数据）
+            if (selfMatch)
+            {
+                try { await EnsureSelfMatchIndexAsync(); }
+                catch (Exception ex)
+                {
+                    HttpContext.RequestServices.GetService<ILogger<BattleController>>()?.LogError(ex, "调整 BattleParticipants 索引失败");
+                    return StatusCode(500, new { message = "数据库暂时不支持自己对打（调整索引失败），请把这条告诉管理员" });
+                }
+            }
 
             _context.Battles.Add(battle);
             // 告诉每位被指定的对手：有人约战你了（点开可以应战或拒绝）
@@ -619,8 +721,12 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             };
 
             battle.Submissions.Add(submission);
-            participant.Status = "submitted";
-            participant.SubmittedAt = DateTime.UtcNow;
+            // 和自己约战时同一个人有两条参战记录：一份作品就是两边一起的，两条都算交了
+            foreach (var mine in battle.Participants.Where(p => p.UserId == userId))
+            {
+                mine.Status = "submitted";
+                mine.SubmittedAt = DateTime.UtcNow;
+            }
             var lead = battle.Participants.OrderBy(p => p.JoinedAt).FirstOrDefault();
             if (lead != null) Notify(lead.UserId, userId, battle, $"在约战「{battle.Title}」里提交了作品「{submission.Title}」（管理员审核通过后大家才能看到链接）");
 
@@ -785,6 +891,131 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
         }
 
         // ============================================================
+        // 管理员改作品 / 代交作品（fix176）
+        // · 改：标题、链接、简介都能改，任何阶段都能改（链接填错了，作者自己又改不了的时候用）；
+        // · 代交：参赛的人还没交的，管理员替他交一份，作品记在他名下（不会、或者创作期已经过了的时候用）。
+        // 管理员动过的作品直接算审核通过；会通知作者，并把改之前、改之后记进 battle_admin_edits 表（第一次用时自动建）
+        // ============================================================
+        public sealed class AdminWorkRequest
+        {
+            public string Title { get; set; } = string.Empty;
+            public string ContentUrl { get; set; } = string.Empty;
+            public string? Description { get; set; }
+            public string? ContentType { get; set; }
+            /// <summary>为什么改 / 为什么代交（会写进给作者的通知）</summary>
+            public string? Reason { get; set; }
+        }
+
+        private string? CheckAdminWork(AdminWorkRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Title) || request.Title.Trim().Length > 100) return "作品标题要填，最多 100 个字";
+            if (!IsWebLink(request.ContentUrl) || request.ContentUrl.Trim().Length > 500) return "作品链接要以 http:// 或 https:// 开头";
+            request.Title = request.Title.Trim();
+            request.ContentUrl = request.ContentUrl.Trim();
+            if (request.Description?.Length > 2000) request.Description = request.Description[..2000];
+            request.Reason = string.IsNullOrWhiteSpace(request.Reason) ? null : request.Reason.Trim().Length > 200 ? request.Reason.Trim()[..200] : request.Reason.Trim();
+            return null;
+        }
+
+        private async Task LogAdminEditAsync(string battleId, string submissionId, string action, object? before, object after, Guid operatorId, string? reason)
+        {
+            await _context.Database.ExecuteSqlRawAsync(@"CREATE TABLE IF NOT EXISTS battle_admin_edits (
+  Id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  BattleId VARCHAR(64) NOT NULL,
+  SubmissionId VARCHAR(64) NOT NULL,
+  Action VARCHAR(16) NOT NULL,
+  OldJson TEXT NULL,
+  NewJson TEXT NOT NULL,
+  OperatorId CHAR(36) NOT NULL,
+  Reason VARCHAR(200) NULL,
+  CreatedAt DATETIME NOT NULL,
+  KEY IX_battle_admin_edits_battle (BattleId)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            var oldJson = before == null ? null : JsonSerializer.Serialize(before);
+            var newJson = JsonSerializer.Serialize(after);
+            await _context.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO battle_admin_edits (BattleId, SubmissionId, Action, OldJson, NewJson, OperatorId, Reason, CreatedAt) VALUES ({battleId}, {submissionId}, {action}, {oldJson}, {newJson}, {operatorId.ToString()}, {reason}, {DateTime.UtcNow})");
+        }
+
+        /// <summary>管理员改一件作品</summary>
+        [HttpPut("submissions/{submissionId}/admin")]
+        public async Task<ActionResult<BattleDto>> AdminEditWork(string submissionId, [FromBody] AdminWorkRequest request)
+        {
+            if (!await IsReviewerAsync()) return StatusCode(403, new { message = "只有管理员能改别人的作品" });
+            if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var adminId)) return Unauthorized();
+            if (CheckAdminWork(request) is { } invalid) return BadRequest(new { message = invalid });
+
+            var submission = await _context.BattleSubmissions.FirstOrDefaultAsync(s => s.Id == submissionId);
+            if (submission == null) return NotFound(new { message = "作品不存在" });
+            var battle = await _context.Battles.Include(b => b.Participants).FirstOrDefaultAsync(b => b.Id == submission.BattleId);
+            if (battle == null) return NotFound(new { message = "约战不存在" });
+
+            var before = new { submission.Title, submission.ContentUrl, submission.Description, submission.ContentType };
+            submission.Title = request.Title;
+            submission.ContentUrl = request.ContentUrl;
+            submission.Description = request.Description;
+            if (request.ContentType != null) submission.ContentType = request.ContentType;
+            submission.UpdatedAt = DateTime.UtcNow;
+
+            var author = battle.Participants.FirstOrDefault(p => p.Id == submission.ParticipantId);
+            if (author != null)
+                Notify(author.UserId, adminId, battle, $"管理员修改了你在约战「{battle.Title}」的作品「{submission.Title}」" + (request.Reason != null ? $"：{request.Reason}" : ""));
+            await _context.SaveChangesAsync();
+            // 管理员改过的直接算审核通过
+            await BattleReviewStore.SetAsync(_context, submission.Id, BattleReviewStore.Approved, null, adminId);
+            await LogAdminEditAsync(battle.Id, submission.Id, "edit", before, new { submission.Title, submission.ContentUrl, submission.Description, submission.ContentType }, adminId, request.Reason);
+
+            return await ResultAsync((await LoadFullAsync(battle.Id))!);
+        }
+
+        /// <summary>管理员替还没交的参赛者交作品（作品记在他名下）</summary>
+        [HttpPost("{id}/participants/{participantId}/admin-submit")]
+        public async Task<ActionResult<BattleDto>> AdminSubmitWork(string id, string participantId, [FromBody] AdminWorkRequest request)
+        {
+            if (!await IsReviewerAsync()) return StatusCode(403, new { message = "只有管理员能代交作品" });
+            if (!Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var adminId)) return Unauthorized();
+            if (CheckAdminWork(request) is { } invalid) return BadRequest(new { message = invalid });
+
+            var battle = await _context.Battles.Include(b => b.Participants).Include(b => b.Submissions).FirstOrDefaultAsync(b => b.Id == id);
+            if (battle == null) return NotFound(new { message = "约战不存在" });
+            if (battle.Status is "open" or "cancelled") return BadRequest(new { message = battle.Status == "open" ? "还在报名期，进入创作期后才能交作品" : "约战已取消" });
+            var participant = battle.Participants.FirstOrDefault(p => p.Id == participantId);
+            if (participant == null) return NotFound(new { message = "这个人不在这场约战里" });
+            // 同一个人（自己对打时有两条参战记录）已经交过了：去改那件作品
+            var mineIds = battle.Participants.Where(p => p.UserId == participant.UserId).Select(p => p.Id).ToHashSet();
+            if (battle.Submissions.Any(s => mineIds.Contains(s.ParticipantId)))
+                return BadRequest(new { message = "Ta 已经交过作品了，请在作品旁边点「修改（管理员）」" });
+
+            var submission = new BattleSubmission
+            {
+                Id = Guid.NewGuid().ToString(),
+                BattleId = battle.Id,
+                ParticipantId = participant.Id,
+                Title = request.Title,
+                Description = request.Description,
+                ContentUrl = request.ContentUrl,
+                ContentType = request.ContentType,
+                CreatedAt = DateTime.UtcNow
+            };
+            battle.Submissions.Add(submission);
+            foreach (var p in battle.Participants.Where(p => p.UserId == participant.UserId))
+            {
+                p.Status = "submitted";
+                p.SubmittedAt = DateTime.UtcNow;
+            }
+            Notify(participant.UserId, adminId, battle, $"管理员替你在约战「{battle.Title}」交了作品「{submission.Title}」" + (request.Reason != null ? $"：{request.Reason}" : ""));
+            await _context.SaveChangesAsync();
+            await BattleReviewStore.SetAsync(_context, submission.Id, BattleReviewStore.Approved, null, adminId);
+            await LogAdminEditAsync(battle.Id, submission.Id, "submit", null, new { submission.Title, submission.ContentUrl, submission.Description, participant = participant.UserName }, adminId, request.Reason);
+
+            return await ResultAsync((await LoadFullAsync(battle.Id))!);
+        }
+
+        private Task<Battle?> LoadFullAsync(string id) => _context.Battles
+            .Include(b => b.Participants).ThenInclude(p => p.User)
+            .Include(b => b.Submissions).ThenInclude(s => s.Participant)
+            .FirstOrDefaultAsync(b => b.Id == id);
+
+        // ============================================================
         // 投票制约战：用问卷系统（surveys / questions / question_options / survey_submissions / answers）存投票
         // 一场约战 = 一份问卷、一道单选题「你觉得谁赢了？」，选项 = 每位参赛者（团战按队伍）+「平局」。
         // 选项的 OptionValue 记对应关系：p:参赛者编号 / t:队伍号 / draw
@@ -809,8 +1040,10 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
             }
             else
             {
+                // 和自己约战：两边是同一个人，选项只写 OC 名字（不然两个选项都叫同一个名字）
+                var self = IsSelfMatch(battle);
                 foreach (var p in sorted)
-                    question.Options.Add(new SurveyOptionModel { OptionText = $"{p.UserName}（{OcText(p)}）", OptionValue = $"p:{p.Id}", SortOrder = order++, CreatedAt = DateTime.UtcNow });
+                    question.Options.Add(new SurveyOptionModel { OptionText = self ? OcText(p) : $"{p.UserName}（{OcText(p)}）", OptionValue = $"p:{p.Id}", SortOrder = order++, CreatedAt = DateTime.UtcNow });
             }
             question.Options.Add(new SurveyOptionModel { OptionText = "平局", OptionValue = "draw", SortOrder = order, CreatedAt = DateTime.UtcNow });
             var survey = new SurveyModel

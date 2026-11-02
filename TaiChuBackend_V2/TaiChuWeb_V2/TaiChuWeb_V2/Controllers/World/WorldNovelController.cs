@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Models.World;
+using TaiChuWeb_V2.Services.World;
 
 namespace TaiChuWeb_V2.Controllers.World;
 
@@ -24,6 +25,8 @@ public class ChapterDto
     public string Title { get; set; } = string.Empty;
     public string Content { get; set; } = string.Empty;
     public int? Number { get; set; }
+    /// <summary>新建时放进哪个部 / 卷 / 番外（fix175，可空 = 不分组）</summary>
+    public Guid? SectionId { get; set; }
 }
 
 /// <summary>世界观配套小说：书架、目录、章节读写。</summary>
@@ -104,11 +107,23 @@ public class WorldNovelController : ControllerBase
             await _context.SaveChangesAsync();
         }
 
-        var chapters = await _context.WorldNovelChapters
+        var rawChapters = await _context.WorldNovelChapters
             .Where(c => c.NovelId == id)
             .OrderBy(c => c.Number)
             .Select(c => new { c.Id, c.Number, c.Title, c.WordCount, c.UpdatedAt })
             .ToListAsync();
+
+        // 部 / 卷 / 番外（fix175）：章按阅读顺序排，带上所在分组和「第几章」（番外的章没有）
+        var (sections, sectionMap) = await NovelStructure.LoadAsync(_context, id);
+        var order = NovelStructure.ReadingOrder(rawChapters.Select(c => (c.Id, c.Number)), sections, sectionMap);
+        var displayNo = NovelStructure.DisplayNumbers(order, sections, sectionMap);
+        var byId = rawChapters.ToDictionary(c => c.Id);
+        var chapters = order.Select(cid => byId[cid]).Select(c => new
+        {
+            c.Id, c.Number, c.Title, c.WordCount, c.UpdatedAt,
+            SectionId = NovelStructure.SectionOf(c.Id, sectionMap, sections),
+            DisplayNo = displayNo.GetValueOrDefault(c.Id),
+        }).ToList();
 
         var projectName = novel.ProjectId.HasValue
             ? await _context.WorldProjects.Where(p => p.Id == novel.ProjectId.Value).Select(p => p.Name).FirstOrDefaultAsync()
@@ -122,7 +137,8 @@ public class WorldNovelController : ControllerBase
             novel.WordCount, novel.IsPublic, novel.CreatedAt, novel.UpdatedAt,
             Tags = ParseTags(novel.Tags),
             IsOwner = CurrentUserId.HasValue && novel.AuthorId == CurrentUserId.Value,
-            Chapters = chapters
+            Chapters = chapters,
+            Sections = sections.Select(s => new { s.Id, s.ParentId, s.Kind, s.Title, s.Note, s.SortOrder })
         });
     }
 
@@ -139,16 +155,22 @@ public class WorldNovelController : ControllerBase
             .FirstOrDefaultAsync(c => c.Id == chapterId && c.NovelId == id);
         if (chapter == null) return NotFound(new { message = "章节不存在" });
 
-        var list = await _context.WorldNovelChapters
+        var all = await _context.WorldNovelChapters
             .Where(c => c.NovelId == id)
-            .OrderBy(c => c.Number)
-            .Select(c => c.Id)
+            .Select(c => new { c.Id, c.Number })
             .ToListAsync();
+        // 上一章 / 下一章按部、卷的阅读顺序走（fix175）
+        var (sections, sectionMap) = await NovelStructure.LoadAsync(_context, id);
+        var list = NovelStructure.ReadingOrder(all.Select(c => (c.Id, c.Number)), sections, sectionMap);
+        var displayNo = NovelStructure.DisplayNumbers(list, sections, sectionMap);
 
         var index = list.IndexOf(chapterId);
         return Ok(new
         {
             chapter.Id, chapter.Number, chapter.Title, chapter.Content, chapter.WordCount, chapter.UpdatedAt,
+            SectionId = NovelStructure.SectionOf(chapter.Id, sectionMap, sections),
+            SectionPath = NovelStructure.PathOf(chapter.Id, sections, sectionMap),
+            DisplayNo = displayNo.GetValueOrDefault(chapter.Id),
             PrevId = index > 0 ? list[index - 1] : (Guid?)null,
             NextId = index >= 0 && index < list.Count - 1 ? list[index + 1] : (Guid?)null,
             Index = index + 1,
@@ -219,6 +241,7 @@ public class WorldNovelController : ControllerBase
         _context.WorldNovelChapters.RemoveRange(chapters);
         _context.WorldNovels.Remove(novel);
         await _context.SaveChangesAsync();
+        await NovelStructure.ForgetNovelAsync(_context, id);
         return NoContent();
     }
 
@@ -253,6 +276,13 @@ public class WorldNovelController : ControllerBase
         novel.WordCount += chapter.WordCount;
         novel.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+        // 放进作者选的部 / 卷 / 番外（分组不存在就不分组）
+        if (dto.SectionId.HasValue)
+        {
+            var (sections, _) = await NovelStructure.LoadAsync(_context, id);
+            if (sections.Any(s => s.Id == dto.SectionId.Value))
+                await NovelStructure.SetChapterSectionAsync(_context, id, chapter.Id, dto.SectionId.Value);
+        }
         return Ok(new { id = chapter.Id, number = chapter.Number });
     }
 
@@ -303,6 +333,7 @@ public class WorldNovelController : ControllerBase
         novel.UpdatedAt = DateTime.UtcNow;
         _context.WorldNovelChapters.Remove(chapter);
         await _context.SaveChangesAsync();
+        await NovelStructure.ForgetChapterAsync(_context, chapterId);
         return NoContent();
     }
 }

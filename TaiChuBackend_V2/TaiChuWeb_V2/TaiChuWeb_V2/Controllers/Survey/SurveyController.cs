@@ -654,6 +654,43 @@ namespace TaiChuWeb_V2.Controllers.Survey
         }
 
         // ============================================================
+        // 7.5 修改封面（需要权限）：草稿、发布中、已结束都能改。
+        //     封面不影响题目和已经交上来的答卷，所以不像其他内容那样只有草稿能改。传空字符串 = 去掉封面
+        // ============================================================
+        public sealed class UpdateSurveyCoverRequest { public string? CoverImage { get; set; } }
+
+        [HttpPut("{id}/cover")]
+        public async Task<IActionResult> UpdateSurveyCover(int id, [FromBody] UpdateSurveyCoverRequest request)
+        {
+            try
+            {
+                var userId = User.GetUserId();
+                if (!await PermissionHelper.HasPermission(_context, userId, AdminPermission.Survey_Manage))
+                    return Forbid("您没有管理问卷的权限");
+
+                var survey = await _context.Surveys.FindAsync(id);
+                if (survey == null)
+                    return NotFound(new { message = "问卷不存在" });
+
+                var url = request.CoverImage?.Trim() ?? "";
+                if (url.Length > 500)
+                    return BadRequest(new { message = "封面地址太长了" });
+                if (url.Length > 0 && !(Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps))
+                    return BadRequest(new { message = "封面要是 https 开头的图片地址" });
+
+                survey.CoverImage = url.Length > 0 ? url : null;
+                survey.UpdatedAt = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+                return Ok(new { success = true, coverImage = survey.CoverImage });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"修改问卷封面失败，ID: {id}");
+                return StatusCode(500, new { message = "保存失败，请稍后重试" });
+            }
+        }
+
+        // ============================================================
         // 8. 结束问卷（需要权限）
         // ============================================================
         [HttpPost("{id}/close")]

@@ -111,8 +111,18 @@ public class CatalogController(AppDbContext db, SponsorPerkService perks) : Cont
             (a.CategoryId == categoryId || db.WikiCategories.Any(c => c.Id == a.CategoryId && c.ParentId == categoryId))));
         var terms = KnowledgeSearch.Terms(search);
         // 匹配规则收在 KnowledgeSearch.FilterAsync 里，关系图谱的搜索也用它，两边搜出来的内容一致
-        query = await KnowledgeSearch.FilterAsync(db, query, terms);
-        var total = await query.CountAsync();
+        var log = HttpContext.RequestServices.GetService<ILogger<CatalogController>>();
+        var unfiltered = query;
+        query = await KnowledgeSearch.FilterAsync(db, unfiltered, terms, log: log);
+        int total;
+        try { total = await query.CountAsync(); }
+        catch (Exception ex) when (terms.Count > 0)
+        {
+            // 完整搜索出错时不让整页报错：退回简单搜索（标题、简介、标签、作者），错误写进日志方便查
+            log?.LogError(ex, "知识库搜索出错，改用简单搜索 {Type} {Search}", type, search);
+            query = await KnowledgeSearch.FilterAsync(db, unfiltered, terms, simple: true);
+            total = await query.CountAsync();
+        }
         // 搜索时标题里有关键词的排前面，其余按更新时间
         var firstTerm = terms.FirstOrDefault();
         var ordered = firstTerm == null

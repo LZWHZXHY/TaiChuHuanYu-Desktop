@@ -103,6 +103,9 @@ namespace TaiChuWeb_V2.Dtos.Chai.Battle
 
         // ⭐ 战斗配置JSON（完全自由）
         public string? BattleConfigJson { get; set; }
+
+        // ⭐ 和自己约战：对面也是自己的 OC（B 方）。填了它就不能再指定别人，发布后直接进入创作期
+        public List<Guid>? SelfOpponentOcIds { get; set; }
     }
 
     public class RegisterBattleRequest

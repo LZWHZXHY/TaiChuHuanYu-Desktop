@@ -69,12 +69,48 @@ namespace TaiChuWeb_V2.Controllers
         // ===== 自动抓取 B 站封面（手机版页面带 og:image） =====
         private const string MobileUa = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1";
         private static readonly HttpClient Http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+        // 解析 b23.tv 短链用：不自动跳转，自己读跳到哪
+        private static readonly HttpClient NoRedirect = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(10) };
+        // 抓过的封面记 6 小时（约战作品、战后记录每个人打开页面都会来抓，不能每次都去连 B 站）
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (string Cover, string? Title, DateTime At)> CoverCache = new();
+
+        /// <summary>B 站 App 分享出来的短链（b23.tv/xxxx）：问一下它跳到哪个视频，拿到 BV 号</summary>
+        private static async Task<string?> ResolveShortLinkAsync(string url)
+        {
+            if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var u)) return null;
+            var host = u.Host.ToLowerInvariant();
+            if (host != "b23.tv" && host != "www.b23.tv" && host != "bili2233.cn" && !host.EndsWith(".bili2233.cn")) return null;
+            try
+            {
+                var current = u;
+                for (var i = 0; i < 3; i++)
+                {
+                    using var req = new HttpRequestMessage(HttpMethod.Get, current);
+                    req.Headers.UserAgent.ParseAdd(MobileUa);
+                    using var resp = await NoRedirect.SendAsync(req, HttpCompletionOption.ResponseHeadersRead);
+                    var location = resp.Headers.Location;
+                    if (location == null) return null;
+                    current = location.IsAbsoluteUri ? location : new Uri(current, location);
+                    if (Regex.IsMatch(current.ToString(), @"BV[0-9A-Za-z]{10}|/av\d+", RegexOptions.IgnoreCase)) return current.ToString();
+                }
+            }
+            catch { /* 解析不了就算了 */ }
+            return null;
+        }
 
         [HttpGet("fetch-cover")]
         [AllowAnonymous]
         public async Task<IActionResult> FetchCover([FromQuery] string url)
         {
             if (string.IsNullOrWhiteSpace(url)) return BadRequest(new { message = "缺少链接" });
+            url = url.Trim();
+            if (url.Length > 500) return BadRequest(new { message = "链接太长了" });
+            if (CoverCache.TryGetValue(url, out var hit) && DateTime.UtcNow - hit.At < TimeSpan.FromHours(6))
+                return Ok(new { coverImage = hit.Cover, title = hit.Title });
+            // 短链先换成真正的视频地址
+            var resolved = await ResolveShortLinkAsync(url);
+            var original = url;
+            if (resolved != null) url = resolved;
 
             string? bvid = null, aid = null;
             var m = Regex.Match(url, @"(BV[0-9A-Za-z]{10})");
@@ -101,8 +137,11 @@ namespace TaiChuWeb_V2.Controllers
                 var title = Regex.Match(html, "og:title\"\\s+content=\"([^\"]+)\"").Groups[1].Value;
                 if (string.IsNullOrEmpty(pic)) return BadRequest(new { message = "没抓到封面（可能不是视频页）" });
                 pic = pic.Replace("http://", "https://");
-                title = title.Replace("_哔哩哔哩_bilibili", "").Replace("_哔哩哔哩", "").Trim();
-                return Ok(new { coverImage = pic, title = string.IsNullOrEmpty(title) ? null : title });
+                title = System.Net.WebUtility.HtmlDecode(title.Replace("_哔哩哔哩_bilibili", "").Replace("_哔哩哔哩", "").Trim());
+                var finalTitle = string.IsNullOrEmpty(title) ? null : title;
+                if (CoverCache.Count > 5000) CoverCache.Clear();
+                CoverCache[original] = (pic, finalTitle, DateTime.UtcNow);
+                return Ok(new { coverImage = pic, title = finalTitle });
             }
             catch (Exception ex)
             {

@@ -49,6 +49,23 @@ export function isVideoFile(url: string): boolean {
   try { return /\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(new URL(url).pathname) } catch { return false }
 }
 
+/** B 站 App 分享的短链（b23.tv/xxxx），后端会先问出真正的视频地址 */
+export function isBilibiliShortLink(url: string): boolean {
+  const host = hostOf(url).toLowerCase()
+  return host === 'b23.tv' || host === 'bili2233.cn' || host.endsWith('.bili2233.cn')
+}
+
+/**
+ * 从粘贴进来的文字里拿出链接。B 站 App 分享出来是「【视频标题】 https://b23.tv/xxxx」这种，
+ * 直接粘进链接框的话只留下网址；本来就是网址的原样返回
+ */
+export function extractLink(text: string): string {
+  const t = (text ?? '').trim()
+  if (safeWebLink(t)) return t
+  const m = /https?:\/\/[^\s\u3000【】「」<>"']+/i.exec(t)
+  return m ? m[0].replace(/[，。！？、,.!?)）]+$/, '') : t
+}
+
 export interface BilibiliMeta { coverImage: string | null; title: string | null }
 
 // 同一个链接只抓一次（列表里同一个视频出现多次、来回切换都不重复请求）
@@ -57,7 +74,7 @@ const coverCache = new Map<string, Promise<BilibiliMeta | null>>()
 /** 用必吃榜那套接口抓 B 站视频的封面和标题；不是带 BV / av 号的 B 站链接、或者抓不到时返回 null */
 export function fetchBilibiliMeta(url: string): Promise<BilibiliMeta | null> {
   const link = safeWebLink(url)
-  if (!link || !isBilibiliLink(link) || !hasBilibiliVideoId(link)) return Promise.resolve(null)
+  if (!link || !isBilibiliLink(link) || !(hasBilibiliVideoId(link) || isBilibiliShortLink(link))) return Promise.resolve(null)
   let task = coverCache.get(link)
   if (!task) {
     task = mustEatApi.fetchCover(link)

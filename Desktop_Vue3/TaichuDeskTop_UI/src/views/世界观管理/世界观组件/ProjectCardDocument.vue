@@ -140,6 +140,8 @@
       </section>
       <!-- 编年史里提到它的事 -->
       <CardChronicleEvents v-if="isPage" :project-id="projectId" :card-id="card.id" />
+      <!-- 评论区：对这个设定的讨论（右边小窗格里不显示） -->
+      <ChaiComments v-if="isPage" class="doc-comments" target-type="world-card" :target-id="card.id" />
     </article>
     <!-- 点引用名字：右边弹出那个条目 -->
     <CardPeek v-if="isPage && peekId" :card-id="peekId" :project-id="projectId" @close="peekId = null" @select="id => { peekId = null; $emit('select', id) }" @pane="id => { peekId = null; $emit('pane', id) }" />
@@ -169,6 +171,7 @@ import CardChronicleEvents from './CardChronicleEvents.vue'
 import CardRefEmbed from './CardRefEmbed.vue'
 import CardPeek from './CardPeek.vue'
 import CardOcBadge from './CardOcBadge.vue'
+import ChaiComments from '@/views/柴圈板块/components/ChaiComments.vue'
 import { splitEmbeds } from '@/utils/worldEditorText'
 import { blockTitle, resolveLayout, type LayoutBlock } from '@/utils/worldLayout'
 import { renderCardDescription } from '@/utils/worldPresentation'

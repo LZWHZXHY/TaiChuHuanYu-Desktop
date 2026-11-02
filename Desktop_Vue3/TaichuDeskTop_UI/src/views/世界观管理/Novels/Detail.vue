@@ -20,6 +20,8 @@
             <RouterLink v-if="novel.projectName" :to="`/world/project/${novel.projectId}`" class="world-chip">🌌 {{ novel.projectName }}</RouterLink>
           </p>
           <p class="head-desc">{{ novel.description || '暂无简介' }}</p>
+          <!-- 点赞、收藏、评论（草稿只有作者自己看得到，也只有作者能点） -->
+          <WorldSocialBar class="head-social" kind="novel" :target-id="novel.id" comment-anchor="novel-comments" />
           <div class="head-actions">
             <button v-if="novel.chapters.length" class="btn primary" @click="openChapter(novel.chapters[0].id)">开始阅读</button>
             <template v-if="novel.isOwner">
@@ -36,12 +38,14 @@
       <template v-if="mode === 'read' && chapter">
         <div class="read-bar">
           <button class="btn" @click="mode = 'toc'">← 目录</button>
-          <span class="read-pos">{{ chapter.index }} / {{ chapter.total }}</span>
+          <span class="read-pos"><template v-if="chapter.sectionPath">{{ chapter.sectionPath }} · </template>{{ chapter.index }} / {{ chapter.total }}</span>
           <button v-if="novel.isOwner" class="btn" @click="openChapterEdit(chapter)">编辑本章</button>
         </div>
         <article class="reader">
-          <h2 class="chapter-title">第 {{ chapter.number }} 章 · {{ chapter.title }}</h2>
-          <div class="chapter-body" v-html="renderMarkdown(chapter.content)"></div>
+          <p v-if="chapter.sectionPath" class="chapter-path">{{ chapter.sectionPath }}</p>
+          <h2 class="chapter-title">{{ chapterHeading(chapter) }}</h2>
+          <!-- 正文里的 [[设定名]] 会变成链接，点了在右边打开那个设定 -->
+          <div class="chapter-body" v-html="renderChapter(chapter.content)" @click="onBodyClick"></div>
           <nav class="chapter-nav">
             <button class="btn" :disabled="!chapter.prevId" @click="chapter.prevId && openChapter(chapter.prevId)">上一章</button>
             <button class="btn" :disabled="!chapter.nextId" @click="chapter.nextId && openChapter(chapter.nextId)">下一章</button>
@@ -49,24 +53,13 @@
         </article>
       </template>
 
-      <!-- 目录 -->
-      <template v-else>
-        <div class="toc-head">
-          <h2>目录</h2>
-          <button v-if="novel.isOwner" class="btn primary" @click="openChapterCreate">＋ 新增章节</button>
-        </div>
-        <ol v-if="novel.chapters.length" class="toc-list">
-          <li v-for="c in novel.chapters" :key="c.id" class="toc-row">
-            <button class="toc-item" @click="openChapter(c.id)">
-              <span class="toc-num">{{ c.number }}</span>
-              <span class="toc-title">{{ c.title }}</span>
-              <span class="toc-words">{{ c.wordCount }} 字</span>
-            </button>
-            <button v-if="novel.isOwner" class="mini danger" @click="removeChapter(c.id)">删除</button>
-          </li>
-        </ol>
-        <p v-else class="state">还没有章节，作者可以点右上角「新增章节」开始写。</p>
-      </template>
+      <!-- 目录：部 → 卷 / 番外 → 章 -->
+      <NovelToc v-else :novel-id="novel.id" :chapters="novel.chapters" :sections="novel.sections ?? []" :is-owner="novel.isOwner"
+        @open="openChapter" @new-chapter="openChapterCreate" @remove-chapter="removeChapter" @changed="reloadKeep" />
+      <!-- 评论区：对整本小说的讨论 -->
+      <section id="novel-comments" class="novel-comments">
+        <ChaiComments target-type="novel" :target-id="novel.id" />
+      </section>
     </template>
 
     <!-- 小说信息编辑 -->
@@ -76,7 +69,7 @@
         <p v-if="error" class="err" role="alert">{{ error }}</p>
         <label class="field"><span>标题 *</span><input v-model="novelForm.title" /></label>
         <label class="field"><span>简介</span><textarea v-model="novelForm.description" rows="3"></textarea></label>
-        <label class="field"><span>封面图链接</span><input v-model="novelForm.coverUrl" /></label>
+        <div class="field"><span>封面</span><NovelCoverPicker v-model="novelCover" :fallback-text="novelForm.title" /></div>
         <div class="field-row">
           <label class="field"><span>状态</span>
             <select v-model="novelForm.status">
@@ -97,10 +90,30 @@
     <div v-if="showChapterEdit" class="mask" @click.self="showChapterEdit = false">
       <div class="modal wide workbench-skin" role="dialog" aria-modal="true" aria-label="章节编辑">
         <h2 class="modal-title studio-heading">{{ editingChapterId ? '编辑章节' : '新增章节' }}</h2>
-        <label class="field"><span>章节标题 *</span><input v-model="chapterForm.title" placeholder="第几章 · 标题" /></label>
+        <div class="field-row">
+          <label class="field"><span>章节标题 *</span><input v-model="chapterForm.title" placeholder="标题（「第几章」会自动编号，不用写）" /></label>
+          <label v-if="novel?.sections?.length" class="field"><span>放在</span>
+            <select v-model="chapterForm.sectionId">
+              <option :value="null">不分组（正文最前面）</option>
+              <option v-for="o in sectionOptions" :key="o.id" :value="o.id">{{ o.label }}</option>
+            </select>
+          </label>
+        </div>
         <label class="field"><span>正文（支持 Markdown）</span>
-          <textarea v-model="chapterForm.content" class="chapter-input" placeholder="在这里写正文…"></textarea>
+          <textarea ref="chapterInput" v-model="chapterForm.content" class="chapter-input" placeholder="在这里写正文…"></textarea>
         </label>
+        <!-- 插入设定：绑定了世界观才有。写成 [[设定名]]，读者点了能看到那个设定 -->
+        <div v-if="novel?.projectId" class="ref-tool">
+          <button type="button" class="btn" @click="refOpen = !refOpen">🔗 插入世界观设定</button>
+          <span class="hint">写成 <code>[[设定名]]</code>，或者 <code>[[设定名|显示的字]]</code>，读者点了会在旁边打开那个设定</span>
+          <div v-if="refOpen" class="ref-pop">
+            <input v-model="refQuery" class="ref-search" placeholder="搜设定名…" aria-label="搜设定名" />
+            <p v-if="!worldCards.length" class="hint">{{ cardsError || '这个世界还没有设定，或者读取失败' }}</p>
+            <ul v-else class="ref-list">
+              <li v-for="cd in refMatches" :key="cd.id"><button type="button" @click="insertRef(cd.title)">{{ cd.title }}</button></li>
+            </ul>
+          </div>
+        </div>
         <p class="hint">当前 {{ chapterForm.content.replace(/\s/g, '').length }} 字</p>
         <p v-if="chapterError" class="err">{{ chapterError }}</p>
         <div class="modal-actions editor-footer">
@@ -109,15 +122,24 @@
         </div>
       </div>
     </div>
+    <!-- 正文里点设定链接：右边打开那个设定 -->
+    <CardPeek v-if="peekId && novel?.projectId" :card-id="peekId" :project-id="novel.projectId" @close="peekId = null" @select="openCardPage" @pane="openCardPage" />
   </div>
 </template>
 
 <script setup lang="ts">
 import UserLink from '@/components/UserLink.vue'
+import WorldSocialBar from '@/components/WorldSocialBar.vue'
+import ChaiComments from '@/views/柴圈板块/components/ChaiComments.vue'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { worldNovelApi, type NovelDetail, type ChapterContent, type NovelPayload } from '@/api/worldNovel'
 import { renderMarkdown } from '@/utils/markdown'
+import { useRouter } from 'vue-router'
+import { useWorldStore } from '@/stores/world'
+import NovelToc from './NovelToc.vue'
+import NovelCoverPicker from './NovelCoverPicker.vue'
+import CardPeek from '../世界观组件/CardPeek.vue'
 
 const route = useRoute()
 const novelId = computed(() => String(route.params.id || ''))
@@ -133,7 +155,77 @@ const novelForm = ref<NovelPayload>({ title: '', description: '', coverUrl: '', 
 
 const showChapterEdit = ref(false)
 const editingChapterId = ref<string | null>(null)
-const chapterForm = ref({ title: '', content: '' })
+const chapterForm = ref<{ title: string; content: string; sectionId: string | null }>({ title: '', content: '', sectionId: null })
+const router = useRouter()
+const worldStore = useWorldStore()
+
+// ===== 部 / 卷 / 番外 =====
+const KIND_LABEL: Record<string, string> = { part: '部', volume: '卷', extra: '番外' }
+/** 章节编辑里「放在」的选项（部里的卷缩进） */
+const sectionOptions = computed(() => {
+  const ss = novel.value?.sections ?? []
+  const ids = new Set(ss.map(s => s.id))
+  const tops = ss.filter(s => !s.parentId || !ids.has(s.parentId)).sort((a, b) => a.sortOrder - b.sortOrder)
+  return tops.flatMap(t => [
+    { id: t.id, label: `${KIND_LABEL[t.kind]}：${t.title}` },
+    ...ss.filter(s => s.parentId === t.id).sort((a, b) => a.sortOrder - b.sortOrder).map(c => ({ id: c.id, label: `　└ ${KIND_LABEL[c.kind]}：${c.title}` })),
+  ])
+})
+/** 标题：正文的章「第 N 章 · 标题」，番外的章只有标题 */
+const chapterHeading = (c: ChapterContent) => (c.displayNo === null ? c.title : `第 ${c.displayNo ?? c.number} 章 · ${c.title}`)
+
+// ===== 世界观设定链接：[[设定名]] / [[设定名|显示的字]] =====
+const worldCards = ref<{ id: string; title: string }[]>([])
+const cardsError = ref('')
+const cardByTitle = computed(() => new Map(worldCards.value.map(c => [c.title.trim(), c.id])))
+const peekId = ref<string | null>(null)
+async function loadWorldCards() {
+  worldCards.value = []
+  cardsError.value = ''
+  const pid = novel.value?.projectId
+  if (!pid) return
+  try { worldCards.value = (await worldStore.fetchCards(pid)).map(c => ({ id: c.id, title: c.title })) }
+  catch { cardsError.value = '读不到这个世界的设定（可能是私有世界）' }
+}
+const decode = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+/** 正文渲染后把 [[...]] 换成链接；找不到这个设定（或者看不到这个世界）的就只显示文字 */
+function renderChapter(md: string) {
+  return renderMarkdown(md).replace(/\[\[([^\[\]|\n<>]{1,60})(?:\|([^\[\]\n<>]{1,60}))?\]\]/g, (_m, name: string, label?: string) => {
+    const text = (label ?? name).trim()
+    const id = cardByTitle.value.get(decode(name).trim())
+    return id ? `<a href="#" class="wref" data-card="${id}" title="查看设定：${name.trim()}">${text}</a>` : `<span class="wref-missing">${text}</span>`
+  })
+}
+function onBodyClick(e: MouseEvent) {
+  const a = (e.target as HTMLElement)?.closest?.('a.wref') as HTMLElement | null
+  if (!a) return
+  e.preventDefault()
+  peekId.value = a.dataset.card ?? null
+}
+const openCardPage = (id: string) => { const pid = novel.value?.projectId; peekId.value = null; if (pid) void router.push(`/world/project/${pid}/card/${id}`) }
+
+// 章节编辑里插入设定
+const refOpen = ref(false)
+const refQuery = ref('')
+const chapterInput = ref<HTMLTextAreaElement | null>(null)
+const refMatches = computed(() => {
+  const q = refQuery.value.trim().toLowerCase()
+  return (q ? worldCards.value.filter(c => c.title.toLowerCase().includes(q)) : worldCards.value).slice(0, 40)
+})
+function insertRef(title: string) {
+  const el = chapterInput.value
+  const text = `[[${title}]]`
+  const v = chapterForm.value.content
+  const start = el?.selectionStart ?? v.length, end = el?.selectionEnd ?? v.length
+  chapterForm.value.content = v.slice(0, start) + text + v.slice(end)
+  refOpen.value = false
+  refQuery.value = ''
+  requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(start + text.length, start + text.length) })
+}
+
+// 封面：v-model 用字符串（表单里 coverUrl 可能是 null）
+const novelCover = computed({ get: () => novelForm.value.coverUrl || '', set: v => { novelForm.value.coverUrl = v } })
+
 const chapterError = ref('')
 const saving = ref(false)
 
@@ -148,6 +240,7 @@ async function load() {
     novel.value = await worldNovelApi.detail(novelId.value)
     mode.value = 'toc'
     chapter.value = null
+    void loadWorldCards()
   } catch (e: any) {
     novel.value = null
     error.value = e.friendlyMessage || ''
@@ -197,16 +290,21 @@ async function removeNovel() {
   await load()
 }
 
-function openChapterCreate() {
+/** 改目录后重新读，但不跳回顶部、不清掉正在看的东西 */
+async function reloadKeep() {
+  try { novel.value = await worldNovelApi.detail(novelId.value) } catch (e: any) { error.value = e.friendlyMessage || '刷新失败' }
+}
+
+function openChapterCreate(sectionId: string | null = null) {
   editingChapterId.value = null
-  chapterForm.value = { title: '', content: '' }
+  chapterForm.value = { title: '', content: '', sectionId }
   chapterError.value = ''
   showChapterEdit.value = true
 }
 
 function openChapterEdit(c: ChapterContent) {
   editingChapterId.value = c.id
-  chapterForm.value = { title: c.title, content: c.content }
+  chapterForm.value = { title: c.title, content: c.content, sectionId: c.sectionId ?? null }
   chapterError.value = ''
   showChapterEdit.value = true
 }
@@ -216,10 +314,14 @@ async function saveChapter() {
   saving.value = true
   chapterError.value = ''
   try {
+    const { title, content, sectionId } = chapterForm.value
     if (editingChapterId.value) {
-      await worldNovelApi.updateChapter(novelId.value, editingChapterId.value, chapterForm.value)
+      await worldNovelApi.updateChapter(novelId.value, editingChapterId.value, { title, content })
+      // 换了分组就挪过去
+      const before = novel.value?.chapters.find(c => c.id === editingChapterId.value)?.sectionId ?? null
+      if ((sectionId ?? null) !== before) await worldNovelApi.setChapterSection(novelId.value, editingChapterId.value, sectionId)
     } else {
-      const res = await worldNovelApi.addChapter(novelId.value, chapterForm.value)
+      const res = await worldNovelApi.addChapter(novelId.value, { title, content, sectionId })
       editingChapterId.value = res.id
     }
     showChapterEdit.value = false
@@ -241,6 +343,19 @@ watch(novelId, load)
 </script>
 
 <style scoped>
+.chapter-path { margin: 0 0 6px; font-size: .8rem; letter-spacing: .08em; color: var(--text-secondary); }
+.chapter-body :deep(a.wref) { color: var(--accent-color); text-decoration: none; border-bottom: 1px dashed currentColor; cursor: pointer; }
+.chapter-body :deep(a.wref:hover) { background: var(--accent-soft); border-bottom-style: solid; }
+.chapter-body :deep(.wref-missing) { border-bottom: 1px dotted var(--border-line); }
+.ref-tool { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; position: relative; }
+.ref-tool code { padding: 0 4px; background: var(--bg-sub); }
+.ref-pop { flex-basis: 100%; display: grid; gap: 8px; padding: 10px; border: 1px solid var(--border-line); background: var(--bg-main); }
+.ref-search { padding: 7px 10px; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: .85rem; }
+.ref-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; max-height: 160px; overflow-y: auto; }
+.ref-list button { padding: 3px 10px; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: .8rem; cursor: pointer; }
+.ref-list button:hover { border-color: var(--accent-color); color: var(--accent-color); }
+.head-social { margin: 0 0 12px; }
+.novel-comments { scroll-margin-top: 16px; }
 .novel-detail { max-width: 900px; margin: 0 auto; padding-bottom: 56px; }
 .back { color: var(--accent-color); text-decoration: none; font-size: .85rem; }
 .state { padding: 48px 0; text-align: center; color: var(--text-secondary); }
