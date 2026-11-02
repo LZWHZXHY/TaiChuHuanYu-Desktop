@@ -380,13 +380,15 @@ namespace TaiChuWeb_V2.Services.World
 
             var idStr = cardId.ToString();
             var inlineToken = "{CARD:" + idStr + "}";
+            // 地图 / 画布 / 关系树里存的是 "cardId":"<id>"，按带引号的 ID 找（fix121）
+            var quotedId = "\"" + idStr + "\"";
 
             // 显式搜索 JSON 内的字符串值，避免把普通 ID 参数按 JSON 类型 CAST。
             // 仅检索已授权的当前项目，兼容已有内容块的 JSON 字段格式。
             return await _context.WorldCards.AsNoTracking()
                 .Where(c => c.ProjectId == target.ProjectId && c.Id != cardId)
                 .Where(c => (c.Description != null && c.Description.Contains(inlineToken)) || EF.Functions.JsonSearchAny(c.ContentBlocks, idStr)
-                    || (c.Layout != null && c.Layout.Contains(inlineToken)))
+                    || (c.Layout != null && (c.Layout.Contains(inlineToken) || c.Layout.Contains(quotedId))))
                 .OrderByDescending(c => c.UpdatedAt)
                 .Select(c => new CardSummaryDto
                 {
@@ -426,6 +428,8 @@ namespace TaiChuWeb_V2.Services.World
                                 && value.ValueKind == JsonValueKind.String && Guid.TryParse(value.GetString(), out var id)) ids.Add(id);
                 }
                 catch (JsonException) { /* 旧数据损坏时仍保留正文中的有效引用。 */ }
+                // 地图图钉（含下一层地图）、画布上的条目卡片、关系树节点连到的条目（fix121）；访客不算隐藏的区块
+                ids.UnionWith(WorldLayout.CardIds(row.Layout, member));
                 ids.Remove(row.Id);
                 var targets = ids.Where(allowed.Contains).OrderBy(id => id).ToList();
                 if (targets.Count > 0) result[row.Id] = targets;

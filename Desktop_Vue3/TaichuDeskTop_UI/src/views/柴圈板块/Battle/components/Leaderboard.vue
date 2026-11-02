@@ -1,12 +1,12 @@
 <template>
-  <div class="leaderboard-page content-page">
+  <div class="leaderboard-page content-page community-surface tone-chai">
     <header class="content-header">
       <div>
         <p class="eyebrow">约战竞技</p>
         <h1>约战排行榜</h1>
-        <p class="intro">按约战积分排名（胜 +3 · 平 +1），积分越高段位越高。</p>
+        <p class="intro">按约战积分排名：胜 +3、平 +1，积分越高段位越高。惨胜算胜，同归于尽算平，无结果的约战不计分。</p>
       </div>
-      <RouterLink to="/battles" class="btn-line">返回约战广场</RouterLink>
+      <div class="content-actions"><RouterLink to="/battles">返回约战广场</RouterLink></div>
     </header>
 
     <p v-if="loading" class="state">正在读取排行榜…</p>
@@ -89,15 +89,13 @@ onMounted(load)
 </script>
 
 <style scoped>
-.eyebrow { color: var(--text-secondary); font-size: .78rem; letter-spacing: .15em; }
-.content-header { display: flex; justify-content: space-between; align-items: center; }
-.content-header h1 { margin: 8px 0; }
-.intro { color: var(--text-secondary); }
-.btn-line { padding: 8px 16px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; text-decoration: none; font-size: .85rem; }
+.leaderboard-page { padding: 0 20px 60px; }
+.intro { color: var(--text-secondary); max-width: 46em; }
 .state { padding: 40px 0; text-align: center; color: var(--text-secondary); }
 .podium { display: grid; grid-template-columns: 1fr 1.18fr 1fr; gap: 18px; align-items: end; margin: 24px 0 28px; }
 .podium-card { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 14px 18px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); cursor: pointer; text-align: center; transition: transform .2s, box-shadow .2s; }
-.podium-card:hover { transform: translateY(-4px); }
+.podium-card:hover { transform: translateY(-4px); border-color: var(--text-primary); }
+.podium-card.is-gold { border-top: 3px solid #d4af37; }
 .podium-card.is-gold { padding-top: 38px; border-color: #d4af37; box-shadow: 0 12px 34px rgba(212,175,55,.20); }
 .podium-card.is-silver { border-color: #aeb7c2; }
 .podium-card.is-bronze { border-color: #b87333; }
@@ -112,19 +110,20 @@ onMounted(load)
 .podium-card.is-gold .name { font-size: 1.15rem; }
 .author { font-size: .75rem; color: var(--text-secondary); }
 .tier { font-size: .78rem; color: #d4af37; font-weight: 600; }
-.score { font-size: .95rem; font-weight: 700; color: var(--accent-color); }
+.score { font: 700 1.3rem/1.1 var(--font-display); color: var(--accent-color); font-variant-numeric: tabular-nums; }
 .record { font-size: .72rem; color: var(--text-secondary); }
 .rank-list { list-style: none; margin: 0; padding: 0; }
 .rank-list li { display: flex; align-items: center; gap: 16px; padding: 14px 8px; border-bottom: 1px solid var(--border-line); cursor: pointer; }
 .rank-list li:hover strong { color: var(--accent-color); }
-.rank { width: 28px; text-align: center; font-size: 1.1rem; color: var(--accent-color); font-variant-numeric: tabular-nums; }
+.rank { width: 32px; text-align: center; font: 700 1.3rem/1 var(--font-display); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .rank-list img { width: 52px; height: 52px; object-fit: cover; border-radius: 0; }
 .rank-info { flex: 1; min-width: 0; }
 .rank-info strong { display: block; overflow-wrap: anywhere; }
 .rank-info small { display: block; margin-top: 3px; font-size: .75rem; color: var(--text-secondary); }
-.rank-score { text-align: right; font-variant-numeric: tabular-nums; }
+.rank-score { text-align: right; font: 600 1.05rem/1.3 var(--font-display); font-variant-numeric: tabular-nums; }
 .rank-score small { display: block; font-size: .7rem; color: var(--text-secondary); }
 @media (max-width: 560px) {
+  .leaderboard-page { padding: 0 12px 40px; }
   .podium { gap: 8px; }
   .podium-card { padding: 22px 8px 12px; gap: 6px; }
   .podium-card.is-gold { padding-top: 30px; }

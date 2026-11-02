@@ -31,6 +31,24 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
         public int? Bid { get; init; }
     }
 
+    /// <summary>
+    /// 牌桌评论区里的一行：玩家说的话（chat），或者「A 给 B 点了个赞 / 砸了个番茄」的提示（like / tomato）。
+    /// 只存在房间内存里（最近 50 条），不进数据库；房间解散就没了。
+    /// </summary>
+    public sealed class DdzChatLine
+    {
+        public long Id { get; init; }
+        /// <summary>chat 说话；like 点赞提示；tomato 砸番茄提示</summary>
+        public string Kind { get; init; } = "chat";
+        public Guid? UserId { get; init; }
+        public string Name { get; init; } = string.Empty;
+        public int Seat { get; init; } = -1;
+        /// <summary>是不是观战的人说的 / 砸的（界面上标「观战」）</summary>
+        public bool Spectator { get; init; }
+        public string Text { get; init; } = string.Empty;
+        public DateTime At { get; init; }
+    }
+
     public sealed class DdzResult
     {
         public bool LandlordWin { get; init; }
@@ -88,6 +106,48 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
         private void Touch() => LastActivity = DateTime.UtcNow;
 
         public DdzSeat? SeatOf(Guid userId) => Seats.FirstOrDefault(s => s.UserId == userId);
+
+        // ---------------- 互动：评论区、点赞 / 砸番茄（只在内存里；调用方负责加锁） ----------------
+
+        /// <summary>最近的评论和互动提示（新进来的人也能看到）</summary>
+        public List<DdzChatLine> Chat { get; } = new();
+        private long _chatSeq;
+        /// <summary>每人上一次发评论的时间（3 秒一条）</summary>
+        public Dictionary<Guid, DateTime> LastChatAt { get; } = new();
+        /// <summary>每人上一次点赞 / 砸番茄的时间（至少隔 2 秒）</summary>
+        public Dictionary<Guid, DateTime> LastReactAt { get; } = new();
+        /// <summary>这一局每人已经点赞 / 砸番茄几次（开新局时清零）</summary>
+        private readonly Dictionary<Guid, int> _reactCount = new();
+        private int _reactRound = -1;
+
+        /// <summary>局数变了就把次数清零（「每局最多 20 次」里的「局」就是 Round）</summary>
+        private void SyncReactRound()
+        {
+            if (_reactRound == Round) return;
+            _reactCount.Clear();
+            _reactRound = Round;
+        }
+
+        public int ReactCountOf(Guid userId)
+        {
+            SyncReactRound();
+            return _reactCount.GetValueOrDefault(userId);
+        }
+
+        /// <summary>次数 +1（先占上名额再去扣土豆）；扣土豆失败时传 -1 还回去</summary>
+        public void AddReactCount(Guid userId, int delta)
+        {
+            SyncReactRound();
+            _reactCount[userId] = Math.Max(0, _reactCount.GetValueOrDefault(userId) + delta);
+        }
+
+        public DdzChatLine AddChat(string kind, Guid? userId, string name, int seat, string text, int keep, bool spectator = false)
+        {
+            var line = new DdzChatLine { Id = ++_chatSeq, Kind = kind, UserId = userId, Name = name, Seat = seat, Spectator = spectator, Text = text, At = DateTime.UtcNow };
+            Chat.Add(line);
+            if (Chat.Count > keep) Chat.RemoveRange(0, Chat.Count - keep);
+            return line;
+        }
 
         // ---------------- 入座 ----------------
 

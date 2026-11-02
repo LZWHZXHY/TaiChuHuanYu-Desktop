@@ -96,7 +96,7 @@
             <span>颜色 <small>不选就跟时间线一样</small></span>
             <div class="ce-colors" role="radiogroup" aria-label="颜色">
               <button type="button" role="radio" class="ce-color none" :aria-checked="!form.color" title="跟时间线一样" @click="form.color = null">∅</button>
-              <button v-for="c in LINE_COLORS" :key="c" type="button" role="radio" class="ce-color" :aria-checked="form.color === c" :style="{ background: c }" :aria-label="c" @click="form.color = c"></button>
+              <button v-for="c in LINE_COLORS" :key="c" type="button" role="radio" class="ce-color" :aria-checked="form.color === c" :style="{ background: c }" :aria-label="legendOf(c) || c" :title="legendOf(c) || undefined" @click="form.color = c"></button>
             </div>
           </div>
         </div>
@@ -146,6 +146,7 @@ import {
   KIND_META, STATUS_META, LINE_COLORS, defaultEra, timeValue, formatSpan, plainTitle,
   type Calendar, type ChronicleEvent, type ChronicleTimeline, type EventKind,
 } from '@/utils/chronicle'
+import { hueOf, useWorldLegend } from '@/utils/worldLegend'
 import CardRefTextarea from './CardRefTextarea.vue'
 import CardPicker from './CardPicker.vue'
 import TagInput from './TagInput.vue'
@@ -161,6 +162,9 @@ const props = defineProps<{
 const emit = defineEmits<{ close: []; saved: [ev: ChronicleEvent]; deleted: [id: string]; branch: [eventId: string] }>()
 const store = useWorldStore()
 const { uploadFile } = useCos()
+// 时间线颜色图例（fix121）：颜色按钮上提示这个颜色代表什么
+const legend = useWorldLegend(() => props.projectId)
+const legendOf = (c: string) => { const hue = hueOf(c); return hue ? legend.value[hue] ?? '' : '' }
 
 const isNew = computed(() => !props.event)
 type Num = number | null | ''
@@ -238,7 +242,7 @@ async function save() {
   } finally { busy.value = false }
 }
 async function remove() {
-  if (!props.event || !window.confirm('删除这件事？以它为分叉点 / 汇合点的支线会保留，只是不再连在这里。')) return
+  if (!props.event || !window.confirm('删除这件事？以它为分叉点 / 汇合点的支线会保留，只是不再连在这里。删错了可以在「修改记录」里恢复。')) return
   busy.value = true
   try { await chronicleApi.deleteEvent(props.projectId, props.event.id); emit('deleted', props.event.id) }
   catch (e: any) { error.value = e?.response?.data?.message || '删除失败' }

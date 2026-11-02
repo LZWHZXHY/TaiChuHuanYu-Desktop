@@ -152,7 +152,7 @@ async function save() {
 }
 async function remove() {
   const count = props.events.filter(e => e.timelineId === props.line?.id).length
-  if (!props.line || !window.confirm(`删除「${props.line.name}」${count ? `和上面的 ${count} 件事` : ''}？从它分出去的支线会保留，变成独立的线。`)) return
+  if (!props.line || !window.confirm(`删除「${props.line.name}」${count ? `和上面的 ${count} 件事` : ''}？从它分出去的支线会保留，变成独立的线。删错了可以在「修改记录」里恢复（连同上面的事件）。`)) return
   busy.value = true
   try { await chronicleApi.deleteTimeline(props.projectId, props.line.id); emit('deleted', props.line.id) }
   catch (e: any) { error.value = e?.response?.data?.message || '删除失败' }

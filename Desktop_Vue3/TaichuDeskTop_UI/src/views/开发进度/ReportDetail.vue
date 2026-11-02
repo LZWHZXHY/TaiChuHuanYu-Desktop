@@ -132,7 +132,8 @@ async function load() {
   const id = String(route.params.id)
   try {
     const list = await devProjectApi.list()
-    project.value = list.find(p => p.id === id) || null
+    // 知识库 / 图谱里带过来的项目 ID 大小写可能和接口返回的不一样，不区分大小写比较
+    project.value = list.find(p => p.id.toLowerCase() === id.toLowerCase()) || null
   } catch {
     project.value = null
   } finally {

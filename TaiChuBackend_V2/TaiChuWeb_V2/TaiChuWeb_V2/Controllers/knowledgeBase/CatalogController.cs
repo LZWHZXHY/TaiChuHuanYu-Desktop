@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using TaiChuWeb_V2.DbContext;
+using TaiChuWeb_V2.Services.Personalization;
 
 namespace TaiChuWeb_V2.Controllers.knowledgeBase;
 
@@ -20,9 +21,10 @@ public sealed class CatalogItem
 // 仅聚合公开来源，不建立副本或另一套发布状态。
 [ApiController]
 [Route("api/knowledge-base/catalog")]
-public class CatalogController(AppDbContext db) : ControllerBase
+public class CatalogController(AppDbContext db, SponsorPerkService perks) : ControllerBase
 {
-    public static IQueryable<CatalogItem> Query(AppDbContext db, string type, bool includeSettings = false)
+    /// <param name="includeDevlog">开发进度只给管理员和赞助会员（DevProgressAccess），其他人知识库里不出现这一类</param>
+    public static IQueryable<CatalogItem> Query(AppDbContext db, string type, bool includeSettings = false, bool includeDevlog = true)
     {
         var sources = new Dictionary<string, IQueryable<CatalogItem>>
         {
@@ -58,10 +60,31 @@ public class CatalogController(AppDbContext db) : ControllerBase
             ["setting"] = db.WorldCards.Where(c => c.Project != null && c.Project.IsPublic)
                 .Select(c => new CatalogItem { Id = c.ProjectId.ToString() + ":" + c.Id.ToString(), Type = "setting", Title = c.Title, Summary = c.Description ?? "",
                     Author = c.Project!.Owner != null ? c.Project.Owner.Username ?? "" : "", Tags = "", CoverUrl = c.CoverImage, UpdatedAt = c.UpdatedAt }),
+            // 联动活动（草稿不算）、开发进度、必吃榜（收录且显示的）、公告（发布中的，含已过期的历史公告）、版本更新（公开的）、使用手册（已发布的）
+            // 后四种的 Summary 先放全文（搜索时整篇都能搜到），返回前再截成摘要
+            ["joint"] = db.JointActivities.Where(a => a.Status != "draft")
+                .Select(a => new CatalogItem { Id = a.Id.ToString(), Type = "joint", Title = a.Title, Summary = a.Description,
+                    Author = a.OrganizerName, Tags = "", CoverUrl = a.CoverUrl, UpdatedAt = a.UpdatedAt ?? a.CreatedAt }),
+            ["devlog"] = db.DevProjects
+                .Select(p => new CatalogItem { Id = p.Id.ToString(), Type = "devlog", Title = p.Name, Summary = p.Description ?? "",
+                    Author = "太初官方", Tags = p.Category, CoverUrl = null, UpdatedAt = p.UpdatedAt }),
+            ["musteat"] = db.MustEatItems.Where(m => m.IsVisible && m.Status == "approved")
+                .Select(m => new CatalogItem { Id = m.Id.ToString(), Type = "musteat", Title = m.Title, Summary = m.Description ?? "",
+                    Author = m.Creator ?? "", Tags = m.Category, CoverUrl = m.CoverImage, UpdatedAt = m.CreatedAt }),
+            ["news"] = db.News.Where(n => n.IsPublished)
+                .Select(n => new CatalogItem { Id = n.Id, Type = "news", Title = n.Title, Summary = n.Content ?? "",
+                    Author = "太初官方", Tags = n.Type, CoverUrl = n.ImageUrl, UpdatedAt = n.CreatedAt }),
+            ["release"] = db.Releases.Where(r => r.IsPublished)
+                .Select(r => new CatalogItem { Id = r.Id.ToString(), Type = "release", Title = "v" + r.Version + " " + r.Title, Summary = r.Content ?? "",
+                    Author = "太初官方", Tags = "", CoverUrl = null, UpdatedAt = r.ReleasedAt }),
+            ["manual"] = db.ManualArticles.Where(a => a.IsPublished)
+                .Select(a => new CatalogItem { Id = a.Id.ToString(), Type = "manual", Title = a.Title, Summary = a.Content,
+                    Author = "太初官方", Tags = a.Category != null ? a.Category.Name : "", CoverUrl = null, UpdatedAt = a.UpdatedAt }),
             ["document"] = db.FinalNodes.Where(n => n.Status == 0)
                 .Select(n => new CatalogItem { Id = n.Id, Type = "document", Title = n.Title, Summary = n.Excerpt ?? "",
                     Author = n.CreatorName, Tags = n.Tags, CoverUrl = n.CoverImage, UpdatedAt = n.UpdatedAt })
         };
+        if (!includeDevlog) sources.Remove("devlog");
         if (type != "all") return sources[type];
         // 「全部」默认不混入世界观设定条目（一个世界就有上百条，会把其他资料挤掉）；搜索时才一起找
         var keys = sources.Keys.Where(k => k != "setting" || includeSettings);
@@ -72,24 +95,23 @@ public class CatalogController(AppDbContext db) : ControllerBase
     public async Task<IActionResult> Get([FromQuery] string type = "all", [FromQuery] string? search = null,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 24, [FromQuery] int? categoryId = null)
     {
-        if (type is not ("all" or "blog" or "post" or "artwork" or "world" or "character" or "wiki" or "document" or "novel" or "work" or "setting"))
+        if (type is not ("all" or "blog" or "post" or "artwork" or "world" or "character" or "wiki" or "document" or "novel" or "work" or "setting"
+            or "joint" or "devlog" or "musteat" or "news" or "release" or "manual"))
             return BadRequest(new { message = "不支持的资料类型" });
         if (search?.Length > 100) return BadRequest(new { message = "搜索词不能超过 100 字" });
         pageSize = Math.Clamp(pageSize, 1, 50);
         page = Math.Clamp(page, 1, int.MaxValue / pageSize);
-        var query = Query(db, type, includeSettings: !string.IsNullOrWhiteSpace(search)).AsNoTracking();
+        // 开发进度：没有权限的人这一类是空的（locked = true，前端提示「赞助会员专享」）
+        var devlogOk = type is "all" or "devlog" && (await DevProgressAccess.CheckAsync(db, perks, User)).CanView;
+        if (type == "devlog" && !devlogOk)
+            return Ok(new { items = Array.Empty<CatalogItem>(), total = 0, page, pageSize, locked = true });
+        var query = Query(db, type, includeSettings: !string.IsNullOrWhiteSpace(search), includeDevlog: devlogOk).AsNoTracking();
         // 保留原百科选择父分类时包含直属子分类的浏览范围。
         if (categoryId.HasValue) query = query.Where(i => i.Type == "wiki" && db.WikiArticles.Any(a => a.Id == i.Id &&
             (a.CategoryId == categoryId || db.WikiCategories.Any(c => c.Id == a.CategoryId && c.ParentId == categoryId))));
-        var terms = (search ?? "").Trim().ToLower().Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(10).ToList();
-        foreach (var term in terms)
-        {
-            // 旧博客摘要将中文保存为 JSON 的 Unicode 转义，同时兼容原文与转义检索。
-            var encoded = JsonSerializer.Serialize(term)[1..^1].ToLowerInvariant();
-            // 正文里出现也算：博客 / 帖子 / 百科的正文、小说章节、图谱资料正文、世界观条目的属性 / 别名 / 标签 / 时间线
-            var bodyHits = await KnowledgeSearch.BodyHitsAsync(db, term, encoded);
-            query = query.Where(i => i.Title.ToLower().Contains(term) || i.Summary.ToLower().Contains(term) || i.Summary.ToLower().Contains(encoded) || i.Tags.ToLower().Contains(term) || i.Author.ToLower().Contains(term) || (i.Type == "artwork" && db.TagAssignments.Any(t => t.EntityType == "Artwork" && t.EntityId == i.Id && t.Tag != null && t.Tag.Name.ToLower().Contains(term))) || bodyHits.Contains(i.Id));
-        }
+        var terms = KnowledgeSearch.Terms(search);
+        // 匹配规则收在 KnowledgeSearch.FilterAsync 里，关系图谱的搜索也用它，两边搜出来的内容一致
+        query = await KnowledgeSearch.FilterAsync(db, query, terms);
         var total = await query.CountAsync();
         // 搜索时标题里有关键词的排前面，其余按更新时间
         var firstTerm = terms.FirstOrDefault();
@@ -155,6 +177,12 @@ public class CatalogController(AppDbContext db) : ControllerBase
                 catch (JsonException) { }
             }
         }
+        // 公告、版本更新、手册、必吃榜、联动活动的摘要是全文：去掉 Markdown 记号，截成一小段（搜索时截关键词附近那段）
+        foreach (var item in items.Where(i => i.Type is "news" or "release" or "manual" or "musteat" or "joint"))
+        {
+            var plain = PlainMarkdown(item.Summary);
+            item.Summary = (firstTerm != null ? Snip(plain, firstTerm, 30, 110) : null) ?? (plain.Length > 140 ? plain[..140] + "…" : plain);
+        }
         // 关键词只出现在正文里的，把摘要换成正文里包含关键词的那一小段，让人知道为什么搜到它
         if (firstTerm != null) await FillSnippetsAsync(items, firstTerm);
         return Ok(new { items, total, page, pageSize });
@@ -204,6 +232,100 @@ public class CatalogController(AppDbContext db) : ControllerBase
             }
             if (!string.IsNullOrWhiteSpace(snippet)) item.Summary = snippet;
         }
+    }
+
+    /// <summary>Markdown / 纯文本 → 一行纯文字（图片去掉，链接留文字）</summary>
+    private static string PlainMarkdown(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+        var t = System.Text.RegularExpressions.Regex.Replace(text, @"!\[[^\]]*\]\([^)]*\)", "");
+        t = System.Text.RegularExpressions.Regex.Replace(t, @"\[([^\]]*)\]\([^)]*\)", "$1");
+        t = System.Text.RegularExpressions.Regex.Replace(t, @"(^|\n)\s*(#{1,6}|[-*+>]|\d+\.)\s+", "$1");
+        t = System.Text.RegularExpressions.Regex.Replace(t, @"[*_`~]{1,3}", "");
+        return System.Text.RegularExpressions.Regex.Replace(t, @"\s+", " ").Trim();
+    }
+
+    public sealed class TextDetail
+    {
+        public string Type { get; set; } = "";
+        public string Id { get; set; } = "";
+        public string Title { get; set; } = "";
+        /// <summary>markdown（使用手册）或 text（其余：原样换行）</summary>
+        public string Format { get; set; } = "text";
+        public string Content { get; set; } = "";
+        public string? Meta { get; set; }
+        public string? CoverUrl { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        /// <summary>站内原页面</summary>
+        public string? Link { get; set; }
+        public string? LinkText { get; set; }
+        /// <summary>站外链接（必吃榜条目的官网 / 商店页）</summary>
+        public string? ExternalUrl { get; set; }
+    }
+
+    /// <summary>
+    /// 知识库里直接阅读公告、版本更新、使用手册、必吃榜条目的全文（只给公开的，和列表的可见规则一样）。
+    /// 先只按 ID 把原始字段读出来，标题拼接、链接等在内存里做：原来在 SQL 里拼字符串（"v" + 版本号、" · " + 作者、"/?news=" + ID），
+    /// 遇到表的字符集 / 排序规则和连接不一致时 MySQL 会报错（Illegal mix of collations），前端就只能显示「读取失败」。
+    /// 找不到（不存在 / 没公开 / ID 不对）返回 404 + code=not_found；查询出错返回 500，前端据此给不同的提示。
+    /// </summary>
+    [HttpGet("text/{type}/{id}")]
+    public async Task<IActionResult> Text(string type, string id)
+    {
+        id = (id ?? "").Trim();
+        TextDetail? detail = null;
+        try
+        {
+            switch (type)
+            {
+                case "news":
+                    var news = await db.News.AsNoTracking().Where(n => n.Id == id && n.IsPublished)
+                        .Select(n => new { n.Id, n.Title, n.Content, n.Type, n.ImageUrl, n.CreatedAt }).FirstOrDefaultAsync();
+                    if (news != null) detail = new TextDetail
+                    {
+                        Type = "news", Id = news.Id, Title = news.Title, Content = news.Content ?? "", Meta = news.Type, CoverUrl = news.ImageUrl, UpdatedAt = news.CreatedAt,
+                        Link = "/?news=" + Uri.EscapeDataString(news.Id), LinkText = "在首页打开这条公告",
+                    };
+                    break;
+                case "release" when int.TryParse(id, out var rid):
+                    var release = await db.Releases.AsNoTracking().Where(r => r.Id == rid && r.IsPublished)
+                        .Select(r => new { r.Id, r.Version, r.Title, r.Content, r.ReleasedAt }).FirstOrDefaultAsync();
+                    if (release != null) detail = new TextDetail
+                    {
+                        Type = "release", Id = release.Id.ToString(), Title = "v" + release.Version + (string.IsNullOrEmpty(release.Title) ? "" : " · " + release.Title),
+                        Content = release.Content ?? "", UpdatedAt = release.ReleasedAt, Link = "/changelog?release=" + release.Id, LinkText = "在版本更新页查看",
+                    };
+                    break;
+                case "manual" when int.TryParse(id, out var mid):
+                    var manual = await db.ManualArticles.AsNoTracking().Where(a => a.Id == mid && a.IsPublished)
+                        .Select(a => new { a.Id, a.Title, a.Content, Category = a.Category != null ? a.Category.Name : null, a.UpdatedAt }).FirstOrDefaultAsync();
+                    if (manual != null) detail = new TextDetail
+                    {
+                        Type = "manual", Id = manual.Id.ToString(), Title = manual.Title, Format = "markdown", Content = manual.Content, Meta = manual.Category, UpdatedAt = manual.UpdatedAt,
+                    };
+                    break;
+                case "musteat" when int.TryParse(id, out var eid):
+                    var eat = await db.MustEatItems.AsNoTracking().Where(m => m.Id == eid && m.IsVisible && m.Status == "approved")
+                        .Select(m => new { m.Id, m.Title, m.Description, m.Category, m.Creator, m.CoverImage, m.CreatedAt, m.Link }).FirstOrDefaultAsync();
+                    if (eat != null) detail = new TextDetail
+                    {
+                        Type = "musteat", Id = eat.Id.ToString(), Title = eat.Title, Content = eat.Description ?? "",
+                        Meta = eat.Category + (string.IsNullOrEmpty(eat.Creator) ? "" : " · " + eat.Creator),
+                        CoverUrl = eat.CoverImage, UpdatedAt = eat.CreatedAt, Link = "/must-eat", LinkText = "去必吃榜", ExternalUrl = eat.Link,
+                    };
+                    break;
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            HttpContext.RequestServices.GetService<ILogger<CatalogController>>()?.LogError(ex, "读取知识库全文失败 {Type} {Id}", type, id);
+            return StatusCode(500, new { message = "读取失败，请稍后重试", code = "error" });
+        }
+        if (detail == null) return NotFound(new { message = "这条资料不存在或已下线", code = "not_found" });
+        // 只放行 http(s) 外链
+        if (detail.ExternalUrl != null && !(detail.ExternalUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || detail.ExternalUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase)))
+            detail.ExternalUrl = null;
+        return Ok(detail);
     }
 
     /// <summary>时间线里去掉「对访客隐藏」的事件（知识库是公开的）</summary>

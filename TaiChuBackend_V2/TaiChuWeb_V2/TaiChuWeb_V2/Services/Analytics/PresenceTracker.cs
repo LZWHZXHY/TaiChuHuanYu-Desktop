@@ -83,6 +83,35 @@ namespace TaiChuWeb_V2.Services.Analytics
             return (members, guests);
         }
 
+        // ---------- 隐身 / 正在看的板块 ----------
+        private readonly ConcurrentDictionary<Guid, byte> _invisible = new();
+        private readonly ConcurrentDictionary<Guid, (string Section, DateTime At)> _sections = new();
+
+        [GeneratedRegex("^[a-z]{1,16}$")]
+        private static partial Regex SectionPattern();
+
+        /// <summary>隐身的人：不出现在在线列表里，也不显示「最近来过」（在线人数里还算，只是不知道是谁）</summary>
+        public bool IsInvisible(Guid userId) => _invisible.ContainsKey(userId);
+        public void SetInvisible(Guid userId, bool invisible)
+        {
+            if (invisible) _invisible[userId] = 1;
+            else _invisible.TryRemove(userId, out _);
+        }
+        public void LoadInvisible(IEnumerable<Guid> userIds) { foreach (var id in userIds) _invisible[id] = 1; }
+
+        /// <summary>前端心跳带来的「正在看哪个板块」（只是板块名，比如 chat、gallery，不记具体页面）</summary>
+        public void SetSection(Guid userId, string? section)
+        {
+            if (string.IsNullOrEmpty(section) || !SectionPattern().IsMatch(section)) { _sections.TryRemove(userId, out _); return; }
+            _sections[userId] = (section, DateTime.UtcNow);
+        }
+        public string? SectionOf(Guid userId)
+        {
+            if (!_sections.TryGetValue(userId, out var s)) return null;
+            if (s.At < DateTime.UtcNow - OnlineWindow) { _sections.TryRemove(userId, out _); return null; }
+            return s.Section;
+        }
+
         /// <summary>取走尚未写入数据库的每日活跃记录。</summary>
         public (Dictionary<(DateTime Day, Guid UserId), Seen> Members, Dictionary<(DateTime Day, string VisitorId), Seen> Visitors) Drain()
         {

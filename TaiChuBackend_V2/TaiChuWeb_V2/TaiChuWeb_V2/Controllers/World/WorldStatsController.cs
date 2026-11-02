@@ -1,36 +1,55 @@
-using System.Text.Json.Nodes;
-using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Services.World;
+using static TaiChuWeb_V2.Services.World.WorldStatsCalc;
 
 namespace TaiChuWeb_V2.Controllers.World;
 
 /// <summary>
-/// 世界观创作统计：词条树、字数、创作天数、连续创作、活跃日历、修改次数、谁写得最多……
-/// 只有创建者和协作者能看。修改次数来自修改记录（WorldCardRevisions），开始记录之前建的条目按建立时间算一次「新建」。
-/// 日期按北京时间分天。
+/// 世界观创作统计：词条树、字数、创作天数、连续创作、活跃日历、修改次数、谁写得最多、创作里程碑……
+/// 创建者和协作者看完整统计；公开世界的访客（包括没登录的）看公开的那部分（mode = "public"）：
+/// 只算访客能看到的内容，不显示是谁写的、不显示修改记录相关的东西。
+/// 修改次数来自修改记录（WorldCardRevisions），开始记录之前建的条目按建立时间算一次「新建」。
+/// 日期按北京时间分天。算法在 WorldStatsCalc，和后台里程碑检测共用。
 /// </summary>
 [Route("api/world")]
 [Authorize]
-public class WorldStatsController(AppDbContext context) : WorldControllerBase
+public class WorldStatsController(AppDbContext context, IMemoryCache cache) : WorldControllerBase
 {
-    private static readonly TimeSpan Beijing = TimeSpan.FromHours(8);
-    private static readonly Regex CardRef = new(@"!?\{CARD:[0-9a-fA-F-]{36}\}", RegexOptions.Compiled);
-    private static readonly Regex Spaces = new(@"\s+", RegexOptions.Compiled);
+    /// <summary>访客版统计缓存多久：访客多了不用每次都把整个世界算一遍</summary>
+    private static readonly TimeSpan PublicCacheTime = TimeSpan.FromMinutes(10);
+    private static string PublicCacheKey(Guid projectId) => $"world_stats_public_{projectId}";
 
-    private sealed record Activity(DateTime At, Guid? UserId, Guid CardId, string Action);
-
-    /// <summary>某个世界的创作统计</summary>
+    /// <summary>某个世界的创作统计（成员看完整的，公开世界的访客看公开的那部分）</summary>
     [HttpGet("projects/{projectId:guid}/stats")]
+    [AllowAnonymous]
     public async Task<IActionResult> Project(Guid projectId)
     {
-        var me = CurrentUserId;
-        var project = await context.WorldProjects.AsNoTracking().MemberOf(me).Where(p => p.Id == projectId)
-            .Select(p => new { p.Id, p.Name, p.OwnerId, p.CreatedAt }).FirstOrDefaultAsync();
-        if (project == null) return StatusCode(403, new { message = "只有世界的创建者和协作者能看创作统计" });
+        var me = ReaderUserId;
+        var project = await context.WorldProjects.AsNoTracking().Where(p => p.Id == projectId)
+            .Select(p => new
+            {
+                p.Id, p.Name, p.OwnerId, p.CreatedAt, p.IsPublic,
+                Member = me != Guid.Empty && (p.OwnerId == me || p.Collaborators.Any(c => c.UserId == me)),
+            }).FirstOrDefaultAsync();
+        // 私有世界对外人一律说「看不了」，不区分存不存在
+        if (project == null || (!project.Member && !project.IsPublic))
+            return StatusCode(403, new { message = "只有世界的创建者和协作者能看创作统计" });
+
+        if (!project.Member)
+        {
+            // 访客：同一个世界所有访客看到的都一样，缓存 10 分钟
+            // （每次都先查一下是不是还公开，所以取消公开后缓存不会漏出去）
+            if (!cache.TryGetValue(PublicCacheKey(projectId), out object? cached) || cached == null)
+            {
+                cached = await PublicStatsAsync(projectId, project.Name, project.CreatedAt);
+                cache.Set(PublicCacheKey(projectId), cached, PublicCacheTime);
+            }
+            return Ok(cached);
+        }
 
         var cards = await context.WorldCards.AsNoTracking().Where(c => c.ProjectId == projectId)
             .Select(c => new { c.Id, c.Title, c.Type, c.SubType, c.Description, c.Attributes, c.TimelineEvents, c.Layout, c.GalleryImages, c.CoverImage, c.CreatedAt, c.UpdatedAt })
@@ -46,24 +65,14 @@ public class WorldStatsController(AppDbContext context) : WorldControllerBase
         // 每个条目的字数、配图、时间线事件
         var cardInfo = cards.Select(c =>
         {
-            var events = ArrayOf(c.TimelineEvents);
-            var images = ArrayOf(c.GalleryImages).Count + (string.IsNullOrWhiteSpace(c.CoverImage) ? 0 : 1)
-                + WorldLayout.Blocks(c.Layout).Count(b => b.Kind is "media" or "map");
-            var text = string.Join(" ", new[]
-            {
-                c.Description ?? "",
-                string.Join(" ", ArrayOf(c.Attributes).Select(a => $"{Str(a, "value")}")),
-                string.Join(" ", events.Select(e => $"{Str(e, "title")} {Str(e, "description")}")),
-                string.Join(" ", WorldLayout.Blocks(c.Layout).Where(b => b.Kind == "text").Select(b => $"{b.Title} {b.Text}")),
-            });
-            return new { c.Id, c.Title, Type = string.IsNullOrWhiteSpace(c.Type) ? "未分类" : c.Type, c.SubType, Words = CountWords(text), Events = events.Count, Images = images };
+            var m = Measure(c.Description, c.Attributes, c.TimelineEvents, c.Layout, c.GalleryImages, c.CoverImage, visitor: false);
+            return new { c.Id, c.Title, Type = string.IsNullOrWhiteSpace(c.Type) ? "未分类" : c.Type, c.SubType, m.Words, m.Events, m.Images };
         }).ToList();
 
         // 活动：修改记录 +（开始记录之前建的条目按建立时间算一次新建）
-        var trackingSince = revisions.Count > 0 ? revisions.Min(r => r.CreatedAt) : (DateTime?)null;
-        var activity = revisions.Select(r => new Activity(r.CreatedAt, r.UserId, r.CardId, r.Action)).ToList();
-        var untracked = cards.Where(c => trackingSince == null || c.CreatedAt < trackingSince.Value).ToList();
-        activity.AddRange(untracked.Select(c => new Activity(c.CreatedAt, null, c.Id, WorldHistoryService.Create)));
+        var activity = BuildActivity(
+            revisions.Select(r => new WorldStatsCalc.Activity(r.CreatedAt, r.UserId, r.CardId, r.Action)),
+            cards.Select(c => (c.Id, c.CreatedAt)), out var trackingSince, out var untracked);
 
         var summary = Summarize(activity);
         var now = DateTime.UtcNow;
@@ -101,8 +110,16 @@ public class WorldStatsController(AppDbContext context) : WorldControllerBase
             cards = g.OrderByDescending(c => c.Words).Select(c => new { c.Id, c.Title, c.SubType, c.Words }).ToList(),
         }).OrderByDescending(t => t.count).ToList();
 
+        var words = cardInfo.Sum(c => (long)c.Words);
+        var novelWords = novels.Sum(n => (long)n.WordCount);
+        // 里程碑墙：成员看全部（达成的点亮，没达成的显示还差多少）
+        var milestones = WorldMilestoneCatalog.ForPage(
+            new WorldMilestoneCatalog.Metrics(cards.Count, words, novelWords, summary.LongestStreak, summary.CurrentStreak, summary.ActiveDays, project.CreatedAt),
+            await WorldMilestoneStore.ReadAsync(context, projectId), member: true);
+
         return Ok(new
         {
+            mode = "member",
             name = project.Name,
             createdAt = project.CreatedAt,
             // 世界建立到今天第几天（北京时间，建立当天算第 1 天）
@@ -111,14 +128,14 @@ public class WorldStatsController(AppDbContext context) : WorldControllerBase
             totals = new
             {
                 cards = cards.Count,
-                words = cardInfo.Sum(c => c.Words),
-                novelWords = novels.Sum(n => n.WordCount),
+                words,
+                novelWords,
                 novels = novels.Count,
                 relations,
                 timelineEvents = cardInfo.Sum(c => c.Events),
                 images = cardInfo.Sum(c => c.Images),
                 edits = revisions.Count,
-                creates = revisions.Count(r => r.Action == WorldHistoryService.Create) + untracked.Count,
+                creates = revisions.Count(r => r.Action == WorldHistoryService.Create) + untracked,
                 updates = revisions.Count(r => r.Action == WorldHistoryService.Update),
                 deletes = revisions.Count(r => r.Action == WorldHistoryService.Delete),
                 restores = revisions.Count(r => r.Action == WorldHistoryService.Restore),
@@ -132,7 +149,60 @@ public class WorldStatsController(AppDbContext context) : WorldControllerBase
             contributors,
             topEdited,
             longest = cardInfo.OrderByDescending(c => c.Words).Take(5).Select(c => new { c.Id, c.Title, c.Words }),
+            milestones,
         });
+    }
+
+    /// <summary>
+    /// 访客版统计：词条数、设定字数（对访客隐藏的区块 / 时间线事件不算）、公开小说的字数、建立第几天、
+    /// 创作天数、活跃日历（只有日期和次数）、最近更新时间、已达成的里程碑。
+    /// 不给：各人贡献、修改次数、改得最多的词条、几点写、连续创作这些和修改记录、具体人有关的东西。
+    /// </summary>
+    private async Task<object> PublicStatsAsync(Guid projectId, string name, DateTime createdAt)
+    {
+        var cards = await context.WorldCards.AsNoTracking().Where(c => c.ProjectId == projectId)
+            .Select(c => new { c.Id, c.Description, c.Attributes, c.TimelineEvents, c.Layout, c.CreatedAt })
+            .ToListAsync();
+        // 只要时间、条目和动作，不取是谁改的
+        var revisions = await context.WorldCardRevisions.AsNoTracking()
+            .Where(r => r.ProjectId == projectId && r.Action != WorldHistoryService.Baseline)
+            .Select(r => new { r.CreatedAt, r.CardId, r.Action }).ToListAsync();
+        var novels = await context.WorldNovels.AsNoTracking().Where(n => n.ProjectId == projectId && n.IsPublic)
+            .Select(n => new { n.WordCount }).ToListAsync();
+
+        var words = cards.Sum(c => (long)Measure(c.Description, c.Attributes, c.TimelineEvents, c.Layout, null, null, visitor: true).Words);
+        var novelWords = novels.Sum(n => (long)n.WordCount);
+        var activity = BuildActivity(
+            revisions.Select(r => new WorldStatsCalc.Activity(r.CreatedAt, null, r.CardId, r.Action)),
+            cards.Select(c => (c.Id, c.CreatedAt)), out _, out _);
+        var summary = Summarize(activity);
+        var now = DateTime.UtcNow;
+
+        // 里程碑：只给已达成的；字数类的按访客能看到的字数再核一遍（见 WorldMilestoneCatalog.ForPage）
+        var milestones = WorldMilestoneCatalog.ForPage(
+            new WorldMilestoneCatalog.Metrics(cards.Count, words, novelWords, summary.LongestStreak, summary.CurrentStreak, summary.ActiveDays, createdAt),
+            await WorldMilestoneStore.ReadAsync(context, projectId), member: false);
+
+        return new
+        {
+            mode = "public",
+            name,
+            createdAt,
+            days = (Day(now) - Day(createdAt)).Days + 1,
+            // 这份统计是什么时候算的（有缓存，最多晚 10 分钟）
+            generatedAt = now,
+            totals = new
+            {
+                cards = cards.Count,
+                words,
+                novelWords,
+                novels = novels.Count,
+                summary.ActiveDays,
+                lastActiveAt = activity.Count > 0 ? activity.Max(a => a.At) : (DateTime?)null,
+            },
+            heatmap = summary.Heatmap,
+            milestones,
+        };
     }
 
     /// <summary>我自己的创作档案：所有我参与的世界里我做的修改 + 我建的世界</summary>
@@ -154,11 +224,11 @@ public class WorldStatsController(AppDbContext context) : WorldControllerBase
         var ownedCards = await context.WorldCards.AsNoTracking().Where(c => owned.Contains(c.ProjectId))
             .Select(c => new { c.Id, c.ProjectId, c.CreatedAt, c.Description, c.Layout }).ToListAsync();
 
-        var activity = revisions.Select(r => new Activity(r.CreatedAt, me, r.CardId, r.Action)).ToList();
+        var activity = revisions.Select(r => new WorldStatsCalc.Activity(r.CreatedAt, me, r.CardId, r.Action)).ToList();
         activity.AddRange(ownedCards.Where(c => !trackingByWorld.TryGetValue(c.ProjectId, out var since) || c.CreatedAt < since)
-            .Select(c => new Activity(c.CreatedAt, me, c.Id, WorldHistoryService.Create)));
+            .Select(c => new WorldStatsCalc.Activity(c.CreatedAt, me, c.Id, WorldHistoryService.Create)));
         // 建世界那天也算创作
-        activity.AddRange(worlds.Where(w => w.OwnerId == me).Select(w => new Activity(w.CreatedAt, me, Guid.Empty, "world")));
+        activity.AddRange(worlds.Where(w => w.OwnerId == me).Select(w => new WorldStatsCalc.Activity(w.CreatedAt, me, Guid.Empty, "world")));
 
         var summary = Summarize(activity);
         var firstAt = activity.Count > 0 ? activity.Min(a => a.At) : (DateTime?)null;
@@ -184,70 +254,5 @@ public class WorldStatsController(AppDbContext context) : WorldControllerBase
             worlds = worlds.Select(w => new { w.Id, w.Name, isOwner = w.OwnerId == me, edits = perWorld.GetValueOrDefault(w.Id) })
                 .OrderByDescending(w => w.edits).ToList(),
         });
-    }
-
-    // ---------------- 计算 ----------------
-
-    private sealed record Summary(int ActiveDays, int CurrentStreak, int LongestStreak, int Last7, int Last30,
-        List<object> Heatmap, int[] Hours, int[] Weekdays);
-
-    private static Summary Summarize(List<Activity> activity)
-    {
-        var today = Day(DateTime.UtcNow);
-        var perDay = activity.GroupBy(a => Day(a.At)).ToDictionary(g => g.Key, g => g.Count());
-        var days = perDay.Keys.OrderBy(d => d).ToList();
-
-        // 连续创作：今天还没写也不算断（从昨天往前数）
-        var current = 0;
-        var cursor = perDay.ContainsKey(today) ? today : today.AddDays(-1);
-        while (perDay.ContainsKey(cursor)) { current++; cursor = cursor.AddDays(-1); }
-        var longest = 0;
-        var run = 0;
-        DateTime? prev = null;
-        foreach (var d in days)
-        {
-            run = prev is DateTime p && (d - p).Days == 1 ? run + 1 : 1;
-            longest = Math.Max(longest, run);
-            prev = d;
-        }
-
-        var hours = new int[24];
-        var weekdays = new int[7];
-        foreach (var a in activity)
-        {
-            var local = a.At.Add(Beijing);
-            hours[local.Hour]++;
-            weekdays[((int)local.DayOfWeek + 6) % 7]++; // 周一 = 0
-        }
-        return new Summary(
-            days.Count, current, longest,
-            perDay.Where(p => p.Key > today.AddDays(-7)).Sum(p => p.Value),
-            perDay.Where(p => p.Key > today.AddDays(-30)).Sum(p => p.Value),
-            // 活跃日历：全部有活动的日子（前端按「最近一年 / 某一年」切换）
-            perDay.OrderBy(p => p.Key)
-                .Select(p => (object)new { d = p.Key.ToString("yyyy-MM-dd"), n = p.Value }).ToList(),
-            hours, weekdays);
-    }
-
-    /// <summary>北京时间的日期</summary>
-    private static DateTime Day(DateTime utc) => DateTime.SpecifyKind(utc, DateTimeKind.Utc).Add(Beijing).Date;
-
-    /// <summary>字数：去掉引用标记和空白后的字符数（中文一个字算一个）</summary>
-    private static int CountWords(string? text) =>
-        string.IsNullOrEmpty(text) ? 0 : Spaces.Replace(CardRef.Replace(text, ""), "").Length;
-
-    private static List<JsonNode> ArrayOf(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return new();
-        try { return (JsonNode.Parse(json) as JsonArray)?.Where(n => n != null).Select(n => n!).ToList() ?? new(); }
-        catch { return new(); }
-    }
-
-    private static string Str(JsonNode node, string key)
-    {
-        if (node is not JsonObject o) return node is JsonValue ? node.ToString() : "";
-        // 前端存的是 camelCase，旧数据可能是 PascalCase
-        var v = o[key] ?? o[char.ToUpperInvariant(key[0]) + key[1..]];
-        return v is JsonValue ? v.ToString() : "";
     }
 }

@@ -45,10 +45,12 @@ namespace TaiChuWeb_V2.Controllers
                 // 防止把自己的头像文件换成 GIF，或者改掉官方头像
                 string userAvatars = $"qcs::cos:{region}:uid/{appId}:{bucket}/avatars/u/*";
                 string official = $"qcs::cos:{region}:uid/{appId}:{bucket}/official/*";
+                // 知识库资源存到腾讯云时放在 community-resources/ 下（由服务器签名分片上传）：前端临时密钥不能写，免得被人覆盖
+                string communityResources = $"qcs::cos:{region}:uid/{appId}:{bucket}/community-resources/*";
                 const string actions = "[\"name/cos:PutObject\",\"name/cos:PostObject\",\"name/cos:InitiateMultipartUpload\",\"name/cos:ListMultipartUploads\",\"name/cos:ListParts\",\"name/cos:UploadPart\",\"name/cos:CompleteMultipartUpload\"]";
                 req.Policy = "{\"version\":\"2.0\",\"statement\":["
                     + "{\"action\":" + actions + ",\"resource\":[\"" + resource + "\"],\"effect\":\"allow\"},"
-                    + "{\"action\":" + actions + ",\"resource\":[\"" + userAvatars + "\",\"" + official + "\"],\"effect\":\"deny\"}"
+                    + "{\"action\":" + actions + ",\"resource\":[\"" + userAvatars + "\",\"" + official + "\",\"" + communityResources + "\"],\"effect\":\"deny\"}"
                     + "]}";
 
                 GetFederationTokenResponse resp = await client.GetFederationToken(req);
@@ -73,4 +75,4 @@ namespace TaiChuWeb_V2.Controllers
             }
         }
     }
-}
+}

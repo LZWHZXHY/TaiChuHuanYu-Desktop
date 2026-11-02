@@ -64,13 +64,32 @@ namespace TaiChuWeb_V2.Controllers.ChaiCommunity
                     AuthorId = w.AuthorId,
                     Status = w.Status,
                     Views = w.Views,
-                    LikeCount = _context.UserInteractions.Count(i => i.TargetType == "ChaiWork" && i.TargetId == w.Id.ToString() && i.ActionType == "Like"),
-                    FavoriteCount = _context.UserInteractions.Count(i => i.TargetType == "ChaiWork" && i.TargetId == w.Id.ToString() && i.ActionType == "Favorite"),
-                    CommentCount = _context.Comments.Count(c => c.TargetType == "work" && c.TargetId == w.Id.ToString() && c.Content != ""),
                     TagsText = w.Tags,
                     CreatedAt = w.CreatedAt
                 })
                 .ToListAsync();
+
+            // 点赞 / 收藏 / 评论数单独查再对上：以前在 SQL 里拿作品 Id 转字符串去和评论表比较，
+            // 两张表排序规则不同时整个作品列表报错
+            var workIds = items.Select(x => x.Id.ToString()).ToList();
+            if (workIds.Count > 0)
+            {
+                var interactions = await _context.UserInteractions
+                    .Where(i => i.TargetType == "ChaiWork" && workIds.Contains(i.TargetId) && (i.ActionType == "Like" || i.ActionType == "Favorite"))
+                    .Select(i => new { i.TargetId, i.ActionType })
+                    .ToListAsync();
+                var comments = await _context.Comments
+                    .Where(c => c.TargetType == "work" && workIds.Contains(c.TargetId) && c.Content != "")
+                    .Select(c => c.TargetId)
+                    .ToListAsync();
+                foreach (var item in items)
+                {
+                    var key = item.Id.ToString();
+                    item.LikeCount = interactions.Count(i => string.Equals(i.TargetId, key, StringComparison.OrdinalIgnoreCase) && i.ActionType == "Like");
+                    item.FavoriteCount = interactions.Count(i => string.Equals(i.TargetId, key, StringComparison.OrdinalIgnoreCase) && i.ActionType == "Favorite");
+                    item.CommentCount = comments.Count(c => string.Equals(c, key, StringComparison.OrdinalIgnoreCase));
+                }
+            }
 
             foreach (var item in items)
                 item.Tags = Deserialize<List<string>>(item.TagsText ?? "[]");

@@ -2,6 +2,9 @@
      （配图、标题、日期、描述、标签、相关条目）。editable 时卡片可以直接改，也能添加 / 删除 / 对访客隐藏事件。 -->
 <template>
   <div class="tl-axis" :class="{ editable }">
+    <!-- 颜色图例（世界设置里定义的「哪种颜色代表什么」）：点一种颜色只看这一类事件 -->
+    <ColorLegend v-if="legendItems.length" v-model:active="legendHue" class="tl-legend" :entries="legendItems" hint="按事件自己选的颜色分类" />
+    <p v-if="legendHue && !shown.length" class="tl-empty">没有这种颜色的事件。<button type="button" class="tl-link" @click="legendHue = null">显示全部</button></p>
     <div ref="scroller" class="tl-scroll">
       <div class="tl-inner" :style="{ width: innerWidth + 'px' }">
         <!-- 事件卡片 -->
@@ -38,7 +41,10 @@
           <div v-if="editable" class="tl-colors" role="radiogroup" aria-label="事件颜色">
             <span>颜色</span>
             <button type="button" role="radio" class="none" :aria-checked="!active.ev.color" title="默认" aria-label="默认颜色" @click="patch({ color: null })"></button>
-            <button v-for="c in COLORS" :key="c" type="button" role="radio" :aria-checked="active.ev.color === c" :style="{ background: c }" :aria-label="`颜色 ${c}`" @click="patch({ color: c })"></button>
+            <button v-for="c in COLORS" :key="c" type="button" role="radio" :aria-checked="active.ev.color === c" :style="{ background: c }"
+              :title="meaningOf(c) || undefined" :aria-label="meaningOf(c) ? `颜色：${meaningOf(c)}` : `颜色 ${c}`" @click="patch({ color: c })"></button>
+            <!-- 选中的颜色在图例里代表什么，直接写出来，选颜色时心里有数 -->
+            <em v-if="meaningOf(active.ev.color)" class="tl-color-meaning">{{ meaningOf(active.ev.color) }}</em>
           </div>
           <textarea v-if="editable" class="tl-desc-in" :value="active.ev.description ?? ''" rows="3" placeholder="描述" aria-label="描述" @input="patch({ description: val($event) || null })"></textarea>
           <p v-else-if="active.ev.description" class="tl-desc">{{ active.ev.description }}</p>
@@ -64,7 +70,7 @@
         <!-- 事件标签（错开高度，避免重叠） -->
         <div class="tl-lanes" :style="{ height: laneHeight + 'px' }">
           <button v-for="m in markers" :key="m.key" type="button" class="tl-pin" :class="{ on: m.key === activeKey, hidden: m.ev.hidden }"
-            :style="{ left: m.x + 'px', bottom: m.level * 34 + 'px', ...evColor(m.ev) }" :title="[m.ev.era, m.ev.date].filter(Boolean).join(' · ')" @click="toggle(m.key)">
+            :style="{ left: m.x + 'px', bottom: m.level * 34 + 'px', ...evColor(m.ev) }" :title="[m.ev.era, m.ev.date, meaningOf(m.ev.color)].filter(Boolean).join(' · ')" @click="toggle(m.key)">
             <span class="tl-pin-label">{{ m.ev.title || '未命名事件' }}</span>
             <span class="tl-pin-stem" :style="{ height: m.level * 34 + 10 + 'px' }"></span>
           </button>
@@ -100,7 +106,9 @@ import { parseCoverImage } from '@/utils/worldPresentation'
 import { withThumbnail } from '@/utils/imageThumb'
 import { MARK_COLORS, newId, niceTicks, timelineValue } from '@/utils/worldLayout'
 import { useCardUpload } from '@/composables/世界观管理/useCardUpload'
+import { hueOf, legendEntries, useWorldLegend } from '@/utils/worldLegend'
 import CardPicker from './CardPicker.vue'
+import ColorLegend from './ColorLegend.vue'
 
 const props = defineProps<{ events: TimelineEvent[]; projectId: string; editable?: boolean }>()
 const emit = defineEmits<{ 'update:events': [events: TimelineEvent[]]; select: [cardId: string] }>()
@@ -112,8 +120,22 @@ const keyOf = (ev: TimelineEvent, i: number) => ev.id || `i${i}`
 const COLORS = MARK_COLORS
 const evColor = (ev: TimelineEvent) => ({ '--ev': ev.color || 'var(--accent-color)' })
 const items = computed(() => props.events.map((ev, i) => ({ ev, i, key: keyOf(ev, i), value: timelineValue(ev.date) })))
-const placed = computed(() => items.value.filter(x => x.value != null).sort((a, b) => a.value! - b.value!))
-const unplaced = computed(() => items.value.filter(x => x.value == null))
+
+// ---------- 颜色图例 ----------
+const legend = useWorldLegend(() => props.projectId)
+/** 这个颜色在图例里代表什么（没定义就是空字符串） */
+const meaningOf = (color?: string | null) => { const hue = hueOf(color); return hue ? legend.value[hue] ?? '' : '' }
+// 看的时候只列这条时间线里用到的颜色；编辑时列出全部定义过的，方便照着图例选颜色
+const legendItems = computed(() => legendEntries(legend.value, props.editable ? null : new Set(props.events.map(ev => hueOf(ev.color)).filter((h): h is string => Boolean(h)))))
+/** 只看某一种颜色（色系名），null = 全部 */
+const legendHue = ref<string | null>(null)
+watch(legendItems, list => { if (legendHue.value && !list.some(e => e.key === legendHue.value)) legendHue.value = null })
+const shown = computed(() => legendHue.value ? items.value.filter(x => hueOf(x.ev.color) === legendHue.value) : items.value)
+
+// 刻度范围按全部事件算，只看某种颜色时其他事件藏起来，但轴不缩放、位置不跳
+const allPlaced = computed(() => items.value.filter(x => x.value != null).sort((a, b) => a.value! - b.value!))
+const placed = computed(() => legendHue.value ? allPlaced.value.filter(x => hueOf(x.ev.color) === legendHue.value) : allPlaced.value)
+const unplaced = computed(() => shown.value.filter(x => x.value == null))
 
 const activeKey = ref<string | null>(null)
 const active = computed(() => items.value.find(x => x.key === activeKey.value) ?? null)
@@ -137,9 +159,9 @@ onMounted(() => {
 onBeforeUnmount(() => observer?.disconnect())
 const PAD = 48
 // 事件多就加宽，可以左右滚动
-const innerWidth = computed(() => Math.max(viewWidth.value, placed.value.length * 96 + PAD * 2))
+const innerWidth = computed(() => Math.max(viewWidth.value, allPlaced.value.length * 96 + PAD * 2))
 const domain = computed(() => {
-  const vals = placed.value.map(x => x.value!)
+  const vals = allPlaced.value.map(x => x.value!)
   if (!vals.length) return niceTicks(0, 100, 5)
   let min = Math.min(...vals), max = Math.max(...vals)
   const span = max - min || Math.max(1, Math.abs(min) * 0.1)
@@ -206,6 +228,7 @@ function addTag() {
 }
 async function addEvent() {
   const ev: TimelineEvent = { id: newId('e'), date: '', era: null, title: '新事件', description: null, image: null, tags: [], cardIds: [] }
+  legendHue.value = null // 新事件还没有颜色，先取消「只看某种颜色」，免得刚加的事件看不见
   emit('update:events', [...props.events, ev])
   activeKey.value = ev.id!
   await nextTick()
@@ -233,6 +256,9 @@ defineExpose({ addEvent })
 
 <style scoped>
 .tl-axis { position: relative; }
+.tl-legend { margin-bottom: 8px; }
+.tl-link { padding: 0; border: 0; background: none; color: var(--accent-color); font: inherit; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.tl-color-meaning { font-style: normal; color: var(--text-primary); margin-left: 4px; }
 .tl-scroll { overflow-x: auto; overflow-y: visible; padding-bottom: 4px; }
 .tl-inner { position: relative; min-width: 100%; }
 .tl-lanes { position: relative; }

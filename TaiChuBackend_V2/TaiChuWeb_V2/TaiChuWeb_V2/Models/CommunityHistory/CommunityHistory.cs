@@ -49,11 +49,21 @@ namespace TaiChuWeb_V2.Models.CommunityHistory
         [MaxLength(500)] public string Content { get; set; } = "";
         /// <summary>回复的是哪条评论（可以没有）</summary>
         public long? ReplyToId { get; set; }
+        /// <summary>评论里的图片（JSON 字符串数组，最多 4 张）</summary>
+        public string? Images { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 
     /// <summary>岁月史书的表情回应：😂 笑死 / 🥹 泪目 / 👍 牛 / ❤️ 抱抱，每人每种一次</summary>
     [Table("CommunityHistoryReactions")]
+    /// <summary>一段里 @ 了谁（被 @ 的人收到通知，在「和 TA 有关的」里能看到这一段）</summary>
+    public class CommunityHistoryMention
+    {
+        public long EntryId { get; set; }
+        public Guid UserId { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
+
     public class CommunityHistoryReaction
     {
         public static readonly string[] Kinds = { "lol", "touched", "awesome", "hug" };

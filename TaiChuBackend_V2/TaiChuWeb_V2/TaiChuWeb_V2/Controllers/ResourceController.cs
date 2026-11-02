@@ -39,7 +39,9 @@ public class ResourceController : ControllerBase
 
             await observable.ForEachAsync(item =>
             {
-                if (!item.IsDir) // 过滤掉虚拟的文件夹占位符，只保留真实文件
+                // 过滤掉虚拟的文件夹占位符，只保留真实文件；
+                // uploads/ 下面是用户上传的资源（要审核、可能付费），只能走 /api/resources 的接口，这里不列出来
+                if (!item.IsDir && !TaiChuWeb_V2.Services.Resources.ResourceRules.IsUserUploadKey(item.Key))
                 {
                     files.Add(new
                     {
@@ -66,6 +68,11 @@ public class ResourceController : ControllerBase
         if (string.IsNullOrEmpty(fileName))
         {
             return BadRequest(new { success = false, message = "文件名不能为空" });
+        }
+        // 用户上传的资源不能从这个匿名接口下载（否则能绕过审核、下架和付费）
+        if (TaiChuWeb_V2.Services.Resources.ResourceRules.IsUserUploadKey(fileName))
+        {
+            return NotFound(new { success = false, message = "文件不存在" });
         }
 
         try

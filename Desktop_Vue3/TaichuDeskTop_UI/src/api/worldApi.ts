@@ -7,6 +7,7 @@ import type {
   WorldMembers, WorldMemberCandidate, CollaboratorRole,
   WorldRevision, WorldRevisionDetail, WorldLastEditor, WorldCardBlame,
 } from './types/world'
+import type { ChronicleExport } from '@/utils/chronicle'
 
 export type * from './types/world'
 
@@ -19,7 +20,8 @@ export const worldApi = {
     const data = new FormData(); data.append('file', file)
     return request.put<WorldRestoreStatus>(`/world/restores/${id}/images/${encodeURIComponent(name)}`, data, { timeout: 300000, silentError: true, signal })
   },
-  commitRestore: (id: string, payload: { cards: CreateCardPayload[]; description?: string | null }) =>
+  // chronicle：编年史（fix121），老备份没有就不传
+  commitRestore: (id: string, payload: { cards: CreateCardPayload[]; description?: string | null; chronicle?: ChronicleExport | null }) =>
     request.post<WorldRestoreStatus>(`/world/restores/${id}/commit`, payload, { timeout: 300000, silentError: true }),
   cancelRestore: (id: string) => request.delete<WorldRestoreStatus>(`/world/restores/${id}`, { timeout: 300000, silentError: true }),
   getCardTypes: () => request.get<CardTypeDto[]>('/world/card-types'),

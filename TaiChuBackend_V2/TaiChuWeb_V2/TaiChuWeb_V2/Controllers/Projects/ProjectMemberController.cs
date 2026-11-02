@@ -41,20 +41,21 @@ namespace TaiChuWeb_V2.Controllers.Projects
             if (!isMember && !isProjectOwner)
                 return Forbid();
 
-            var membersList = await _context.ProjectMembers
-                .Where(m => m.ProjectId == projectId)
-                .Join(
-                    _context.Users,
-                    member => member.UserId,
-                    user => user.Id.ToString(),
-                    (member, user) => new
-                    {
-                        Member = member,
-                        Username = user.Username,
-                        Email = user.Email ?? "暂无邮箱"
-                    }
-                )
-                .ToListAsync();
+            // 不在 SQL 里拿 Users.Id 转字符串去和成员表比较：两张表排序规则不同时 MySQL 直接报错（成员列表打不开）。
+            // 先查成员，再按 Guid 查用户，在内存里对上
+            var members = await _context.ProjectMembers.Where(m => m.ProjectId == projectId).ToListAsync();
+            var memberUserIds = members.Select(m => Guid.TryParse(m.UserId, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).Distinct().ToList();
+            var memberUsers = await _context.Users.Where(u => memberUserIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id);
+            var membersList = members
+                .Select(m => Guid.TryParse(m.UserId, out var g) && memberUsers.TryGetValue(g, out var user) ? new
+                {
+                    Member = m,
+                    Username = user.Username,
+                    Email = user.Email ?? "暂无邮箱"
+                } : null)
+                .Where(x => x != null)
+                .Select(x => x!)
+                .ToList();
 
             var ownerIdStr = project.OwnerId.ToString();
 

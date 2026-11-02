@@ -27,6 +27,40 @@
         </div>
       </div>
 
+      <!-- 牌桌人气：在斗地主里被别人点赞 / 砸番茄（每次都记下来） -->
+      <section class="pop-box" aria-labelledby="pop-title">
+        <div class="pop-head">
+          <h3 id="pop-title">牌桌人气</h3>
+          <small>在牌桌上被别人点赞、砸番茄的次数（点头像就能赞 / 砸，要花土豆）</small>
+        </div>
+        <div class="stat-grid">
+          <div class="stat"><small>👍 累计被点赞</small><b>{{ reactions?.likes ?? 0 }}</b><em>近 30 天 {{ reactions?.likes30 ?? 0 }}</em></div>
+          <div class="stat"><small>🍅 累计被砸番茄</small><b>{{ reactions?.tomatoes ?? 0 }}</b><em>近 30 天 {{ reactions?.tomatoes30 ?? 0 }}</em></div>
+          <div class="stat"><small>我送出的赞</small><b>{{ reactions?.givenLikes ?? 0 }}</b></div>
+          <div class="stat"><small>我砸出去的番茄</small><b>{{ reactions?.givenTomatoes ?? 0 }}</b></div>
+        </div>
+        <div class="rank-bar">
+          <span>小排行</span>
+          <div class="seg" role="group" aria-label="排行时间范围">
+            <button type="button" :class="{ on: rankRange === 'total' }" :aria-pressed="rankRange === 'total'" @click="rankRange = 'total'">全部时间</button>
+            <button type="button" :class="{ on: rankRange === '30d' }" :aria-pressed="rankRange === '30d'" @click="rankRange = '30d'">最近 30 天</button>
+          </div>
+        </div>
+        <div class="rank-grid">
+          <div v-for="board in RANK_BOARDS" :key="board.kind" class="rank" :class="'rank-' + board.kind">
+            <h4><span aria-hidden="true">{{ board.icon }}</span>{{ board.title }}<small>{{ board.sub }}</small></h4>
+            <ol v-if="ranks[board.kind].length">
+              <li v-for="r in ranks[board.kind]" :key="r.userId" :class="{ me: r.userId === user.userId }">
+                <span class="rk">{{ r.rank }}</span>
+                <span class="rn">{{ r.name }}<em v-if="r.userId === user.userId">我</em></span>
+                <b>{{ r.count }}</b>
+              </li>
+            </ol>
+            <p v-else class="muted">{{ rankLoading ? '读取中…' : '还没有人上榜，去牌桌上互动一下吧。' }}</p>
+          </div>
+        </div>
+      </section>
+
       <!-- 筛选 -->
       <div class="tabs" role="tablist" aria-label="战绩分类">
         <button v-for="t in TABS" :key="t.key" type="button" role="tab" :aria-selected="tab === t.key" :class="{ on: tab === t.key }" @click="tab = t.key">{{ t.label }}</button>
@@ -46,7 +80,7 @@
       <ul v-else-if="tab === 'potato'" class="match-list">
         <li v-if="!ledger.length" class="muted">还没有土豆收支记录。</li>
         <li v-for="l in ledger" :key="l.id" class="match">
-          <span class="m-game">{{ l.refType === 'game' || l.refType === 'game-bot' ? '对局' : '领取' }}</span>
+          <span class="m-game">{{ ledgerKind(l) }}</span>
           <div class="m-main"><b>{{ l.reason }}</b><span>余额 {{ l.balance.toLocaleString() }}</span></div>
           <b class="potato" :class="l.delta >= 0 ? 'up' : 'down'">{{ l.delta >= 0 ? '+' : '' }}{{ l.delta }} 🥔</b>
           <time>{{ fmt(l.createdAt) }}</time>
@@ -76,7 +110,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useUserStore } from '@/stores/user'
 import PotatoWallet from './PotatoWallet.vue'
-import { GAME_NAMES, recordsApi, type GameStats, type MatchItem } from '@/api/records'
+import { GAME_NAMES, recordsApi, type GameStats, type MatchItem, type ReactionRankRow, type ReactionStats } from '@/api/records'
 import { potatoApi, type PotatoLedgerRow } from '@/api/potato'
 import { getMySessions } from './games_api'
 import type { SessionSummary } from './game_types'
@@ -94,6 +128,36 @@ const matches = ref<MatchItem[]>([])
 const sessions = ref<SessionSummary[]>([])
 const ledger = ref<PotatoLedgerRow[]>([])
 const loading = ref(false)
+
+// ---------- 牌桌人气：被点赞 / 被砸番茄、两个小排行 ----------
+type RankKind = 'like' | 'tomato'
+const RANK_BOARDS: { kind: RankKind; icon: string; title: string; sub: string }[] = [
+  { kind: 'like', icon: '👍', title: '最受欢迎', sub: '被赞最多' },
+  { kind: 'tomato', icon: '🍅', title: '番茄收割机', sub: '被砸最多' },
+]
+const reactions = ref<ReactionStats | null>(null)
+const rankRange = ref<'total' | '30d'>('total')
+const ranks = ref<Record<RankKind, ReactionRankRow[]>>({ like: [], tomato: [] })
+const rankLoading = ref(false)
+async function loadRanks() {
+  rankLoading.value = true
+  try {
+    const [like, tomato] = await Promise.all([
+      recordsApi.reactionsLeaderboard('like', rankRange.value).catch(() => [] as ReactionRankRow[]),
+      recordsApi.reactionsLeaderboard('tomato', rankRange.value).catch(() => [] as ReactionRankRow[]),
+    ])
+    ranks.value = { like, tomato }
+  } finally { rankLoading.value = false }
+}
+watch(rankRange, loadRanks)
+
+/** 土豆收支的分类：对局、台费、互动（点赞 / 砸番茄）、其他花销、领取 */
+function ledgerKind(l: PotatoLedgerRow) {
+  if (l.refType === 'game' || l.refType === 'game-bot') return '对局'
+  if (l.refType === 'fee') return '台费'
+  if (l.refType === 'ddz-react' || l.refType === 'board-react') return '互动'
+  return l.delta < 0 ? '花费' : '领取'
+}
 
 const streakText = computed(() => {
   const s = stats.value?.streak
@@ -115,6 +179,8 @@ watch(tab, loadTab)
 onMounted(async () => {
   if (!user.isLoggedIn) return
   try { stats.value = await recordsApi.myStats() } catch { stats.value = null }
+  recordsApi.myReactions().then(r => { reactions.value = r }).catch(() => { reactions.value = null })
+  void loadRanks()
   await loadTab()
 })
 </script>
@@ -154,11 +220,39 @@ onMounted(async () => {
 .potato.up { color: var(--success); }
 .potato.down { color: var(--danger); }
 .match-list > .muted { padding: 16px; }
+
+/* 牌桌人气 */
+.pop-box { display: grid; gap: 12px; padding: 14px 16px 16px; border: 1px solid var(--border-line); background: var(--paper-card); }
+.pop-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.pop-head h3 { margin: 0; font-size: 16px; }
+.pop-head small { color: var(--text-secondary); font-size: 12px; }
+.pop-box .stat { background: var(--bg-sub); }
+.stat em { color: var(--text-secondary); font-style: normal; font-size: 11px; }
+.rank-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--text-secondary); }
+.seg { display: flex; border: 1px solid var(--border-line); }
+.seg button { padding: 5px 12px; border: 0; border-right: 1px solid var(--border-line); background: transparent; color: var(--text-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.seg button:last-child { border-right: 0; }
+.seg button.on { background: var(--accent-color); color: var(--on-accent, #fff); }
+.rank-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.rank { padding: 10px 12px; border: 1px solid var(--border-line); border-top: 3px solid var(--accent-color); }
+.rank.rank-tomato { border-top-color: #e5484d; }
+.rank h4 { display: flex; align-items: baseline; gap: 6px; margin: 0 0 8px; font-size: 14px; }
+.rank h4 small { color: var(--text-secondary); font-size: 11px; font-weight: 400; }
+.rank ol { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.rank li { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 3px 0; font-size: 13px; }
+.rank li.me { color: var(--accent-color); }
+.rk { display: grid; place-items: center; height: 20px; background: var(--bg-sub); font: 600 11px var(--font-mono, monospace); }
+.rank li:nth-child(-n+3) .rk { background: var(--accent-color); color: var(--on-accent, #fff); }
+.rank.rank-tomato li:nth-child(-n+3) .rk { background: #e5484d; }
+.rn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rn em { margin-left: 6px; padding: 0 4px; border: 1px solid currentColor; font-style: normal; font-size: 10px; }
+.rank li b { font-variant-numeric: tabular-nums; }
 @media (max-width: 760px) {
   .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pg-row { grid-template-columns: 60px 1fr auto; }
   .pg-row .bar, .pg-row > span:nth-child(2) { display: none; }
   .match { grid-template-columns: auto minmax(0, 1fr) auto; }
   .match .m-game, .match time { display: none; }
+  .rank-grid { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

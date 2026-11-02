@@ -1,123 +1,96 @@
 <template>
   <div class="question-home">
-    <!-- 加载状态 -->
-    <div v-if="loading" class="loading-state">
-      <div class="loading-spinner"></div>
-      <span>加载中...</span>
+    <!-- 答题中 -->
+    <div v-if="current" class="test-play">
+      <QuestionPlay :game="current" @back="current = null" />
     </div>
 
-    <!-- 未选择测试时显示列表 -->
-    <div v-else-if="!currentTest" class="test-list">
+    <div v-else class="test-list">
       <div class="test-list-header">
         <h2>📜 心性测试集</h2>
-        <p>选择一种心境，探索内在特质</p>
+        <p>选择一种心境，探索内在特质。也可以去「自定义工坊」出一套自己的测试</p>
         <div class="test-divider"></div>
       </div>
 
-      <div v-if="testList.length === 0" class="empty-state">
+      <!-- 搜索 / 排序 -->
+      <div class="test-tools">
+        <input v-model="keyword" type="search" maxlength="30" placeholder="搜测试名字…" aria-label="搜索测试" @keyup.enter="fetchTests" />
+        <div class="test-sort" role="group" aria-label="排序">
+          <button type="button" :class="{ on: sort === 'new' }" @click="setSort('new')">最新</button>
+          <button type="button" :class="{ on: sort === 'hot' }" @click="setSort('hot')">最热</button>
+        </div>
+      </div>
+
+      <div v-if="loading" class="loading-state">
+        <div class="loading-spinner"></div>
+        <span>加载中...</span>
+      </div>
+
+      <p v-else-if="loadError" class="empty-state" role="alert">{{ loadError }} <button type="button" class="btn-back" @click="fetchTests">重试</button></p>
+
+      <div v-else-if="testList.length === 0" class="empty-state">
         <div class="empty-icon">📭</div>
-        <h3>暂无测试</h3>
-        <p>敬请期待更多心性测试</p>
+        <h3>{{ keyword.trim() ? '没有找到相关测试' : '暂无测试' }}</h3>
+        <p>{{ keyword.trim() ? '换个关键词试试' : '敬请期待更多心性测试' }}</p>
       </div>
 
       <div v-else class="test-grid">
-        <div
-          v-for="test in testList"
-          :key="test.id"
-          class="test-card"
-          @click="selectTest(test)"
-        >
-          <div class="test-card-icon">{{ test.icon }}</div>
+        <button v-for="test in testList" :key="test.id" type="button" class="test-card" :disabled="opening === test.id" @click="open(test)">
+          <div class="test-card-icon">{{ test.icon || '📋' }}</div>
           <h3 class="test-card-title">{{ test.title }}</h3>
-          <p class="test-card-desc">{{ test.desc }}</p>
-          <span class="test-card-status">{{ test.status }}</span>
-        </div>
+          <p class="test-card-desc">{{ test.description }}</p>
+          <span class="test-card-status">{{ opening === test.id ? '正在打开…' : `${test.questionCount ?? 0} 题 · ${test.playCount} 人次测过` }}</span>
+          <span v-if="test.creatorName" class="test-card-author">{{ test.creatorName }} 出题</span>
+        </button>
       </div>
-    </div>
-
-    <!-- 进入具体测试 -->
-    <div v-else class="test-play">
-      <button class="btn-back" @click="currentTest = null">← 返回列表</button>
-      <TestGame
-        :config="currentTest.config"
-        :questions="currentTest.questions"
-        :results="currentTest.results"
-      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+// 心性测试大厅：列表只有标题等信息（不带题目），点开时再按编号取完整题目（以前直接用列表里的题目，永远是空的，所以每个测试都打不开）。
 import { ref, onMounted } from 'vue'
-import { getGames } from '../../games_api.ts'
-import type { Game, GameQuestion, GameResult } from '../../game_types.ts'
-import TestGame from './components/TestGame.vue'
+import { getErrorMessage } from '@/utils/apiError'
+import { getGame, getGames } from '../../games_api'
+import type { Game } from '../../game_types'
+import QuestionPlay from './QuestionPlay.vue'
 
-// ===== 类型定义 =====
-interface TestItem {
-  id: number
-  icon: string
-  title: string
-  desc: string
-  status: '已发布' | '草稿'
-  config: {
-    icon: string
-    title: string
-    desc: string
-  }
-  questions: (GameQuestion & { id: number; order: number })[]
-  results: (GameResult & { id: number; order: number })[]
-}
-
-// ===== 响应式状态 =====
-const testList = ref<TestItem[]>([])
-const currentTest = ref<TestItem | null>(null)
+const testList = ref<Game[]>([])
+const current = ref<Game | null>(null)
 const loading = ref(false)
+const loadError = ref('')
+const opening = ref<number | null>(null)
+const keyword = ref('')
+const sort = ref<'new' | 'hot'>('new')
 
-// ===== 获取数据 =====
-const fetchTests = async () => {
+async function fetchTests() {
   loading.value = true
+  loadError.value = ''
   try {
-    const res = await getGames({
-      type: 'questionnaire',
-      status: '已发布',
-      page: 1,
-      pageSize: 100
-    })
-    testList.value = res.items.map((game: Game) => ({
-      id: game.id,
-      icon: game.icon || '📋',
-      title: game.title,
-      desc: game.description || '',
-      status: game.status,
-      config: {
-        icon: game.icon || '📋',
-        title: game.title,
-        desc: game.description || ''
-      },
-      questions: game.questionnaire?.questions || [],
-      results: game.questionnaire?.results || []
-    }))
+    const res = await getGames({ type: 'questionnaire', status: '已发布', page: 1, pageSize: 100, sort: sort.value === 'hot' ? 'hot' : undefined, q: keyword.value.trim() || undefined })
+    testList.value = res.items
   } catch (err) {
-    console.error('加载测试列表失败', err)
+    loadError.value = getErrorMessage(err, '测试列表加载失败')
   } finally {
     loading.value = false
   }
 }
+function setSort(v: 'new' | 'hot') { if (sort.value !== v) { sort.value = v; void fetchTests() } }
 
-// ===== 选择测试 =====
-function selectTest(test: TestItem) {
-  if (test.questions.length === 0) {
-    alert('该测试尚未完善，敬请期待')
-    return
+async function open(test: Game) {
+  opening.value = test.id
+  try {
+    const full = await getGame(test.id)
+    if (!full.questionnaire?.questions?.length) { alert('这个测试还没有题目，敬请期待'); return }
+    current.value = full
+  } catch (err) {
+    alert(getErrorMessage(err, '打开失败，请稍后再试'))
+  } finally {
+    opening.value = null
   }
-  currentTest.value = test
 }
 
-// ===== 生命周期 =====
-onMounted(() => {
-  fetchTests()
-})
+onMounted(fetchTests)
 </script>
 
 <style scoped>
@@ -260,4 +233,14 @@ onMounted(() => {
 .btn-back:hover {
   color: var(--cinnabar, #9E2A2B);
 }
+
+/* 搜索 / 排序 / 卡片补充 */
+.test-tools { display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin-bottom: 20px; }
+.test-tools input { flex: 1; min-width: 180px; padding: 8px 12px; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: 14px; }
+.test-sort { display: flex; }
+.test-sort button { padding: 8px 14px; border: 1px solid var(--border-line); background: transparent; color: var(--text-secondary); font: inherit; font-size: 13px; cursor: pointer; }
+.test-sort button + button { border-left: 0; }
+.test-sort button.on { background: var(--accent-color); border-color: var(--accent-color); color: var(--on-accent, #fff); }
+button.test-card { font: inherit; color: inherit; width: 100%; }
+.test-card-author { display: block; margin-top: 8px; font-size: 12px; color: var(--text-secondary); }
 </style>

@@ -50,6 +50,9 @@ namespace TaiChuWeb_V2.Dtos.Chai.Battle
         public string? SurveyId { get; set; }
         public string BattleConfigJson { get; set; } = "{}";
 
+        /// <summary>结果种类：win 一方胜 / pyrrhic 惨胜 / draw 平手 / mutual 同归于尽 / nocontest 无结果；还没出结果是空字符串</summary>
+        public string Outcome { get; set; } = string.Empty;
+
         public Dictionary<string, List<Guid>>? OpponentOcIds { get; set; }
 
         public bool IsPublic { get; set; }
@@ -60,6 +63,8 @@ namespace TaiChuWeb_V2.Dtos.Chai.Battle
 
         public int ParticipantCount { get; set; }
         public int SubmissionCount { get; set; }
+        /// <summary>当前看的人能不能审核作品（超级管理员 / 用户审核）</summary>
+        public bool CanReview { get; set; }
     }
 
     public class BattleSubmissionDto
@@ -73,6 +78,10 @@ namespace TaiChuWeb_V2.Dtos.Chai.Battle
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public BattleParticipantDto? Participant { get; set; }
+        /// <summary>审核状态：pending 待审核 / approved 通过 / rejected 打回。没通过时别人看不到链接</summary>
+        public string ReviewStatus { get; set; } = "pending";
+        /// <summary>打回原因（只给作者本人和审核员看）</summary>
+        public string? ReviewNote { get; set; }
     }
 
     // ===== 请求 DTO =====
@@ -114,6 +123,8 @@ namespace TaiChuWeb_V2.Dtos.Chai.Battle
     {
         public List<string> WinnerIds { get; set; } = new();
         public string? ResultDescription { get; set; }
+        /// <summary>结果种类：win 一方胜 / pyrrhic 惨胜 / draw 平手 / mutual 同归于尽 / nocontest 无结果（不传 = 老前端：WinnerIds 里有 draw 就是平手，否则一方胜）</summary>
+        public string? Outcome { get; set; }
     }
 
     public class BattleListResponse

@@ -9,7 +9,7 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
     /// 斗地主牌桌管理（单例）：房间、入座、叫分出牌、超时与电脑行动、土豆结算、战绩记录、向每位玩家推送各自视角的牌桌状态。
     /// 所有房间状态只在服务器上，玩家只能看到自己的手牌。房间状态修改一律在 lock(room) 内完成，数据库操作在锁外。
     /// </summary>
-    public sealed class DdzManager(IHubContext<DdzHub> hub, PotatoService potatoes, MatchRecordService records, ILogger<DdzManager> logger) : BackgroundService
+    public sealed class DdzManager(IHubContext<DdzHub> hub, PotatoService potatoes, MatchRecordService records, GameSocialService social, ILogger<DdzManager> logger) : BackgroundService
     {
         public static readonly DdzTier[] Tiers =
         {
@@ -25,6 +25,9 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
         private readonly ConcurrentDictionary<Guid, string> _userRoom = new();
         private readonly ConcurrentDictionary<Guid, int> _connections = new();
         private readonly ConcurrentDictionary<string, int> _settledRound = new();
+        /// <summary>观战名单（谁在看哪桌、每桌最多 20 人、房主是否关了观战）</summary>
+        private readonly SpectatorRegistry _watch = new();
+        private long _lastLobbyPush;
 
         // ---------------- 查询 ----------------
 
@@ -39,22 +42,34 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
                         id = r.Id, tier = r.Tier.Key, tierName = r.Tier.Name, @base = r.Tier.Base, phase = r.Phase,
                         players = r.Seats.Where(s => !s.Empty).Select(s => new { s.Name, s.IsBot, away = s.Human && !s.Online }).ToList(),
                         open = r.Seats.Count(s => s.Empty),
+                        // 观战人数、是否允许观战（不算房间人数，不影响「空几位」和快速开始）
+                        spectators = _watch.Summary(r.Id).Count,
+                        allowSpectate = _watch.Summary(r.Id).Allow,
                     };
             }).OrderBy(x => x.phase == "waiting" ? 0 : 1).ThenByDescending(x => x.players.Count).ToList(),
+            maxSpectators = SpectatorRegistry.MaxPerRoom,
         };
 
         public string? RoomOf(Guid userId) => _userRoom.TryGetValue(userId, out var id) ? id : null;
 
-        /// <summary>某位玩家视角的牌桌状态（只包含自己的手牌）</summary>
+        /// <summary>某位玩家视角的牌桌状态（只包含自己的手牌）；观战的人拿到的是不含任何手牌的公开状态</summary>
         public object? StateFor(Guid userId)
         {
-            if (!_userRoom.TryGetValue(userId, out var id) || !_rooms.TryGetValue(id, out var room)) return null;
-            lock (room) return BuildState(room, userId);
+            if (_userRoom.TryGetValue(userId, out var id) && _rooms.TryGetValue(id, out var room))
+                lock (room) return BuildState(room, userId);
+            if (_watch.RoomOf(userId) is string wid && _rooms.TryGetValue(wid, out var watched))
+                lock (watched) return BuildState(watched, null);
+            return null;
         }
 
-        private static object BuildState(DdzRoom r, Guid viewer)
+        /// <summary>
+        /// 牌桌状态。viewer 为空 = 观战视角：myHand 是空的，seats 里也没有手牌（只有张数、出过的牌）。
+        /// 防作弊就靠这里：观战的人收到的数据里根本没有别人的牌，不是前端藏起来。
+        /// 只有一局打完（ended）时，和原来给玩家看的一样，亮出每个人剩下的牌。
+        /// </summary>
+        private object BuildState(DdzRoom r, Guid? viewer)
         {
-            var me = r.SeatOf(viewer);
+            var me = viewer is Guid v ? r.SeatOf(v) : null;
             var showAll = r.Phase == "ended" && r.Result != null;
             return new
             {
@@ -81,11 +96,16 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
                 currentBid = r.CurrentBid,
                 turn = r.Turn,
                 deadline = r.Deadline,
+                // 服务器现在的时间：前端用它校正本机时钟偏差，倒计时才准
+                serverNow = DateTime.UtcNow,
                 lastPlay = r.LastPlay == null ? null : new { seat = r.LastPlay.Seat, cards = r.LastPlay.Cards, type = r.LastPlay.Type },
                 multiplier = r.Multiplier,
                 bombs = r.Bombs,
                 hasBots = r.HasBots,
                 result = r.Result == null ? null : new { r.Result.LandlordWin, r.Result.Spring, r.Result.Multiplier, r.Result.Summary, changes = r.Result.Changes.Select(kv => new { seat = kv.Key, change = kv.Value }) },
+                // 观战：我是不是在观战、谁在看、最多几人、房主是否允许
+                spectating = me == null,
+                watch = _watch.View(r.Id),
             };
         }
 
@@ -94,15 +114,65 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
         private async Task BroadcastAsync(DdzRoom room)
         {
             List<(Guid, object)> states;
-            lock (room) states = room.Humans.Select(s => (s.UserId!.Value, BuildState(room, s.UserId!.Value))).ToList();
+            object publicState;
+            List<string> watchers;
+            lock (room)
+            {
+                states = room.Humans.Select(s => (s.UserId!.Value, BuildState(room, s.UserId!.Value))).ToList();
+                // 观战的人都一样：一份不含手牌的公开状态
+                publicState = BuildState(room, null);
+                watchers = _watch.UserIds(room.Id);
+            }
             foreach (var (uid, state) in states)
             {
                 try { await hub.Clients.User(uid.ToString()).SendAsync("State", state); }
                 catch (Exception ex) { logger.LogDebug(ex, "推送斗地主状态失败"); }
             }
+            if (watchers.Count > 0)
+            {
+                try { await hub.Clients.Users(watchers).SendAsync("State", publicState); }
+                catch (Exception ex) { logger.LogDebug(ex, "推送斗地主观战状态失败"); }
+            }
+        }
+
+        /// <summary>
+        /// 告诉在大厅的人「房间列表变了」（有人进出、观战人数变了），前端收到后重新拉一次列表。
+        /// 最多一秒推一次，免得刷屏；漏掉的靠前端每 5 秒一次的刷新补上。
+        /// </summary>
+        private async Task NotifyLobbyAsync()
+        {
+            var now = Environment.TickCount64;
+            var last = Interlocked.Read(ref _lastLobbyPush);
+            if (now - last < 1000 || Interlocked.CompareExchange(ref _lastLobbyPush, now, last) != last) return;
+            try { await hub.Clients.All.SendAsync("LobbyChanged"); }
+            catch (Exception ex) { logger.LogDebug(ex, "推送斗地主大厅变化失败"); }
+        }
+
+        /// <summary>牌桌解散：把还在看的人送回大厅，并告诉他们一声</summary>
+        private async Task DismissWatchersAsync(string roomId, string message)
+        {
+            foreach (var uid in _watch.RemoveRoom(roomId))
+            {
+                try
+                {
+                    await hub.Clients.User(uid.ToString()).SendAsync("Notice", message);
+                    await SendLeftAsync(uid);
+                }
+                catch (Exception ex) { logger.LogDebug(ex, "通知观战的人失败"); }
+            }
         }
 
         private Task SendLeftAsync(Guid userId) => hub.Clients.User(userId.ToString()).SendAsync("State", (object?)null);
+
+        /// <summary>给这张牌桌上的所有真人和观战的人推一条消息（评论、点赞 / 砸番茄动画）</summary>
+        private async Task SendToRoomAsync(DdzRoom room, string method, object payload)
+        {
+            List<string> users;
+            lock (room) users = room.Humans.Select(s => s.UserId!.Value.ToString()).Concat(_watch.UserIds(room.Id)).Distinct().ToList();
+            if (users.Count == 0) return;
+            try { await hub.Clients.Users(users).SendAsync(method, payload); }
+            catch (Exception ex) { logger.LogDebug(ex, "推送斗地主互动消息失败"); }
+        }
 
         // ---------------- 进出房间 ----------------
 
@@ -113,11 +183,13 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
             if (RoomOf(userId) != null) return "你已经在一张牌桌上了";
             if (TierOf(tierKey) is not DdzTier tier) return "没有这个场次";
             if (balance < tier.MinBalance) return $"{tier.Name}需要至少 {tier.MinBalance} 土豆";
+            await StopWatchingAsync(userId, notifySelf: false);
             var room = new DdzRoom { Id = Guid.NewGuid().ToString("N")[..6], Tier = tier, OwnerId = userId };
             lock (room) room.Sit(userId, name);
             _rooms[room.Id] = room;
             _userRoom[userId] = room.Id;
             await BroadcastAsync(room);
+            await NotifyLobbyAsync();
             return null;
         }
 
@@ -129,9 +201,13 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
             lock (room)
             {
                 if (room.Sit(userId, name) == null) return room.Full ? "牌桌已满" : "这桌正在打牌，等这局结束再进";
+                _userRoom[userId] = room.Id;
             }
-            _userRoom[userId] = room.Id;
+            // 原来在观战（这一桌或别的桌）：坐下了就不再算观战
+            var watched = _watch.Remove(userId);
+            if (watched != null && watched != room.Id && _rooms.TryGetValue(watched, out var old)) await BroadcastAsync(old);
             await BroadcastAsync(room);
+            await NotifyLobbyAsync();
             return null;
         }
 
@@ -145,6 +221,8 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
 
         public async Task<string?> LeaveAsync(Guid userId)
         {
+            // 观战的人点「离开」：不看了，回大厅
+            if (!_userRoom.ContainsKey(userId) && await StopWatchingAsync(userId, notifySelf: true)) return null;
             if (!_userRoom.TryGetValue(userId, out var id) || !_rooms.TryGetValue(id, out var room)) { _userRoom.TryRemove(userId, out _); return null; }
             lock (room)
             {
@@ -155,8 +233,96 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
             }
             _userRoom.TryRemove(userId, out _);
             await SendLeftAsync(userId);
-            if (!room.Humans.Any()) _rooms.TryRemove(room.Id, out _);
+            if (!room.Humans.Any())
+            {
+                _rooms.TryRemove(room.Id, out _);
+                await DismissWatchersAsync(room.Id, "牌桌上的人都走了，这桌散了");
+            }
             else await BroadcastAsync(room);
+            await NotifyLobbyAsync();
+            return null;
+        }
+
+        // ---------------- 观战 ----------------
+
+        /// <summary>
+        /// 进某一桌观战（等人的桌、正在打的桌都可以看）。要登录（Hub 本身就要求登录）。
+        /// 正在牌桌上打牌的人不能同时观战；已经在看别的桌会自动换过来。
+        /// </summary>
+        public async Task<string?> WatchAsync(Guid userId, string name, string roomId)
+        {
+            if (RoomOf(userId) is string playing) return playing == roomId ? "你就坐在这桌上" : "你正在别的牌桌上，先离开再去观战";
+            if (!_rooms.TryGetValue(roomId, out var room)) return "牌桌不存在或已解散";
+            var (error, previous) = _watch.Add(roomId, userId, name);
+            if (error != null) return error;
+            if (previous != null && _rooms.TryGetValue(previous, out var old)) await BroadcastAsync(old);
+            await BroadcastAsync(room);
+            await NotifyLobbyAsync();
+            return null;
+        }
+
+        /// <summary>不看了（点「离开」或断线）。观战的人走不影响牌局</summary>
+        private async Task<bool> StopWatchingAsync(Guid userId, bool notifySelf)
+        {
+            var roomId = _watch.Remove(userId);
+            if (roomId == null) return false;
+            if (notifySelf) await SendLeftAsync(userId);
+            if (_rooms.TryGetValue(roomId, out var room)) await BroadcastAsync(room);
+            await NotifyLobbyAsync();
+            return true;
+        }
+
+        /// <summary>观战的人坐下：走原来的入座流程（只有等人 / 刚打完、而且有空位时才能坐）</summary>
+        public async Task<string?> SitDownAsync(Guid userId, string name, long balance)
+        {
+            if (_watch.RoomOf(userId) is not string roomId) return "你没有在观战";
+            return await JoinAsync(userId, name, roomId, balance);
+        }
+
+        /// <summary>
+        /// 玩家在两局之间「站起来观战」：让出座位，变成观战的人。
+        /// 打牌中不行（和离开一样）；桌上只剩自己一个真人时也不行（站起来牌桌就散了，直接离开就好）。
+        /// </summary>
+        public async Task<string?> StandUpAsync(Guid userId, string name)
+        {
+            if (!_userRoom.TryGetValue(userId, out var id) || !_rooms.TryGetValue(id, out var room)) return "你不在牌桌上";
+            lock (room)
+            {
+                if (room.Phase is "bidding" or "playing") return "正在打牌，打完这局才能站起来";
+                if (room.Humans.Count() <= 1) return "桌上只剩你一个人，站起来这桌就散了，直接离开吧";
+                if (!_watch.Allowed(room.Id)) return "这桌没开观战";
+                if (_watch.Count(room.Id) >= SpectatorRegistry.MaxPerRoom) return "观战的人满了";
+                var seat = room.SeatOf(userId);
+                if (seat == null) return "你不在牌桌上";
+                var (error, _) = _watch.Add(room.Id, userId, name);
+                if (error != null) return error;
+                room.Vacate(seat);
+                if (room.OwnerId == userId && room.Humans.FirstOrDefault() is { } next) room.OwnerId = next.UserId!.Value;
+                _userRoom.TryRemove(userId, out _);
+            }
+            await BroadcastAsync(room);
+            await NotifyLobbyAsync();
+            return null;
+        }
+
+        /// <summary>房主在等人的时候开 / 关观战；关掉时正在看的人会被送回大厅</summary>
+        public async Task<string?> SetSpectateAsync(Guid userId, bool allow)
+        {
+            if (!_userRoom.TryGetValue(userId, out var id) || !_rooms.TryGetValue(id, out var room)) return "你不在牌桌上";
+            List<Guid> kicked;
+            lock (room)
+            {
+                if (room.OwnerId != userId) return "只有房主能设置观战";
+                if (room.Phase != "waiting") return "开局前才能改观战设置";
+                kicked = _watch.SetAllowed(room.Id, allow);
+            }
+            foreach (var uid in kicked)
+            {
+                try { await hub.Clients.User(uid.ToString()).SendAsync("Notice", "房主关掉了观战"); await SendLeftAsync(uid); }
+                catch (Exception ex) { logger.LogDebug(ex, "通知观战的人失败"); }
+            }
+            await BroadcastAsync(room);
+            await NotifyLobbyAsync();
             return null;
         }
 
@@ -223,6 +389,146 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
             return null;
         });
 
+        // ---------------- 互动：评论区、点赞 / 砸番茄 ----------------
+
+        private static object ChatView(DdzChatLine l) => new { id = l.Id, kind = l.Kind, userId = l.UserId, name = l.Name, seat = l.Seat, spectator = l.Spectator, text = l.Text, at = l.At };
+
+        /// <summary>进桌 / 重连时取回：最近的评论、点赞砸番茄的价格、这一局自己已经用了几次</summary>
+        /// <summary>这个人所在的牌桌：坐着的优先，其次是正在观战的</summary>
+        private DdzRoom? RoomForSocial(Guid userId)
+        {
+            if (_userRoom.TryGetValue(userId, out var id) && _rooms.TryGetValue(id, out var room)) return room;
+            if (_watch.RoomOf(userId) is string wid && _rooms.TryGetValue(wid, out var watched)) return watched;
+            return null;
+        }
+
+        public object? SocialFor(Guid userId)
+        {
+            if (RoomForSocial(userId) is not DdzRoom room) return null;
+            lock (room)
+                return new
+                {
+                    roomId = room.Id,
+                    chat = room.Chat.Select(ChatView).ToList(),
+                    likeCost = GameSocialService.LikeCost,
+                    tomatoCost = GameSocialService.TomatoCost,
+                    maxPerRound = GameSocialService.MaxReactsPerRound,
+                    used = room.ReactCountOf(userId),
+                };
+        }
+
+        /// <summary>在牌桌评论区说一句话：最多 100 字，每人 3 秒一条；只存在房间内存里（最近 50 条）</summary>
+        public async Task<string?> ChatAsync(Guid userId, string? text)
+        {
+            // 换行压成空格：弹幕和小聊天框都是一行一条
+            var content = string.Join(" ", (text ?? string.Empty).Split(new[] { '\r', '\n', '\t' }, StringSplitOptions.RemoveEmptyEntries)).Trim();
+            if (content.Length == 0) return "说点什么吧";
+            if (content.Length > GameSocialService.ChatMaxLength) return $"一条最多 {GameSocialService.ChatMaxLength} 个字";
+            if (RoomForSocial(userId) is not DdzRoom room) return "你不在牌桌上";
+            DdzChatLine line;
+            lock (room)
+            {
+                // 坐着的玩家用座位上的名字；观战的人用观战名单里的名字，并标上「观战」
+                var seat = room.SeatOf(userId);
+                var watcherName = seat == null ? _watch.NameOf(room.Id, userId) : null;
+                if (seat == null && watcherName == null) return "你不在牌桌上";
+                var now = DateTime.UtcNow;
+                if (room.LastChatAt.TryGetValue(userId, out var last) && (now - last).TotalSeconds < GameSocialService.ChatCooldownSeconds)
+                    return $"说太快啦，{GameSocialService.ChatCooldownSeconds} 秒才能发一条";
+                room.LastChatAt[userId] = now;
+                line = seat != null
+                    ? room.AddChat("chat", userId, seat.Name, seat.Index, content, GameSocialService.ChatKeep)
+                    : room.AddChat("chat", userId, watcherName!, -1, content, GameSocialService.ChatKeep, spectator: true);
+            }
+            await SendToRoomAsync(room, "Chat", ChatView(line));
+            return null;
+        }
+
+        /// <summary>
+        /// 给牌桌上另一位玩家点赞（like）或砸番茄（tomato）：
+        /// 不能对自己；每人每局最多 20 次，两次至少隔 2 秒；花土豆（花掉，不给对方），余额不够就提示「土豆不够了」。
+        /// 成功后记进 game_player_reactions（战绩页的被赞 / 被砸），并通知整桌播放动画。
+        /// </summary>
+        public async Task<string?> ReactAsync(Guid userId, int toSeat, string? kind)
+        {
+            if (kind == null || !GameSocialService.ValidKind(kind)) return "没有这种互动";
+            if (RoomForSocial(userId) is not DdzRoom room) return "你不在牌桌上";
+            string fromName, toName;
+            int fromSeat, round;
+            Guid? toUser;
+            bool fromWatcher;
+            lock (room)
+            {
+                // 观战的人也能点赞 / 砸番茄，次数和玩家一样按人算（每人每局 20 次）
+                var me = room.SeatOf(userId);
+                var watcherName = me == null ? _watch.NameOf(room.Id, userId) : null;
+                if (me == null && watcherName == null) return "你不在牌桌上";
+                if (toSeat is < 0 or > 2 || room.Seats[toSeat].Empty) return "这个座位没人";
+                var target = room.Seats[toSeat];
+                if (me != null && target.Index == me.Index) return "不能给自己点赞或砸番茄哦";
+                var now = DateTime.UtcNow;
+                if (room.LastReactAt.TryGetValue(userId, out var last) && (now - last).TotalSeconds < GameSocialService.ReactCooldownSeconds)
+                    return "手速太快啦，歇两秒再来";
+                if (room.ReactCountOf(userId) >= GameSocialService.MaxReactsPerRound)
+                    return $"这一局已经互动 {GameSocialService.MaxReactsPerRound} 次了，下一局再来吧";
+                // 先占上名额和冷却时间，防止连点同时进来好几次；扣土豆失败再还回去
+                room.LastReactAt[userId] = now;
+                room.AddReactCount(userId, 1);
+                fromWatcher = me == null;
+                fromName = me?.Name ?? watcherName!; fromSeat = me?.Index ?? -1;
+                toName = target.Name; toUser = target.UserId;
+                round = room.Round;
+            }
+
+            var cost = GameSocialService.CostOf(kind);
+            var label = GameSocialService.KindLabel(kind);
+            bool ok;
+            try
+            {
+                var spent = await potatoes.SpendAsync(userId, cost, $"斗地主{label} · 给 {toName}", "ddz-react", $"ddz:{room.Id}:{round}");
+                ok = spent.Ok;
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "斗地主{Label}扣土豆失败", label);
+                lock (room) room.AddReactCount(userId, -1);
+                return "网络不稳定，没扣成土豆，再试一次吧";
+            }
+            if (!ok)
+            {
+                lock (room) room.AddReactCount(userId, -1);
+                return "土豆不够了";
+            }
+
+            // 记进战绩（失败不影响动画，只记日志）
+            try { await social.RecordPlayerReactionAsync("doudizhu", kind, userId, toUser, toName, room.Id, round, cost); }
+            catch (Exception ex) { logger.LogError(ex, "记录斗地主{Label}失败", label); }
+
+            DdzChatLine line;
+            int used;
+            lock (room)
+            {
+                var who = fromWatcher ? $"{fromName}（观战）" : fromName;
+                var text = kind == "tomato" ? $"{who} 给 {toName} 砸了个番茄" : $"{who} 给 {toName} 点了个赞";
+                line = room.AddChat(kind, userId, fromName, fromSeat, text, GameSocialService.ChatKeep, spectator: fromWatcher);
+                used = room.ReactCountOf(userId);
+            }
+            await SendToRoomAsync(room, "Reaction", new
+            {
+                kind,
+                // 观战的人砸的：fromSeat = -1，前端从「👁 观战」那里飞出来
+                fromSeat,
+                fromSpectator = fromWatcher,
+                toSeat,
+                fromUserId = userId,
+                fromName,
+                toName,
+                used,
+                line = ChatView(line),
+            });
+            return null;
+        }
+
         // ---------------- 连接 ----------------
 
         public async Task ConnectedAsync(Guid userId)
@@ -239,6 +545,8 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
         {
             var left = _connections.AddOrUpdate(userId, 0, (_, n) => Math.Max(0, n - 1));
             if (left > 0) return;
+            // 观战的人所有页面都断开了：移出观战名单（不占座位，不影响牌局；重连后前端会自动再进来看）
+            if (await StopWatchingAsync(userId, notifySelf: false)) return;
             if (!_userRoom.TryGetValue(userId, out var id) || !_rooms.TryGetValue(id, out var room)) return;
             lock (room)
             {
@@ -373,6 +681,7 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
                 {
                     var changed = false;
                     var removeOffline = new List<Guid>();
+                    var dismissed = false;
                     try
                     {
                         lock (room)
@@ -404,10 +713,11 @@ namespace TaiChuWeb_V2.Services.Games.Doudizhu
                                     changed = true;
                                 }
                                 if (changed && !room.Humans.Any(h => h.UserId == room.OwnerId) && room.Humans.FirstOrDefault() is { } next) room.OwnerId = next.UserId!.Value;
-                                if (!room.Humans.Any()) { _rooms.TryRemove(room.Id, out _); changed = false; }
+                                if (!room.Humans.Any()) { _rooms.TryRemove(room.Id, out _); changed = false; dismissed = true; }
                             }
                         }
                         foreach (var uid in removeOffline) _userRoom.TryRemove(uid, out _);
+                        if (dismissed) { await DismissWatchersAsync(room.Id, "牌桌上的人都走了，这桌散了"); await NotifyLobbyAsync(); }
                         if (changed)
                         {
                             await BroadcastAsync(room);

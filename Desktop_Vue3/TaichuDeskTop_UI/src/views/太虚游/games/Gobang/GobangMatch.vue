@@ -1,7 +1,9 @@
-<!-- GobangMatch.vue：联机五子棋对局界面。棋盘由服务器推送驱动（MoveMade / GameOver / TurnChanged），自己只负责发落子请求。 -->
+<!-- GobangMatch.vue：联机五子棋对局界面。棋盘由服务器推送驱动（MoveMade / GameOver / TurnChanged），自己只负责发落子请求。
+     spectating（观战）时只读：不能落子、没有认输按钮，结果显示「黑方胜 / 白方胜」。 -->
 <template>
   <div class="match">
-    <div class="board-col">
+    <div class="board-col" :class="{ timed: !result }">
+      <TurnClock v-if="!result" :seconds="remaining" :total="room.timeLimit" :mine="myTurn" :label="turnLabel" :show-sound="!spectating" />
       <LabBoard
         :size="room.boardSize"
         :stones="board"
@@ -24,24 +26,29 @@
           </div>
           <span v-if="turnColor === p.color && !result" class="clock" :class="{ low: remaining <= 5 }">{{ remaining }}s</span>
         </div>
-        <div v-if="!result" class="timebar" aria-hidden="true"><span :style="{ width: `${Math.max(0, remaining / room.timeLimit) * 100}%` }" :class="{ low: remaining <= 5 }"></span></div>
       </div>
 
       <!-- 状态 -->
       <div class="status" :class="statusKind" role="status">
         <template v-if="result">
           <b>{{ resultTitle }}</b>
-          <span>{{ result.reason }}</span>
+          <!-- 写清楚哪方赢、谁赢的：「黑方胜（五子连珠）· 某某」 -->
+          <span>{{ resultLine }}</span>
         </template>
         <template v-else>
-          <b>{{ myTurn ? '轮到你落子' : '等待对手落子…' }}</b>
-          <span>第 {{ moves.length + 1 }} 手 · 每步 {{ room.timeLimit }} 秒</span>
+          <b>{{ spectating ? `观战中 · 轮到${turnColor === 1 ? '黑方' : '白方'}` : myTurn ? '轮到你落子' : '等待对手落子…' }}</b>
+          <span>第 {{ moveBase + moves.length + 1 }} 手 · 每步 {{ room.timeLimit }} 秒</span>
         </template>
       </div>
 
       <!-- 操作 -->
       <div class="actions">
-        <template v-if="!result">
+        <!-- 观战：只有「不看了」 -->
+        <template v-if="spectating">
+          <span v-if="result" class="wait-tip">{{ opponentHere ? '等房主开始下一局，开局后会接着看' : '有人离开了' }}</span>
+          <button type="button" class="btn" @click="emit('leave')">不看了</button>
+        </template>
+        <template v-else-if="!result">
           <button type="button" class="btn danger" @click="resign">认输</button>
           <button type="button" class="btn" @click="leave">离开</button>
         </template>
@@ -55,9 +62,10 @@
 
       <!-- 棋谱 -->
       <div class="log">
-        <p class="log-tag">MOVES / 棋谱 · {{ moves.length }} 手</p>
+        <p class="log-tag">MOVES / 棋谱 · {{ moveBase + moves.length }} 手</p>
         <ol ref="logEl">
-          <li v-for="(m, i) in moves" :key="i" :class="m.color === 1 ? 'b' : 'w'"><span>{{ i + 1 }}</span>{{ m.color === 1 ? '黑' : '白' }} {{ coord(m.row, m.col) }}</li>
+          <li v-if="moveBase" class="log-skip">（进来之前已经下了 {{ moveBase }} 手）</li>
+          <li v-for="(m, i) in moves" :key="i" :class="m.color === 1 ? 'b' : 'w'"><span>{{ moveBase + i + 1 }}</span>{{ m.color === 1 ? '黑' : '白' }} {{ coord(m.row, m.col) }}</li>
         </ol>
       </div>
     </aside>
@@ -68,9 +76,11 @@
 import { computed, inject, nextTick, onMounted, onUnmounted, ref, type Ref } from 'vue'
 import LabBoard from '../LabBoard.vue'
 import UserTitle from '@/components/UserTitle.vue'
+import TurnClock from '../TurnClock.vue'
+import { useTurnAlert } from '../turnAlert'
 import type { GobangRoom, GobangStart } from './gobangTypes'
 
-const props = defineProps<{ room: GobangRoom; start: GobangStart; myId: string }>()
+const props = withDefaults(defineProps<{ room: GobangRoom; start: GobangStart; myId: string; spectating?: boolean }>(), { spectating: false })
 const emit = defineEmits<{ rematch: []; leave: []; error: [message: string] }>()
 
 interface SignalRApi { connection: Ref<{ invoke: (method: string, ...args: unknown[]) => Promise<unknown> } | null> }
@@ -78,45 +88,72 @@ const signalR = inject<SignalRApi | null>('signalR', null)
 
 const same = (a?: string | null, b?: string | null) => !!a && !!b && a.toLowerCase() === b.toLowerCase()
 const N = props.room.boardSize
-const board = ref<number[][]>(Array.from({ length: N }, () => Array<number>(N).fill(0)))
+// 观战中途进来：用服务器给的当前棋盘；正常开局是空棋盘
+const board = ref<number[][]>(Array.from({ length: N }, (_, r) => Array.from({ length: N }, (_, c) => props.start.board?.[r]?.[c] ?? 0)))
+/** 观战进来之前已经下了几手（棋谱从这里接着编号） */
+const moveBase = props.start.moveCount ?? 0
 const moves = ref<{ row: number; col: number; color: number }[]>([])
 const lastMove = ref<[number, number] | null>(null)
 const winLine = ref<[number, number][] | null>(null)
 const turn = ref<string | null>(props.start.currentTurn)
-const deadline = ref(Date.now() + props.room.timeLimit * 1000)
+const deadline = ref(Date.now() + (props.start.remainingTime ?? props.room.timeLimit) * 1000)
 const now = ref(Date.now())
 const pending = ref(false)
 const result = ref<{ winner: string | null; reason: string } | null>(null)
 const logEl = ref<HTMLOListElement | null>(null)
 
-const colorOf = (id: string | null | undefined) => (id ? (same(id, props.room.ownerId) ? 1 : 2) : 0)
-const myColor = computed(() => colorOf(props.myId))
+// 这一局谁执黑：开局时的房主。中途房主离开会把房主交给对手，如果跟着变，黑白和结果就会显示反
+const blackId = props.room.ownerId
+const colorOf = (id: string | null | undefined) => (id ? (same(id, blackId) ? 1 : 2) : 0)
+const myColor = computed(() => (props.spectating ? 0 : colorOf(props.myId)))
 const amOwner = computed(() => same(props.myId, props.room.ownerId))
-const myTurn = computed(() => !result.value && same(turn.value, props.myId))
+const myTurn = computed(() => !props.spectating && !result.value && same(turn.value, props.myId))
 const turnColor = computed(() => colorOf(turn.value))
 const remaining = computed(() => Math.max(0, Math.ceil((deadline.value - now.value) / 1000)))
 const opponentHere = computed(() => props.room.players.length >= 2)
-const inProgress = computed(() => !result.value)
+const inProgress = computed(() => !props.spectating && !result.value)
 
 const seats = computed(() => {
-  const owner = props.room.players.find(p => same(p.id, props.room.ownerId))
-  const guest = props.room.players.find(p => !same(p.id, props.room.ownerId))
+  const owner = props.room.players.find(p => same(p.id, blackId))
+  const guest = props.room.players.find(p => !same(p.id, blackId))
   return [
     { color: 1, name: owner?.name ?? '黑方', id: owner?.id ?? null, isMe: !!owner && same(owner.id, props.myId) },
     { color: 2, name: guest?.name ?? '（已离开）', id: guest?.id ?? null, isMe: !!guest && same(guest.id, props.myId) },
   ]
 })
 
+// 回合倒计时：轮到自己响一声、最后 10 秒提醒、后台时标签页标题闪烁
+const turnLabel = computed(() => {
+  const side = turnColor.value === 1 ? '黑方' : '白方'
+  const name = seats.value.find(s => s.color === turnColor.value)?.name ?? side
+  if (props.spectating) return `观战中 · ${side}（${name}）落子`
+  if (myTurn.value) return '轮到你落子'
+  return `等待 ${name} 落子…`
+})
+useTurnAlert({ mine: () => myTurn.value, seconds: () => remaining.value })
+
 const resultTitle = computed(() => {
   const r = result.value
   if (!r) return ''
   if (!r.winner) return '和棋'
+  if (props.spectating) return colorOf(r.winner) === 1 ? '黑方胜' : '白方胜'
   return same(r.winner, props.myId) ? '你赢了！' : '你输了'
+})
+/** 「黑方胜（五子连珠）· 某某」/ 和棋时就是原因 */
+const resultLine = computed(() => {
+  const r = result.value
+  if (!r) return ''
+  if (!r.winner) return r.reason
+  const seat = seats.value.find(s => s.color === colorOf(r.winner))
+  // 赢家已经离开房间时名字从棋局开始时的名单里找不到，就只写黑方 / 白方
+  const name = props.room.players.find(p => same(p.id, r.winner))?.name ?? (seat?.id && same(seat.id, r.winner) ? seat.name : '')
+  return `${colorOf(r.winner) === 1 ? '黑方' : '白方'}胜（${r.reason}）${name ? ` · ${name}` : ''}`
 })
 const statusKind = computed(() => {
   const r = result.value
   if (!r) return myTurn.value ? 'mine' : ''
   if (!r.winner) return 'draw'
+  if (props.spectating) return 'draw'
   return same(r.winner, props.myId) ? 'win' : 'lose'
 })
 
@@ -189,11 +226,14 @@ defineExpose({ inProgress })
 <style scoped>
 .match { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
 .board-col { width: 100%; max-width: min(100%, calc(100dvh - 200px)); min-width: 280px; justify-self: center; }
+/* 棋盘上方多了一条回合倒计时，棋盘相应让出一点高度 */
+.board-col.timed { max-width: min(100%, calc(100dvh - 264px)); }
 .side { display: grid; gap: 14px; position: sticky; top: 0; }
 .players { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--border-line); background: var(--paper-card); }
 .player { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid transparent; }
 .player.active { border-color: var(--accent-color); background: color-mix(in srgb, var(--accent-color) 7%, transparent); }
 .player.me .p-main b em { margin-left: 6px; padding: 0 5px; background: var(--accent-color); color: var(--on-accent, #fff); font-size: 10px; font-style: normal; vertical-align: 2px; }
+.log-skip { grid-column: 1 / -1; color: var(--text-secondary); font-size: 11px; }
 .p-main { display: grid; gap: 2px; min-width: 0; flex: 1; }
 .p-main small { font: 10px var(--font-mono, monospace); letter-spacing: .12em; color: var(--text-secondary); }
 .p-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -227,7 +267,7 @@ defineExpose({ inProgress })
 
 @media (max-width: 980px) {
   .match { grid-template-columns: 1fr; }
-  .board-col { max-width: 100%; }
+  .board-col, .board-col.timed { max-width: 100%; }
   .side { position: static; }
 }
 </style>

@@ -14,7 +14,7 @@ namespace TaiChuWeb_V2.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    public class RecordsController(MatchRecordService records, AppDbContext db) : ControllerBase
+    public class RecordsController(MatchRecordService records, AppDbContext db, GameSocialService social) : ControllerBase
     {
         private Guid? CurrentUserId => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
 
@@ -48,7 +48,8 @@ namespace TaiChuWeb_V2.Controllers
             }).ToList();
 
             // 本地双人棋局（自己和自己 / 和身边的人下）：不算胜负，只记录
-            var localTypes = game switch { null => null, "xiangqi" => new[] { "chess", "xiangqi" }, _ => new[] { game } };
+            // 用 List 不用数组：C# 14 里数组的 .Contains 会被当成 Span 方法，EF 翻译不了（fix123 顺手修）
+            var localTypes = game switch { null => null, "xiangqi" => new List<string> { "chess", "xiangqi" }, _ => new List<string> { game } };
             var localQuery = db.BoardGameRecords.AsNoTracking().Where(r => r.Player1Id == uid || r.Player2Id == uid);
             if (localTypes != null) localQuery = localQuery.Where(r => localTypes.Contains(r.GameType));
             var local = await localQuery.OrderByDescending(r => r.CreatedAt).Take(limit)
@@ -132,6 +133,55 @@ namespace TaiChuWeb_V2.Controllers
                 losses = r.Losses,
                 total = r.Total,
                 lossRate = r.Total == 0 ? 0 : Math.Round(r.Losses * 100.0 / r.Total, 1),
+            }));
+        }
+
+        // ================= 牌桌互动：被点赞 / 被砸番茄 =================
+
+        private static object ReactionStatsView(GameSocialService.ReactionStats s) => new
+        {
+            likes = s.Likes,
+            tomatoes = s.Tomatoes,
+            likes30 = s.Likes30,
+            tomatoes30 = s.Tomatoes30,
+            givenLikes = s.GivenLikes,
+            givenTomatoes = s.GivenTomatoes,
+        };
+
+        /// <summary>我在牌桌上累计被点赞 / 被砸番茄多少次（全部 + 最近 30 天），以及送出去多少</summary>
+        [Authorize]
+        [HttpGet("reactions/me")]
+        public async Task<IActionResult> MyReactions()
+        {
+            if (CurrentUserId is not Guid uid) return Unauthorized();
+            return Ok(ReactionStatsView(await social.StatsAsync(uid)));
+        }
+
+        /// <summary>别人的被赞 / 被砸（个人主页以后可以用）</summary>
+        [HttpGet("reactions/{userId:guid}")]
+        public async Task<IActionResult> UserReactions(Guid userId) => Ok(ReactionStatsView(await social.StatsAsync(userId)));
+
+        /// <summary>
+        /// 两个小排行：kind=like「最受欢迎」（被赞最多）/ kind=tomato「番茄收割机」（被砸最多）。
+        /// range=total 全部时间，range=30d 最近 30 天。
+        /// </summary>
+        [HttpGet("leaderboard/reactions")]
+        public async Task<IActionResult> ReactionsLeaderboard([FromQuery] string kind = "like", [FromQuery] string range = "total", [FromQuery] int limit = 10)
+        {
+            if (!GameSocialService.ValidKind(kind)) return BadRequest(new { message = "kind 只能是 like 或 tomato" });
+            DateTime? since = range == "30d" ? DateTime.UtcNow.AddDays(-30) : null;
+            var rows = await social.LeaderboardAsync(kind, since, Math.Clamp(limit, 1, 50));
+            var ids = rows.Select(r => r.UserId).ToList();
+            var users = await db.Users.AsNoTracking().Where(u => ids.Contains(u.Id))
+                .Select(u => new { u.Id, u.Username, Avatar = u.Profile != null ? u.Profile.Avatar : null }).ToListAsync();
+            var map = users.ToDictionary(u => u.Id);
+            return Ok(rows.Where(r => map.ContainsKey(r.UserId)).Select((r, i) => new
+            {
+                rank = i + 1,
+                userId = r.UserId,
+                name = map[r.UserId].Username,
+                avatar = map[r.UserId].Avatar,
+                count = r.Count,
             }));
         }
 

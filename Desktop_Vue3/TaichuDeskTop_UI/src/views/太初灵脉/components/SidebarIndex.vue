@@ -35,6 +35,17 @@
       </transition>
     </div>
 
+    <!-- 生活管理入口：个人日历（月历、当天时间轴、到点提醒），独立页面 /lingmai/planner -->
+    <button type="button" class="planner-entry" :class="{ active: isPlannerRoute }" :aria-current="isPlannerRoute ? 'page' : undefined" @click="$emit('open-planner')">
+      <span class="planner-entry-icon" aria-hidden="true">📅</span>
+      <span class="planner-entry-text"><strong>生活管理</strong><small>月历 · 每日安排 · 到点提醒</small></span>
+    </button>
+    <!-- 番茄钟入口：专注 / 休息计时，和桌面程序同步，独立页面 /lingmai/pomodoro -->
+    <button type="button" class="planner-entry pomodoro-entry" :class="{ active: isPomodoroRoute }" :aria-current="isPomodoroRoute ? 'page' : undefined" @click="openPomodoro">
+      <span class="planner-entry-icon" aria-hidden="true">🍅</span>
+      <span class="planner-entry-text"><strong>番茄钟</strong><small>专注计时 · 和桌面同步</small></span>
+    </button>
+
     <div class="sidebar-header">
       <div class="header-left">
         <span class="index-label">全部笔记</span>
@@ -154,6 +165,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useSpiritData } from '../../../composables/useSpiritData';
 import { lingmaiApi } from '../../../api/lingmai';
 import { NOTE_KINDS, noteKind } from '@/utils/NoteType';
@@ -172,7 +184,17 @@ const props = defineProps<{
   activeId: string;
   filters?: Record<string, boolean>; 
 }>();
-const emit = defineEmits(['select', 'create']);
+const emit = defineEmits(['select', 'create', 'open-planner', 'open-pomodoro']);
+// 当前是不是在「生活管理」页面（入口按钮高亮）
+const route = useRoute();
+const router = useRouter();
+const isPlannerRoute = computed(() => route.name === 'SpiritPlanner');
+// 番茄钟页面：这里直接跳转（外层布局不用改也能用）；同时通知外层，外层愿意的话可以顺手收起手机上的侧边栏
+const isPomodoroRoute = computed(() => route.name === 'SpiritPomodoro');
+const openPomodoro = () => {
+  router.push({ path: '/lingmai/pomodoro' }).catch(() => {});
+  emit('open-pomodoro');
+};
 
 // 🌟【核心修改 2】从解构中移除 rootNotes，脱离 Composable 数据孤岛
 const { 
@@ -497,4 +519,15 @@ onUnmounted(() => {
 .item-hover-actions .danger { color: var(--danger); }
 .note-item:focus-within .item-hover-actions { opacity: 1; }
 @media (hover: none) { .item-hover-actions { opacity: 1; } }
+/* 生活管理入口：放在空间选择下面，显眼一点 */
+.planner-entry { display: flex; align-items: center; gap: 10px; margin: 0 16px 12px; padding: 10px 12px; width: calc(100% - 32px); box-sizing: border-box; background: var(--accent-soft); border: 1px solid var(--accent-color); border-left-width: 3px; color: var(--text-primary); cursor: pointer; text-align: left; border-radius: 0; font-family: inherit; }
+.planner-entry:hover { background: var(--bg-sub); }
+.planner-entry.active { background: var(--accent-color); color: var(--paper-card); }
+.planner-entry.active small { color: inherit; opacity: .85; }
+.planner-entry-icon { font-size: 18px; line-height: 1; }
+.planner-entry-text { display: flex; flex-direction: column; min-width: 0; }
+.planner-entry-text strong { font-size: 13px; }
+.planner-entry-text small { font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 番茄钟入口紧跟在生活管理下面，上移一点贴近 */
+.pomodoro-entry { margin-top: -6px; }
 </style>

@@ -1,6 +1,7 @@
 import { zip, unzip, strToU8, strFromU8, type Zippable } from 'fflate'
 import type { CardDetail, WorldProject } from '@/api/types/world'
-import { parseWorldText, worldMarkdown, type WorldTextItem } from './worldTransfer'
+import { parseWorldChronicle, parseWorldText, worldMarkdown, type WorldTextItem } from './worldTransfer'
+import type { ChronicleExport } from './chronicle'
 
 // 浏览器内存保护，与账号的世界/条目配额分开；不再限制 50 条。
 export const worldTextBytes = 64 * 1024 * 1024
@@ -12,6 +13,8 @@ export interface WorldBackup {
   project: Pick<WorldProject, 'name' | 'description'>
   items: WorldTextItem[]
   images: Map<string, { bytes: Uint8Array<ArrayBuffer>; type: string }>
+  /** 编年史（时间线、事件、历法）；老备份没有就是 null */
+  chronicle: ChronicleExport | null
 }
 type Progress = (message: string) => void
 const digest = async (bytes: Uint8Array<ArrayBuffer>) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), b => b.toString(16).padStart(2, '0')).join('')
@@ -102,9 +105,11 @@ async function downloadImage(source: string, signal?: AbortSignal): Promise<Uint
 }
 
 export async function createWorldBackup(project: WorldProject, cards: CardDetail[], progress: Progress = () => {},
-  options: { signal?: AbortSignal; loadImage?: (url: string) => Promise<Uint8Array<ArrayBuffer>> } = {}) {
+  options: { signal?: AbortSignal; loadImage?: (url: string) => Promise<Uint8Array<ArrayBuffer>>; chronicle?: ChronicleExport | null } = {}) {
   const files: Zippable = Object.create(null), images: Record<string,{hash:string;type:string;size:number}> = Object.create(null)
-  const urls=worldImageUrls(project,cards), replacements=new Map<string,string>()
+  // 编年史事件里的配图也一起打包
+  const chronicle = options.chronicle ?? null
+  const urls=worldImageUrls(project,chronicle ? [...cards,chronicle] : cards), replacements=new Map<string,string>()
   let total=0
   for(const [index,url] of urls.entries()) {
     options.signal?.throwIfAborted()
@@ -119,10 +124,12 @@ export async function createWorldBackup(project: WorldProject, cards: CardDetail
   }
   options.signal?.throwIfAborted()
   const localProject=replaceWorldImages(project,replacements),localCards=replaceWorldImages(cards,replacements)
-  const md=strToU8(worldMarkdown(localProject,localCards))
+  const localChronicle=chronicle ? replaceWorldImages(chronicle,replacements) : null
+  const md=strToU8(worldMarkdown(localProject,localCards,true,localChronicle))
   if(md.length>worldTextBytes || total+md.length>worldArchiveBytes) throw new Error('备份超过浏览器处理容量（正文 64MB、合计 256MB）。')
   // 导出前就校验引用，不能给用户一个无法恢复的“成功”备份。
   parseWorldText(utf8(md),'world.md')
+  parseWorldChronicle(utf8(md))
   files['world.md']=md
   files['manifest.json']=strToU8(JSON.stringify({format:'taichu-world-backup',version:1,
     project:{name:localProject.name,description:localProject.description},markdownHash:await digest(md),images}))
@@ -151,6 +158,8 @@ export async function readWorldBackup(bytes: Uint8Array<ArrayBuffer>): Promise<W
   if(await digest(files['world.md'])!==manifest.markdownHash) throw new Error('正文数据校验失败，文件可能已损坏或被修改。')
   const items=parseWorldText(utf8(files['world.md']),'world.md')
   if(items.some(item=>!item.payload)) throw new Error('备份缺少条目恢复数据。')
+  // 编年史：老备份没有，就当没有编年史，照常恢复条目
+  const chronicle=parseWorldChronicle(utf8(files['world.md']))
   const images: WorldBackup['images']=new Map()
   for(const [path,raw] of Object.entries(manifest.images)) {
     const image=raw as {hash:string;type:string;size:number}, data=files[path.slice(2)]
@@ -159,6 +168,6 @@ export async function readWorldBackup(bytes: Uint8Array<ArrayBuffer>): Promise<W
   }
   if(Object.keys(files).length!==images.size+2) throw new Error('备份中存在未登记的图片。')
   const project={name:manifest.project.name,description:manifest.project.description} as WorldBackup['project']
-  for(const url of worldImageUrls(project,items.map(i=>i.payload))) if(!images.has(url)) throw new Error('备份包含未打包的图片，不能作为完整备份恢复。')
-  return {project,items,images}
+  for(const url of worldImageUrls(project,[...items.map(i=>i.payload),...(chronicle ? [chronicle] : [])])) if(!images.has(url)) throw new Error('备份包含未打包的图片，不能作为完整备份恢复。')
+  return {project,items,images,chronicle}
 }

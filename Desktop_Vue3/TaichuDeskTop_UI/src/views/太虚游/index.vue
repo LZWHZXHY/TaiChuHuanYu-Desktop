@@ -105,6 +105,16 @@ const gameModules = {
     isNew: true,
     component: defineAsyncComponent(() => import('./games/Doudizhu/index.vue'))
   },
+  // ----- 趣味转盘（fix132）：玩家自己做的转盘 + 官方抽奖转盘 -----
+  Wheel: {
+    label: '转盘',
+    category: 'fun',
+    icon: '🎡',
+    description: '自己做转盘帮你做决定、抽人抽题；官方抽奖转盘每天免费转一次',
+    status: '已上线',
+    isNew: true,
+    component: defineAsyncComponent(() => import('./games/Wheel/index.vue'))
+  },
   // ----- 我的战绩（不在游戏列表里显示，从页头进入） -----
   Records: {
     label: '我的战绩',
@@ -158,6 +168,7 @@ const categoryMap = {
   server: { label: 'MC服务器', order: 1 }, // 调整到最前或合适的位置
   chess: { label: '棋类对弈', order: 2 },
   card: { label: '牌类', order: 2.5 },
+  fun: { label: '趣味转盘', order: 2.8 },
   classic: { label: '经典小游戏', order: 3 },
   test: { label: '测试问卷', order: 4 },
   custom: { label: '自定义工坊', order: 5 }
@@ -287,6 +298,19 @@ const initSignalR = async () => {
   connection.value.on('TurnChanged', (data) => {
     window.dispatchEvent(new CustomEvent('turn-changed', { detail: data }))
   })
+  // 五子棋观战：名单变了、被请出去、大厅列表变了、断线重连（观战的人重连后要重新进分组）
+  connection.value.on('WatchersChanged', (data) => {
+    window.dispatchEvent(new CustomEvent('watchers-changed', { detail: data }))
+  })
+  connection.value.on('WatchEnded', (data) => {
+    window.dispatchEvent(new CustomEvent('watch-ended', { detail: data }))
+  })
+  connection.value.on('LobbyChanged', () => {
+    window.dispatchEvent(new CustomEvent('gobang-lobby-changed'))
+  })
+  connection.value.onreconnected(() => {
+    window.dispatchEvent(new CustomEvent('gobang-reconnected'))
+  })
 
   try {
     await connection.value.start()
@@ -316,7 +340,12 @@ const canLeaveGame = async () => {
   }
   return true
 }
-const loadGame = key => router.push({ query: { ...route.query, game: key || undefined } })
+const loadGame = key => {
+  // 转盘页的地址参数（wheel 转盘编号、k 分享码）只属于转盘，切到别的游戏或回大厅时去掉
+  const { wheel, k, ...rest } = route.query
+  const query = key === 'Wheel' ? route.query : rest
+  return router.push({ query: { ...query, game: key || undefined } })
+}
 onBeforeRouteUpdate((to, from) => to.query.game === from.query.game || canLeaveGame())
 onBeforeRouteLeave(canLeaveGame)
 watch(() => route.query.game, key => {

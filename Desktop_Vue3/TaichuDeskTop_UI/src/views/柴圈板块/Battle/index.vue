@@ -1,180 +1,119 @@
 <template>
-  <div class="battle-page">
-    <!-- ============ 顶部 ============ -->
-    <header class="page-header">
-      <div class="header-left">
-        <div class="title-group">
-          <span class="title-icon">⚔</span>
-          <h1>TCV</h1>
-          <span class="title-sub">太初论战</span>
-        </div>
-        <p class="subtitle">画师以创作为刃，一决高下</p>
+  <div class="battle-page content-page community-surface tone-chai">
+    <!-- ============ 顶部：和柴圈其它页面同一种页头 ============ -->
+    <header class="content-header">
+      <SectionTrace />
+      <div>
+        <p class="eyebrow">TCV · 太初论战</p>
+        <h1>约战广场</h1>
+        <p class="intro">画师以创作为刃，一决高下：发起一场约战，双方各交作品，用投票或协商分出胜负，结果记进 OC 战绩。</p>
       </div>
-      <div class="header-actions">
-        <button class="btn-ghost" @click="goLeaderboard">🏆 排行榜</button>
-        <button class="btn-ghost" @click="goMyBattles">我的约战</button>
-        <button class="btn-primary" @click="goCreate">+ 发起约战</button>
+      <div class="content-actions">
+        <button class="primary" @click="goCreate">发起约战</button>
+        <button @click="goMyBattles">我的约战</button>
+        <button @click="goLeaderboard">🏆 排行榜</button>
       </div>
     </header>
+    <nav class="community-nav" aria-label="柴圈导航"><RouterLink to="/community">社区总览</RouterLink><RouterLink to="/ocs">OC 角色</RouterLink><RouterLink to="/works">动画作品</RouterLink><RouterLink to="/joint">联合创作</RouterLink><RouterLink to="/battles" class="selected">约战广场</RouterLink><RouterLink to="/battles/leaderboard">🏆 排行榜</RouterLink></nav>
 
-    <!-- ============ 核心：规则说明 ============ -->
-    <section class="rules-section">
-      <div class="rules-inner">
-        <div class="rules-header">
-          <span class="rules-badge">· 规则 ·</span>
-          <h2>约战流程</h2>
-        </div>
-
-        <div class="rules-body">
-          <!-- 左：约战是什么 -->
-          <div class="rules-intro">
-            <p>
-              约战是画师之间以<strong>创作作品</strong>为形式的对决。
-              每位参与者提交作品链接，通过<strong>投票</strong>或<strong>内定</strong>判定胜负，
-              结果将影响 OC 的状态与战绩。
-            </p>
+    <!-- ============ 作品审核（只有审核员看得到：超级管理员 / 用户审核权限） ============ -->
+    <section v-if="pending" class="review-box">
+      <h2>📋 待审核作品 <small>{{ pending.length }} 件</small></h2>
+      <p v-if="!pending.length" class="review-empty">没有待审核的作品</p>
+      <ul v-else class="review-list">
+        <li v-for="w in pending" :key="w.id" class="review-item">
+          <div class="review-main">
+            <b>{{ w.title }}</b>
+            <span class="review-meta">约战「<a href="#" @click.prevent="goDetail(w.battleId)">{{ w.battleTitle }}</a>」 <UserLink :id="w.userId" :name="w.userName" /> {{ formatTime(w.submittedAt) }}</span>
+            <span class="review-url">{{ w.contentUrl }}</span>
+            <span v-if="w.description" class="review-desc">{{ w.description }}</span>
           </div>
-
-          <!-- 右：五步流程 -->
-          <div class="rules-flow">
-            <div class="flow-item">
-              <span class="flow-num">1</span>
-              <span class="flow-label">发起</span>
-              <span class="flow-desc">设定类型、规则、判定方式</span>
-            </div>
-            <div class="flow-line"></div>
-            <div class="flow-item">
-              <span class="flow-num">2</span>
-              <span class="flow-label">报名</span>
-              <span class="flow-desc">选择 OC 加入</span>
-            </div>
-            <div class="flow-line"></div>
-            <div class="flow-item">
-              <span class="flow-num">3</span>
-              <span class="flow-label">提交</span>
-              <span class="flow-desc">上传作品链接</span>
-            </div>
-            <div class="flow-line"></div>
-            <div class="flow-item">
-              <span class="flow-num">4</span>
-              <span class="flow-label">判定</span>
-              <span class="flow-desc">投票制 / 内定制</span>
-            </div>
-            <div class="flow-line"></div>
-            <div class="flow-item">
-              <span class="flow-num">5</span>
-              <span class="flow-label">更新</span>
-              <span class="flow-desc">记录战绩，更新 OC 状态</span>
-            </div>
+          <div class="review-actions">
+            <a :href="w.contentUrl" target="_blank" rel="noopener noreferrer" class="rv-btn">打开看看</a>
+            <button class="rv-btn rv-ok" :disabled="reviewing === w.id" @click="review(w, true)">通过</button>
+            <button class="rv-btn" :disabled="reviewing === w.id" @click="review(w, false)">打回</button>
           </div>
-        </div>
-
-        <!-- 底部信息 -->
-        <div class="rules-footer">
-          <div class="rule-tag">
-            <span class="tag-mark">◆</span>
-            <span><strong>投票制</strong> — 社区投票决定胜负</span>
-          </div>
-          <div class="rule-tag">
-            <span class="tag-mark">◆</span>
-            <span><strong>内定制</strong> — 参与者协商决定胜负</span>
-          </div>
-          <div class="rule-tag">
-            <span class="tag-mark">◆</span>
-            <span>须提交<strong>作品链接</strong>，作为判定依据</span>
-          </div>
-        </div>
-      </div>
+        </li>
+      </ul>
     </section>
 
-    <!-- ============ 筛选栏 ============ -->
-    <div class="filter-bar">
-      <div class="filter-left">
-        <select v-model="filterStatus" @change="fetchList">
-          <option value="">全部状态</option>
-          <option value="open">报名中</option>
-          <option value="ongoing">创作中</option>
-          <option value="judging">评审中</option>
-          <option value="finished">已完成</option>
-          <option value="cancelled">已取消</option>
-        </select>
-        <input
-          v-model="keyword"
-          placeholder="搜索约战..."
-          @input="fetchList"
-        />
+    <!-- ============ 约战怎么打：默认收起，第一次来的人点开看 ============ -->
+    <details class="howto">
+      <summary>第一次来？看看约战怎么打</summary>
+      <div class="howto-body">
+        <p class="howto-intro">
+          约战是画师之间以<strong>创作作品</strong>为形式的对决。
+          每位参与者提交作品链接，通过<strong>投票</strong>或<strong>内定</strong>判定胜负，结果会影响 OC 的战绩。
+        </p>
+        <ol class="howto-flow">
+          <li><b>发起</b><span>设定类型、规则、判定方式</span></li>
+          <li><b>报名</b><span>选择 OC 加入</span></li>
+          <li><b>提交</b><span>上传作品链接</span></li>
+          <li><b>判定</b><span>投票制 / 内定制</span></li>
+          <li><b>更新</b><span>记录战绩，更新 OC 状态</span></li>
+        </ol>
+        <ul class="howto-notes">
+          <li><strong>投票制</strong>：路人投票决定胜负</li>
+          <li><strong>内定制</strong>：参与者协商决定胜负，为剧情服务</li>
+          <li>结果可以是一方胜、惨胜、平手、同归于尽，也可以不计结果</li>
+          <li>须提交<strong>作品链接</strong>，作为判定依据</li>
+        </ul>
       </div>
+    </details>
+
+    <!-- ============ 筛选：按阶段一键切换 + 搜索 ============ -->
+    <div class="filter-bar">
+      <div class="content-filters" role="group" aria-label="按阶段筛选">
+        <button v-for="f in filters" :key="f.value" type="button" :aria-pressed="filterStatus === f.value" @click="setStatus(f.value)">{{ f.label }}</button>
+      </div>
+      <label class="search">
+        <span class="sr-only">搜索约战</span>
+        <input v-model="keyword" type="search" placeholder="搜索约战标题…" @input="onKeyword" />
+      </label>
       <span class="result-count">共 {{ total }} 场</span>
     </div>
 
     <!-- ============ 约战列表 ============ -->
-    <div v-if="loading" class="loading">加载中...</div>
+    <div v-if="loading && !list.length" class="state">正在读取约战…</div>
 
-    <div v-else-if="!list.length" class="empty">
-      <p>还没有约战，<button class="link-btn" @click="goCreate">发起第一场</button></p>
+    <div v-else-if="loadFailed" class="state">
+      <p>约战列表没读出来，可能是网络不稳定。</p>
+      <button class="link-btn" @click="fetchList">重新读取</button>
     </div>
 
-    <div v-else class="battle-list">
-      <div
-        v-for="item in list"
-        :key="item.id"
-        class="battle-card"
-        @click="goDetail(item.id)"
-      >
-        <!-- 封面 -->
-        <div class="card-cover">
-          <img v-if="item.coverUrl" :src="withThumbnail(item.coverUrl, 400)" alt="" />
-          <span v-else class="cover-placeholder">⚔</span>
-          <span class="card-status" :class="item.status">
-            {{ statusMap[item.status] || item.status }}
-          </span>
-        </div>
+    <div v-else-if="!list.length" class="state">
+      <template v-if="filterStatus || keyword.trim()">
+        <p>没有符合条件的约战。</p>
+        <button class="link-btn" @click="clearFilters">看全部约战</button>
+      </template>
+      <template v-else>
+        <p class="state-big">⚔ 这里还很安静</p>
+        <p>还没有人发起约战。挑一个你的 OC，向别的画师下一封战书吧。</p>
+        <button class="link-btn" @click="goCreate">发起第一场约战</button>
+      </template>
+    </div>
 
-        <!-- 内容 -->
-        <div class="card-body">
-          <div class="card-head">
-            <span class="type-tag">{{ item.battleType || '自定义' }}</span>
-            <span class="judgment-tag">
-              {{ item.judgmentType === 'vote' ? '投票制' : '内定制' }}
-            </span>
-          </div>
-          <h3 class="card-title">{{ item.title }}</h3>
-
-          <!-- 规则 -->
-          <div class="card-rules">
-            <span class="rules-label">规则</span>
-            <span class="rules-text">{{ item.rules }}</span>
-          </div>
-
-          <div class="card-meta">
-            <span>◈ {{ item.participantCount || 0 }} 人</span>
-            <span>◈ {{ item.submissionCount || 0 }} 作品</span>
-           <span>◈ 发起人：<UserLink nested :id="item.participants?.[0]?.userId" :name="item.participants?.[0]?.userName || '未知'" /></span>
-            <span class="meta-time">◈ {{ formatTime(item.createdAt) }}</span>
-          </div>
-        </div>
-
-        <div class="card-action">
-          <span>查看 →</span>
-        </div>
-      </div>
+    <div v-else class="battle-list" :class="{ dim: loading }">
+      <BattleCard v-for="item in list" :key="item.id" :battle="item" @open="goDetail" />
     </div>
 
     <!-- 分页 -->
     <div v-if="total > pageSize" class="pagination">
-      <button @click="page--" :disabled="page <= 1">上一页</button>
+      <button @click="page--" :disabled="page <= 1 || loading">上一页</button>
       <span>{{ page }} / {{ Math.ceil(total / pageSize) }}</span>
-      <button @click="page++" :disabled="page >= Math.ceil(total / pageSize)">下一页</button>
+      <button @click="page++" :disabled="page >= Math.ceil(total / pageSize) || loading">下一页</button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import UserLink from '@/components/UserLink.vue'
-import { ref, onMounted } from 'vue'
+import SectionTrace from '@/components/SectionTrace.vue'
+import BattleCard from './components/BattleCard.vue'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { battleApi, type Battle } from './battle_api'
-import { withThumbnail } from '@/utils/imageThumb'
+import { battleApi, type Battle, type PendingBattleWork } from './battle_api'
+import { STATUS_LABEL } from './battleView'
 
 const router = useRouter()
 
@@ -186,13 +125,13 @@ const pageSize = ref(10)
 const filterStatus = ref('')
 const keyword = ref('')
 
-const statusMap: Record<string, string> = {
-  open: '报名中',
-  ongoing: '创作中',
-  judging: '评审中',
-  finished: '已完成',
-  cancelled: '已取消',
-}
+// 阶段筛选：状态名和详情页、我的约战统一（battleView.ts）。
+// 「已取消」不放：后端大厅列表本来就不返回已取消的约战，以前选了只会看到空列表
+const filters = [
+  { value: '', label: '全部' },
+  ...(['open', 'ongoing', 'judging', 'finished'] as const).map(v => ({ value: v, label: STATUS_LABEL[v] })),
+]
+const loadFailed = ref(false)
 
 const formatTime = (iso: string) => {
   const d = new Date(iso)
@@ -204,620 +143,153 @@ const formatTime = (iso: string) => {
   return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
+// 连续打字时会连发几次请求，只认最后一次的结果，免得旧结果盖掉新结果
+let listRequest = 0
 const fetchList = async () => {
+  const req = ++listRequest
   loading.value = true
+  loadFailed.value = false
   try {
     const params: any = { page: page.value, pageSize: pageSize.value }
     if (filterStatus.value) params.status = filterStatus.value
-    if (keyword.value) params.keyword = keyword.value
+    if (keyword.value.trim()) params.keyword = keyword.value.trim()
     const res = await battleApi.list(params)
+    if (req !== listRequest) return
     list.value = res.items
     total.value = res.total
   } catch {
-    // ignore
+    if (req === listRequest) loadFailed.value = true
   } finally {
-    loading.value = false
+    if (req === listRequest) loading.value = false
   }
 }
+
+// 以前翻页按钮只改了页码、没有重新读列表，点了没反应
+watch(page, () => { void fetchList() })
+/** 换筛选条件时回到第一页（已经在第一页就直接读） */
+function reload() {
+  if (page.value !== 1) page.value = 1
+  else void fetchList()
+}
+function setStatus(v: string) {
+  if (filterStatus.value === v) return
+  filterStatus.value = v
+  reload()
+}
+// 搜索框：停手 300 毫秒再搜，不用每敲一个字就请求一次
+let keywordTimer: ReturnType<typeof setTimeout> | undefined
+function onKeyword() {
+  clearTimeout(keywordTimer)
+  keywordTimer = setTimeout(reload, 300)
+}
+function clearFilters() {
+  filterStatus.value = ''
+  keyword.value = ''
+  reload()
+}
+onUnmounted(() => clearTimeout(keywordTimer))
 
 const goCreate = () => router.push('/battles/create')
 const goMyBattles = () => router.push('/battles/my')
 const goLeaderboard = () => router.push('/battles/leaderboard')
 const goDetail = (id: string) => router.push(`/battles/${id}`)
 
-onMounted(fetchList)
+// ===== 作品审核：接口返回 403 说明不是审核员，就不显示这一块 =====
+const pending = ref<PendingBattleWork[] | null>(null)
+const reviewing = ref('')
+async function loadPending() {
+  try { pending.value = (await battleApi.pendingReviews()).items } catch { pending.value = null }
+}
+async function review(w: PendingBattleWork, approve: boolean) {
+  let reason: string | undefined
+  if (!approve) {
+    const r = window.prompt(`打回「${w.title}」的原因（会通知作者）：`)
+    if (!r?.trim()) return
+    reason = r.trim()
+  }
+  reviewing.value = w.id
+  try {
+    await battleApi.reviewSubmission(w.id, approve, reason)
+    pending.value = (pending.value ?? []).filter(x => x.id !== w.id)
+  } catch {
+    alert('操作失败，请稍后再试')
+  } finally {
+    reviewing.value = ''
+  }
+}
+
+onMounted(() => { void fetchList(); void loadPending() })
 </script>
 
 <style scoped>
 /* ============================================================
-   整体容器 - 宣纸底色
+   约战广场：页头、导航沿用柴圈公共样式（content-page / community-surface），这里只管约战自己的部分
    ============================================================ */
-.battle-page {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 32px 20px 60px;
-  background: var(--bg-sub);
-  min-height: 100vh;
-  color: var(--text-primary);
-}
-
-/* ============================================================
-   顶部
-   ============================================================ */
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding-bottom: 20px;
-  border-bottom: 2px solid var(--border-line);
-  margin-bottom: 32px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.header-left {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.title-group {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-}
-
-.title-icon {
-  font-size: 22px;
-  color: var(--accent-color);
-}
-
-.title-group h1 {
-  font-size: 28px;
-  font-weight: 400;
-  letter-spacing: 0.25em;
-  margin: 0;
-  color: var(--text-primary);
-}
-
-.title-sub {
-  font-size: 13px;
-  color: var(--accent-color);
-  letter-spacing: 0.15em;
-  font-weight: 300;
-}
-
-.subtitle {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin: 0;
-  letter-spacing: 0.1em;
-}
-
-.header-actions {
-  display: flex;
-  gap: 10px;
-}
-
-.btn-primary,
-.btn-ghost {
-  padding: 8px 22px;
-  border: 1px solid var(--border-line);
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  transition: all 0.3s;
-}
-
-.btn-primary {
-  background: var(--text-primary);
-  color: var(--bg-sub);
-  border-color: var(--text-primary);
-}
-.btn-primary:hover {
-  background: var(--bg-sub);
-  color: var(--text-primary);
-}
-
-.btn-ghost:hover {
-  border-color: var(--accent-color);
-  color: var(--accent-color);
-}
-
-/* ============================================================
-   规则区
-   ============================================================ */
-.rules-section {
-  background: var(--paper-card);
-  border: 1px solid var(--border-line);
-  padding: 28px 32px;
-  margin-bottom: 32px;
-  box-shadow: 0 2px 12px rgba(44, 42, 41, 0.04);
-}
-
-.rules-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.rules-header {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding-bottom: 14px;
-  border-bottom: 1px dashed var(--border-line);
-}
-
-.rules-badge {
-  font-size: 11px;
-  color: var(--accent-color);
-  letter-spacing: 0.2em;
-}
-
-.rules-header h2 {
-  font-size: 17px;
-  font-weight: 400;
-  letter-spacing: 0.15em;
-  margin: 0;
-  color: var(--text-primary);
-}
-
-.rules-body {
-  display: grid;
-  grid-template-columns: 1fr 1.8fr;
-  gap: 28px;
-}
-
-.rules-intro p {
-  font-size: 14px;
-  line-height: 2;
-  color: var(--text-secondary);
-  margin: 0;
-  text-align: justify;
-}
-
-.rules-intro p strong {
-  color: var(--text-primary);
-}
-
-.rules-flow {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.flow-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 6px 0;
-}
-
-.flow-num {
-  width: 24px;
-  height: 24px;
-  border: 1px solid var(--accent-color);
-  border-radius: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-  color: var(--accent-color);
-  flex-shrink: 0;
-}
-
-.flow-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
-  letter-spacing: 0.08em;
-  min-width: 44px;
-}
-
-.flow-desc {
-  font-size: 13px;
-  color: var(--text-secondary);
-  letter-spacing: 0.05em;
-}
-
-.flow-line {
-  width: 1px;
-  height: 10px;
-  background: var(--border-line);
-  margin-left: 11.5px;
-}
-
-.rules-footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 24px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border-line);
-}
-
-.rule-tag {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.tag-mark {
-  color: var(--accent-color);
-  font-size: 10px;
-}
-
-.rule-tag strong {
-  color: var(--text-primary);
-}
-
-/* ============================================================
-   筛选栏
-   ============================================================ */
-.filter-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 22px;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.filter-left {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  flex: 1;
-}
-
-.filter-left select,
-.filter-left input {
-  padding: 8px 14px;
-  border: 1px solid var(--border-line);
-  background: var(--paper-card);
-  border-radius: 0;
-  font-family: inherit;
-  font-size: 13px;
-  outline: none;
-  letter-spacing: 0.05em;
-  transition: border-color 0.25s;
-  color: var(--text-primary);
-}
-
-.filter-left select:focus,
-.filter-left input:focus {
-  border-color: var(--text-primary);
-}
-
-.filter-left select {
-  min-width: 120px;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23999' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 32px;
-  cursor: pointer;
-}
-
-.filter-left input {
-  flex: 1;
-  min-width: 140px;
-}
-
-.result-count {
-  font-size: 13px;
-  color: var(--text-secondary);
-  letter-spacing: 0.05em;
-}
-
-/* ============================================================
-   加载 / 空
-   ============================================================ */
-.loading {
-  padding: 40px 0;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-
-.empty {
-  padding: 40px 0;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-
-.link-btn {
-  background: none;
-  border: none;
-  color: var(--accent-color);
-  font-family: inherit;
-  font-size: 14px;
-  cursor: pointer;
-  border-bottom: 1px solid var(--accent-color);
-  padding-bottom: 1px;
-}
-.link-btn:hover {
-  color: var(--text-primary);
-  border-color: var(--text-primary);
-}
-
-/* ============================================================
-   卡片
-   ============================================================ */
-.battle-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.battle-card {
-  display: flex;
-  gap: 18px;
-  padding: 18px 22px;
-  background: var(--paper-card);
-  border: 1px solid var(--border-line);
-  cursor: pointer;
-  transition: all 0.25s;
-}
-
-.battle-card:hover {
-  border-color: var(--text-primary);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(44, 42, 41, 0.06);
-}
-
-.card-cover {
-  flex-shrink: 0;
-  width: 72px;
-  height: 72px;
-  border: 1px solid var(--border-line);
-  overflow: hidden;
-  background: var(--bg-sub);
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.card-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.cover-placeholder {
-  font-size: 26px;
-  color: var(--accent-color);
-}
-
-.card-status {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  font-size: 9px;
-  padding: 1px 8px;
-  background: rgba(44, 42, 41, 0.8);
-  color: var(--bg-sub);
-  letter-spacing: 0.05em;
-}
-.card-status.open {
-  background: var(--bg-sub);
-}
-.card-status.ongoing {
-  background: var(--warning);
-}
-.card-status.judging {
-  background: var(--warning);
-}
-.card-status.finished {
-  background: var(--bg-sub);
-}
-.card-status.cancelled {
-  background: var(--text-secondary);
-}
-
-.card-body {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.card-head {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.type-tag {
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--bg-sub);
-  padding: 0 12px;
-  line-height: 22px;
-  letter-spacing: 0.05em;
-}
-
-.judgment-tag {
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--bg-sub);
-  padding: 0 12px;
-  line-height: 22px;
-  letter-spacing: 0.05em;
-}
-
-.card-title {
-  font-size: 17px;
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  margin: 0;
-  color: var(--text-primary);
-}
-
-.card-rules {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  background: var(--bg-sub);
-  padding: 6px 12px;
-  border-left: 3px solid var(--accent-color);
-}
-
-.rules-label {
-  font-size: 11px;
-  color: var(--accent-color);
-  flex-shrink: 0;
-  letter-spacing: 0.1em;
-}
-
-.rules-text {
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.6;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  letter-spacing: 0.05em;
-}
-
-.meta-time {
-  margin-left: auto;
-}
-
-.card-action {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  padding-left: 12px;
-  font-size: 13px;
-  color: var(--border-line);
-  letter-spacing: 0.05em;
-  transition: color 0.25s;
-}
-
-.battle-card:hover .card-action {
-  color: var(--text-primary);
-}
-
-/* ============================================================
-   分页
-   ============================================================ */
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 14px;
-  margin-top: 28px;
-  padding-top: 18px;
-  border-top: 1px solid var(--border-line);
-}
-
-.pagination button {
-  padding: 6px 18px;
-  border: 1px solid var(--border-line);
-  background: transparent;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 13px;
-  transition: all 0.25s;
-  color: var(--text-primary);
-}
-
-.pagination button:hover:not(:disabled) {
-  border-color: var(--text-primary);
-}
-
-.pagination button:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.pagination span {
-  font-size: 13px;
-  color: var(--text-secondary);
-  min-width: 60px;
-  text-align: center;
-}
-
-/* ============================================================
-   响应式
-   ============================================================ */
-@media (max-width: 768px) {
-  .rules-body {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .flow-line {
-    display: none;
-  }
-
-  .battle-card {
-    flex-direction: column;
-  }
-
-  .card-cover {
-    width: 100%;
-    height: 100px;
-  }
-
-  .card-action {
-    padding-left: 0;
-    padding-top: 8px;
-    border-top: 1px solid var(--border-line);
-    justify-content: flex-end;
-  }
-
-  .header-actions {
-    width: 100%;
-  }
-
-  .header-actions button {
-    flex: 1;
-    text-align: center;
-  }
-
-  .filter-left {
-    flex-direction: column;
-  }
-
-  .filter-left select,
-  .filter-left input {
-    width: 100%;
-  }
-
-  .result-count {
-    width: 100%;
-    text-align: center;
-  }
-
-  .meta-time {
-    margin-left: 0;
-  }
-
-  .rules-section {
-    padding: 20px 18px;
-  }
-
-  .rules-footer {
-    flex-direction: column;
-    gap: 6px;
-  }
-}
+.battle-page { padding: 0 20px 60px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* ===== 审核员：待审核作品 ===== */
+.review-box { margin: 0 0 20px; padding: 14px 16px; border: 1px solid var(--border-line); border-left: 4px solid var(--caution); background: var(--paper-card); }
+.review-box h2 { margin: 0 0 10px; font-size: 16px; }
+.review-box h2 small { margin-left: 6px; color: var(--text-secondary); font-weight: 400; font-size: 13px; }
+.review-empty { margin: 0; color: var(--text-secondary); font-size: 13px; }
+.review-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.review-item { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; padding-top: 10px; border-top: 1px dashed var(--border-line); }
+.review-main { min-width: 0; display: grid; gap: 3px; font-size: 13px; }
+.review-meta, .review-desc { color: var(--text-secondary); display: flex; flex-wrap: wrap; gap: 0 8px; }
+.review-meta a { color: var(--accent-color); }
+.review-url { word-break: break-all; color: var(--accent-color); }
+.review-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.rv-btn { display: inline-flex; align-items: center; padding: 5px 12px; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: 13px; text-decoration: none; cursor: pointer; }
+.rv-btn:hover:not(:disabled) { border-color: var(--accent-color); color: var(--accent-color); }
+.rv-btn.rv-ok { background: var(--accent-color); border-color: var(--accent-color); color: var(--on-accent); }
+@media (max-width: 640px) { .review-item { flex-direction: column; } }
+
+/* ===== 约战怎么打（可收起） ===== */
+.howto { margin-bottom: 20px; border: 1px solid var(--border-line); background: var(--paper-card); }
+.howto summary { padding: 10px 14px; font-size: 14px; color: var(--text-primary); cursor: pointer; list-style-position: inside; }
+.howto summary:hover { color: var(--accent-color); }
+.howto[open] summary { border-bottom: 1px dashed var(--border-line); }
+.howto-body { display: grid; gap: 14px; padding: 14px 16px 16px; }
+.howto-intro { margin: 0; font-size: 14px; line-height: 1.9; color: var(--text-secondary); max-width: 46em; }
+.howto-intro strong, .howto-notes strong { color: var(--text-primary); }
+/* 五步流程：真的是先后顺序，所以用编号 */
+.howto-flow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); counter-reset: step; }
+.howto-flow li { counter-increment: step; display: grid; gap: 2px; padding: 10px 10px 0 0; border-top: 3px solid var(--border-line); font-size: 12px; color: var(--text-secondary); }
+.howto-flow li::before { content: counter(step); font: 700 18px/1 var(--font-display); color: var(--accent-color); }
+.howto-flow li b { font-size: 14px; color: var(--text-primary); }
+.howto-notes { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 13px; color: var(--text-secondary); }
+
+/* ===== 筛选 ===== */
+.filter-bar { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; margin-bottom: 16px; }
+.filter-bar .content-filters { flex-wrap: wrap; }
+.search { flex: 1 1 200px; min-width: 0; display: flex; }
+.search input { width: 100%; min-height: 38px; padding: 6px 12px; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-primary); outline: none; }
+.search input:focus { border-color: var(--text-primary); }
+.result-count { font-size: 13px; color: var(--text-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ===== 列表 ===== */
+.battle-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 14px; transition: opacity .2s; }
+.battle-list.dim { opacity: .6; }
+
+.state { padding: 48px 20px; border: 1px dashed var(--border-line); background: var(--paper-card); text-align: center; color: var(--text-secondary); font-size: 14px; }
+.state p { margin: 0 0 10px; }
+.state-big { font: 600 22px/1.4 var(--font-display); color: var(--text-primary); }
+.link-btn { padding: 8px 18px; border: 1px solid var(--accent-color); background: var(--accent-color); color: var(--on-accent); font: inherit; font-size: 14px; cursor: pointer; }
+.link-btn:hover { filter: brightness(1.08); }
+
+/* ===== 分页 ===== */
+.pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--border-line); }
+.pagination button { padding: 6px 18px; border: 1px solid var(--border-line); background: var(--paper-card); cursor: pointer; font: inherit; font-size: 13px; color: var(--text-primary); }
+.pagination button:hover:not(:disabled) { border-color: var(--text-primary); }
+.pagination button:disabled { opacity: .35; cursor: not-allowed; }
+.pagination span { font-size: 13px; color: var(--text-secondary); min-width: 60px; text-align: center; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 720px) {
+  .battle-page { padding: 0 12px 40px; }
+  .howto-flow { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); row-gap: 10px; }
+  .filter-bar .content-filters { width: 100%; }
+  .filter-bar .content-filters button { flex: 1 1 auto; padding: 7px 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .battle-list { transition: none; } }
 </style>

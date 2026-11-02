@@ -6,6 +6,7 @@ using System.Text.Json;
 using TaiChuWeb_V2.DbContext;
 using TaiChuWeb_V2.Models.Community;
 using TaiChuWeb_V2.Models.User;
+using TaiChuWeb_V2.Services.Personalization;
 
 namespace TaiChuWeb_V2.Controllers
 {
@@ -67,13 +68,18 @@ namespace TaiChuWeb_V2.Controllers
         public Guid? ParentId { get; set; }
     }
 
-    /// <summary>官方开发进度（公开查看，管理员维护）。</summary>
+    /// <summary>
+    /// 官方开发进度（管理员维护）。
+    /// 详细内容（简介、正文、里程碑、参考资料、数据、研发日志）只给管理员和赞助会员看（DevProgressAccess）；
+    /// 其他人只拿到简单进度：项目名、图标、状态、百分比，首页「开发进度」那一块用的就是这些。
+    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class DevProjectController : ControllerBase
     {
         private readonly AppDbContext _context;
-        public DevProjectController(AppDbContext context) { _context = context; }
+        private readonly SponsorPerkService _perks;
+        public DevProjectController(AppDbContext context, SponsorPerkService perks) { _context = context; _perks = perks; }
 
         private Guid? CurrentUserId => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
 
@@ -83,7 +89,28 @@ namespace TaiChuWeb_V2.Controllers
             return await _context.UserPermissions.AnyAsync(p => p.UserId == CurrentUserId.Value && p.Permission == AdminPermission.SuperAdmin);
         }
 
-        // ===== 公开查询 =====
+        /// <summary>我能不能看开发进度详情（前端据此显示详情页或「赞助会员专享」）</summary>
+        [HttpGet("access")]
+        [AllowAnonymous]
+        public async Task<IActionResult> Access()
+        {
+            var a = await DevProgressAccess.CheckAsync(_context, _perks, User);
+            return Ok(new
+            {
+                canView = a.CanView,
+                reason = a.Reason,
+                loggedIn = a.LoggedIn,
+                sponsorUntil = a.SponsorUntil,
+                // 赞助过、但已经到期（提示「已于某天到期，续费后可以继续看」）
+                expired = !a.CanView && a.SponsorUntil is DateTime u && u <= DateTime.UtcNow,
+                // 赞助还有效但等级不够（觉醒者）：提示升到超凡者
+                tier = a.Tier,
+                tierTooLow = a.TierTooLow,
+                needTier = DevProgressAccess.NeedTier,
+            });
+        }
+
+        // ===== 查询：有权限的看全部，其他人只看简单进度 =====
         [HttpGet]
         [AllowAnonymous]
         public async Task<IActionResult> List()
@@ -91,6 +118,22 @@ namespace TaiChuWeb_V2.Controllers
             var list = await _context.DevProjects
                 .OrderBy(p => p.SortOrder).ThenByDescending(p => p.CreatedAt)
                 .ToListAsync();
+            var access = await DevProgressAccess.CheckAsync(_context, _perks, User);
+            if (!access.CanView)
+            {
+                // 字段和完整版一样（前端类型不用分两套），详细内容一律留空
+                Response.Headers["X-Dev-Locked"] = "1";
+                return Ok(list.Select(p => new
+                {
+                    p.Id, p.Name, Description = (string?)null, Content = (string?)null, p.Category, p.Status, p.Progress, p.Icon, p.SortOrder, p.ParentId, p.UpdatedAt,
+                    Milestones = new List<MilestoneDto>(),
+                    Type = p.Type,
+                    References = new List<ReferenceDto>(),
+                    DataPoints = new List<DataPointDto>(),
+                    Logs = new List<ResearchLogDto>(),
+                    Locked = true,
+                }));
+            }
             return Ok(list.Select(p => new
             {
                 p.Id, p.Name, p.Description, p.Content, p.Category, p.Status, p.Progress, p.Icon, p.SortOrder, p.ParentId, p.UpdatedAt,

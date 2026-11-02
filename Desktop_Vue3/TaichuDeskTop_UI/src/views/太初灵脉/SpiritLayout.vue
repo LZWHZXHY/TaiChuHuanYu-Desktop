@@ -23,6 +23,8 @@
       :class="['sidebar-layer', { open: isSidebarOpen || !isMobile }]"
       @select="handleSelectNote"
       @create="handleCreateNote"
+      @open-planner="handleOpenPlanner"
+      @open-pomodoro="isMobile && (isSidebarOpen = false)"
     />
 
     <!-- 主工作区 -->
@@ -31,6 +33,7 @@
         <TopBar
           :is-mobile="isMobile"
           :active-note="activeNote"
+          :page-title="isPlannerRoute ? '生活管理' : route.name === 'SpiritPomodoro' ? '番茄钟' : ''"
           @toggle-sidebar="isSidebarOpen = true"
           @open-graph="isGraphViewOpen = true"
           @open-settings="isSettingsOpen = true"
@@ -185,6 +188,13 @@ const canPublishDynamic = computed(() => {
 const handleSelectNote = (id: string) => {
   if (isMobile.value) isSidebarOpen.value = false;
   if (id) router.push({ name: 'SpiritNote', params: { id } });
+};
+
+// 生活管理（个人日历）是独立页面，不属于任何一篇笔记
+const isPlannerRoute = computed(() => route.name === 'SpiritPlanner');
+const handleOpenPlanner = () => {
+  if (isMobile.value) isSidebarOpen.value = false;
+  router.push({ path: '/lingmai/planner' });
 };
 
 const handleCreateNote = async (type: string = 'note', folderId: string | null = null) => {

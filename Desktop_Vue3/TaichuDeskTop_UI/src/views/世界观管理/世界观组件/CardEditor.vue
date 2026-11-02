@@ -36,6 +36,9 @@
       <button class="cancel-btn" @click="cancelCreate">取消</button>
     </div>
 
+    <!-- 柴圈 OC：对应的 OC（从 OC 更新条目、断开对应），或者把人物条目发布成 OC。有没保存的修改时不让同步 -->
+    <CardOcSync v-if="!isCreating && routeCardId" :card-id="routeCardId" :dirty="isDirty" @synced="onOcSynced" />
+
     <!-- ================= 顶部：名称、类型、别名、属性、标签 + 右边封面 ================= -->
     <header class="ed-hero" :class="{ 'has-cover': form.coverImage || uploadingCover }">
       <div class="ed-main">
@@ -137,7 +140,7 @@
                 <hr />
                 <button type="button" role="menuitem" @click="act(() => { block.hideTitle = !block.hideTitle || undefined })"><span>▭</span>{{ block.hideTitle ? '显示标题栏' : '隐藏标题栏' }}</button>
                 <button v-if="HIDEABLE_KINDS.includes(block.kind)" type="button" role="menuitem" @click="act(() => { block.hidden = !block.hidden || undefined })"><span>◌</span>{{ block.hidden ? '对访客公开' : '对访客隐藏' }}</button>
-                <button v-if="!isSingleton(block.kind)" type="button" role="menuitem" @click="act(() => duplicateBlock(form.layout, block.id))"><span>⧉</span>复制块</button>
+                <button v-if="!isSingleton(block.kind) && block.kind !== 'unknown'" type="button" role="menuitem" @click="act(() => duplicateBlock(form.layout, block.id))"><span>⧉</span>复制块</button>
                 <button type="button" role="menuitem" class="danger" @click="deleteBlock(block)"><span>🗑</span>删除块</button>
               </template>
               <template v-else>
@@ -167,7 +170,16 @@
           <button type="button" class="media-add" :disabled="uploadingGallery" @click="pickImages(block.id)">{{ uploadingGallery && uploadTarget === block.id ? '上传中…' : '＋ 图片' }}</button>
         </div>
         <!-- 地图 -->
-        <MapBlock v-else-if="block.kind === 'map'" v-model:image="block.image" v-model:pins="block.pins" :project-id="routeProjectId" editable />
+        <MapBlock v-else-if="block.kind === 'map'" v-model:image="block.image" v-model:pins="block.pins" :project-id="routeProjectId" :card-id="routeCardId" :block-id="block.id" editable />
+        <!-- 画布 -->
+        <CanvasBlock v-else-if="block.kind === 'canvas'" :items="block.items" :links="block.links" :height="block.height" :project-id="routeProjectId" editable
+          @update:items="v => { block.items = v }" @update:links="v => { block.links = v }" @update:height="v => { block.height = v }" />
+        <!-- 关系树 -->
+        <TreeBlock v-else-if="block.kind === 'tree'" :nodes="block.nodes" :project-id="routeProjectId" editable @update:nodes="v => { block.nodes = v }" />
+        <!-- 能力面板（雷达图）：标题用区块自己的标题栏 -->
+        <StatPanelEditor v-else-if="block.kind === 'statpanel'" :model-value="block.panel ?? createStatPanel('jojo')" hide-title @update:model-value="v => { block.panel = v }" />
+        <!-- 这个页面不认识的区块（新版网站加的）：原样保留，保存时一起存回去，不会丢 -->
+        <p v-else-if="block.kind === 'unknown'" class="editor-hint eb-unknown">这一块是新版网站加的内容（{{ String(block.raw?.kind ?? '') }}），当前页面显示不了。内容会原样保留；刷新页面后就能编辑。</p>
         <!-- 参考来源 -->
         <SourcesBlock v-else-if="block.kind === 'sources'" :sources="block.sources" editable @update:sources="v => { block.sources = v }" />
         <!-- 时间线 -->
@@ -197,17 +209,29 @@
       <span class="add-tip">每块右上角 ⋮ 可以在上下左右加块、调整顺序、对访客隐藏；文本里空行输入 <kbd>/</kbd> 也能加</span>
     </div>
 
-    <!-- 被以下卡片关联（只读） -->
-    <div v-if="incomingRelations.length" class="doc-section">
-      <h2 class="section-title">被以下卡片关联</h2>
-      <RelationList
-        :relations="incomingRelations"
-        type="in"
-        :project-id="projectId"
-        :card-id="routeCardId"
-        @card-click="goToCard"
-      />
-    </div>
+    <!-- 关联：排列里没有「设定关系」区块时在这里改「关联到」；「被关联」只读（要去对方条目里改）。都用小卡片排成一行，不占地方 -->
+    <section v-if="!hasKind(form.layout, 'relations') || incomingRelations.length" class="rel-dock" aria-label="关联">
+      <header class="rel-dock-head">
+        <span class="rel-dock-tag">LINKS</span>
+        <span class="rel-dock-name">关联</span>
+        <span class="rel-dock-count">{{ form.relations.length }} → · ← {{ incomingRelations.length }}</span>
+      </header>
+      <div class="rel-dock-body">
+        <div v-if="!hasKind(form.layout, 'relations')" class="rel-dock-col">
+          <span class="rel-dock-label">关联到</span>
+          <RelationSelector v-model="form.relations" :project-id="projectId" :exclude-card-id="routeCardId" />
+        </div>
+        <RelationList
+          v-if="incomingRelations.length"
+          class="rel-dock-col"
+          :relations="incomingRelations"
+          type="in"
+          :project-id="projectId"
+          :card-id="routeCardId"
+          @card-click="goToCard"
+        />
+      </div>
+    </section>
 
     <!-- 底部操作栏 -->
     <div class="editor-footer">
@@ -277,6 +301,11 @@ import CardRefTextarea from './CardRefTextarea.vue'
 import TimelineAxis from './TimelineAxis.vue'
 import MapBlock from './MapBlock.vue'
 import SourcesBlock from './SourcesBlock.vue'
+import CanvasBlock from './CanvasBlock.vue'
+import TreeBlock from './TreeBlock.vue'
+import StatPanelEditor from '@/components/StatPanelEditor.vue'
+import CardOcSync from './CardOcSync.vue'
+import { createStatPanel, describeStatPanel } from '@/utils/statPanel'
 
 // ===== Router & Route =====
 const route = useRoute()
@@ -334,7 +363,7 @@ function conflictPreview(key: keyof CardForm, value: CardForm) {
   if (key === 'relations') return value.relations.map(item => `${name(item.targetCardId)} · ${item.relationType || '关联'}`).join('\n') || '无'
   if (key === 'contentBlocks') return value.contentBlocks.map(item => `${name(item.cardId)} · ${item.contextLabel || '引用'}`).join('\n') || '无'
   if (key === 'layout') return value.layout.rows.map(row => row.blocks.map(b =>
-    `【${blockTitle(b)}】${b.kind === 'text' ? (b.text || '').slice(0, 60) : b.kind === 'media' ? `${b.images?.length ?? 0} 张图片` : b.kind === 'map' ? `地图 · ${b.pins?.length ?? 0} 个图钉` : b.kind === 'sources' ? `参考来源 ${b.sources?.length ?? 0} 条` : ''}${b.hidden ? '（仅成员可见）' : ''}`).join('  |  ')).join('\n') || '无'
+    `【${blockTitle(b)}】${b.kind === 'text' ? (b.text || '').slice(0, 60) : b.kind === 'media' ? `${b.images?.length ?? 0} 张图片` : b.kind === 'map' ? `地图 · ${b.pins?.length ?? 0} 个图钉` : b.kind === 'sources' ? `参考来源 ${b.sources?.length ?? 0} 条` : b.kind === 'canvas' ? `画布 · ${b.items?.length ?? 0} 样东西、${b.links?.length ?? 0} 条连线` : b.kind === 'tree' ? `关系树 · ${b.nodes?.length ?? 0} 个节点` : b.kind === 'statpanel' && b.panel ? describeStatPanel(b.panel) : ''}${b.hidden ? '（仅成员可见）' : ''}`).join('  |  ')).join('\n') || '无'
   return typeof value[key] === 'string' ? value[key] || '空' : JSON.stringify(value[key], null, 2)
 }
 
@@ -478,6 +507,12 @@ async function addBlock(kind: BlockKind, anchorId: string | null, where: Where) 
     if (live) live.sources = [{ id: newId('s'), title: '', url: '', note: '' }]
     await nextTick()
     el?.querySelector<HTMLInputElement>('.src-title-input')?.focus({ preventScroll: true })
+  } else if (kind === 'tree') {
+    // 关系树：先放一个最上层的节点，直接就能写名字
+    const live = findBlock(form.value.layout, block.id)?.block
+    if (live) live.nodes = [{ id: newId('n') }]
+    await nextTick()
+    el?.querySelector<HTMLInputElement>('.tr-label-input')?.focus({ preventScroll: true })
   }
 }
 
@@ -493,6 +528,10 @@ function blockFilled(block: LayoutBlock) {
   if (block.kind === 'media') return Boolean(block.images?.length)
   if (block.kind === 'map') return Boolean(block.image || block.pins?.length)
   if (block.kind === 'sources') return Boolean(block.sources?.some(s => s.title?.trim() || s.url?.trim()))
+  if (block.kind === 'canvas') return Boolean(block.items?.length)
+  if (block.kind === 'tree') return Boolean(block.nodes?.some(n => n.cardId || n.label?.trim()))
+  // 能力面板一建好就有维度和值，删之前都问一句；不认识的区块也问（里面可能有内容）
+  if (block.kind === 'statpanel' || block.kind === 'unknown') return true
   return KIND_FIELD[block.kind]?.() ?? false
 }
 async function deleteBlock(block: LayoutBlock) {
@@ -564,6 +603,10 @@ const handleSave = async () => {
   })
 }
 
+// 从柴圈 OC 更新了条目（服务器上已经改好、记了修改记录）：重新读一遍，编辑器里显示最新内容。
+// 只有没有未保存的修改时才能同步，所以重新读不会丢东西
+function onOcSynced() { void loadCardData(props.cardData) }
+
 const handleDelete = async () => {
   await editorHandleDelete(() => {
     emit('deleted')
@@ -596,6 +639,18 @@ watch(
 
 <style scoped>
 @import './CardEditor.css';
+.rel-dock { position: relative; margin: 8px 0 24px; padding: 12px 14px 14px; border: 1px solid var(--border-line); background:
+  linear-gradient(90deg, var(--accent-color) 0 2px, transparent 2px) 0 0 / 100% 1px no-repeat,
+  repeating-linear-gradient(135deg, transparent 0 10px, color-mix(in srgb, var(--signal-mint) 5%, transparent) 10px 11px), var(--paper-card); }
+.rel-dock::before { content: ''; position: absolute; left: -1px; top: -1px; width: 36px; height: 2px; background: var(--accent-color); }
+.rel-dock-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.rel-dock-tag { padding: 1px 7px; font: 10px/1.6 var(--font-mono, monospace); letter-spacing: .14em; background: var(--inverse-bg); color: var(--inverse-text); border-left: 2px solid var(--signal-mint); }
+.rel-dock-name { font-weight: 600; font-size: 14px; }
+.rel-dock-count { margin-left: auto; font: 11px var(--font-mono, monospace); color: var(--text-secondary); letter-spacing: .04em; }
+.rel-dock-body { display: grid; gap: 12px; }
+.rel-dock-col { min-width: 0; }
+.rel-dock-label { display: block; margin-bottom: 6px; font: 600 12px/1.4 var(--font-mono, monospace); letter-spacing: .06em; color: var(--text-secondary); }
+.rel-dock-body > .rel-dock-col + .rel-dock-col { padding-top: 12px; border-top: 1px dashed var(--border-line); }
 .editor-fields { min-width: 0; border: 0; padding: 0; margin: 0; }
 .quick-types { display: flex; flex-wrap: wrap; gap: 6px; }.quick-types button { border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); padding: 4px 12px; font: inherit; font-size: 13px; cursor: pointer; }.quick-types button[aria-pressed=true] { border-color: var(--accent-color); background: var(--accent-soft); color: var(--accent-color); }
 .entry-type { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }

@@ -225,7 +225,7 @@ const submitGovernance = async () => {
   if (targetWork.value && await updateWork(targetWork.value, { ...editForm.value })) closeModal();
 };
 const handleDelete = async (work: GalleryDto) => {
-  if (submitting.value || !confirm('确定永久删除《' + work.title + '》吗？此操作不可撤销。')) return;
+  if (submitting.value || !confirm('确定永久删除《' + work.title + '》吗？\n作品、图片、评论、点赞收藏会一起删除，不能恢复；作者会收到通知，灵脉原稿保留。\n只是暂时不让人看到的话，把状态改成「已隐藏」就行。')) return;
   submitting.value = true;
   error.value = '';
   try {

@@ -1,23 +1,23 @@
 <template>
-  <div class="community-detail my-battles">
-    <div class="page-header">
-      <div class="header-left">
-        <button class="back-btn" @click="goBack">← 返回</button>
-        <div>
-          <h1 class="page-title">📋 我的约战</h1>
-          <p class="page-subtitle">管理你发起和参与的约战</p>
-        </div>
+  <div class="my-battles content-page community-surface tone-chai">
+    <header class="content-header">
+      <div>
+        <button class="back-btn" @click="goBack">← 约战广场</button>
+        <h1>我的约战</h1>
+        <p class="intro">你发起和参与的约战都在这里：看看哪场该交作品、哪场等你录结果。</p>
       </div>
-      <router-link to="/battles/create" class="btn-primary">
-        ＋ 发起约战
-      </router-link>
-    </div>
+      <div class="content-actions">
+        <router-link to="/battles/create" class="primary">发起约战</router-link>
+      </div>
+    </header>
 
     <!-- Tab 切换 -->
-    <div class="tab-bar">
+    <div class="tab-bar" role="tablist" aria-label="我发起的 / 我参与的">
       <button
         v-for="tab in tabs"
         :key="tab.key"
+        role="tab"
+        :aria-selected="currentTab === tab.key"
         :class="['tab-btn', { active: currentTab === tab.key }]"
         @click="switchTab(tab.key)"
       >
@@ -26,73 +26,43 @@
       </button>
     </div>
 
-    <!-- 状态筛选 -->
+    <!-- 状态筛选：和约战广场一样的一排按钮 -->
     <div class="filter-bar">
-      <select v-model="filterStatus" @change="fetchData">
-        <option value="">全部状态</option>
-        <option value="open">待应战</option>
-        <option value="ongoing">创作中</option>
-        <option value="judging">定夺中</option>
-        <option value="finished">已了结</option>
-        <option value="cancelled">已罢战</option>
-      </select>
+      <div class="content-filters" role="group" aria-label="按阶段筛选">
+        <button v-for="f in filters" :key="f.value" type="button" :aria-pressed="filterStatus === f.value" @click="filterStatus = f.value">{{ f.label }}</button>
+      </div>
     </div>
 
     <!-- 加载中 -->
-    <div v-if="loading" class="loading-state">
+    <div v-if="loading && !allBattles.length" class="state">
       <div class="spinner"></div>
       <span>加载中...</span>
     </div>
 
     <!-- 空状态 -->
-    <div v-else-if="!currentList.length" class="empty-state">
-      <p v-if="currentTab === 'initiated'">还没有发起的约战</p>
-      <p v-else>还没有参与的约战</p>
-      <router-link v-if="currentTab === 'initiated'" to="/battles/create" class="empty-link">
-        发起第一场约战
-      </router-link>
-      <router-link v-else to="/battles" class="empty-link">
-        浏览约战大厅
-      </router-link>
+    <div v-else-if="!currentList.length" class="state">
+      <template v-if="filterStatus">
+        <p>这个阶段没有{{ currentTab === 'initiated' ? '你发起的' : '你参与的' }}约战。</p>
+        <button class="state-btn" @click="filterStatus = ''">看全部</button>
+      </template>
+      <template v-else>
+        <p v-if="currentTab === 'initiated'">你还没有发起过约战。</p>
+        <p v-else>你还没有参与别人的约战。</p>
+        <router-link v-if="currentTab === 'initiated'" to="/battles/create" class="state-btn">发起第一场约战</router-link>
+        <router-link v-else to="/battles" class="state-btn">去约战广场看看</router-link>
+      </template>
     </div>
 
     <!-- 列表 -->
     <div v-else class="battle-list">
-      <div
+      <BattleCard
         v-for="item in currentList"
         :key="item.id"
-        class="battle-item"
-        @click="goDetail(item.id)"
-      >
-        <div class="item-cover">
-          <img v-if="item.coverUrl" :src="withThumbnail(item.coverUrl, 400)" alt="" />
-          <span v-else class="placeholder">⚔</span>
-        </div>
-        <div class="item-info">
-          <h3>{{ item.title }}</h3>
-          <div class="item-meta">
-            <span class="status" :class="item.status">
-              {{ statusMap[item.status] || item.status }}
-            </span>
-            <span class="type">{{ item.battleType || '自定义' }}</span>
-            <span class="judgment">
-              {{ item.judgmentType === 'vote' ? '投票制' : '内定制' }}
-            </span>
-            <!-- ⭐ 修改：从 participants 判断 -->
-            <span class="role">
-              {{ item.participants?.[0]?.userId === userId ? '👤 我发起的' : '✋ 我参与的' }}
-            </span>
-          </div>
-          <!-- ⭐ 修改：参与者信息 -->
-          <div class="item-opponents">
-            <span>参与者：{{ item.participants?.map(p => p.userName).join('、') || '无' }}</span>
-          </div>
-          <div class="item-time">{{ formatTime(item.createdAt) }}</div>
-        </div>
-        <div class="item-action">
-          <span>查看 →</span>
-        </div>
-      </div>
+        :battle="item"
+        :role="isMine(item) ? '我发起的' : '我参与的'"
+        :my-result="myResult(item)"
+        @open="goDetail"
+      />
     </div>
   </div>
 </template>
@@ -103,13 +73,18 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import { useBattleStore } from '../battle_Store'
 import type { Battle } from '../battle_api'
-import { withThumbnail } from '@/utils/imageThumb'
+import BattleCard from './BattleCard.vue'
+import { STATUS_LABEL, outcomeOf, resultLabel } from '../battleView'
 
 const router = useRouter()
 const userStore = useUserStore()
 const battleStore = useBattleStore()
 
-const userId = computed(() => userStore.userInfo?.id)
+// 「我」统一用 userStore.userId，不分大小写比较（以前用 userInfo.id 严格相等，个别情况下「我发起的」会是空的）
+const userId = computed(() => (userStore.userId || '').toLowerCase())
+const same = (id?: string | null) => !!userId.value && (id || '').toLowerCase() === userId.value
+/** 是不是我发起的：有 initiatorId 用它，没有就看第一个参与者 */
+const isMine = (b: Battle) => same(b.initiatorId || b.participants?.[0]?.userId)
 
 const currentTab = ref<'initiated' | 'participated'>('initiated')
 const filterStatus = ref('')
@@ -119,46 +94,35 @@ const tabs = [
   { key: 'participated', label: '我参与的' },
 ] as const
 
+// 状态名和约战广场、详情页统一
+const filters = [
+  { value: '', label: '全部' },
+  ...(['open', 'ongoing', 'judging', 'finished', 'cancelled'] as const).map(v => ({ value: v, label: STATUS_LABEL[v] })),
+]
+
 const allBattles = computed(() => battleStore.myBattles)
 const loading = computed(() => battleStore.myBattlesLoading)
 
-const statusMap: Record<string, string> = {
-  open: '待应战',
-  ongoing: '创作中',
-  judging: '定夺中',
-  finished: '已了结',
-  cancelled: '已罢战',
-}
-
 // ===== 当前列表（根据 Tab + 状态筛选） =====
 const currentList = computed(() => {
-  let list = allBattles.value
-
-  // 根据 Tab 筛选：判断第一个参与者是否是当前用户
-  if (currentTab.value === 'initiated') {
-    list = list.filter(item => item.participants?.[0]?.userId === userId.value)
-  } else {
-    list = list.filter(item => item.participants?.[0]?.userId !== userId.value)
-  }
-
+  let list = currentTab.value === 'initiated' ? initiatedList.value : participatedList.value
   // 根据状态筛选
   if (filterStatus.value) {
     list = list.filter(item => item.status === filterStatus.value)
   }
-
-  return [...list].sort((a, b) => {
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  })
+  return [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
 })
 
 // ===== 计算各 Tab 数量 =====
-const initiatedList = computed(() =>
-  allBattles.value.filter(item => item.participants?.[0]?.userId === userId.value)
-)
+const initiatedList = computed(() => allBattles.value.filter(item => isMine(item)))
+const participatedList = computed(() => allBattles.value.filter(item => !isMine(item)))
 
-const participatedList = computed(() =>
-  allBattles.value.filter(item => item.participants?.[0]?.userId !== userId.value)
-)
+/** 我在这场的结果（结束了才显示） */
+function myResult(b: Battle): string {
+  if (b.status !== 'finished') return ''
+  const me = b.participants?.find(p => same(p.userId))
+  return me ? resultLabel(me.result, outcomeOf(b)) : ''
+}
 
 // ===== 加载数据 =====
 const fetchData = async () => {
@@ -168,16 +132,6 @@ const fetchData = async () => {
 function switchTab(tab: 'initiated' | 'participated') {
   currentTab.value = tab
   fetchData()
-}
-
-function formatTime(iso: string) {
-  const d = new Date(iso)
-  const now = new Date()
-  const diff = Math.floor((now.getTime() - d.getTime()) / 86400000)
-  if (diff === 0) return '今天'
-  if (diff === 1) return '昨天'
-  if (diff < 7) return `${diff} 天前`
-  return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
 
 function goBack() {
@@ -193,299 +147,32 @@ onMounted(() => {
 })
 </script>
 
-
-
 <style scoped>
-.my-battles {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 32px 20px 60px;
-  background: var(--bg-sub);
-  min-height: 100vh;
-  color: var(--text-primary);
-}
+.my-battles { padding: 0 20px 60px; }
+.back-btn { padding: 0; min-height: 0; border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 14px; cursor: pointer; }
+.back-btn:hover { color: var(--accent-color); }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  padding-bottom: 16px;
-  border-bottom: 2px solid var(--border-line);
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
+.tab-bar { display: flex; border-bottom: 1px solid var(--border-line); margin-bottom: 14px; }
+.tab-btn { display: flex; align-items: center; gap: 8px; padding: 10px 20px; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none; font: inherit; font-size: 15px; color: var(--text-secondary); cursor: pointer; }
+.tab-btn:hover { color: var(--text-primary); }
+.tab-btn.active { color: var(--text-primary); font-weight: 600; border-bottom-color: var(--accent-color); }
+.tab-count { padding: 0 7px; font: 600 12px/1.6 var(--font-display); color: var(--text-secondary); background: var(--bg-sub); }
+.tab-btn.active .tab-count { background: var(--accent-color); color: var(--on-accent); }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
+.filter-bar { margin-bottom: 16px; }
+.filter-bar .content-filters { flex-wrap: wrap; }
 
-.back-btn {
-  background: none;
-  border: none;
-  font-size: 15px;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-family: inherit;
-  padding: 4px 8px 4px 0;
-  transition: color 0.25s;
-}
-.back-btn:hover {
-  color: var(--text-primary);
-}
+.state { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 48px 20px; border: 1px dashed var(--border-line); background: var(--paper-card); color: var(--text-secondary); font-size: 14px; text-align: center; }
+.state p { margin: 0; }
+.state-btn { padding: 8px 18px; border: 1px solid var(--accent-color); background: var(--accent-color); color: var(--on-accent); font: inherit; font-size: 14px; text-decoration: none; cursor: pointer; }
+.spinner { width: 32px; height: 32px; border: 2px solid var(--border-line); border-top-color: var(--text-primary); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.page-title {
-  font-size: 24px;
-  font-weight: 400;
-  letter-spacing: 0.15em;
-  margin: 0 0 4px 0;
-  color: var(--text-primary);
-}
-
-.page-subtitle {
-  font-size: 14px;
-  color: var(--text-secondary);
-  letter-spacing: 0.08em;
-  margin: 0;
-}
-
-.btn-primary {
-  padding: 8px 20px;
-  border: 1px solid var(--text-primary);
-  background: var(--text-primary);
-  color: var(--bg-sub);
-  text-decoration: none;
-  font-size: 13px;
-  letter-spacing: 0.1em;
-  transition: all 0.3s;
-}
-.btn-primary:hover {
-  background: transparent;
-  color: var(--text-primary);
-}
-
-.tab-bar {
-  display: flex;
-  gap: 0;
-  border-bottom: 1px solid var(--border-line);
-  margin-bottom: 16px;
-}
-
-.tab-btn {
-  padding: 10px 24px;
-  background: none;
-  border: none;
-  font-family: inherit;
-  font-size: 14px;
-  letter-spacing: 0.1em;
-  color: var(--text-secondary);
-  cursor: pointer;
-  transition: all 0.3s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.tab-btn:hover {
-  color: var(--text-primary);
-}
-.tab-btn.active {
-  color: var(--text-primary);
-  border-bottom: 2px solid var(--accent-color);
-}
-
-.tab-count {
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--border-line);
-  padding: 0 8px;
-  border-radius: 0;
-}
-.tab-btn.active .tab-count {
-  background: var(--accent-color);
-  color: var(--on-accent);
-}
-
-.filter-bar {
-  margin-bottom: 20px;
-}
-
-.filter-bar select {
-  padding: 6px 14px;
-  border: 1px solid var(--border-line);
-  background: var(--paper-card);
-  font-family: inherit;
-  font-size: 13px;
-  color: var(--text-primary);
-  outline: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='%23999' d='M5 6L0 0h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 32px;
-  cursor: pointer;
-}
-.filter-bar select:focus {
-  border-color: var(--text-primary);
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 0;
-  gap: 16px;
-  color: var(--text-secondary);
-}
-
-.spinner {
-  width: 32px;
-  height: 32px;
-  border: 2px solid var(--border-line);
-  border-top-color: var(--text-primary);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-.empty-state {
-  padding: 60px 0;
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-.empty-state p {
-  margin: 0 0 12px 0;
-}
-
-.empty-link {
-  color: var(--accent-color);
-  text-decoration: none;
-  border-bottom: 1px solid var(--border-line);
-  padding-bottom: 2px;
-}
-.empty-link:hover {
-  border-color: var(--accent-color);
-}
-
-.battle-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.battle-item {
-  display: flex;
-  gap: 16px;
-  padding: 14px 18px;
-  border: 1px solid var(--border-line);
-  background: var(--paper-card);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.battle-item:hover {
-  border-color: var(--text-primary);
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-
-.item-cover {
-  flex-shrink: 0;
-  width: 64px;
-  height: 64px;
-  background: var(--bg-sub);
-  border-radius: 0;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.item-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.item-cover .placeholder {
-  font-size: 24px;
-  color: var(--accent-color);
-}
-
-.item-info {
-  flex: 1;
-  min-width: 0;
-}
-.item-info h3 {
-  font-size: 16px;
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  margin: 0 0 4px 0;
-  color: var(--text-primary);
-}
-
-.item-meta {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  font-size: 12px;
-}
-.item-meta .status {
-  padding: 0 10px;
-  border: 1px solid var(--border-line);
-}
-.item-meta .status.open { border-color: var(--success); color: var(--success); }
-.item-meta .status.ongoing { border-color: var(--warning); color: var(--warning); }
-.item-meta .status.judging { border-color: var(--warning); color: var(--warning); }
-.item-meta .status.finished { border-color: var(--text-secondary); color: var(--text-secondary); }
-.item-meta .status.cancelled { border-color: var(--danger); color: var(--danger); }
-
-.item-meta .type {
-  color: var(--text-secondary);
-}
-.item-meta .judgment {
-  color: var(--accent-color);
-}
-.item-meta .role {
-  color: var(--text-secondary);
-}
-
-.item-opponent {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-
-.item-time {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: 2px;
-}
-
-.item-action {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  padding-left: 12px;
-  font-size: 13px;
-  color: var(--border-line);
-  transition: color 0.2s;
-}
-.battle-item:hover .item-action {
-  color: var(--text-primary);
-}
+.battle-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 14px; }
 
 @media (max-width: 640px) {
-  .my-battles { padding: 20px 12px 40px; }
-  .page-header { flex-direction: column; align-items: flex-start; }
-  .header-left { flex-wrap: wrap; }
-  .btn-primary { width: 100%; text-align: center; }
-  .battle-item { flex-direction: column; }
-  .item-cover { width: 100%; height: 80px; }
-  .item-action { padding-left: 0; padding-top: 8px; border-top: 1px solid var(--border-line); justify-content: flex-end; }
-  .tab-btn { padding: 8px 16px; font-size: 13px; }
+  .my-battles { padding: 0 12px 40px; }
+  .tab-btn { flex: 1; justify-content: center; padding: 10px 8px; }
+  .filter-bar .content-filters button { flex: 1 1 auto; padding: 7px 10px; }
 }
 </style>

@@ -9,11 +9,12 @@
       <button class="btn-line" :disabled="isLoading" @click="loadHonorData">{{ isLoading ? '正在加载…' : '刷新榜单' }}</button>
     </header>
 
-    <!-- 榜单切换：经验榜（原有）、土豆榜、常胜将军榜、常败将军榜 -->
+    <!-- 榜单切换：经验榜（原有）、土豆榜、常胜将军榜、常败将军榜、资源贡献榜 -->
     <nav class="board-tabs" role="tablist" aria-label="榜单">
       <button v-for="b in BOARDS" :key="b.key" type="button" role="tab" :aria-selected="board === b.key" :class="{ on: board === b.key }" @click="board = b.key">{{ b.label }}</button>
     </nav>
-    <GameBoards v-if="board !== 'exp'" :board="board" />
+    <ResourceBoard v-if="board === 'resource'" />
+    <GameBoards v-else-if="board !== 'exp'" :board="board" />
 
     <template v-else>
     <div v-if="loadError" class="content-state" role="alert">榜单加载失败，请点击上方刷新重试。</div>
@@ -94,6 +95,7 @@
 import UserLink from '@/components/UserLink.vue'
 import SectionTrace from '@/components/SectionTrace.vue'
 import GameBoards from './GameBoards.vue'
+import ResourceBoard from './ResourceBoard.vue'
 import { ref, computed, onMounted } from 'vue';
 import request from '@/utils/request';
 
@@ -102,8 +104,9 @@ const BOARDS = [
   { key: 'potato', label: '🥔 土豆榜' },
   { key: 'wins', label: '🏅 常胜将军榜' },
   { key: 'losses', label: '🫠 常败将军榜' },
+  { key: 'resource', label: '📦 资源贡献' },
 ] as const;
-const board = ref<'exp' | 'potato' | 'wins' | 'losses'>('exp');
+const board = ref<'exp' | 'potato' | 'wins' | 'losses' | 'resource'>('exp');
 
 const isLoading = ref(true);
 const loadError = ref(false);

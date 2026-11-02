@@ -8,7 +8,7 @@ namespace TaiChuWeb_V2.Controllers
     public sealed class CommunityFeedItem
     {
         public string Id { get; set; } = "";
-        public string Kind { get; set; } = ""; // blog | post | artwork | wiki-new | wiki-update | user-joined | signin | comment-blog | comment-post | comment-artwork | comment-work | comment-character | comment-history | joint | survey | dev-project | world-new | world-edit | quest-start | quest-complete | history | chai-work | oc | battle | novel-new | novel-chapter | chronicle | activity | checkin | comment-activity | quest-report | news | release | must-eat | trade-item | sponsor
+        public string Kind { get; set; } = ""; // blog | post | artwork | wiki-new | wiki-update | user-joined | signin | comment-blog | comment-post | comment-artwork | comment-work | comment-character | comment-history | joint | survey | dev-project | world-new | world-edit | quest-start | quest-complete | history | chai-work | oc | battle | novel-new | novel-chapter | chronicle | activity | checkin | comment-activity | quest-report | news | release | must-eat | trade-item | sponsor | resource
         public string ActorName { get; set; } = "";
         public string? ActorId { get; set; } // 动态发起人的用户 ID，点击进入个人主页；官方动态为空
         public string TargetTitle { get; set; } = "";
@@ -27,8 +27,81 @@ namespace TaiChuWeb_V2.Controllers
         {
             offset = Math.Max(0, offset);
             limit = Math.Clamp(limit, 1, 50);
-            var takeCount = offset + limit + 1; // 多取一条用于判断是否还有下一页
+            var need = offset + limit + 1; // 多取一条用于判断是否还有下一页
 
+            var feed = await CachedFeedAsync(need);
+            var hasMore = feed.Count > offset + limit;
+            var page = feed.Skip(offset).Take(limit).ToList();
+            return Ok(new { items = page, hasMore });
+        }
+
+        // ===== 缓存：动态要查 50 多次数据库（每类各查一次，一次接一次），数据库在远处时一次要一两秒甚至更久。
+        // 合并排好的整条动态留在内存里，所有人、所有页（含「加载更多」）都直接切片，不再查库：
+        // · 算好后 FreshSeconds 秒内直接用；
+        // · 过了 FreshSeconds 秒但不到 StaleSeconds 秒：先把手上这份给出去（不让人等），后台另开一个数据库连接重新算一份换上；
+        // · 超过 StaleSeconds 秒、第一次、或者翻页翻得比缓存的还深：当场算（同一时间只让一个请求算，其他的等它算完直接用）。
+        // 每类各取 N 条再合并排序，前 N 条一定是准的，所以缓存时取的 N ≥ offset + limit + 1 就能直接用；一次按 FeedChunk 的整数倍多取一些。
+        private const int FreshSeconds = 20;
+        private const int StaleSeconds = 600;
+        private const int FeedChunk = 36;
+        private static readonly SemaphoreSlim FeedGate = new(1, 1);
+        /// <summary>算好的整条动态（一次整体替换，读的时候不会读到一半新一半旧）</summary>
+        private sealed record FeedSnapshot(List<CommunityFeedItem> Items, int Take, DateTime At);
+        private static volatile FeedSnapshot? _feed;
+        private static int _refreshing;
+
+        private async Task<List<CommunityFeedItem>> CachedFeedAsync(int need)
+        {
+            var cached = _feed;
+            if (cached != null && cached.Take >= need)
+            {
+                var age = DateTime.UtcNow - cached.At;
+                if (age < TimeSpan.FromSeconds(FreshSeconds)) return cached.Items;
+                if (age < TimeSpan.FromSeconds(StaleSeconds)) { RefreshInBackground(cached.Take); return cached.Items; }
+            }
+            await FeedGate.WaitAsync(HttpContext.RequestAborted);
+            try
+            {
+                cached = _feed;
+                if (cached != null && cached.Take >= need && DateTime.UtcNow - cached.At < TimeSpan.FromSeconds(FreshSeconds)) return cached.Items;
+                var take = Math.Max((need + FeedChunk - 1) / FeedChunk * FeedChunk, cached?.Take ?? 0);
+                var built = await BuildFeedAsync(take);
+                _feed = new FeedSnapshot(built, take, DateTime.UtcNow);
+                return built;
+            }
+            finally { FeedGate.Release(); }
+        }
+
+        /// <summary>后台重新算一份（这个请求结束后它的数据库连接就没了，所以另开一个作用域、另建一个控制器来算）。同一时间只算一份，出错就算了，下次再试</summary>
+        private void RefreshInBackground(int take)
+        {
+            if (Interlocked.Exchange(ref _refreshing, 1) == 1) return;
+            var scopes = HttpContext.RequestServices.GetRequiredService<IServiceScopeFactory>();
+            var logger = HttpContext.RequestServices.GetService<ILogger<CommunityController>>();
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var scope = scopes.CreateScope();
+                    var worker = new CommunityController(scope.ServiceProvider.GetRequiredService<AppDbContext>())
+                    {
+                        ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { RequestServices = scope.ServiceProvider } }
+                    };
+                    await FeedGate.WaitAsync();
+                    try
+                    {
+                        var built = await worker.BuildFeedAsync(take);
+                        _feed = new FeedSnapshot(built, take, DateTime.UtcNow);
+                    }
+                    finally { FeedGate.Release(); }
+                }
+                catch (Exception ex) { logger?.LogWarning(ex, "后台刷新社区动态失败（先继续用旧的）"); }
+                finally { Interlocked.Exchange(ref _refreshing, 0); }
+            });
+        }
+
+        private async Task<List<CommunityFeedItem>> BuildFeedAsync(int takeCount)
+        {
             // 1. 博客与帖子（仅公开）
             var blogPostRows = await db.PublishedNotes
                 .Where(n => n.Type == "blog" || n.Type == "post")
@@ -121,7 +194,7 @@ namespace TaiChuWeb_V2.Controllers
             var signins = (await db.UserSignLogs
                     .OrderByDescending(s => s.SignDate)
                     .Take(signLimit)
-                    .Join(db.Users, s => s.UserId, u => u.Id, (s, u) => new { s.UserId, s.SignDate, u.Username })
+                    .Join(db.Users, s => s.UserId, u => u.Id, (s, u) => new { s.UserId, s.SignDate, s.CreatedAt, u.Username })
                     .ToListAsync())
                 .Select(x => new CommunityFeedItem
                 {
@@ -131,7 +204,10 @@ namespace TaiChuWeb_V2.Controllers
                     ActorId = x.UserId.ToString(),
                     TargetTitle = "",
                     TargetId = x.UserId.ToString(),
-                    CreatedAt = x.SignDate
+                    // 用真正签到的时刻（UTC）。以前用的是 SignDate（北京时间的「日期」，零点），输出时没有时区，
+                    // 美国那边看就成了「今天零点」甚至「未来」，一直显示「刚刚」。
+                    // 老记录没有可信的 CreatedAt 时，按北京时间当天零点换算成 UTC
+                    CreatedAt = SignedAt(x.SignDate, x.CreatedAt)
                 })
                 .ToList();
 
@@ -361,16 +437,26 @@ namespace TaiChuWeb_V2.Controllers
             var moreItems = await MoreFeedAsync(takeCount);
 
             var feed = blogPosts.Concat(artworks).Concat(wikiItems).Concat(newUsers).Concat(signins).Concat(commentItems).Concat(joints).Concat(surveys).Concat(devProjects).Concat(worldItems).Concat(questItems).Concat(historyItems).Concat(historyCommentItems).Concat(moreItems)
-                .OrderByDescending(i => i.CreatedAt)
                 .ToList();
-
-            var hasMore = feed.Count > offset + limit;
-            var page = feed.Skip(offset).Take(limit).ToList();
-
-            return Ok(new { items = page, hasMore });
+            // 只有日期、没有具体时刻的（正好零点：赞助日期、版本发布日期等，都是按北京时间填的日期）：
+            // 换成北京时间当天零点对应的 UTC 时刻再输出，否则各地浏览器会当成自己当地的零点，海外看就跑到「未来」、显示「刚刚」
+            foreach (var item in feed)
+                if (item.CreatedAt.Kind != DateTimeKind.Utc && item.CreatedAt.TimeOfDay == TimeSpan.Zero)
+                    item.CreatedAt = DateTime.SpecifyKind(item.CreatedAt - China, DateTimeKind.Utc);
+            // 缓存里的是共用的：排好序后不再改动里面的条目
+            return feed.OrderByDescending(i => i.CreatedAt).ToList();
         }
 
         private static readonly TimeSpan China = TimeSpan.FromHours(8);
+
+        /// <summary>签到的实际时刻：签到记录的 CreatedAt（UTC）落在这个北京日期之内就用它，否则用北京时间当天零点（换成 UTC）</summary>
+        private static DateTime SignedAt(DateTime signDate, DateTime createdAt)
+        {
+            var dayStartUtc = signDate.Date - China;
+            return createdAt >= dayStartUtc && createdAt < dayStartUtc.AddDays(1)
+                ? DateTime.SpecifyKind(createdAt, DateTimeKind.Utc)
+                : DateTime.SpecifyKind(dayStartUtc, DateTimeKind.Utc);
+        }
         private static string Clip(string? text, int max)
         {
             var t = System.Text.RegularExpressions.Regex.Replace(text ?? "", @"\s+", " ").Trim();
@@ -589,6 +675,21 @@ namespace TaiChuWeb_V2.Controllers
                 Id = "sponsor:" + s.Id, Kind = "sponsor", ActorName = s.IsAnonymous || string.IsNullOrWhiteSpace(s.Name) ? "一位匿名支持者" : s.Name,
                 TargetTitle = s.Tier, TargetId = s.Id.ToString(), CreatedAt = s.SponsoredAt,
             }));
+
+            // 知识库资源：审核通过、公开的用户上传资源（表是启动时建的，用资源服务自己的连接查；没注册或出错就跳过，不影响别的动态）
+            var resourceStore = HttpContext.RequestServices.GetService<TaiChuWeb_V2.Services.Resources.CommunityResourceStore>();
+            if (resourceStore != null)
+            {
+                try
+                {
+                    foreach (var r in await resourceStore.RecentPublishedAsync(takeCount, HttpContext.RequestAborted))
+                    {
+                        var item = new CommunityFeedItem { Id = "resource:" + r.Id, Kind = "resource", TargetTitle = r.Title, TargetId = r.Id.ToString(), CreatedAt = r.PublishedAt, Detail = "（" + r.Category + "）" };
+                        items.Add(item); pending.Add((item, r.UploaderId));
+                    }
+                }
+                catch (Exception) { /* 资源表还没建好等情况：这一类动态先不显示 */ }
+            }
 
             // 统一补上用户名
             foreach (var (_, uid) in pending) if (uid.HasValue) userIds.Add(uid.Value);

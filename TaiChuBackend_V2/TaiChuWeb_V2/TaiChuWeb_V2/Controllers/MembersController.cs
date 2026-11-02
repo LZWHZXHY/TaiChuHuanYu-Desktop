@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -11,7 +12,8 @@ namespace TaiChuWeb_V2.Controllers
     /// 社区成员列表 + 在线人数（任何人都能看，包括未登录访客）。
     /// 在线 = 最近 5 分钟内出现过（登录用户的任何请求、页面每分钟的心跳都算，见 PresenceTracker）。
     /// 列表里在线的人排在最前面，后面是其他成员（可以按加入时间、等级、名字排）。
-    /// 只返回公开资料：名字、头像、等级、加入时间、在线 / 最近来过；不含邮箱等私人信息。
+    /// 只返回公开资料：名字、头像、等级、加入时间、在线 / 最近来过 / 正在看哪个板块；不含邮箱等私人信息。
+    /// 隐身的人（PresenceTracker.IsInvisible）：别人看来不在线、没有「最近来过」；在线人数里还算，但不知道是谁。自己看自己照常显示。
     /// </summary>
     [ApiController]
     [Route("api/members")]
@@ -25,8 +27,11 @@ namespace TaiChuWeb_V2.Controllers
         public IActionResult OnlineCount()
         {
             var (members, guests) = tracker.Snapshot();
-            return Ok(new { members = members.Count, guests, total = members.Count + guests });
+            var hidden = members.Count(m => tracker.IsInvisible(m.UserId));
+            return Ok(new { members = members.Count - hidden, hidden, guests, total = members.Count + guests });
         }
+
+        private Guid? CurrentUserId => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
 
         /// <summary>
         /// 成员列表。sort：joined 新加入的在前（默认）/ old 老成员在前 / level 等级高的在前 / name 按名字。
@@ -37,7 +42,11 @@ namespace TaiChuWeb_V2.Controllers
         {
             page = Math.Max(1, page);
             pageSize = Math.Clamp(pageSize, 12, 100);
-            var (online, guests) = tracker.Snapshot();
+            var (allOnline, guests) = tracker.Snapshot();
+            // 隐身的人不算进「在线的成员」（自己除外）
+            var me = CurrentUserId;
+            var online = allOnline.Where(o => !tracker.IsInvisible(o.UserId) || o.UserId == me).ToList();
+            var hidden = allOnline.Count - online.Count;
             var onlineIds = online.Select(o => o.UserId).Distinct().ToList();
             var onlineAt = online.GroupBy(o => o.UserId).ToDictionary(g => g.Key, g => g.Max(o => o.LastUtc));
 
@@ -73,14 +82,16 @@ namespace TaiChuWeb_V2.Controllers
 
             // 不在线的人：最后一次来是什么时候（统计表读不出来也不影响列表）
             var lastSeen = new Dictionary<Guid, DateTime>();
-            var offline = items.Where(i => !onlineAt.ContainsKey(i.Id)).Select(i => i.Id).ToList();
+            var offline = items.Where(i => !onlineAt.ContainsKey(i.Id) && (!tracker.IsInvisible(i.Id) || i.Id == me)).Select(i => i.Id).ToList();
             try { lastSeen = await store.LastSeenOfAsync(offline); }
             catch (Exception ex) { logger.LogWarning(ex, "读取成员最近来访时间失败"); }
 
             return Ok(new
             {
                 total,
-                online = new { members = online.Count, guests, total = online.Count + guests, matched = onlineRows.Count },
+                online = new { members = online.Count, hidden, guests, total = allOnline.Count + guests, matched = onlineRows.Count },
+                // 我自己是不是隐身（没登录是 null）
+                meInvisible = me is Guid self ? tracker.IsInvisible(self) : (bool?)null,
                 items = items.Select(r => new
                 {
                     r.Id,
@@ -90,6 +101,9 @@ namespace TaiChuWeb_V2.Controllers
                     JoinedAt = r.CreatedAt,
                     Online = onlineAt.ContainsKey(r.Id),
                     LastSeenAt = onlineAt.TryGetValue(r.Id, out var at) ? at : lastSeen.TryGetValue(r.Id, out var seen) ? seen : (DateTime?)null,
+                    // 正在看哪个板块（只有在线、没隐身的人有）
+                    Section = onlineAt.ContainsKey(r.Id) && !tracker.IsInvisible(r.Id) ? tracker.SectionOf(r.Id) : null,
+                    Invisible = r.Id == me && tracker.IsInvisible(r.Id),
                 }),
                 hasMore = offset + items.Count < total,
             });

@@ -60,7 +60,7 @@ const submit = async () => {
     // 保留登录后的重新加载，清理各业务模块中上一个账号的缓存。
     window.location.reload()
   } catch (error) {
-    errorMsg.value = getErrorMessage(error, '接入失败，请检查账号和密码')
+    errorMsg.value = getErrorMessage(error, '登录失败，请检查名号（或邮箱）和密码')
   } finally {
     isSubmitting.value = false
   }

@@ -63,6 +63,11 @@
           </div>
         </div>
 
+        <div class="hc-field">
+          <span>提到谁 <small>可选；被提到的人会收到通知，在「和 TA 有关的」里也能看到这一段</small></span>
+          <HistoryMentionPicker v-model="people" />
+        </div>
+
         <p v-if="!editing" class="hc-notice">
           所有人（包括没登录的访客）都能看到。群聊截图里如果有不想露出来的名字、头像、联系方式，记得先打码。
           发出去以后<b>只能删除，不能修改</b>（发错了就删掉重发）。
@@ -83,6 +88,7 @@
 import { computed, ref } from 'vue'
 import { historyApi, errorText, KIND_META, type HistoryEntry, type HistoryInput } from '@/api/history'
 import { useCos } from '@/composables/useCos'
+import HistoryMentionPicker, { type MentionPerson } from './HistoryMentionPicker.vue'
 
 const props = defineProps<{ entry?: HistoryEntry | null }>()
 const emit = defineEmits<{ close: []; saved: [entry: HistoryEntry] }>()
@@ -99,7 +105,9 @@ const form = ref<HistoryInput>({
   happenedOn: props.entry?.happenedOn ?? today,
   precision: props.entry?.precision ?? 'day',
 })
-const initial = JSON.stringify(form.value)
+/** 这一段提到了谁 */
+const people = ref<MentionPerson[]>((props.entry?.mentions ?? []).map(m => ({ id: m.id, username: m.username })))
+const initial = JSON.stringify([form.value, people.value])
 const busy = ref(false)
 const error = ref('')
 const dragging = ref(false)
@@ -164,7 +172,7 @@ async function submit() {
   if (!editing.value && !window.confirm('发出去以后所有人都能看到，自己只能删除不能修改。确定记下来？')) return
   busy.value = true
   try {
-    const body = { ...f, title: f.title.trim(), content: f.content.trim() }
+    const body = { ...f, title: f.title.trim(), content: f.content.trim(), mentions: people.value.map(p => p.id) }
     const saved = props.entry ? await historyApi.edit(props.entry.id, body) : await historyApi.create(body)
     emit('saved', saved)
   } catch (e) {
@@ -172,7 +180,7 @@ async function submit() {
   } finally { busy.value = false }
 }
 function tryClose() {
-  if (JSON.stringify(form.value) !== initial && !window.confirm('写的内容还没保存，确定关掉？')) return
+  if (JSON.stringify([form.value, people.value]) !== initial && !window.confirm('写的内容还没保存，确定关掉？')) return
   emit('close')
 }
 </script>

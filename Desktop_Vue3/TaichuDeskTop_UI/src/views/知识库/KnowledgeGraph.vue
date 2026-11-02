@@ -17,6 +17,8 @@
             <i></i><span>{{ n.title || '未知节点' }}</span><small>{{ typeLabel(n.type || 'default') }}</small>
           </button>
           <p v-if="searchMatches.length > 80" class="kg-hits-more">还有 {{ searchMatches.length - 80 }} 个，星图里都已显示</p>
+          <!-- 列表能搜到、但图谱里没有对应节点的（设定条目、公告、必吃榜……或者太旧没进图谱的），引导去列表看 -->
+          <button v-if="listOnlyCount > 0" type="button" class="kg-hits-list" @click="openInList">还有 {{ listOnlyCount }} 条在列表里（图谱里没有对应节点），点这里去列表看 →</button>
         </div>
       </form>
       <div class="kg-types" role="group" aria-label="按类型筛选">
@@ -51,17 +53,19 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import type { GraphEdgeDto, GraphNode, GraphNodeDto } from './types'
 import { useKnowledgeGraphData } from './useKnowledgeGraphData'
 import GraphDetailsPanel from './GraphDetailsPanel.vue'
 import SpatialWorldGraph from '@/views/世界观管理/世界观组件/SpatialWorldGraph.vue'
 import type { Formation } from '@/views/世界观管理/世界观组件/particleWorld'
 import request from '@/utils/request'
+import { folderText, priceText, resourceApi } from '@/api/resources'
 
 const FORMATIONS: Formation[] = ['system', 'neural', 'galaxy', 'constellation', 'tree', 'network', 'sphere', 'helix']
 const TYPE_LABELS: Record<string, string> = {
   character: '角色', location: '地点', concept: '概念', event: '事件', organization: '组织', blog: '博客', post: '帖子',
-  wiki: '百科', setting: '设定', folder: '文件夹', file: '资源文件', default: '节点',
+  wiki: '百科', setting: '设定', folder: '文件夹', file: '资源文件', resource: '社区资源', default: '节点',
   author: '创作者', artwork: '画廊作品', world: '世界观', novel: '小说', work: '柴圈作品', oc: '柴圈人设',
 }
 const typeLabel = (t: string) => TYPE_LABELS[t] ?? t
@@ -73,10 +77,10 @@ const NEURAL_LAYERS = [
   { label: '作品', types: ['artwork', 'work', 'novel'] },
   { label: '文章', types: ['wiki', 'blog', 'post'] },
   { label: '其他', types: [] },
-  { label: '可下载资源', types: ['folder', 'file'], output: true },
+  { label: '可下载资源', types: ['folder', 'file', 'resource'], output: true },
 ]
 const SHAPES: Record<string, string> = {
-  blog: 'cloud', post: 'burst', wiki: 'sphere', setting: 'torus', concept: 'torus', folder: 'cube', file: 'crystal', organization: 'cube',
+  blog: 'cloud', post: 'burst', wiki: 'sphere', setting: 'torus', concept: 'torus', folder: 'cube', file: 'crystal', resource: 'crystal', organization: 'cube',
   location: 'planet', event: 'burst', character: 'sphere', author: 'planet', artwork: 'crystal', world: 'planet', novel: 'disc', work: 'burst', oc: 'sphere',
 }
 // 创作者连线不写字（太多会糊成一片），其他关系显示名字
@@ -105,24 +109,42 @@ function toggleType(t: string) {
 
 const nodeById = computed(() => new Map(rawNodes.value.map(n => [n.id, n])))
 const toGraphNode = (n: GraphNodeDto): GraphNode => ({ id: n.id, name: n.title || '未知节点', type: n.type || 'default', val: 1, color: getTheme(n.type).color, coverImage: n.coverImage, description: '', route: n.route, _nasPath: n._nasPath })
-// ---------- 搜索：包含关键词的节点全部显示 ----------
+// ---------- 搜索：和知识库列表用同一套规则 ----------
+// 后端 Graph/search 和列表（catalog）共用匹配逻辑，返回列表能搜到的内容对应的图谱节点 ID，以它为准；
+// 前端自己拼的节点（创作者、NAS 文件夹 / 文件、社区资源）不在列表的 catalog 里，按同样的规则在本地匹配：
+// 关键词按空格分开（最多 10 个），每个词都要出现，不分大小写；资源节点搜的字段和资源列表一样（标题、介绍、标签、文件名、上传者、分类、位置 / 文件路径）。
 const appliedQuery = ref('')
 const showHits = ref(true)
 const serverHits = ref(new Set<string>())
 const serverSearching = ref(false)
+/** 后端结果到了（旧后端没有这个接口时一直是 false，只用本地匹配） */
+const serverReady = ref(false)
+/** 列表一共能搜到多少条（不含下载资源和笔刷，它们在列表里单独列） */
+const listTotal = ref(0)
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 let searchVersion = 0
-const queryTerms = computed(() => appliedQuery.value.toLowerCase().split(/\s+/).filter(Boolean))
-/** 本地先按标题 / 简介匹配（马上出结果），再合并后端查到的正文命中 */
+const queryTerms = computed(() => appliedQuery.value.toLowerCase().split(' ').filter(Boolean).slice(0, 10))
+/** 不在列表 catalog 里、由前端自己拼出来的节点 */
+const isLocalOnly = (id: string) => id === 'virtual_nas_hub' || id.startsWith('author:') || id.startsWith('folder_') || id.startsWith('nas_file_') || id.startsWith('resource_')
+const localMatch = (n: GraphNodeDto, terms: string[]) => {
+  const text = `${n.title || ''} ${n.description || ''} ${n.searchText || ''}`.toLowerCase()
+  return terms.every(t => text.includes(t))
+}
+/** 后端结果没到之前先用本地匹配（马上有结果）；到了以后列表里有的内容以后端为准 */
 const searchMatches = computed(() => {
   const terms = queryTerms.value
   if (!terms.length) return []
-  return rawNodes.value.filter(n => {
-    if (serverHits.value.has(n.id.toLowerCase())) return true
-    const text = `${n.title || ''} ${n.description || ''}`.toLowerCase()
-    return terms.every(t => text.includes(t))
-  })
+  return rawNodes.value.filter(n => (isLocalOnly(n.id) || !serverReady.value) ? localMatch(n, terms) : serverHits.value.has(n.id.toLowerCase()))
 })
+/** 列表能搜到、但图谱里没有对应节点的条数 */
+const listOnlyCount = computed(() => {
+  if (!serverReady.value || !appliedQuery.value) return 0
+  const inGraph = rawNodes.value.filter(n => !isLocalOnly(n.id) && serverHits.value.has(n.id.toLowerCase())).length
+  return Math.max(0, listTotal.value - inGraph)
+})
+const router = useRouter()
+/** 去列表看同一个关键词的结果 */
+function openInList() { void router.push({ name: 'KnowledgeHome', query: { q: appliedQuery.value } }) }
 const matchIds = computed(() => new Set(searchMatches.value.map(n => n.id)))
 
 function onSearchInput() {
@@ -136,10 +158,17 @@ function applySearch(raw: string) {
   focusId.value = ''
   const version = ++searchVersion
   serverHits.value = new Set()
+  serverReady.value = false
+  listTotal.value = 0
   if (!q) { serverSearching.value = false; return }
   serverSearching.value = true
-  request.get<{ ids: string[] }>('/knowledge-base/Graph/search', { params: { q }, silentError: true })
-    .then(res => { if (version === searchVersion) serverHits.value = new Set((res?.ids ?? []).map(id => String(id).toLowerCase())) })
+  request.get<{ ids: string[]; listTotal?: number }>('/knowledge-base/Graph/search', { params: { q }, silentError: true })
+    .then(res => {
+      if (version !== searchVersion) return
+      serverHits.value = new Set((res?.ids ?? []).map(id => String(id).toLowerCase()))
+      listTotal.value = res?.listTotal ?? 0
+      serverReady.value = true
+    })
     .catch(() => { /* 旧后端没有正文搜索：只用标题和简介 */ })
     .finally(() => { if (version === searchVersion) serverSearching.value = false })
 }
@@ -335,23 +364,39 @@ onMounted(async () => {
   const graphNodes: GraphNodeDto[] = [...res.nodes]
   const graphEdges: GraphEdgeDto[] = [...res.edges]
 
+  // 官方资源和社区资源共用同一个「资源中枢」和同一套文件夹节点（id = folder_路径）
+  const rootHubId = 'virtual_nas_hub'
+  let hubCreated = false
+  const ensureHub = () => {
+    if (hubCreated) return
+    hubCreated = true
+    graphNodes.push({ id: rootHubId, title: '太初资源中枢', type: 'organization', size: 15, coverImage: null })
+  }
+  // 用一个 Set 记录已经创建过的文件夹路径，避免重复生成相同的文件夹节点
+  const createdFolders = new Set<string>()
+  /** 确保「a/b/c」这一串文件夹节点都在，返回最里层文件夹的节点 id（空路径返回资源中枢） */
+  const ensureFolderPath = (path: string) => {
+    ensureHub()
+    let parent = rootHubId
+    const parts = path.split('/').filter(Boolean)
+    for (let i = 0; i < parts.length; i++) {
+      const folderId = `folder_${parts.slice(0, i + 1).join('/')}`
+      if (!createdFolders.has(folderId)) {
+        createdFolders.add(folderId)
+        graphNodes.push({ id: folderId, title: parts[i] ?? '', type: 'folder', size: 8, coverImage: null })
+        graphEdges.push({ id: `edge_${parent}_${folderId}`, source: parent, target: folderId, relationType: 'DIR_LINK' })
+      }
+      parent = folderId
+    }
+    return parent
+  }
+
   try {
     const nasRes: any = await request.get('/Resource/list')
 
     if (nasRes.success && nasRes.data && nasRes.data.length > 0) {
-      const rootHubId = 'virtual_nas_hub'
-
       // 1. 创建最顶层的“资源中枢”节点
-      graphNodes.push({
-        id: rootHubId,
-        title: '太初资源中枢',
-        type: 'organization',
-        size: 15,
-        coverImage: null
-      })
-
-      // 用一个 Set 记录已经创建过的文件夹路径，避免重复生成相同的文件夹节点
-      const createdFolders = new Set<string>()
+      ensureHub()
 
       // 2. 遍历并解析所有文件的层级路径
       nasRes.data.forEach((file: any, index: number) => {
@@ -404,6 +449,8 @@ onMounted(async () => {
           size: 4,
           // 👇 取消 description 的赋值，直接强行注入一个自定义属性 _nasPath
           _nasPath: file.name,
+          // 和资源列表搜官方资源的字段一样：完整路径 + 「官方」
+          searchText: `${file.name} 官方`,
           coverImage: null
         })
 
@@ -418,6 +465,26 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error('NAS 资源拉取失败，跳过渲染:', error)
+  }
+
+  // 社区资源（用户上传、审核通过的）：按「位置」挂到和官方资源同一套文件夹节点下。
+  // 点开走站内资源详情（route），不走 _nasPath 匿名下载——付费、计数都在详情里处理。
+  try {
+    const res = await resourceApi.list({ kind: 'community', pageSize: 1000 })
+    for (const r of res.items) {
+      const parent = ensureFolderPath(r.folder || r.category)
+      const id = `resource_${r.id}`
+      const uploader = r.uploader?.name ?? ''
+      graphNodes.push({
+        id, title: r.title, type: 'resource', size: 4, coverImage: null,
+        description: `社区资源 · ${r.category} · ${priceText(r.price)}${uploader ? ` · ${uploader} 上传` : ''} · 位置：${folderText(r.folder)}${r.description ? `\n${r.description}` : ''}`,
+        searchText: [r.tags.join(' '), r.fileName, uploader, r.category, r.folder].join(' '),
+        route: `/knowledge?type=resource&res=${encodeURIComponent(r.id)}`,
+      })
+      graphEdges.push({ id: `edge_${parent}_${id}`, source: parent, target: id, relationType: 'FILE_LINK' })
+    }
+  } catch (error) {
+    console.error('社区资源拉取失败，跳过渲染:', error)
   }
 
   if (disposed) return
@@ -444,6 +511,8 @@ onBeforeUnmount(() => { disposed = true; clearTimeout(searchTimer); searchVersio
 .kg-hit span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .kg-hit small { flex-shrink: 0; color: var(--text-secondary); font-size: 11px; }
 .kg-hits-more { margin: 6px 4px 2px; font-size: 11px; color: var(--text-secondary); }
+.kg-hits-list { display: block; width: 100%; margin-top: 6px; padding: 8px; border: 1px dashed var(--border-line); background: none; color: var(--accent-color); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+.kg-hits-list:hover, .kg-hits-list:focus-visible { border-color: var(--accent-color); }
 .kg-search > input { width: 200px; padding: 6px 10px; border: 1px solid var(--border-line); background: var(--bg-main); color: var(--text-primary); font: inherit; font-size: 13px; }
 .kg-search > button { padding: 6px 12px; border: 1px solid var(--accent-color); border-left: 0; background: var(--accent-color); color: var(--on-accent, #fff); font: inherit; font-size: 13px; cursor: pointer; }
 .kg-types { display: flex; flex-wrap: wrap; gap: 4px; }

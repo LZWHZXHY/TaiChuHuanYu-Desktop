@@ -6,7 +6,8 @@
       <button v-if="stack.length > 1" type="button" class="cpane-btn" title="返回上一个" aria-label="返回上一个" @click="stack.pop()">‹</button>
       <span class="cpane-title" :title="detail?.title || summary?.title || ''">{{ detail?.title || summary?.title || '条目' }}</span>
       <button type="button" class="cpane-btn wide" title="在主窗口打开（可以编辑）" @click="$emit('main', currentId)">主窗口</button>
-      <button type="button" class="cpane-btn" :title="wide ? '恢复宽度' : '加宽这个窗格'" :aria-pressed="wide" @click="$emit('toggle-wide')">{{ wide ? '⇤' : '⇥' }}</button>
+      <!-- wide：点过「加宽」，或者拖过分隔线调了宽度；这时按钮就是「恢复默认宽度」 -->
+      <button type="button" class="cpane-btn" :title="wide ? '恢复默认宽度' : '加宽这个窗格（也可以拖左边的分隔线）'" :aria-label="wide ? '恢复默认宽度' : '加宽这个窗格'" :aria-pressed="wide" @click="$emit('toggle-wide')">{{ wide ? '⇤' : '⇥' }}</button>
       <button type="button" class="cpane-btn" title="关闭这个窗格" aria-label="关闭这个窗格" @click="$emit('close')">×</button>
     </header>
     <div class="cpane-body">

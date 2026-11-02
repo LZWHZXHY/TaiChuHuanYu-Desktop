@@ -31,8 +31,9 @@ const router = createRouter({
     // 我的世界服务器「世界任务」：未登录可以看，提交贡献需要登录（页面内处理）
     // 世界任务在论坛「我的世界」版块的「世界任务」页签里；旧地址（通知、动态里的链接）跳过去
     { path: '/quests', name: 'ServerQuests', redirect: to => ({ name: 'CommunityStream', query: { tag: '我的世界', view: 'quests', ...(typeof to.query.tab === 'string' ? { tab: to.query.tab } : {}) } }) },
-    { path: '/dev-progress', name: 'DevProgress', component: () => import('@/views/开发进度/index.vue') },
-    { path: '/dev-progress/:id', name: 'DevReportDetail', component: () => import('@/views/开发进度/ReportDetail.vue') },
+    // 开发进度详情只给管理员和赞助会员：先经过 DevGate 确认权限，没权限显示「赞助会员专享」（首页仍能看简单进度）
+    { path: '/dev-progress', name: 'DevProgress', component: () => import('@/views/开发进度/DevGate.vue'), props: { page: 'list' } },
+    { path: '/dev-progress/:id', name: 'DevReportDetail', component: () => import('@/views/开发进度/DevGate.vue'), props: { page: 'detail' } },
     { path: '/sponsors', name: 'Sponsors', component: () => import('@/views/赞助墙/index.vue') },
     { path: '/must-eat', name: 'MustEat', component: () => import('@/views/必吃榜/index.vue') },
     { path: '/changelog', name: 'Changelog', component: () => import('@/views/版本更新/index.vue') },
@@ -43,6 +44,8 @@ const router = createRouter({
     { path: '/members', name: 'Members', component: () => import('@/views/社区成员/index.vue') },
     // 岁月史书：社区日常（群聊名场面、截图、生活、成果进步）；谁都能看，登录后谁都能记
     { path: '/history', name: 'CommunityHistory', component: () => import('@/views/岁月史书/index.vue') },
+    // 岁月史书年鉴：一整年排成一本书，可以打印 / 存成 PDF
+    { path: '/history/yearbook', name: 'HistoryYearbook', component: () => import('@/views/岁月史书/Yearbook.vue') },
 
     {
       path: '/toolBox',
@@ -119,7 +122,11 @@ const router = createRouter({
         { path: 'note/:id?', name: 'SpiritNote', component: () => import('@/views/太初灵脉/components/NoteEditorView.vue'), props: true },
         { path: 'graph', name: 'SpiritGraph', component: () => import('@/views/太初灵脉/components/GraphView.vue'), props: true },
         { path: 'settings/:id', name: 'SpiritSettings', component: () => import('@/views/太初灵脉/components/NoteSettingsPanel.vue'), props: true },
-        { path: 'wiki/:id', name: 'WikiEdit', component: () => import('@/views/太初灵脉/components/WorkspaceWiki.vue'), props: true }
+        { path: 'wiki/:id', name: 'WikiEdit', component: () => import('@/views/太初灵脉/components/WorkspaceWiki.vue'), props: true },
+        // 生活管理（个人日历，超凡者及以上赞助专享；没权限的进来看到介绍页）
+        { path: 'planner', name: 'SpiritPlanner', component: () => import('@/views/太初灵脉/components/planner/PlannerView.vue') },
+        // 番茄钟（所有登录用户都能用，和桌面程序同步）
+        { path: 'pomodoro', name: 'SpiritPomodoro', component: () => import('@/views/太初灵脉/components/pomodoro/PomodoroView.vue') }
       ]
     },
 

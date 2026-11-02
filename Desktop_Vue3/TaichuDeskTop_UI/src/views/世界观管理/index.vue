@@ -32,11 +32,12 @@
         <div v-if="loadError" class="empty-state" role="alert"><p>世界观加载失败，已有内容仍然保留。</p><button @click="loadData">重新加载</button></div>
         <p v-else-if="loading && !displayProjects.length" class="empty-state">正在加载世界观…</p>
         <div v-if="displayProjects.length" class="world-grid">
-          <article v-for="p in displayProjects" :key="p.id" class="world-card">
+          <article v-for="(p, pi) in displayProjects" :key="p.id" class="world-card" :style="{ '--d': Math.min(pi, 12) * 0.04 + 's' }">
             <RouterLink class="world-link" :to="`/world/project/${p.id}`">
               <div class="world-cover" data-depth>
-                <img v-if="p.coverImage" :src="p.coverImage" :alt="p.name" loading="lazy" />
-                <span v-else class="world-mark" aria-hidden="true">{{ p.name.slice(0, 1) }}</span>
+                <img v-if="p.coverImage" :src="coverSrc(p.coverImage)" :style="coverStyle(p.coverImage)" :alt="p.name" loading="lazy" />
+                <ParticleMorph v-else class="world-mark-particles" :shapes="markShapes(p.name)" :interval="4800" :density="20" :fill="0.82" :max-particles="1500" :colors="['--accent-color', '--signal-mint', '--signal-color']" interactive="parent" />
+                <span class="world-code" aria-hidden="true">W-{{ String(pi + 1).padStart(2, '0') }}</span>
               </div>
               <h2>{{ p.name }}</h2><p>{{ p.description || '这个世界的故事，正等待被写下。' }}</p>
             </RouterLink>
@@ -61,6 +62,9 @@
 <script setup lang="ts">
 import UserLink from '@/components/UserLink.vue'
 import SectionTrace from '@/components/SectionTrace.vue'
+import { coverSrc, coverStyle } from '@/utils/coverFocus'
+import ParticleMorph from '@/components/ParticleMorph.vue'
+import { firstGlyph, globeShape, hexShape, type ParticleShape } from '@/utils/particleShapes'
 import MyCreationPanel from './世界观组件/MyCreationPanel.vue'
 import { ref, computed, watch, onScopeDispose } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
@@ -70,6 +74,16 @@ import { useUserStore } from '@/stores/user'
 import { worldApi, type WorldSearchResult } from '@/api/worldApi'
 import type { WorldProject } from '@/api/types/world'
 import { formatWorldUpdatedAt as formatTime, getCardTypeLabel } from '@/utils/worldPresentation'
+/** 没有封面的世界：粒子在名字第一个字、地球、六边形之间变形（每个名字只生成一次，避免重绘时重新聚拢） */
+const markShapeCache = new Map<string, ParticleShape[]>()
+function markShapes(name: string): ParticleShape[] {
+  let shapes = markShapeCache.get(name)
+  if (!shapes) {
+    shapes = [{ kind: 'text', text: firstGlyph(name), scale: 0.72 }, { kind: 'draw', draw: globeShape }, { kind: 'draw', draw: hexShape }]
+    markShapeCache.set(name, shapes)
+  }
+  return shapes
+}
 const router = useRouter()
 const route = useRoute()
 const store = useWorldStore()
@@ -167,12 +181,21 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid 
 .search-dropdown span, .search-dropdown p { color: var(--text-secondary); font-size: 13px; }
 .search-dropdown p { padding: 12px; }
 .world-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 20px; }
-.world-card { min-width: 0; background: var(--paper-card); border: 0; border-bottom: 2px solid var(--border-line); border-radius: 0; overflow: hidden; }
-.world-card:hover { border-color: var(--accent-color); }
+.world-card { position: relative; min-width: 0; background: var(--paper-card); border: 1px solid var(--border-line); border-bottom: 2px solid var(--border-line); border-radius: 0; overflow: hidden;
+  transition: border-color .2s, translate .2s, box-shadow .2s; animation: world-in .5s cubic-bezier(.2, .8, .2, 1) both; animation-delay: var(--d, 0s); }
+.world-card::after { content: ''; position: absolute; right: -1px; top: -1px; width: 16px; height: 16px; background: linear-gradient(225deg, var(--accent-color) 50%, transparent 50%); opacity: 0; transition: opacity .2s; pointer-events: none; }
+.world-card:hover, .world-card:focus-within { border-color: var(--accent-color); translate: 0 -3px; box-shadow: 4px 4px 0 color-mix(in srgb, var(--accent-color) 18%, transparent); }
+.world-card:hover::after, .world-card:focus-within::after { opacity: 1; }
+@keyframes world-in { from { opacity: 0; translate: 0 10px; } }
+@media (prefers-reduced-motion: reduce) { .world-card { animation: none; } }
 .world-link { display: block; padding: 0 0 20px; text-decoration: none; color: inherit; }
-.world-cover { aspect-ratio: 16 / 9; border-radius: 0; overflow: hidden; background: var(--bg-sub); display: grid; place-items: center; margin-bottom: 16px; }
-.world-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.world-mark { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 0; background: var(--accent-soft); color: var(--accent-color); font-size: 22px; }
+.world-cover { position: relative; aspect-ratio: 16 / 9; border-radius: 0; overflow: hidden; display: grid; place-items: center; margin-bottom: 16px;
+  background: radial-gradient(ellipse at 50% 55%, color-mix(in srgb, var(--signal-mint) 14%, transparent), transparent 65%),
+    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 20px 20px, linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 20px 20px, var(--bg-sub); }
+.world-cover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: scale .5s cubic-bezier(.2, .8, .2, 1); }
+.world-card:hover .world-cover img { scale: 1.04; }
+.world-mark-particles { position: absolute; inset: 0; width: 100%; height: 100%; }
+.world-code { position: absolute; left: 0; bottom: 0; padding: 2px 8px; font: 10px/1.6 var(--font-mono, monospace); letter-spacing: .12em; color: var(--inverse-text); background: var(--inverse-bg); border-left: 2px solid var(--signal-mint); }
 .world-link h2 { padding-inline: 20px; font-size: 19px; margin: 0 0 8px; overflow-wrap: anywhere; }
 .world-link p { padding-inline: 20px; color: var(--text-secondary); line-height: 1.8; height: 3.6em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; margin: 0; }
 .world-card footer { padding: 12px 24px; border-top: 1px solid var(--border-line); color: var(--text-secondary); font-size: 12px; flex-wrap: wrap; }

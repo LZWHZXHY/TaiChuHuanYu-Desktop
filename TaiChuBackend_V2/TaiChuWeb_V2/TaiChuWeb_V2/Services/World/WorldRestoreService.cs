@@ -160,6 +160,9 @@ public class WorldRestoreService(AppDbContext db, CosService cos, IWorldQuotaSer
                 db.WorldRelations.AddRange(dto.Cards.SelectMany((card, i) => (card.Relations ?? [])
                     .Select(r => new WorldRelation
                     { SourceCardId = plan.CardIds[i], TargetCardId = r.TargetCardId, RelationType = r.RelationType })));
+                // 编年史（时间线、事件、历法）和条目在同一个事务里写入；老备份 / 老页面没带编年史就跳过
+                if ((dto as CommitWorldRestoreWithChronicleDto)?.Chronicle is { } chronicle)
+                    await AddChronicleAsync(job.TargetProjectId, plan, chronicle, user);
                 job.State = "committed";
                 job.UpdatedAt = DateTime.UtcNow;
                 return View(job);
@@ -174,6 +177,28 @@ public class WorldRestoreService(AppDbContext db, CosService cos, IWorldQuotaSer
             await CancelAsync(user, id);
             throw;
         }
+    }
+
+    /// <summary>
+    /// 备份里的编年史写进目标世界：时间线、事件换成新 Id，只关联这次恢复的条目。
+    /// 历法：恢复成新世界时直接用备份里的；恢复到现有世界时，只有它还没设置过历法才用（不覆盖作者现在的历法）。
+    /// </summary>
+    private async Task AddChronicleAsync(Guid projectId, WorldRestorePlan plan, WorldChronicleTransferDto chronicle, Guid user)
+    {
+        var fresh = plan.Source.NewProject;
+        var lineCount = fresh ? 0 : await db.WorldTimelines.CountAsync(t => t.ProjectId == projectId);
+        var eventCount = fresh ? 0 : await db.WorldTimelineEvents.CountAsync(e => e.ProjectId == projectId);
+        var sortBase = fresh ? 0 : (await db.WorldTimelines.Where(t => t.ProjectId == projectId).MaxAsync(t => (int?)t.SortOrder) ?? 0);
+        var built = WorldChronicleTransfer.Build(projectId, chronicle, plan.CardIds.ToHashSet(), user, sortBase);
+        // 和平时编辑的上限一样：每个世界最多 200 条时间线、5000 个事件
+        if (lineCount + built.Timelines.Count > 200)
+            throw Invalid($"编年史放不下：目标世界已有 {lineCount} 条时间线，备份里有 {built.Timelines.Count} 条，合计不能超过 200 条。可以改为恢复成新的世界。");
+        if (eventCount + built.Events.Count > 5000)
+            throw Invalid($"编年史放不下：目标世界已有 {eventCount} 个事件，备份里有 {built.Events.Count} 个，合计不能超过 5000 个。可以改为恢复成新的世界。");
+        db.WorldTimelines.AddRange(built.Timelines);
+        db.WorldTimelineEvents.AddRange(built.Events);
+        if (built.Calendar != null && (fresh || !await db.WorldCalendars.AnyAsync(c => c.ProjectId == projectId)))
+            db.WorldCalendars.Add(new WorldCalendar { ProjectId = projectId, Json = built.Calendar, UpdatedAt = DateTime.UtcNow });
     }
 
     internal static void ValidateCards(List<CreateCardDto> cards, Guid[] ids)

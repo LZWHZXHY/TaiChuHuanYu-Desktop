@@ -2,14 +2,16 @@
   <div class="doc-view" :class="'mode-' + mode">
     <article class="doc">
       <!-- 顶部：名称、类型、别名、属性、标签在左，封面在右（像 vvd） -->
-      <header class="doc-hero" :class="{ 'has-cover': card.coverImage }">
+      <header class="doc-hero" :class="{ 'has-cover': card.coverImage, 'has-sigil': showSigil }" :style="{ '--type-c': typeColor }">
         <div class="hero-main studio-heading">
           <h1 class="doc-title">{{ card.title }}<span v-if="showBlame && notes.title" class="blame" :title="notes.title.title">{{ notes.title.text }}</span></h1>
           <div class="doc-meta">
-            <span class="doc-type">{{ getTypeLabel(card.type) }}</span>
+            <span class="doc-type"><i aria-hidden="true">{{ typeIcon }}</i>{{ getTypeLabel(card.type) }}</span>
             <span class="dot">·</span>
             <span>更新于 {{ formatDate(card.updatedAt) }}</span>
           </div>
+          <!-- 来自柴圈 OC《xxx》/ 已发布成柴圈 OC《xxx》（只在条目页显示，弹窗和嵌入里不显示） -->
+          <CardOcBadge v-if="isPage" :card-id="card.id" />
           <div v-if="aliases.length" class="hero-line">
             <span class="hl-label" aria-hidden="true">⌘</span><span class="hl-name">别名</span>
             <span v-for="a in aliases" :key="a" class="alias">{{ a }}</span>
@@ -49,6 +51,11 @@
             <span v-for="n in headNotes" :key="n.key" class="blame" :title="n.title"><em>{{ n.label }}</em>{{ n.text }}</span>
           </div>
         </div>
+        <!-- 没有封面时右边放粒子徽记：条目类型的图形 ↔ 名字第一个字 -->
+        <div v-if="showSigil" class="hero-sigil" aria-hidden="true">
+          <ParticleMorph :shapes="sigilShapes" :interval="4400" :density="18" :fill="0.82" :max-particles="1500" :colors="[typeColor, '--signal-mint', '--accent-color']" interactive="parent" />
+          <span class="sigil-code">{{ (card.type || 'card').toUpperCase() }}</span>
+        </div>
         <div v-if="card.coverImage" class="hero-cover">
           <img :src="coverUrl" :alt="card.title" @click="openPreview([coverUrl])" />
         </div>
@@ -79,7 +86,17 @@
             <img v-for="(img, idx) in card.galleryImages" :key="idx" :src="img" :alt="`图 ${idx + 1}`" loading="lazy" @click="openPreview(galleryImages, idx)" />
           </div>
           <!-- 地图 -->
-          <MapBlock v-else-if="block.kind === 'map'" :image="block.image" :pins="block.pins" :project-id="projectId" @peek="peek" />
+          <MapBlock v-else-if="block.kind === 'map'" :image="block.image" :pins="block.pins" :project-id="projectId"
+            :card-id="card.id" :block-id="block.id" :root-label="block.title?.trim() || card.title" @peek="peek" />
+          <!-- 画布：点条目卡片在右边弹出，点图片看大图 -->
+          <CanvasBlock v-else-if="block.kind === 'canvas'" :items="block.items" :links="block.links" :height="block.height" :project-id="projectId"
+            @peek="peek" @preview="(urls, i) => openPreview(urls, i)" />
+          <!-- 关系树：点条目节点在右边弹出 -->
+          <TreeBlock v-else-if="block.kind === 'tree'" :nodes="block.nodes" :project-id="projectId" @peek="peek" />
+          <!-- 能力面板（雷达图）：区块标题栏已经有标题，图里不再重复 -->
+          <StatPanelChart v-else-if="block.kind === 'statpanel' && block.panel" :panel="block.panel" hide-title />
+          <!-- 这个页面不认识的区块（新版网站加的）：提示刷新 -->
+          <p v-else-if="block.kind === 'unknown'" class="empty-note">这里有一块新版网站才能显示的内容，刷新页面就能看到。</p>
           <!-- 参考来源 -->
           <SourcesBlock v-else-if="block.kind === 'sources'" :sources="block.sources" />
           <!-- 时间线 -->
@@ -91,8 +108,8 @@
               :project-id="projectId" clickable @click="$emit('select', item.id)" />
           </div>
           <!-- 设定关系 -->
-          <div v-else-if="block.kind === 'relations'" class="backlink-list">
-            <button v-for="r in card.outRelations" :key="r.id" class="backlink-item" @click="$emit('select', r.targetCardId)">
+          <div v-else-if="block.kind === 'relations'" class="backlink-list chips">
+            <button v-for="r in card.outRelations" :key="r.id" class="backlink-item" :style="{ '--tc': colorOfType(r.targetCardType) }" @click="$emit('select', r.targetCardId)">
               <span class="backlink-type">{{ r.relationType || '关联' }}</span>
               <span class="backlink-title">{{ r.targetCardTitle || store.getCardById(r.targetCardId, projectId)?.title || '已删除的条目' }}</span>
               <span class="backlink-arrow">→</span>
@@ -132,6 +149,9 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import ParticleMorph from '@/components/ParticleMorph.vue'
+import { cardTypeShape, firstGlyph, type ParticleShape } from '@/utils/particleShapes'
+import { CardTypeMeta } from '../card_type'
 import { useWorldStore } from '@/stores/world'
 import { cardSchemas } from '../card-schemas'
 import type { CardType } from '../card_type'
@@ -142,9 +162,13 @@ import EmbeddedCard from './EmbeddedCard.vue'
 import TimelineAxis from './TimelineAxis.vue'
 import MapBlock from './MapBlock.vue'
 import SourcesBlock from './SourcesBlock.vue'
+import CanvasBlock from './CanvasBlock.vue'
+import TreeBlock from './TreeBlock.vue'
+import StatPanelChart from '@/components/StatPanelChart.vue'
 import CardChronicleEvents from './CardChronicleEvents.vue'
 import CardRefEmbed from './CardRefEmbed.vue'
 import CardPeek from './CardPeek.vue'
+import CardOcBadge from './CardOcBadge.vue'
 import { splitEmbeds } from '@/utils/worldEditorText'
 import { blockTitle, resolveLayout, type LayoutBlock } from '@/utils/worldLayout'
 import { renderCardDescription } from '@/utils/worldPresentation'
@@ -182,6 +206,10 @@ function hasBlockContent(block: LayoutBlock) {
     case 'media': return Boolean(block.images?.length)
     case 'map': return Boolean(block.image)
     case 'sources': return Boolean(block.sources?.some(s => s.title?.trim() || s.url?.trim()))
+    case 'canvas': return Boolean(block.items?.length)
+    case 'tree': return Boolean(block.nodes?.length)
+    case 'statpanel': return Boolean(block.panel?.dims.length)
+    case 'unknown': return true
     case 'gallery': return Boolean(props.card.galleryImages?.length)
     case 'timeline': return Boolean(props.card.timelineEvents?.length)
     case 'embeds': return embeddedCards.value.length > 0
@@ -219,6 +247,15 @@ watch(() => props.card.id, () => { peekId.value = null })
 const { embeddedIds, embeddedCards, cardTags, galleryImages, coverUrl } =
   useCardPresentation(() => props.card, () => props.projectId, 'document')
 useCardPreload(() => props.projectId, embeddedIds)
+const colorOfType = (type?: string | null) => CardTypeMeta[type as CardType]?.color ?? 'var(--accent-color)'
+const typeColor = computed(() => colorOfType(props.card.type))
+const typeIcon = computed(() => CardTypeMeta[props.card.type as CardType]?.icon ?? '◇')
+const showSigil = computed(() => isPage.value && !props.card.coverImage)
+/** 只在条目换了（类型 / 名字）时才换一组图形，避免每次重绘都重新聚拢 */
+const sigilShapes = computed<ParticleShape[]>(() => [
+  { kind: 'draw', draw: cardTypeShape(props.card.type) },
+  { kind: 'text', text: firstGlyph(props.card.title), scale: 0.66 },
+])
 const { backlinks } = useCardBacklinks(() => props.projectId, () => isPage.value ? props.card.id : '')
 const { visible: previewVisible, images: previewImages, index: previewIndex, open: openPreview, close: closePreview } = useImagePreview()
 const formatDate = (value: string) => value ? new Date(value).toLocaleDateString('zh-CN') : ''
@@ -358,9 +395,18 @@ function onProseClick(event: MouseEvent) {
 }
 .doc-meta .dot { color: var(--text-secondary); }
 .doc-type {
-  color: var(--accent-color);
-  font-weight: 500;
+  display: inline-flex; align-items: center; gap: 5px; padding: 1px 8px 1px 6px;
+  color: var(--type-c, var(--accent-color)); font-weight: 600; font-size: 12px;
+  background: color-mix(in srgb, var(--type-c, var(--accent-color)) 10%, transparent); border-left: 2px solid var(--type-c, var(--accent-color));
 }
+.doc-type i { font-style: normal; font-size: 12px; }
+.doc-hero { position: relative; border-top-color: var(--type-c, var(--surface-color, var(--accent-color))) !important; }
+.doc-hero::before { content: ''; position: absolute; right: -1px; top: -3px; width: 14px; height: 14px; background: linear-gradient(225deg, var(--type-c, var(--accent-color)) 50%, transparent 50%); pointer-events: none; }
+.doc-hero.has-sigil { grid-template-columns: minmax(0, 1fr) clamp(150px, 22%, 220px); }
+.hero-sigil { position: relative; align-self: stretch; min-height: 150px; border-left: 1px dashed var(--border-line);
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--type-c, var(--signal-mint)) 12%, transparent), transparent 70%); }
+.hero-sigil :deep(canvas) { position: absolute; inset: 0; width: 100%; height: 100%; }
+.sigil-code { position: absolute; right: 6px; bottom: 4px; font: 9px/1 var(--font-mono, monospace); letter-spacing: .14em; color: var(--text-secondary); opacity: .7; }
 .doc-cover {
   margin: 16px;
   border-radius: 0;
@@ -492,6 +538,13 @@ function onProseClick(event: MouseEvent) {
   flex-direction: column;
   gap: 4px;
 }
+/* 设定关系区块：小卡片排成一行，颜色跟着目标条目类型 */
+.backlink-list.chips { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+.backlink-list.chips .backlink-item { --tc: var(--accent-color); flex: 0 1 auto; max-width: 100%; padding: 4px 10px 4px 8px; border: 1px solid var(--border-line); border-left: 3px solid var(--tc); background: var(--paper-card); font-size: 13px; transition: border-color .15s, translate .15s, box-shadow .15s; }
+.backlink-list.chips .backlink-item:hover { background: var(--paper-card); border-color: var(--tc); translate: 0 -1px; box-shadow: 2px 2px 0 color-mix(in srgb, var(--tc) 22%, transparent); }
+.backlink-list.chips .backlink-title { flex: 0 1 auto; max-width: 12em; font-weight: 600; }
+.backlink-list.chips .backlink-type { order: 2; font-family: var(--font-mono, monospace); }
+.backlink-list.chips .backlink-arrow { display: none; }
 .backlink-item {
   display: flex;
   align-items: center;
@@ -542,5 +595,5 @@ function onProseClick(event: MouseEvent) {
   }
 }
 @media (max-width: 760px) { .doc-row.split { grid-template-columns: minmax(0, 1fr); } .prop-grid { grid-template-columns: minmax(0, 1fr); } }
-@media(max-width:640px) { .doc-hero.has-cover { grid-template-columns: minmax(0,1fr); }.hero-cover { order: -1; max-width: 320px; }.doc-hero { padding: 20px 18px; }.doc-meta { flex-wrap: wrap; } }
+@media(max-width:640px) { .doc-hero.has-sigil { grid-template-columns: minmax(0,1fr); }.hero-sigil { display: none; }.doc-hero.has-cover { grid-template-columns: minmax(0,1fr); }.hero-cover { order: -1; max-width: 320px; }.doc-hero { padding: 20px 18px; }.doc-meta { flex-wrap: wrap; } }
 </style>

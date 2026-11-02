@@ -12,6 +12,7 @@
       </header>
       <p v-if="!user.isLoggedIn" class="ddz-notice">登录后才能入座打牌。</p>
       <p v-else-if="connState !== 'on'" class="ddz-notice">{{ connState === 'wait' ? '正在连接牌桌服务器…' : '没能连上牌桌服务器，请刷新重试（如果刚更新过网站，需要先部署后端）。' }}</p>
+      <p v-if="error" class="ddz-error" role="alert">{{ error }}</p>
 
       <div class="tier-grid">
         <article v-for="t in lobby.tiers" :key="t.key" class="tier-card" :class="'tier-' + t.key">
@@ -31,12 +32,18 @@
           <li v-for="r in lobby.rooms" :key="r.id">
             <span class="room-tier">{{ r.tierName }}</span>
             <span class="room-players">{{ r.players.map(p => p.away ? `${p.name}（暂离）` : p.name).join('、') }}</span>
-            <span class="room-state">{{ r.phase === 'waiting' ? `空 ${r.open} 位` : '对局中' }}</span>
-            <button type="button" class="btn-line sm" :disabled="!ready || r.phase !== 'waiting' || !r.open" @click="act('Join', r.id)">加入</button>
+            <span class="room-state">{{ r.phase === 'waiting' ? `空 ${r.open} 位` : '对局中' }}<em v-if="r.spectators" class="room-watch" :title="`${r.spectators} 人在观战`">👁 {{ r.spectators }}</em></span>
+            <span class="room-btns">
+              <button type="button" class="btn-line sm" :disabled="!ready || r.phase !== 'waiting' || !r.open" @click="act('Join', r.id)">加入</button>
+              <!-- 观战：正在打的、还在等人的都能看；房主关了观战或人满了就灰掉，鼠标放上去有提示 -->
+              <button type="button" class="btn-line sm watch-btn" :disabled="!ready || watchState(r).disabled" :title="watchState(r).title" @click="act('Watch', r.id)">{{ r.allowSpectate === false ? '不让观战' : '👁 观战' }}</button>
+            </span>
           </li>
         </ul>
       </div>
       <p class="rules-note">和电脑一起打的局按一半结算土豆，每天最多从电脑身上赢 3000；全是真人的局正常结算，输家余额不够时只扣到 0。</p>
+      <!-- 斗地主留言板：留言、回复，给斗地主点赞 / 砸番茄（通用组件，按游戏 key 区分） -->
+      <GameGuestbook game="ddz" title="斗地主" />
     </section>
 
     <!-- ================= 牌桌 ================= -->
@@ -46,20 +53,50 @@
         <span class="tb-tier">{{ state.tierName }} · 底分 {{ state.base }}<template v-if="state.fee"> · 台费 {{ state.fee }}</template></span>
         <span v-if="state.phase === 'playing' || state.phase === 'bidding'" class="tb-mult">倍数 ×{{ state.multiplier }}<em v-if="state.bombs">（{{ state.bombs }} 炸）</em></span>
         <span v-if="state.hasBots" class="tb-bots">有电脑 · 半额结算</span>
+        <span v-if="spectating" class="tb-watching">观战中 · 只能看</span>
+        <!-- 「👁 N 人观战」：点开看名单；房主开局前可以在里面关掉观战 -->
+        <WatchBadge :watch="state.watch ?? EMPTY_WATCH" :my-user-id="user.userId" :can-toggle="isOwner && state.phase === 'waiting'" placement="down" @toggle="allow => act('SetSpectate', allow)" />
         <span class="tb-space"></span>
         <button type="button" class="tb-toggle" :class="{ on: sfxOn }" :aria-pressed="sfxOn" title="出牌、选牌、炸弹等音效" @click="toggleSfx">{{ sfxOn ? '♪ 音效开' : '♪ 音效关' }}</button>
         <button type="button" class="tb-toggle" :class="{ on: voiceOn }" :aria-pressed="voiceOn" title="用系统语音念出牌型" @click="toggleVoice">{{ voiceOn ? '◉ 语音报牌' : '○ 语音报牌' }}</button>
+        <button type="button" class="tb-toggle" :class="{ on: danmakuOn }" :aria-pressed="danmakuOn" title="聊天内容从牌桌上方飘过（只在这台设备上记住）" @click="toggleDanmaku">{{ danmakuOn ? '≋ 弹幕开' : '≋ 弹幕关' }}</button>
         <PotatoWallet compact />
-        <button v-if="state.phase === 'waiting' || state.phase === 'ended'" type="button" class="btn-line sm" @click="act('Leave')">离开牌桌</button>
+        <template v-if="spectating">
+          <button v-if="canSitDown" type="button" class="btn-primary sm" data-burst @click="act('SitDown')">坐下</button>
+          <button type="button" class="btn-line sm" @click="act('Leave')">不看了</button>
+        </template>
+        <template v-else-if="state.phase === 'waiting' || state.phase === 'ended'">
+          <button v-if="state.watch?.allow !== false" type="button" class="btn-line sm" title="让出座位，留在这桌观战" @click="act('StandUp')">站起来观战</button>
+          <button type="button" class="btn-line sm" @click="act('Leave')">离开牌桌</button>
+        </template>
       </header>
 
-      <div class="felt">
+      <div ref="feltEl" class="felt" :class="{ watching: spectating }">
         <i class="reg tl" aria-hidden="true"></i><i class="reg tr" aria-hidden="true"></i><i class="reg bl" aria-hidden="true"></i><i class="reg br" aria-hidden="true"></i>
+        <!-- 互动：弹幕（聊天从上方飘过）、「A 给 B 砸了个番茄」提示、飞行动画层 -->
+        <div v-if="danmakuOn" class="danmaku" aria-hidden="true">
+          <span v-for="d in danmaku" :key="d.id" class="dm" :class="{ mine: d.mine }" :style="{ '--lane': d.lane }" @animationend="dropDanmaku(d.id)">{{ d.text }}</span>
+        </div>
+        <div class="react-toasts" role="status" aria-live="polite">
+          <p v-for="t in toasts" :key="t.id" :class="'t-' + t.kind"><i aria-hidden="true">{{ t.kind === 'tomato' ? '🍅' : '👍' }}</i>{{ t.text }}</p>
+        </div>
+        <div ref="fxLayer" class="fx-layer" aria-hidden="true"></div>
         <!-- 对手：左（上家）、右（下家） -->
-        <div v-for="pos in OPPONENTS" :key="pos" class="opponent" :class="pos">
+        <div v-for="pos in seatPositions" :key="pos" class="opponent" :class="pos">
           <template v-if="seatAt(pos)">
-            <div class="op-card" :class="{ turn: state.turn === seatAt(pos)!.seat, landlord: seatAt(pos)!.role === '地主' }">
-              <AvatarFrame :user-id="seatAt(pos)!.isBot || seatAt(pos)!.empty ? null : seatAt(pos)!.userId" size="sm"><div class="avatar" :class="{ bot: seatAt(pos)!.isBot }">{{ seatAt(pos)!.empty ? '+' : seatAt(pos)!.isBot ? '🤖' : seatAt(pos)!.name.slice(0, 1) }}</div></AvatarFrame>
+            <div class="op-card" :class="{ turn: state.turn === seatAt(pos)!.seat, landlord: seatAt(pos)!.role === '地主', [`hit-${hitFx[seatAt(pos)!.seat]}`]: !!hitFx[seatAt(pos)!.seat] }">
+              <!-- 点头像：给这个人点赞 / 砸番茄（电脑也可以砸，图个乐） -->
+              <button v-if="!seatAt(pos)!.empty" type="button" class="seat-hit" :aria-label="`给 ${seatAt(pos)!.name} 点赞或砸番茄`" :aria-expanded="reactMenu === seatAt(pos)!.seat" aria-haspopup="menu" title="点头像：点赞 / 砸番茄" @click.stop="toggleReactMenu(seatAt(pos)!.seat)">
+                <AvatarFrame :user-id="seatAt(pos)!.isBot ? null : seatAt(pos)!.userId" size="sm"><div class="avatar" :class="{ bot: seatAt(pos)!.isBot }" :data-seat-anchor="seatAt(pos)!.seat">{{ seatAt(pos)!.isBot ? '🤖' : seatAt(pos)!.name.slice(0, 1) }}</div></AvatarFrame>
+                <span class="react-badge" aria-hidden="true">🍅</span>
+              </button>
+              <AvatarFrame v-else :user-id="null" size="sm"><div class="avatar">+</div></AvatarFrame>
+              <div v-if="reactMenu === seatAt(pos)!.seat && !seatAt(pos)!.empty" class="react-menu" :class="pos" role="menu" @click.stop>
+                <p>给 <b>{{ seatAt(pos)!.name }}</b> 来点：</p>
+                <button type="button" role="menuitem" class="rm-like" :disabled="reactBusy || !reactLeft" @click="react(seatAt(pos)!.seat, 'like')"><span>👍 点个赞</span><small>{{ social.likeCost }} 🥔</small></button>
+                <button type="button" role="menuitem" class="rm-tomato" :disabled="reactBusy || !reactLeft" @click="react(seatAt(pos)!.seat, 'tomato')"><span>🍅 砸番茄</span><small>{{ social.tomatoCost }} 🥔</small></button>
+                <small class="rm-left">{{ reactLeft ? `这局还能用 ${reactLeft} 次` : '这局的次数用完了，下一局再来' }}</small>
+              </div>
               <div class="op-info">
                 <b>{{ seatAt(pos)!.empty ? '空位' : seatAt(pos)!.name }}</b>
                 <UserTitle v-if="!seatAt(pos)!.isBot && !seatAt(pos)!.empty" :user-id="seatAt(pos)!.userId" class="ddz-title" />
@@ -71,7 +108,7 @@
                 </small>
               </div>
               <div v-if="seatAt(pos)!.cardCount" class="card-count" :class="{ warn: seatAt(pos)!.cardCount <= 2 && state.phase === 'playing' }">{{ seatAt(pos)!.cardCount }}</div>
-              <span v-if="state.turn === seatAt(pos)!.seat" class="clock">{{ secondsLeft }}</span>
+              <span v-if="state.turn === seatAt(pos)!.seat" class="clock" :class="clockClass">{{ secondsLeft }}</span>
               <button v-if="state.phase === 'waiting' && seatAt(pos)!.isBot && isOwner" type="button" class="kick" title="移除电脑" @click="act('KickBot', seatAt(pos)!.seat)">×</button>
             </div>
             <div class="played" :class="pos">
@@ -96,8 +133,8 @@
             <button v-if="emptySeats && isOwner" type="button" class="btn-line sm" @click="act('AddBot')">加一个电脑</button>
           </p>
           <p v-else-if="state.phase === 'bidding'" class="center-tip">叫分中 · 当前 {{ state.currentBid || '无人叫' }}{{ state.currentBid ? ' 分' : '' }}</p>
-          <div v-if="state.phase === 'ended' && state.result" class="result" :class="myWin ? 'win' : 'lose'" role="status">
-            <b>{{ myWin ? '胜利！' : '输了' }}</b>
+          <div v-if="state.phase === 'ended' && state.result" class="result" :class="spectating || myWin ? 'win' : 'lose'" role="status">
+            <b>{{ spectating ? (state.result.landlordWin ? '地主胜' : '农民胜') : myWin ? '胜利！' : '输了' }}</b>
             <span>{{ state.result.summary }}</span>
             <ul>
               <li v-for="s in state.seats" :key="s.seat"><span>{{ s.name }}<em>{{ s.role }}</em></span><b v-if="s.isBot" class="muted-b">—</b><b v-else :class="changeOf(s.seat) >= 0 ? 'up' : 'down'">{{ changeOf(s.seat) >= 0 ? '+' : '' }}{{ changeOf(s.seat) }} 🥔</b></li>
@@ -106,8 +143,13 @@
           </div>
         </div>
 
+        <!-- 观战：没有手牌、没有操作按钮，只有一条提示（坐下按钮在顶栏） -->
+        <div v-if="spectating" class="watch-bar">
+          <p><b>👁 你在观战</b>只能看、聊天、点赞 / 砸番茄；看不到任何人的手牌（服务器根本不发给观战的人）。<template v-if="canSitDown">有空位，可以点顶上的「坐下」加入。</template></p>
+          <p v-if="error" class="ddz-error" role="alert">{{ error }}</p>
+        </div>
         <!-- 自己 -->
-        <div class="me">
+        <div v-else class="me">
           <div class="played mine">
             <template v-if="mySeat?.recent">
               <span v-if="mySeat.recent.bid !== null && mySeat.recent.bid !== undefined" class="say">{{ mySeat.recent.bid ? `${mySeat.recent.bid} 分` : '不叫' }}</span>
@@ -126,15 +168,15 @@
             <template v-else-if="myTurn && state.phase === 'bidding'">
               <button type="button" class="btn-line" @click="act('Bid', 0)">不叫</button>
               <button v-for="n in [1, 2, 3]" :key="n" type="button" class="btn-primary" :disabled="n <= state.currentBid" @click="act('Bid', n)">{{ n }} 分</button>
-              <span class="clock inline">{{ secondsLeft }}</span>
+              <span class="clock inline" :class="clockClass" :title="`还剩 ${secondsLeft} 秒，超时自动不叫`">{{ secondsLeft }}</span>
             </template>
             <template v-else-if="myTurn && state.phase === 'playing'">
               <button type="button" class="btn-line" :disabled="mustLead" @click="act('Pass')">不出</button>
               <button type="button" class="btn-line" @click="hint">{{ mustLead || hintOptions.length ? '提示' : '要不起' }}</button>
               <button type="button" class="btn-primary" data-burst :disabled="!canPlay" @click="playSelected">出牌<small v-if="selectedPattern">（{{ PATTERN_LABEL[selectedPattern.type] }}）</small></button>
-              <span class="clock inline">{{ secondsLeft }}</span>
+              <span class="clock inline" :class="clockClass" :title="`还剩 ${secondsLeft} 秒，超时自动替你出牌或不要，连续超时 2 次进入托管`">{{ secondsLeft }}</span>
             </template>
-            <span v-else-if="state.phase === 'bidding' || state.phase === 'playing'" class="muted">等待 {{ state.seats[state.turn]?.name }} {{ state.phase === 'bidding' ? '叫分' : '出牌' }}…</span>
+            <span v-else-if="state.phase === 'bidding' || state.phase === 'playing'" class="muted">等待 {{ state.seats[state.turn]?.name }} {{ state.phase === 'bidding' ? '叫分' : '出牌' }}… {{ secondsLeft }} 秒</span>
             <button v-if="state.phase === 'bidding' || state.phase === 'playing'" type="button" class="btn-line sm trustee" :class="{ on: mySeat?.trustee }" @click="act('Trustee', !mySeat?.trustee)">{{ mySeat?.trustee ? '取消托管' : '托管' }}</button>
           </div>
           <p v-if="error" class="ddz-error" role="alert">{{ error }}</p>
@@ -142,13 +184,16 @@
           <div class="hand" :class="{ landlord: mySeat?.role === '地主' }" role="group" aria-label="我的手牌">
             <button v-for="c in state.myHand" :key="c" type="button" class="hand-card" :class="{ up: selected.has(c) }" :aria-pressed="selected.has(c)" @click="toggle(c)"><Card :id="c" /></button>
           </div>
-          <div class="me-info">
+          <div class="me-info" :class="hitFx[state.mySeat] ? `hit-${hitFx[state.mySeat]}` : ''">
+            <AvatarFrame :user-id="user.userId" size="sm"><span class="avatar me-avatar" :data-seat-anchor="state.mySeat">{{ (mySeat?.name || '我').slice(0, 1) }}</span></AvatarFrame>
             <b>{{ mySeat?.name }}</b><UserTitle :user-id="user.userId" />
             <em v-if="mySeat?.role" :class="mySeat.role === '地主' ? 'role-l' : 'role-f'">{{ mySeat.role }}</em>
             <span v-if="state.phase === 'playing'">剩 {{ state.myHand.length }} 张</span>
           </div>
         </div>
       </div>
+      <!-- 牌桌聊天（可收起）：最近 50 条在服务器内存里，新进来的人也能看到 -->
+      <DdzChat :lines="chatLines" :my-user-id="user.userId" :can-send="connState === 'on'" :send="sendChat" />
     </section>
   </div>
 </template>
@@ -164,17 +209,25 @@ import { notifyPotatoChanged } from '@/api/potato'
 import request from '@/utils/request'
 import { PATTERN_LABEL, analyze, beats, chooseLead, findBeats, rankOf, suitOf, type Pattern } from './ddzRules'
 import { announce, sfx, sfxOn, speak, voiceOn } from './ddzSound'
+import GameGuestbook from '../../GameGuestbook.vue'
+import DdzChat from './DdzChat.vue'
+import { playReactionFx, readDanmakuOn, saveDanmakuOn, type ChatLine, type ReactionEvent, type SocialInfo } from './ddzSocial'
+import WatchBadge from '../WatchBadge.vue'
+import { useServerSkew, useTurnAlert } from '../turnAlert'
+import { EMPTY_WATCH, watchButton, type WatchInfo } from '../spectate'
 
 // ---------- 类型 ----------
 interface Recent { cards: number[]; type?: string | null; label?: string | null; bid?: number | null }
 interface SeatView { seat: number; userId?: string | null; name: string; isBot: boolean; ready: boolean; online: boolean; trustee: boolean; empty: boolean; cardCount: number; role?: string | null; recent?: Recent | null; hand?: number[] | null }
 interface TableState {
   roomId: string; tier: string; tierName: string; base: number; fee?: number; ownerId: string; phase: 'waiting' | 'bidding' | 'playing' | 'ended'; round: number
-  mySeat: number; myHand: number[]; seats: SeatView[]; bottom: number[]; landlord: number; currentBid: number; turn: number; deadline?: string | null
+  mySeat: number; myHand: number[]; seats: SeatView[]; bottom: number[]; landlord: number; currentBid: number; turn: number; deadline?: string | null; serverNow?: string
   lastPlay?: { seat: number; cards: number[]; type: string } | null; multiplier: number; bombs: number; hasBots: boolean
+  /** 观战：我是不是在观战（这时 myHand 为空、mySeat 为 -1）、谁在看 */
+  spectating?: boolean; watch?: WatchInfo
   result?: { landlordWin: boolean; spring: boolean; multiplier: number; summary: string; changes: { seat: number; change: number }[] } | null
 }
-interface LobbyView { tiers: { key: string; name: string; base: number; minBalance: number; fee?: number }[]; rooms: { id: string; tier: string; tierName: string; base: number; phase: string; players: { name: string; isBot: boolean; away?: boolean }[]; open: number }[] }
+interface LobbyView { tiers: { key: string; name: string; base: number; minBalance: number; fee?: number }[]; rooms: { id: string; tier: string; tierName: string; base: number; phase: string; players: { name: string; isBot: boolean; away?: boolean }[]; open: number; spectators?: number; allowSpectate?: boolean }[]; maxSpectators?: number }
 
 // ---------- 单张牌 ----------
 const SUITS = ['♠', '♥', '♣', '♦']
@@ -214,7 +267,7 @@ async function act(method: string, ...args: unknown[]) {
   try {
     const err = await connection.invoke<string | null>(method, ...args)
     if (err) showError(err)
-    else if (method === 'Leave') { state.value = null; void loadLobby() }
+    else if (method === 'Leave') { lastWatch = ''; state.value = null; void loadLobby() }
   } catch { showError('网络不稳定，操作没有送达') }
 }
 
@@ -235,8 +288,26 @@ async function connect() {
     .withAutomaticReconnect([0, 2000, 5000, 10000, 20000])
     .build()
   connection.on('State', (s: TableState | null) => { state.value = s; if (!s) void loadLobby() })
+  // 被请出观战（房主关了观战、牌桌散了）时的提示
+  connection.on('Notice', (text: string) => { lastWatch = ''; showError(text) })
+  // 大厅列表变了（有人进出、观战人数变了）：在大厅时马上刷新一下
+  connection.on('LobbyChanged', () => { if (!state.value) { window.clearTimeout(lobbyDebounce); lobbyDebounce = window.setTimeout(() => void loadLobby(), 300) } })
+  connection.on('Chat', (line: ChatLine) => onChat(line))
+  connection.on('Reaction', (r: ReactionEvent) => onReaction(r))
   connection.onreconnecting(() => { connState.value = 'wait' })
-  connection.onreconnected(async () => { connState.value = 'on'; state.value = await connection!.invoke<TableState | null>('Resume'); void loadLobby() })
+  // 断线期间可能漏了几条聊天，重连后重新取一次
+  connection.onreconnected(async () => {
+    connState.value = 'on'
+    const resumed = await connection!.invoke<TableState | null>('Resume')
+    // 观战的人断线时会被移出名单（不占座位），重连后自动再进来看（服务器会马上推一份新的牌桌状态）
+    if (!resumed && lastWatch) {
+      const err = await connection!.invoke<string | null>('Watch', lastWatch).catch(() => '重连失败')
+      if (!err) { void loadLobby(); void loadSocial(); return }
+      showError(`没能回到刚才观战的牌桌：${err}`); lastWatch = ''
+    }
+    state.value = resumed
+    void loadLobby(); void loadSocial()
+  })
   connection.onclose(() => { connState.value = 'off' })
   try {
     await connection.start()
@@ -249,22 +320,42 @@ async function connect() {
 // ---------- 牌桌视角 ----------
 const mySeat = computed(() => state.value ? state.value.seats[state.value.mySeat] : undefined)
 const isOwner = computed(() => !!state.value && state.value.ownerId === user.userId)
-const seatAt = (pos: 'left' | 'right') => {
+// ---------- 观战 ----------
+type SeatPos = 'left' | 'right' | 'bottom'
+/** 正在观战（服务器发来的状态里 mySeat 是 -1、没有手牌） */
+const spectating = computed(() => !!state.value && (state.value.spectating ?? state.value.mySeat < 0))
+/** 观战时以 0 号座位当「下方」，另外两家照常左右摆 */
+const seatPositions = computed<SeatPos[]>(() => (spectating.value ? ['left', 'right', 'bottom'] : ['left', 'right']))
+const canSitDown = computed(() => spectating.value && ready.value && !!state.value && (state.value.phase === 'waiting' || state.value.phase === 'ended') && state.value.seats.some(x => x.empty))
+const watchState = (r: LobbyView['rooms'][number]) => watchButton(r, lobby.value.maxSpectators ?? 20, user.isLoggedIn)
+/** 最近在看的牌桌：断线重连后自动回去接着看 */
+let lastWatch = ''
+let lobbyDebounce = 0
+watch(() => (state.value && spectating.value ? state.value.roomId : null), id => { if (id) lastWatch = id; else if (state.value) lastWatch = '' })
+
+const seatAt = (pos: SeatPos) => {
   const s = state.value
-  if (!s || s.mySeat < 0) return null
-  return s.seats[(s.mySeat + (pos === 'right' ? 1 : 2)) % 3]
+  if (!s) return null
+  const base = s.mySeat >= 0 ? s.mySeat : 0
+  if (s.mySeat < 0 && !spectating.value) return null
+  return s.seats[(base + (pos === 'bottom' ? 0 : pos === 'right' ? 1 : 2)) % 3]
 }
 const emptySeats = computed(() => state.value?.seats.filter(s => s.empty).length ?? 0)
 const myTurn = computed(() => !!state.value && state.value.turn === state.value.mySeat)
+// 用服务器时间校正本机时钟，倒计时才准
+const skew = useServerSkew(() => state.value?.serverNow)
 const secondsLeft = computed(() => {
   const d = state.value?.deadline
-  return d ? Math.max(0, Math.ceil((new Date(d).getTime() - now.value) / 1000)) : 0
+  return d ? Math.max(0, Math.ceil((new Date(d).getTime() - now.value - skew.value) / 1000)) : 0
 })
+// 倒计时最后 10 秒变红、最后 5 秒闪；轮到自己时页面在后台，标签页标题会闪（声音用斗地主自己的音效）
+const activeTurn = computed(() => myTurn.value && (state.value?.phase === 'bidding' || state.value?.phase === 'playing'))
+const clockClass = computed(() => ({ low: secondsLeft.value <= 10, crit: secondsLeft.value <= 5 }))
+useTurnAlert({ mine: () => activeTurn.value, seconds: () => secondsLeft.value, sound: false })
 const mustLead = computed(() => !state.value?.lastPlay || state.value.lastPlay.seat === state.value.mySeat)
 const target = computed<Pattern | null>(() => (mustLead.value || !state.value?.lastPlay) ? null : analyze(state.value.lastPlay.cards))
 const changeOf = (seat: number) => state.value?.result?.changes.find(c => c.seat === seat)?.change ?? 0
 const myWin = computed(() => !!state.value?.result && ((state.value.landlord === state.value.mySeat) === state.value.result.landlordWin))
-const OPPONENTS = ['left', 'right'] as const
 
 // ---------- 选牌 ----------
 const selected = ref(new Set<number>())
@@ -300,6 +391,107 @@ watch(() => [state.value?.turn, state.value?.myHand.length, state.value?.phase],
 // 一局结束：刷新土豆余额
 watch(() => state.value?.result?.summary, s => { if (s) window.setTimeout(notifyPotatoChanged, 800) })
 
+// ---------- 互动：评论区、弹幕、点赞 / 砸番茄 ----------
+type ReactKind = 'like' | 'tomato'
+/** 本地也只留最近 50 条（和服务器一致） */
+const CHAT_KEEP = 50
+const chatLines = ref<ChatLine[]>([])
+/** 价格和次数以服务器给的为准（Social()），这里只是还没取到时的默认值 */
+const social = ref({ likeCost: 1, tomatoCost: 2, maxPerRound: 20, used: 0 })
+const reactLeft = computed(() => Math.max(0, social.value.maxPerRound - social.value.used))
+const reactMenu = ref<number | null>(null)
+const reactBusy = ref(false)
+/** 正在被赞 / 被砸的座位（加抖动 / 点亮效果） */
+const hitFx = ref<Partial<Record<number, ReactKind>>>({})
+const toasts = ref<{ id: number; kind: ReactKind; text: string }[]>([])
+const danmakuOn = ref(readDanmakuOn())
+const danmaku = ref<{ id: number; text: string; lane: number; mine: boolean }[]>([])
+const feltEl = ref<HTMLElement | null>(null)
+const fxLayer = ref<HTMLElement | null>(null)
+const hitTimers: Record<number, number> = {}
+let toastSeq = 0, danmakuLane = 0
+
+function pushLine(line: ChatLine) {
+  if (chatLines.value.some(l => l.id === line.id)) return
+  const next = [...chatLines.value, line]
+  chatLines.value = next.length > CHAT_KEEP ? next.slice(-CHAT_KEEP) : next
+}
+
+/** 进桌 / 重连：取回最近的聊天、价格、这一局已经用了几次 */
+async function loadSocial() {
+  if (!connection || connState.value !== 'on' || !state.value) return
+  try {
+    const s = await connection.invoke<SocialInfo | null>('Social')
+    if (!s || s.roomId !== state.value?.roomId) return
+    chatLines.value = s.chat.slice(-CHAT_KEEP)
+    social.value = { likeCost: s.likeCost, tomatoCost: s.tomatoCost, maxPerRound: s.maxPerRound, used: s.used }
+  } catch { /* 后端还没更新时没有这个方法，聊天区就先空着 */ }
+}
+
+async function sendChat(text: string): Promise<string | null> {
+  if (!connection || connState.value !== 'on') return '还没连上牌桌'
+  try { return await connection.invoke<string | null>('SendChat', text) } catch { return '网络不稳定，没发出去' }
+}
+
+function toggleReactMenu(seat: number) { reactMenu.value = reactMenu.value === seat ? null : seat }
+const closeReactMenu = () => { reactMenu.value = null }
+const onKeydown = (e: KeyboardEvent) => { if (e.key === 'Escape') closeReactMenu() }
+
+/** 点赞 / 砸番茄：服务器扣土豆、检查次数和间隔，成功后整桌都会收到 "Reaction" 播动画 */
+async function react(seat: number, kind: ReactKind) {
+  if (!connection || reactBusy.value) return
+  reactBusy.value = true
+  try {
+    const err = await connection.invoke<string | null>('React', seat, kind)
+    if (err) showError(err)
+    else { reactMenu.value = null; window.setTimeout(notifyPotatoChanged, 300) }
+  } catch { showError('网络不稳定，操作没有送达') } finally { reactBusy.value = false }
+}
+
+function flashHit(seat: number, kind: ReactKind) {
+  hitFx.value = { ...hitFx.value, [seat]: kind }
+  window.clearTimeout(hitTimers[seat])
+  hitTimers[seat] = window.setTimeout(() => { hitFx.value = { ...hitFx.value, [seat]: undefined } }, 900)
+}
+
+function showToast(kind: ReactKind, text: string) {
+  const id = ++toastSeq
+  toasts.value = [...toasts.value, { id, kind, text }].slice(-3)
+  window.setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id) }, 3200)
+}
+
+function onReaction(r: ReactionEvent) {
+  pushLine(r.line)
+  if (r.fromUserId === user.userId) social.value = { ...social.value, used: r.used }
+  showToast(r.kind, r.line.text)
+  // 页面在后台时不播动画（回来时早就过去了）
+  if (document.hidden || !feltEl.value || !fxLayer.value) return
+  playReactionFx(feltEl.value, fxLayer.value, r.fromSeat, r.toSeat, r.kind, () => flashHit(r.toSeat, r.kind))
+}
+
+function onChat(line: ChatLine) {
+  pushLine(line)
+  if (!danmakuOn.value || line.kind !== 'chat' || document.hidden) return
+  // 4 条弹幕轨道轮流用，最多同时飘 12 条
+  danmaku.value = [...danmaku.value, { id: line.id, text: `${line.name}${line.spectator ? '（观战）' : ''}：${line.text}`, lane: danmakuLane++ % 4, mine: line.userId === user.userId }].slice(-12)
+}
+const dropDanmaku = (id: number) => { danmaku.value = danmaku.value.filter(d => d.id !== id) }
+function toggleDanmaku() {
+  danmakuOn.value = !danmakuOn.value
+  saveDanmakuOn(danmakuOn.value)
+  if (!danmakuOn.value) danmaku.value = []
+}
+
+// 换桌 / 离桌：清空聊天，重新取这桌的
+watch(() => state.value?.roomId, id => {
+  chatLines.value = []; danmaku.value = []; toasts.value = []; reactMenu.value = null
+  if (id) void loadSocial()
+})
+// 开新局：次数清零（服务器也是按局数清零）
+watch(() => state.value?.round, (r, old) => { if (old !== undefined && r !== old) social.value = { ...social.value, used: 0 } })
+// 菜单对着的座位空了就关掉
+watch(() => reactMenu.value !== null && !!state.value?.seats[reactMenu.value]?.empty, gone => { if (gone) closeReactMenu() })
+
 // ---------- 音效与语音报牌 ----------
 const recentSig = (s: SeatView) => (s.recent ? JSON.stringify([s.recent.cards, s.recent.bid ?? null]) : '')
 let lastSigs: string[] | null = null
@@ -334,7 +526,8 @@ watch(() => state.value ? `${state.value.roomId}#${state.value.round}#${state.va
 watch(() => state.value?.phase, (p, old) => {
   if (p === 'bidding' && old === 'waiting') sfx.deal()
   if (p === 'ended' && old === 'playing' && state.value?.result) {
-    if (myWin.value) sfx.win(); else sfx.lose()
+    if (spectating.value) sfx.play(1)
+    else if (myWin.value) sfx.win(); else sfx.lose()
     if (state.value.result.spring) window.setTimeout(() => { sfx.spring(); speak('春天') }, 700)
   }
 })
@@ -356,9 +549,15 @@ onMounted(async () => {
   if (connState.value !== 'on') void loadLobby()
   lobbyTimer = window.setInterval(() => { if (!state.value && !document.hidden) void loadLobby() }, 5000)
   clockTimer = window.setInterval(() => { now.value = Date.now() }, 500)
+  // 点别处、按 Esc 关掉点赞 / 砸番茄菜单
+  window.addEventListener('click', closeReactMenu)
+  window.addEventListener('keydown', onKeydown)
 })
 onBeforeUnmount(() => {
-  window.clearInterval(lobbyTimer); window.clearInterval(clockTimer); window.clearTimeout(errorTimer)
+  window.clearInterval(lobbyTimer); window.clearInterval(clockTimer); window.clearTimeout(errorTimer); window.clearTimeout(lobbyDebounce)
+  window.removeEventListener('click', closeReactMenu)
+  window.removeEventListener('keydown', onKeydown)
+  Object.values(hitTimers).forEach(t => window.clearTimeout(t))
   void connection?.stop()
 })
 </script>
@@ -404,7 +603,7 @@ onBeforeUnmount(() => {
 .room-list-head { display: flex; justify-content: space-between; align-items: center; }
 .room-list h3 { margin: 0; font-size: 15px; }
 .room-list ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 6px; }
-.room-list li { display: grid; grid-template-columns: 80px minmax(0, 1fr) 80px auto; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--border-line); border-left: 3px solid var(--accent-color); background: var(--bg-main); font-size: 13px; }
+.room-list li { display: grid; grid-template-columns: 80px minmax(0, 1fr) 110px auto; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--border-line); border-left: 3px solid var(--accent-color); background: var(--bg-main); font-size: 13px; }
 .room-tier { font-weight: 700; }
 .room-players { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); }
 .room-state { font: 11px var(--font-mono, monospace); color: var(--text-secondary); }
@@ -462,6 +661,10 @@ onBeforeUnmount(() => {
 @keyframes warn { to { box-shadow: 0 0 0 4px rgb(220 38 38 / 35%); } }
 .clock { position: absolute; top: -11px; right: -11px; display: grid; place-items: center; min-width: 30px; height: 24px; padding: 0 6px; background: var(--accent-color); color: var(--on-accent, #fff); font: 700 13px var(--font-mono, monospace); }
 .clock.inline { position: static; }
+.clock.low { background: var(--danger); }
+.clock.crit { animation: ddz-clock-pulse .8s ease-in-out infinite; }
+@keyframes ddz-clock-pulse { 50% { transform: scale(1.18); } }
+@media (prefers-reduced-motion: reduce) { .clock.crit { animation: none; } }
 .kick { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; padding: 0; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-secondary); cursor: pointer; }
 .played { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; min-height: 64px; }
 .played.right { justify-content: flex-end; }
@@ -532,11 +735,93 @@ onBeforeUnmount(() => {
   background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--accent-color) 85%, #000) 0 5px, var(--accent-color) 5px 10px); }
 .card-back.sm { width: 40px; height: 56px; }
 
+/* ---------- 观战 ---------- */
+.room-watch { margin-left: 8px; font-style: normal; color: var(--accent-color); }
+.room-btns { display: flex; gap: 6px; justify-content: flex-end; }
+.btn-primary.sm { padding: 5px 12px; font-size: 12px; }
+.tb-watching { padding: 2px 8px; border: 1px solid var(--accent-color); background: color-mix(in srgb, var(--accent-color) 10%, transparent); color: var(--accent-color); font-size: 12px; font-weight: 600; }
+.opponent.bottom { grid-column: 1 / 4; grid-row: 3; justify-items: center; }
+.played.bottom { justify-content: center; }
+.react-menu.bottom { top: auto; bottom: calc(100% + 6px); }
+.react-menu.bottom::before { top: auto; bottom: -6px; transform: rotate(225deg); }
+.watch-bar { grid-column: 1 / 4; grid-row: 4; display: grid; justify-items: center; gap: 6px; }
+.watch-bar p { margin: 0; max-width: 640px; padding: 8px 14px; border: 1px dashed var(--accent-color); background: color-mix(in srgb, var(--accent-color) 6%, var(--paper-card)); color: var(--text-secondary); font-size: 13px; line-height: 1.6; text-align: center; }
+.watch-bar p b { margin-right: 8px; color: var(--accent-color); }
+.watch-bar .ddz-error { border-style: solid; }
+
+/* ---------- 互动：点赞 / 砸番茄、弹幕、提示 ---------- */
+.ddz-lobby > .gb { margin-top: 4px; }
+.seat-hit { position: relative; display: inline-grid; padding: 0; border: 0; border-radius: 0; background: none; color: inherit; font: inherit; cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.seat-hit:hover .avatar, .seat-hit[aria-expanded='true'] .avatar { box-shadow: 0 0 0 2px var(--accent-color); }
+.seat-hit:focus-visible { outline: 2px solid var(--mint); outline-offset: 3px; }
+.react-badge { position: absolute; right: -7px; bottom: -7px; z-index: 3; display: grid; place-items: center; width: 18px; height: 18px; border: 1px solid var(--border-line); background: var(--paper-card); font-size: 10px; line-height: 1; }
+.react-menu { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; display: grid; gap: 6px; min-width: 188px; padding: 10px; border: 1px solid var(--accent-color); background: var(--paper-card); box-shadow: 0 12px 28px rgb(0 0 0 / 18%); }
+.react-menu.right { left: auto; right: 0; }
+.react-menu::before { content: ''; position: absolute; top: -6px; left: 18px; width: 10px; height: 10px; border-left: 1px solid var(--accent-color); border-top: 1px solid var(--accent-color); background: var(--paper-card); transform: rotate(45deg); }
+.react-menu.right::before { left: auto; right: 18px; }
+.react-menu p { margin: 0; color: var(--text-secondary); font-size: 12px; }
+.react-menu p b { color: var(--text-primary); }
+.react-menu button { display: flex; justify-content: space-between; align-items: center; gap: 12px; min-height: 40px; padding: 8px 10px; border: 1px solid var(--border-line); border-radius: 0; background: var(--bg-main); color: var(--text-primary); font: inherit; font-size: 14px; cursor: pointer; touch-action: manipulation; }
+.react-menu button small { color: var(--text-secondary); font: 600 11px var(--font-mono, monospace); }
+.react-menu .rm-like:hover:not(:disabled) { border-color: var(--accent-color); background: color-mix(in srgb, var(--accent-color) 8%, var(--bg-main)); }
+.react-menu .rm-tomato:hover:not(:disabled) { border-color: #e5484d; background: color-mix(in srgb, #e5484d 8%, var(--bg-main)); }
+.react-menu button:disabled { opacity: .45; cursor: default; }
+.rm-left { color: var(--text-secondary); font-size: 11px; }
+.me-info { position: relative; }
+.me-avatar { width: 28px; height: 28px; font-size: 12px; }
+
+/* 被赞：一圈亮光；被砸：抖一下、头像染红 */
+.op-card.hit-like, .me-info.hit-like { animation: hit-glow .9s ease-out; }
+.op-card.hit-tomato, .me-info.hit-tomato { animation: hit-shake .5s ease-in-out; }
+.hit-tomato .avatar { border-color: #e5484d; background: color-mix(in srgb, #e5484d 30%, var(--paper-card)); color: #b4232a; transition: background .2s; }
+.hit-like .avatar { border-color: var(--mint); background: color-mix(in srgb, var(--mint) 25%, var(--paper-card)); }
+@keyframes hit-glow {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--mint) 70%, transparent); }
+  35% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--mint) 45%, transparent), 0 0 26px color-mix(in srgb, var(--mint) 60%, transparent); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+@keyframes hit-shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px) rotate(-1deg); } 40% { transform: translateX(5px) rotate(1deg); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
+
+.fx-layer { position: absolute; inset: 0; z-index: 15; pointer-events: none; }
+.fx-layer :deep(.fx-fly-x) { position: absolute; left: 0; top: 0; will-change: transform; }
+.fx-layer :deep(.fx-fly-y) { display: block; will-change: transform; }
+.fx-layer :deep(.fx-fly-icon) { display: block; width: 34px; height: 34px; margin: -17px 0 0 -17px; font-size: 30px; line-height: 34px; text-align: center; filter: drop-shadow(0 4px 4px rgb(0 0 0 / 25%)); }
+.fx-layer :deep(.fx-hit) { position: absolute; width: 0; height: 0; }
+.fx-layer :deep(.fx-splat) { position: absolute; left: 0; top: 0; width: 50px; height: 42px; transform: translate(-50%, -50%); border-radius: 46% 54% 40% 60% / 58% 42% 58% 42%; background: radial-gradient(circle at 34% 30%, #ff8a80 0 12%, transparent 13%), #e5484d; box-shadow: inset -5px -6px 0 rgb(120 0 0 / 22%); }
+.fx-layer :deep(.fx-drop) { position: absolute; left: 0; top: 0; border-radius: 50%; background: #e5484d; transform: translate(-50%, -50%); }
+.fx-layer :deep(.fx-ring) { position: absolute; left: 0; top: 0; width: 58px; height: 58px; border: 3px solid var(--mint); border-radius: 50%; transform: translate(-50%, -50%); }
+.fx-layer :deep(.fx-plus) { position: absolute; left: 0; top: 0; padding: 2px 8px; transform: translate(-50%, -34px); background: var(--accent-color); color: var(--on-accent, #fff); font: 700 12px var(--font-mono, monospace); white-space: nowrap; }
+
+/* 提示放在底牌下面一点，不挡对手头像和底牌 */
+.react-toasts { position: absolute; top: 24%; left: 50%; z-index: 14; display: grid; justify-items: center; gap: 4px; width: min(92%, 460px); transform: translateX(-50%); pointer-events: none; }
+.react-toasts p { margin: 0; padding: 4px 12px; border: 1px solid var(--border-line); border-left: 3px solid var(--accent-color); background: color-mix(in srgb, var(--paper-card) 94%, transparent); box-shadow: 0 4px 14px rgb(0 0 0 / 10%); font-size: 13px; animation: toast-in .25s ease-out; }
+.react-toasts p.t-tomato { border-left-color: #e5484d; }
+.react-toasts i { margin-right: 6px; font-style: normal; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+
+/* 弹幕走牌桌中间那条空白带（上面是对手和底牌，下面是自己的手牌），不挡头像和出的牌 */
+.danmaku { position: absolute; left: 0; right: 0; top: 42%; z-index: 13; height: 112px; overflow: hidden; pointer-events: none; }
+.dm { position: absolute; left: 100%; top: calc(var(--lane, 0) * 28px); padding: 2px 10px; white-space: nowrap; color: var(--text-primary); background: color-mix(in srgb, var(--paper-card) 70%, transparent); border: 1px solid color-mix(in srgb, var(--border-line) 70%, transparent); font-size: 14px; text-shadow: 0 1px 0 var(--paper-card); animation: dm-fly 9s linear forwards; }
+.dm.mine { border-color: var(--accent-color); color: var(--accent-color); }
+@keyframes dm-fly { from { left: 100%; transform: translateX(0); } to { left: 0; transform: translateX(-100%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .op-card.hit-like, .me-info.hit-like, .op-card.hit-tomato, .me-info.hit-tomato { animation: none; }
+  .dm { animation-duration: 14s; }
+}
+
 @media (max-width: 900px) {
   .tier-grid { grid-template-columns: minmax(0, 1fr); }
   .felt { grid-template-columns: 1fr 1fr; grid-template-rows: auto auto 1fr auto; min-height: 0; padding: 18px 12px 12px; }
   .opponent.left { grid-column: 1; grid-row: 1; } .opponent.right { grid-column: 2; grid-row: 1; }
   .op-card { min-width: 0; }
+  .react-menu { min-width: 168px; }
+  .opponent.bottom { grid-column: 1 / 3; grid-row: 4; }
+  .watch-bar { grid-column: 1 / 3; grid-row: 5; }
+  /* 观战时下方也是别人的座位：提示改到最下面（盖在「你在观战」那条说明上，不挡头像） */
+  .felt.watching .react-toasts { top: auto; bottom: 8px; }
+  .danmaku { top: auto; bottom: 46%; height: 84px; }
+  .react-toasts { top: auto; bottom: 37%; }
   .center { grid-column: 1 / 3; grid-row: 2; }
   .me { grid-column: 1 / 3; grid-row: 4; }
   .hand { justify-content: flex-start; }

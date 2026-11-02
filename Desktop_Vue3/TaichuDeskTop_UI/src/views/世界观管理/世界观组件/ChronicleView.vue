@@ -31,6 +31,8 @@
           <button type="button" class="ch-btn" @click="openLine(null)">＋ 时间线</button>
           <button type="button" class="ch-btn" title="纪元、月份、年的叫法" @click="calendarOpen = true">⚙ 历法</button>
         </template>
+        <!-- 修改记录：创建者和协作者能看（删错了的时间线、事件也在这里恢复） -->
+        <button v-if="canViewHistory" type="button" class="ch-btn" title="谁在什么时候改了编年史，改错了可以撤销" @click="historyOpen = true">修改记录</button>
       </div>
       <div v-if="tagFilter || cardFilter" class="ch-filters">
         <span>只看：</span>
@@ -54,7 +56,7 @@
     <div v-else class="ch-body">
       <div class="ch-main">
         <template v-if="mode === 'axis'">
-          <ChronicleAxis ref="axisRef" :calendar="calendar" :lanes="axisLanes" :all-events="allEvents" :find-card="findCard" :selected-id="selectedId"
+          <ChronicleAxis ref="axisRef" :project-id="projectId" :calendar="calendar" :lanes="axisLanes" :all-events="allEvents" :find-card="findCard" :selected-id="selectedId"
             :highlight="matched" :can-edit="editable" @select="select" @open-card="openCard" @line="onLineClick" @add="addAt" />
           <div v-if="undated.length" class="ch-undated">
             <span class="ch-undated-title">时间未定（{{ undated.length }}）</span>
@@ -124,6 +126,8 @@
           <div v-if="selected.images.length" class="cd-imgs">
             <a v-for="url in selected.images" :key="url" :href="url" target="_blank" rel="noopener"><img :src="withThumbnail(url, 400)" alt="" loading="lazy" /></a>
           </div>
+          <!-- 从柴圈约战「战后记录」写进来的事件：多显示一张约战记录卡片（视频、结果、链到约战页 / OC）；别的事件什么都不显示 -->
+          <ChronicleBattleCard v-if="!selected.sourceCardId" :event-id="selected.id" />
 
           <div v-if="detailLinks.length" class="cd-section">
             <h4>相关条目 <small>点了打开完整页面</small></h4>
@@ -163,12 +167,14 @@
       @close="eventEditor = null" @saved="onEventSaved" @deleted="onEventDeleted" @branch="id => { eventEditor = null; branchFrom(id) }" />
     <ChronicleLineEditor v-if="lineEditor" :key="lineEditor.key" :project-id="projectId" :calendar="calendar" :lines="editableLanes" :events="realEvents" :line="lineEditor.line" :preset="lineEditor.preset"
       @close="lineEditor = null" @saved="onLineSaved" @deleted="onLineDeleted" @move="moveLine" />
+    <ChronicleHistory v-if="historyOpen" :project-id="projectId" :can-edit="editable" :calendar="calendar" :timelines="timelines" :events="realEvents" :find-card="findCard"
+      @close="historyOpen = false" @changed="load" @select-event="select" @open-line="onLineClick" />
     <ChronicleCalendarEditor v-if="calendarOpen" :project-id="projectId" :calendar="calendar" :events="realEvents" @close="calendarOpen = false" @saved="c => { calendar = c; calendarOpen = false; axisRef?.fit() }" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onScopeDispose, ref, watch } from 'vue'
+import { computed, defineAsyncComponent, onScopeDispose, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { chronicleApi } from '@/api/chronicle'
@@ -186,6 +192,9 @@ import ChronicleAxis from './ChronicleAxis.vue'
 import ChronicleEventEditor from './ChronicleEventEditor.vue'
 import ChronicleLineEditor from './ChronicleLineEditor.vue'
 import ChronicleCalendarEditor from './ChronicleCalendarEditor.vue'
+import ChronicleBattleCard from './ChronicleBattleCard.vue'
+// 修改记录面板用到才加载
+const ChronicleHistory = defineAsyncComponent(() => import('./ChronicleHistory.vue'))
 
 const props = defineProps<{ projectId: string; canEdit?: boolean; canPane?: boolean }>()
 const emit = defineEmits<{ select: [cardId: string]; pane: [cardId: string] }>()
@@ -199,6 +208,8 @@ const timelines = ref<ChronicleTimeline[]>([])
 const events = ref<ChronicleEvent[]>([])
 const legacy = ref<TimelineItem[]>([])
 const serverCanEdit = ref(false)
+const canViewHistory = ref(false)
+const historyOpen = ref(false)
 const loading = ref(true)
 const loadError = ref(false)
 const busy = ref(false)
@@ -216,6 +227,12 @@ async function load() {
     timelines.value = data.value.timelines
     events.value = data.value.events
     serverCanEdit.value = data.value.canEdit
+    canViewHistory.value = Boolean(data.value.canViewHistory)
+    // 从「撤销了你的修改 / 删除了时间线」的通知点进来：直接打开修改记录
+    if (route.query.chronicleHistory) {
+      if (canViewHistory.value) historyOpen.value = true
+      void router.replace({ query: { ...route.query, chronicleHistory: undefined } }).catch(() => {})
+    }
   } else loadError.value = true
   legacy.value = old.status === 'fulfilled' ? old.value : []
   loading.value = false

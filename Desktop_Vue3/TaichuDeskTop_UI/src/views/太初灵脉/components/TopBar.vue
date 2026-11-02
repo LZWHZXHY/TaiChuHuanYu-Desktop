@@ -8,8 +8,8 @@
       <div class="breadcrumb">
         <span class="root">我的灵脉</span>
         <span class="sep">/</span>
-        <span class="current">{{ activeNote?.title || '未命名笔记' }}</span>
-        <span v-if="destText" class="dest-badge" :title="'发布后会出现在这里'">{{ activeNote?.isPublic ? '已发布到' : '发布到' }} {{ destText }}</span>
+        <span class="current">{{ pageTitle || activeNote?.title || '未命名笔记' }}</span>
+        <span v-if="destText && !pageTitle" class="dest-badge" :title="'发布后会出现在这里'">{{ activeNote?.isPublic ? '已发布到' : '发布到' }} {{ destText }}</span>
       </div>
     </div>
     
@@ -18,7 +18,7 @@
         <span class="icon" aria-hidden="true">🕸️</span><span v-if="!isMobile" class="btn-label">关系图</span>
       </button>
 
-      <button class="action-btn" @click="$emit('open-settings')" title="笔记设置：空间、类型、发布" aria-label="笔记设置" :disabled="!activeNote">
+      <button class="action-btn" @click="$emit('open-settings')" title="笔记设置：空间、类型、发布" aria-label="笔记设置" :disabled="!activeNote || !!pageTitle">
         <span class="icon" aria-hidden="true">⚙</span><span v-if="!isMobile" class="btn-label">设置</span>
       </button>
     </div>
@@ -33,6 +33,8 @@ import { boardOf } from '@/utils/forumBoards'
 const props = defineProps<{
   isMobile: boolean;
   activeNote: any;
+  /** 不是笔记的页面（比如「生活管理」）显示的标题；有值时「设置」按钮不可用 */
+  pageTitle?: string;
 }>();
 
 defineEmits([

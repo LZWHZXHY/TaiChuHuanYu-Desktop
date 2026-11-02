@@ -6,17 +6,20 @@
       <span class="relation-count">{{ relations.length }}</span>
     </div>
     <div class="relation-list">
-      <div
+      <button
         v-for="rel in relations"
         :key="rel.id"
+        type="button"
         class="relation-item"
         :class="direction"
+        :style="{ '--tc': typeColor(rel) }"
+        :title="getDirectionLabel(rel)"
         @click="handleCardClick(rel)"
       >
         <span class="rel-title">{{ getCardTitle(rel) }}</span>
-        <span class="rel-type">「{{ rel.relationType }}」</span>
-        <span class="rel-direction">{{ getDirectionLabel(rel) }}</span>
-      </div>
+        <span v-if="rel.relationType" class="rel-type">{{ rel.relationType }}</span>
+        <span class="rel-direction" aria-hidden="true">{{ type === 'in' ? '↘' : '↗' }}</span>
+      </button>
     </div>
   </div>
 </template>
@@ -24,6 +27,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { CardTypeMeta, type CardType } from '../card_type'
 
 const props = defineProps<{
   relations: any[]  // inRelations 或 outRelations 数组
@@ -42,7 +46,7 @@ const router = useRouter()
 // 默认标签
 const label = computed(() => {
   if (props.label) return props.label
-  return props.type === 'in' ? '🔗 被以下卡片关联' : '🔗 关联了以下卡片'
+  return props.type === 'in' ? '被这些条目关联' : '关联到'
 })
 
 // 获取卡片标题
@@ -54,12 +58,15 @@ const getCardTitle = (rel: any) => {
   }
 }
 
+// 条目类型的颜色（左边那条色带）
+const typeColor = (rel: any) => CardTypeMeta[(props.type === 'in' ? rel.sourceCardType : rel.targetCardType) as CardType]?.color ?? 'var(--border-line)'
+
 // 获取方向标签
 const getDirectionLabel = (rel: any) => {
   if (props.type === 'in') {
-    return '→ 本卡片'
+    return `「${getCardTitle(rel)}」把这个条目关联为${rel.relationType ? '「' + rel.relationType + '」' : '相关条目'}`
   } else {
-    return '本卡片 →'
+    return `这个条目 → 「${getCardTitle(rel)}」`
   }
 }
 
@@ -93,82 +100,20 @@ const direction = computed(() => {
 </script>
 
 <style scoped>
-.relation-list-wrapper {
-  padding: 4px 0;
-}
-
-.relation-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-}
-
-.relation-label {
-  font-weight: 500;
-  font-size: 14px;
-  color: var(--text-primary);
-}
-
-.relation-count {
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--bg-sub);
-  padding: 0 10px;
-  border-radius: 0;
-}
-
-.relation-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
+.relation-list-wrapper { padding: 2px 0; }
+.relation-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.relation-label { font: 600 12px/1.4 var(--font-mono, monospace); letter-spacing: .06em; color: var(--text-secondary); }
+.relation-count { padding: 0 6px; font: 11px/1.6 var(--font-mono, monospace); color: var(--inverse-text); background: var(--inverse-bg); }
+.relation-list { display: flex; flex-wrap: wrap; gap: 6px; }
 .relation-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: var(--bg-main);
-  border-radius: 0;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-  border-left: 3px solid var(--border-line);
+  --tc: var(--border-line);
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-height: 28px; padding: 0 8px;
+  background: var(--paper-card); border: 1px solid var(--border-line); border-left: 3px solid var(--tc);
+  font-size: 13px; color: var(--text-primary); cursor: pointer; transition: border-color .15s, translate .15s, box-shadow .15s;
 }
-
-.relation-item:hover {
-  background: var(--bg-sub);
-  transform: translateX(2px);
-}
-
-/* 入度样式（被关联） */
-.relation-item.incoming {
-  border-left-color: var(--warning);
-}
-
-/* 出度样式（我关联的） */
-.relation-item.outgoing {
-  border-left-color: var(--accent-color);
-}
-
-.relation-item .rel-title {
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.relation-item .rel-type {
-  color: var(--accent-color);
-  background: var(--accent-soft);
-  padding: 0 8px;
-  border-radius: 0;
-  font-size: 12px;
-}
-
-.relation-item .rel-direction {
-  font-size: 11px;
-  color: var(--text-secondary);
-  margin-left: auto;
-  opacity: 0.7;
-}
+.relation-item:hover, .relation-item:focus-visible { border-color: var(--tc); translate: 0 -1px; box-shadow: 2px 2px 0 color-mix(in srgb, var(--tc) 22%, transparent); }
+.rel-title { min-width: 0; max-width: 12em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.rel-type { padding: 0 5px; font: 11px/1.6 var(--font-mono, monospace); color: var(--accent-color); background: var(--accent-soft); white-space: nowrap; }
+.rel-direction { font-size: 11px; color: var(--text-secondary); }
+.relation-item.incoming .rel-direction { color: var(--warning); }
 </style>

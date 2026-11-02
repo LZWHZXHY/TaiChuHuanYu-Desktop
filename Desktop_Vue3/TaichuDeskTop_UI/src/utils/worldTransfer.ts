@@ -1,8 +1,12 @@
 import type { CardDetail, WorldProject, CreateCardPayload } from '@/api/types/world';
-import { blockTitle, parseLayout } from './worldLayout';
+import { blockTitle, parseLayout, remapLayoutCards, serializeLayout } from './worldLayout';
 import { getCardTypeLabel, parseCoverImage } from './worldPresentation';
 import { cardSchemas } from '@/views/世界观管理/card-schemas';
 import type { CardType } from '@/views/世界观管理/card_type';
+import {
+  KIND_META, STATUS_META, eventStart, formatEventDate, normalizeCalendar, orderLanes,
+  type ChronicleEvent, type ChronicleExport, type ChronicleTimeline, type EventKind, type TimelineStatus,
+} from './chronicle';
 
 export interface WorldTextItem {
   title: string;
@@ -34,7 +38,11 @@ function snapshot(card: CardDetail): CreateCardPayload {
 
 /** 区块里的引用（文本块的 {CARD:id}）和时间线事件的相关条目，换成新世界里的 ID */
 function remapLayout(layout: string | null | undefined, target: (id: string) => string) {
-  return layout ? layout.replace(/\{CARD:([^}]+)\}/g, (_, id: string) => `{CARD:${target(id)}}`) : layout ?? null;
+  if (!layout) return layout ?? null;
+  const text = layout.replace(/\{CARD:([^}]+)\}/g, (_, id: string) => `{CARD:${target(id)}}`);
+  // 地图图钉、下一层地图、画布条目卡片、关系树节点里的条目 ID 也要换（fix121）
+  const parsed = parseLayout(text);
+  return parsed ? serializeLayout(remapLayoutCards(parsed, target)) : text;
 }
 
 /** 外部文件只取业务字段，绝不恢复账号、世界 ID、公开状态、版本或权限。 */
@@ -95,11 +103,12 @@ export function createWorldImportPayload(item: WorldTextItem, fallbackType: stri
   if (!item.payload) return { title: item.title, description: item.description, type: fallbackType, galleryImages: item.images || [] };
   return { ...item.payload, description: item.payload.description?.replace(/\{CARD:[^}]+\}/g, '（引用待恢复）') ?? null,
     content: remapContentReferences(item.payload, () => ''), contentBlocks: [], embeddedCards: [], relations: [],
-    layout: item.payload.layout?.replace(/\{CARD:[^}]+\}/g, '（引用待恢复）') ?? null,
+    layout: remapLayout(item.payload.layout?.replace(/\{CARD:[^}]+\}/g, '（引用待恢复）'), () => ''),
     timelineEvents: (item.payload.timelineEvents || []).map(e => ({ ...e, cardIds: [] })) };
 }
 
-function readWorldRestoreData(content: string): WorldTextItem[] | null {
+/** 读出文件末尾的恢复数据块（并核对可读部分没被改过）；没有恢复数据返回 null */
+function readRestoreBlock(content: string) {
   if (!hasWorldRestoreData(content)) return null;
   const start = content.lastIndexOf(exportMarker);
   if (start < 0 || !content.endsWith('-->')) throw new Error('导出文件的恢复数据版本或结尾无效。');
@@ -107,6 +116,12 @@ function readWorldRestoreData(content: string): WorldTextItem[] | null {
   const readable = content.slice(0, start).trimEnd();
   if (data.version !== 1 || data.textChecksum !== textChecksum(readable))
     throw new Error('导出文件的可读内容已修改。为避免忽略修改，已停止完整恢复；可选择按普通 Markdown 导入。');
+  return data;
+}
+
+function readWorldRestoreData(content: string): WorldTextItem[] | null {
+  const data = readRestoreBlock(content);
+  if (!data) return null;
   if (!Array.isArray(data.cards)) throw new Error('条目列表格式无效。');
   const seen = new Set<string>();
   const items: WorldTextItem[] = data.cards.map((entry: { sourceId?: unknown; payload?: unknown }) => {
@@ -240,9 +255,114 @@ export function resolveWorldImport(items: WorldTextItem[], ids: string[]) {
   } : { title: item.title, type: '', description: descriptions[index], galleryImages: item.images || [] });
   return { descriptions, payloads, unresolved };
 }
+// ================= 编年史（时间线、事件、历法） =================
+
+const hasOwn = (o: object, key: unknown) => typeof key === 'string' && Object.prototype.hasOwnProperty.call(o, key);
+
+/** 外部文件里的编年史只取业务字段；Id 必须是文字（用来对上事件在哪条线上、从哪分叉），其他字段格式不对就当没写 */
+function readChronicle(value: unknown): ChronicleExport | null {
+  if (value == null) return null;
+  const object = (v: unknown): Record<string, unknown> => {
+    if (!v || typeof v !== 'object' || Array.isArray(v)) throw new Error('编年史数据格式无效。');
+    return v as Record<string, unknown>;
+  };
+  const id = (v: unknown) => { if (typeof v !== 'string' || !v) throw new Error('编年史数据里的时间线或事件标识缺失。'); return v; };
+  const optional = (v: unknown) => typeof v === 'string' ? v : null;
+  const number = (v: unknown) => typeof v === 'number' && Number.isFinite(v) ? v : null;
+  const strings = (v: unknown) => Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  const v = object(value);
+  if (!Array.isArray(v.timelines) || !Array.isArray(v.events)) throw new Error('编年史数据格式无效。');
+  const timelines: ChronicleTimeline[] = v.timelines.map(raw => {
+    const t = object(raw);
+    return {
+      id: id(t.id), name: optional(t.name) ?? '', description: optional(t.description), color: optional(t.color),
+      status: hasOwn(STATUS_META, t.status) ? t.status as TimelineStatus : 'canon',
+      parentId: optional(t.parentId), forkEventId: optional(t.forkEventId), mergeEventId: optional(t.mergeEventId), cardId: optional(t.cardId),
+      sortOrder: number(t.sortOrder) ?? 0, hidden: t.hidden === true,
+    };
+  });
+  const events: ChronicleEvent[] = v.events.map(raw => {
+    const e = object(raw);
+    return {
+      id: id(e.id), timelineId: id(e.timelineId), kind: hasOwn(KIND_META, e.kind) ? e.kind as EventKind : 'event',
+      title: optional(e.title) ?? '', description: optional(e.description),
+      eraId: optional(e.eraId), year: number(e.year), month: number(e.month), day: number(e.day),
+      endEraId: optional(e.endEraId), endYear: number(e.endYear), endMonth: number(e.endMonth), endDay: number(e.endDay),
+      dateText: optional(e.dateText), color: optional(e.color), images: strings(e.images), tags: strings(e.tags), cardIds: strings(e.cardIds),
+      locationCardId: optional(e.locationCardId), hidden: e.hidden === true, sortOrder: number(e.sortOrder) ?? 0,
+    };
+  });
+  return { calendar: v.calendar && typeof v.calendar === 'object' && !Array.isArray(v.calendar) ? v.calendar : null, timelines, events };
+}
+
+/** 导出文件 / 备份里的编年史；老文件没有编年史、普通 Markdown 都返回 null */
+export function parseWorldChronicle(text: string): ChronicleExport | null {
+  const content = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').trim();
+  return readChronicle(readRestoreBlock(content)?.chronicle);
+}
+
+/**
+ * 恢复 / 复制世界时，把编年史里引用的条目换成这次新建的条目 Id（ids 和 items 一一对应，同 resolveWorldImport）；
+ * 文件里没有的条目（原来就已经删掉的）去掉引用。图片换成已上传的地址。时间线、事件自己的 Id 由服务器换新。
+ * 普通 Markdown 导入（条目没有完整数据）不恢复编年史，返回 null。
+ */
+export function resolveWorldChronicle(chronicle: ChronicleExport | null | undefined, items: WorldTextItem[], ids: string[],
+  images?: Map<string, string>): ChronicleExport | null {
+  if (!chronicle || !items.every(item => item.payload)) return null;
+  const source = images ? replaceImageUrls(chronicle, images) : chronicle;
+  const map = new Map(items.flatMap((item, index) => item.sourceId && ids[index] ? [[item.sourceId, ids[index]!] as const] : []));
+  const card = (id: string | null | undefined) => (id ? map.get(id) ?? null : null);
+  const refs = (text: string | null | undefined) => text == null ? null
+    : text.replace(/(!?)\{CARD:([^}]+)\}/g, (_, bang: string, id: string) => map.has(id) ? `${bang}{CARD:${map.get(id)}}` : '（已删除的条目）');
+  return {
+    calendar: source.calendar ?? null,
+    timelines: source.timelines.map(line => ({ ...line, cardId: card(line.cardId) })),
+    events: source.events.map(e => ({
+      ...e, title: refs(e.title) ?? '', description: refs(e.description),
+      cardIds: e.cardIds.map(card).filter((id): id is string => Boolean(id)), locationCardId: card(e.locationCardId),
+    })),
+  };
+}
+
+/** 图片地址替换（和 worldBackup 的 replaceWorldImages 一样的规则：长的先换，避免短地址是长地址的一部分） */
+function replaceImageUrls(chronicle: ChronicleExport, urls: Map<string, string>): ChronicleExport {
+  const entries = [...urls].sort((a, b) => b[0].length - a[0].length);
+  const swap = (v: string) => entries.reduce((s, [from, to]) => s.split(from).join(to), v);
+  const opt = (v: string | null | undefined) => v == null ? v ?? null : swap(v);
+  return {
+    ...chronicle,
+    events: chronicle.events.map(e => ({ ...e, images: e.images.map(swap), description: opt(e.description) })),
+  };
+}
+
+/** 可读稿里的编年史：每条时间线一节，事件按时间排（时间未定的放最后） */
+function chronicleMarkdown(chronicle: ChronicleExport, reference: (id: string) => string): string[] {
+  if (!chronicle.timelines.length) return [];
+  const cal = normalizeCalendar(chronicle.calendar);
+  const refs = (text: string) => text.replace(/!?\{CARD:([^}]+)\}/g, (_, id: string) => reference(id));
+  const prose = (text: string) => mapWorldProse(text, line => line.replace(/^\s*!(?=\{CARD:)/, '').replace(/^#{1,5}\s+/, '###### ')
+    .replace(/\{CARD:([^}]+)\}/g, (_, id: string) => reference(id)));
+  const out = ['## 编年史', `历法：${cal.eras.map(e => escapeTitle(e.name)).join(' / ')}`];
+  for (const { line } of orderLanes(chronicle.timelines)) {
+    const parent = line.parentId ? chronicle.timelines.find(l => l.id === line.parentId) : undefined;
+    out.push(`### ${escapeTitle(line.name)}（${STATUS_META[line.status]?.label ?? '正史'}${parent ? `，从「${escapeTitle(parent.name)}」分出` : ''}）${line.hidden ? '（仅成员可见）' : ''}`);
+    if (line.description) out.push(prose(line.description));
+    const events = chronicle.events.filter(e => e.timelineId === line.id)
+      .map(e => ({ e, t: eventStart(cal, e) }))
+      .sort((a, b) => (a.t ?? Infinity) - (b.t ?? Infinity) || a.e.sortOrder - b.e.sortOrder);
+    for (const { e } of events) {
+      const kind = e.kind !== 'event' ? `［${KIND_META[e.kind]?.label ?? ''}］` : '';
+      out.push(`#### ${escapeTitle(formatEventDate(cal, e))}：${kind}${refs(escapeTitle(e.title))}${e.hidden ? '（仅成员可见）' : ''}`);
+      if (e.description) out.push(prose(e.description));
+      if (e.tags.length) out.push(`标签：${e.tags.map(escapeTitle).join('、')}`);
+    }
+  }
+  return out;
+}
+
 const textValue = (value: unknown): string => typeof value === 'string' ? value : value == null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value);
 const escapeTitle = (value: unknown) => textValue(value).replace(/[\r\n]/g, ' ').replace(/([\\`*_[\]<>])/g, '\\$1');
-export function worldMarkdown(project: WorldProject, cards: CardDetail[], restoreData = true) {
+export function worldMarkdown(project: WorldProject, cards: CardDetail[], restoreData = true, chronicle: ChronicleExport | null = null) {
   const byId = new Map(cards.map(card => [card.id, card]));
   const reference = (id: string) => { const card = byId.get(id); return card ? `[${escapeTitle(card.title)}](#card-${card.id})` : '不可用的条目'; };
   const readable = [`# ${escapeTitle(project.name)}`, project.description || '', ...cards.flatMap(card => [
@@ -276,9 +396,14 @@ export function worldMarkdown(project: WorldProject, cards: CardDetail[], restor
       ...card.embeddedCards.filter(id => !card.contentBlocks.some(b => b.cardId === id)).map(id => `- 引用：${reference(id)}`),
       ...card.galleryImages.map(imageUrl).filter(Boolean).map((url, index) => `![${escapeTitle(card.title)} · 图片 ${index + 1}](<${url}>)`),
       card.content && !['{}', 'null', ''].includes(card.content) ? `\`\`\`json\n${card.content.replace(/`/g, '\\u0060')}\n\`\`\`` : '',
-    ])].filter(Boolean).join('\n\n');
+    ]),
+    // 编年史放在最后（PDF、Markdown 里也能读到）
+    ...(chronicle ? chronicleMarkdown(chronicle, reference) : []),
+  ].filter(Boolean).join('\n\n');
   if (!restoreData) return readable + '\n';
-  const data = { version: 1, textChecksum: textChecksum(readable), cards: cards.map(card => ({ sourceId: card.id, payload: snapshot(card) })) };
+  // chronicle：编年史的完整数据（fix121 新增；老文件没有这一项，恢复时就跳过编年史）
+  const data = { version: 1, textChecksum: textChecksum(readable), cards: cards.map(card => ({ sourceId: card.id, payload: snapshot(card) })),
+    ...(chronicle ? { chronicle } : {}) };
   // 转义尖括号，正文中的注释结束符不能破坏恢复数据块。
   return readable + exportMarker + JSON.stringify(data).replace(/</g, '\\u003c').replace(/>/g, '\\u003e') + '\n-->\n';
 }

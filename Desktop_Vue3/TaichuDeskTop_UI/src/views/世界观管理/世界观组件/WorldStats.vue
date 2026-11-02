@@ -1,18 +1,19 @@
-<!-- 世界观创作统计：词条树、字数、创作天数、连续创作、活跃日历、几点写、谁写得最多、改得最多的条目。
-     只有创建者和协作者能看（后端也会拦）。 -->
+<!-- 世界观创作统计：词条树、字数、创作天数、连续创作、活跃日历、几点写、谁写得最多、改得最多的条目、创作里程碑。
+     创建者和协作者看完整统计；公开世界的访客（包括没登录的）看公开的那部分：
+     只算访客能看到的内容，不显示是谁写的、不显示修改记录（后端按身份裁剪，前端只管按 mode 显示）。 -->
 <template>
   <section class="ws" aria-label="创作统计">
     <header class="ws-head">
       <div>
-        <p class="ws-kicker">CREATION STATS · 创作统计</p>
-        <h2>{{ stats ? `《${stats.name}》的创作档案` : '创作统计' }}</h2>
-        <p v-if="stats" class="ws-sub">建立于 {{ day(stats.createdAt) }} · 今天是第 <b>{{ stats.days.toLocaleString('zh-CN') }}</b> 天{{ stats.totals.lastActiveAt ? ` · 最近一次创作 ${ago(stats.totals.lastActiveAt)}` : '' }}</p>
+        <p class="ws-kicker">CREATION STATS · 创作统计{{ pub ? ' · 公开' : '' }}</p>
+        <h2>{{ data ? `《${data.name}》的创作档案` : '创作统计' }}</h2>
+        <p v-if="data" class="ws-sub">建立于 {{ day(data.createdAt) }} · 今天是第 <b>{{ data.days.toLocaleString('zh-CN') }}</b> 天{{ data.totals.lastActiveAt ? ` · ${pub ? '最近更新' : '最近一次创作'} ${ago(data.totals.lastActiveAt)}` : '' }}</p>
       </div>
       <button type="button" class="ws-refresh" :disabled="loading" @click="load">{{ loading ? '读取中…' : '刷新' }}</button>
     </header>
 
-    <p v-if="loading && !stats" class="ws-state" role="status">正在统计这个世界的创作数据…</p>
-    <p v-else-if="error && !stats" class="ws-state" role="alert">{{ error }} <button type="button" @click="load">重试</button></p>
+    <p v-if="loading && !data" class="ws-state" role="status">正在统计这个世界的创作数据…</p>
+    <p v-else-if="error && !data" class="ws-state" role="alert">{{ error }} <button type="button" @click="load">重试</button></p>
 
     <template v-else-if="stats">
       <!-- 关键数字 -->
@@ -54,6 +55,9 @@
         <h3>活跃日历</h3>
         <CreationHeatmap :days="stats.heatmap" />
       </section>
+
+      <!-- 创作里程碑：达成的点亮，没达成的灰着显示还差多少（老缓存里没有这一项就先不显示） -->
+      <MilestoneWall v-if="stats.milestones?.length" :milestones="stats.milestones ?? []" />
 
       <div class="ws-cols">
         <!-- 词条树 -->
@@ -138,6 +142,45 @@
       <p class="ws-note">
         字数只算设定文字（正文、属性、文本块、时间线事件），空格和引用标记不算。
         修改次数{{ stats.trackingSince ? `从 ${day(stats.trackingSince)} 开始记录` : '从开始记录修改后才有' }}，在这之前建的词条按建立时间算一次「新建」。日期按北京时间。
+        里程碑每 30 分钟检测一次，新达成的会给创建者和协作者发通知。
+      </p>
+    </template>
+
+    <!-- 公开世界的访客：只看公开的那部分（没有各人贡献、修改次数、改得最多这些） -->
+    <template v-else-if="pub">
+      <div class="ws-tiles">
+        <div class="ws-tile">
+          <span class="ws-label">词条</span>
+          <b class="ws-num">{{ fmt(pub.totals.cards) }}</b>
+          <small>{{ pub.milestones.length ? `已点亮 ${pub.milestones.length} 个里程碑` : '还没有点亮里程碑' }}</small>
+        </div>
+        <div class="ws-tile">
+          <span class="ws-label">设定字数</span>
+          <b class="ws-num">{{ fmtWords(pub.totals.words) }}</b>
+          <small>{{ pub.totals.novels ? `另有公开小说 ${fmtWords(pub.totals.novelWords)} 字` : '只算公开的设定内容' }}</small>
+        </div>
+        <div class="ws-tile">
+          <span class="ws-label">创作天数</span>
+          <b class="ws-num">{{ fmt(pub.totals.activeDays) }}<em> 天</em></b>
+          <small>建立以来的 {{ fmt(pub.days) }} 天里，{{ activeRate }}% 的日子在写</small>
+        </div>
+        <div class="ws-tile">
+          <span class="ws-label">最近更新</span>
+          <b class="ws-num ws-num-sm">{{ pub.totals.lastActiveAt ? ago(pub.totals.lastActiveAt) : '—' }}</b>
+          <small>{{ pub.totals.lastActiveAt ? day(pub.totals.lastActiveAt) : '还没有更新过' }}</small>
+        </div>
+      </div>
+
+      <section class="ws-card">
+        <h3>活跃日历</h3>
+        <CreationHeatmap :days="pub.heatmap" />
+      </section>
+
+      <MilestoneWall :milestones="pub.milestones" public-view />
+
+      <p class="ws-note">
+        这是公开的创作统计：只算访客能看到的内容（作者设成「对访客隐藏」的区块和时间线事件不算，小说只算公开的），
+        活跃日历只显示每天创作了几次。字数不算空格和引用标记，日期按北京时间。统计每 10 分钟更新一次{{ pub.generatedAt ? `（这份是 ${ago(pub.generatedAt)}算的）` : '' }}。
       </p>
     </template>
   </section>
@@ -145,38 +188,50 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { worldStatsApi, type WorldStats } from '@/api/worldStats'
+import { worldStatsApi, type PublicWorldStats, type WorldStats } from '@/api/worldStats'
 import { getErrorMessage } from '@/utils/apiError'
 import { getCardTypeLabel } from '@/utils/worldPresentation'
 import CreationHeatmap from '@/components/ActivityHeatmap.vue'
 import StatBars from './StatBars.vue'
+import MilestoneWall from './MilestoneWall.vue'
+import { useUserStore } from '@/stores/user'
 
 const props = defineProps<{ projectId: string }>()
 const emit = defineEmits<{ select: [cardId: string] }>()
 
-const stats = ref<WorldStats | null>(null)
+const userStore = useUserStore()
+/** 后端给的统计：成员拿到完整的（mode = member），公开世界的访客拿到公开的那部分（mode = public） */
+const data = ref<WorldStats | PublicWorldStats | null>(null)
+/** 成员看的完整统计（老缓存里没有 mode，也算成员版） */
+const stats = computed<WorldStats | null>(() => data.value && data.value.mode !== 'public' ? data.value : null)
+/** 访客看的公开统计 */
+const pub = computed<PublicWorldStats | null>(() => data.value?.mode === 'public' ? data.value : null)
 const loading = ref(false)
 const error = ref('')
 const open = reactive<Record<string, boolean>>({})
 let version = 0
 
-// 上次的结果存在浏览器里，进来先显示，后台再换成最新的
-const cacheKey = () => `taichu.world.stats:${props.projectId}`
+// 上次的结果存在浏览器里，进来先显示，后台再换成最新的。
+// 按账号分开存：不然同一台电脑上，退出登录后访客会先看到成员版（含各人贡献）的旧缓存
+const cacheKey = () => `taichu.world.stats:${userStore.userId || 'guest'}:${props.projectId}`
 async function load() {
   const v = ++version
   loading.value = true
   error.value = ''
-  if (!stats.value) { try { const raw = localStorage.getItem(cacheKey()); if (raw) stats.value = JSON.parse(raw) as WorldStats } catch { /* 忽略 */ } }
+  // 以前的缓存不分账号，顺手删掉
+  try { localStorage.removeItem(`taichu.world.stats:${props.projectId}`) } catch { /* 忽略 */ }
+  if (!data.value) { try { const raw = localStorage.getItem(cacheKey()); if (raw) data.value = JSON.parse(raw) as WorldStats | PublicWorldStats } catch { /* 忽略 */ } }
   try {
-    const data = await worldStatsApi.project(props.projectId)
+    const fresh = await worldStatsApi.project(props.projectId)
     if (v !== version) return
-    stats.value = data
-    try { localStorage.setItem(cacheKey(), JSON.stringify(data)) } catch { /* 存不下就算了 */ }
+    data.value = fresh
+    try { localStorage.setItem(cacheKey(), JSON.stringify(fresh)) } catch { /* 存不下就算了 */ }
   } catch (e) {
     if (v === version) error.value = getErrorMessage(e, '创作统计读取失败')
   } finally { if (v === version) loading.value = false }
 }
-watch(() => props.projectId, () => { stats.value = null; void load() }, { immediate: true })
+// 换世界、登录 / 退出（身份变了，看到的版本也不一样）都重新读
+watch([() => props.projectId, () => userStore.userId], () => { data.value = null; void load() }, { immediate: true })
 
 const fmt = (n: number) => Number(n || 0).toLocaleString('zh-CN')
 /** 一万以上用「万」 */
@@ -192,7 +247,7 @@ function ago(v: string) {
 const typeLabel = (t: string) => t === '未分类' ? t : getCardTypeLabel(t)
 const maxTypeCount = computed(() => Math.max(1, ...(stats.value?.tree.map(t => t.count) ?? [1])))
 const avgWords = computed(() => stats.value?.totals.cards ? Math.round(stats.value.totals.words / stats.value.totals.cards) : 0)
-const activeRate = computed(() => stats.value?.days ? Math.min(100, Math.round((stats.value.totals.activeDays / stats.value.days) * 100)) : 0)
+const activeRate = computed(() => data.value?.days ? Math.min(100, Math.round((data.value.totals.activeDays / data.value.days) * 100)) : 0)
 const share = (n: number) => {
   const total = stats.value?.contributors.reduce((s, p) => s + p.edits, 0) || 1
   return Math.round((n / total) * 100)
@@ -232,6 +287,7 @@ const habit = computed(() => {
 .ws-tile { display: grid; gap: 4px; padding: 14px 16px; background: var(--paper-card); border: 1px solid var(--border-line); border-top: 3px solid var(--accent-color); min-width: 0; }
 .ws-label { font-size: 12px; color: var(--text-secondary); }
 .ws-num { font-size: 28px; line-height: 1.1; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ws-num-sm { font-size: 20px; line-height: 1.4; }
 .ws-num em { font-style: normal; font-size: 14px; font-weight: 500; color: var(--text-secondary); }
 .ws-tile small { font-size: 12px; line-height: 1.5; color: var(--text-secondary); }
 

@@ -114,6 +114,12 @@ public class WorldProjectService(AppDbContext context, IMemoryCache cache, IWorl
         await context.WorldTimelineEvents.Where(e => e.ProjectId == projectId).ExecuteDeleteAsync();
         await context.WorldTimelines.Where(t => t.ProjectId == projectId).ExecuteDeleteAsync();
         await context.WorldCalendars.Where(c => c.ProjectId == projectId).ExecuteDeleteAsync();
+        // 编年史修改记录（fix121）：世界都删了，记录也没用了；清不掉（比如表还没建出来）也不影响删除
+        try { await context.WorldChronicleRevisions.Where(r => r.ProjectId == projectId).ExecuteDeleteAsync(); }
+        catch (Exception) { /* 忽略：只是留下几条没人看得到的旧记录 */ }
+        // 时间线颜色图例（fix121）：表不存在也不影响删除世界
+        try { await context.Database.ExecuteSqlInterpolatedAsync($"DELETE FROM WorldColorLegends WHERE ProjectId = {projectId.ToString()}"); }
+        catch (Exception) { /* 图例表还没建好时忽略 */ }
         WorldCache.InvalidateCards(cache, affectedIds);
         WorldCache.InvalidateProject(cache, projectId, userId);
         await quotaService.DecrementUsedWorldCountAsync(userId);

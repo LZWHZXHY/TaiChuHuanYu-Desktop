@@ -8,8 +8,11 @@
         <h1>📖 岁月史书</h1>
         <p class="sub">太初寰宇的日常：群聊名场面、截图、生活琐事、大家的成果进步。谁都能记一笔。</p>
       </div>
-      <button v-if="userStore.isLoggedIn" type="button" class="hp-btn primary" @click="composer = { entry: null }">✍ 记一笔</button>
-      <RouterLink v-else class="hp-btn" :to="{ path: LOGIN_PATH, query: { redirect: route.fullPath } }">登录后记一笔</RouterLink>
+      <div class="hp-header-actions">
+        <RouterLink v-if="years.length" class="hp-btn" :to="{ name: 'HistoryYearbook', query: { year: String(year || years[0].year) } }" title="把一整年排成一本年鉴，可以打印或存成 PDF">📕 年鉴</RouterLink>
+        <button v-if="userStore.isLoggedIn" type="button" class="hp-btn primary" @click="composer = { entry: null }">✍ 记一笔</button>
+        <RouterLink v-else class="hp-btn" :to="{ path: LOGIN_PATH, query: { redirect: route.fullPath } }">登录后记一笔</RouterLink>
+      </div>
     </header>
 
     <!-- 分享链接打开的那一段 -->
@@ -39,6 +42,7 @@
         </div>
       </div>
       <p v-if="author" class="hp-author-filter">只看 <b>{{ authorName }}</b> 记的 <button type="button" class="hp-link" @click="author = ''">看全部</button></p>
+      <p v-if="person" class="hp-author-filter">和 <b>{{ personName }}</b> 有关的：TA 记的，和别人记的时候 @ 了 TA 的 <button type="button" class="hp-link" @click="person = ''">看全部</button></p>
       <div v-if="years.length > 1" class="hp-years" role="tablist" aria-label="年份">
         <button type="button" role="tab" :aria-selected="!year" @click="year = 0">全部年份</button>
         <button v-for="y in years" :key="y.year" type="button" role="tab" :aria-selected="year === y.year" @click="year = y.year">{{ y.year }} <small>{{ y.count }}</small></button>
@@ -116,8 +120,12 @@ const keyword = ref(String(route.query.q || ''))
 const mine = ref(route.query.mine === '1')
 /** 只看某个人记的（从个人主页点进来） */
 const author = ref(typeof route.query.author === 'string' ? route.query.author : '')
-const filtered = computed(() => Boolean(kind.value || year.value || keyword.value.trim() || mine.value || author.value))
-function resetFilters() { kind.value = ''; year.value = 0; keyword.value = ''; mine.value = false; author.value = '' }
+/** 和某个人有关的（他记的 + @ 了他的）：卡片上点「@某人」、个人主页点进来 */
+const person = ref(typeof route.query.person === 'string' ? route.query.person : '')
+const personName = ref('这位成员')
+watch(() => route.query.person, v => { const next = typeof v === 'string' ? v : ''; if (next !== person.value) person.value = next })
+const filtered = computed(() => Boolean(kind.value || year.value || keyword.value.trim() || mine.value || author.value || person.value))
+function resetFilters() { kind.value = ''; year.value = 0; keyword.value = ''; mine.value = false; author.value = ''; person.value = '' }
 
 // 名字从列表里拿（列表都是这个人记的）
 const authorName = computed(() => entries.value[0]?.author.username ?? '这位成员')
@@ -138,12 +146,13 @@ async function fetchPage(n: number) {
   loading.value = true
   error.value = false
   try {
-    const res = await historyApi.list({ kind: kind.value || undefined, year: year.value || undefined, q: keyword.value.trim() || undefined, mine: mine.value || undefined, author: author.value || undefined, page: n })
+    const res = await historyApi.list({ kind: kind.value || undefined, year: year.value || undefined, q: keyword.value.trim() || undefined, mine: mine.value || undefined, author: author.value || undefined, person: person.value || undefined, page: n })
     if (v !== version) return
     const seen = new Set(n === 1 ? [] : entries.value.map(e => e.id))
     entries.value = [...(n === 1 ? [] : entries.value), ...res.items.filter(e => !seen.has(e.id))]
     if (n === 1) { onThisDay.value = res.onThisDay; years.value = res.years }
     canManage.value = res.canManage
+    if (res.person) personName.value = res.person.username
     hasMore.value = res.hasMore
     pageNo.value = n
   } catch {
@@ -157,9 +166,9 @@ const loadMore = () => fetchPage(pageNo.value + 1)
 
 let searchTimer = 0
 watch(keyword, () => { window.clearTimeout(searchTimer); searchTimer = window.setTimeout(reload, 300) })
-watch([kind, year, mine, author], () => void reload())
-watch([kind, year, keyword, mine, author], () => {
-  const query = { ...route.query, kind: kind.value || undefined, year: year.value ? String(year.value) : undefined, q: keyword.value.trim() || undefined, mine: mine.value ? '1' : undefined, author: author.value || undefined }
+watch([kind, year, mine, author, person], () => void reload())
+watch([kind, year, keyword, mine, author, person], () => {
+  const query = { ...route.query, kind: kind.value || undefined, year: year.value ? String(year.value) : undefined, q: keyword.value.trim() || undefined, mine: mine.value ? '1' : undefined, author: author.value || undefined, person: person.value || undefined }
   void router.replace({ query }).catch(() => {})
 })
 watch(() => userStore.isLoggedIn, () => void reload())
@@ -348,4 +357,5 @@ const cardEvents = {
   .hp-search { max-width: none; }
   .hp-year-title { top: -20px; }
 }
+.hp-header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 </style>

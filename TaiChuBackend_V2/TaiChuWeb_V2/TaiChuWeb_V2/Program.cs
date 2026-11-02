@@ -75,6 +75,11 @@ builder.Services.AddScoped<WorldHistoryService>(); // 世界观条目修改记�
 builder.Services.AddHostedService<WorldRestoreCleanup>();
 // 世界观协作者表（启动时自动创建）
 builder.Services.AddHostedService<WorldCollaboratorSchema>();
+// 时间线颜色图例表（fix121，启动时自动创建）
+builder.Services.AddHostedService<WorldLegendSchema>();
+// 创作里程碑（fix121）：启动时建表；后台每 30 分钟检测有变化的世界，新达成的给创建者和协作者发通知
+builder.Services.AddHostedService<WorldMilestoneSchema>();
+builder.Services.AddHostedService<WorldMilestoneWorker>();
 // 我的世界服务器「世界任务」：启动时建表；结算（完成、发奖励、开启下一个）
 builder.Services.AddHostedService<TaiChuWeb_V2.Services.Quest.ServerQuestSchema>();
 builder.Services.AddScoped<TaiChuWeb_V2.Services.Quest.ServerQuestService>();
@@ -83,6 +88,7 @@ builder.Services.AddHostedService<TaiChuWeb_V2.Services.CommunityHistory.Communi
 // 举报：启动时建表
 builder.Services.AddHostedService<TaiChuWeb_V2.Services.Reports.ContentReportSchema>();
 builder.Services.AddHostedService<TaiChuWeb_V2.Services.Maintenance.TimeZoneDataFix>();
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Analytics.PresencePrefsSchema>();
 // 旧博客补列表封面（正文有图但没设封面的，取第一张图）
 builder.Services.AddHostedService<TaiChuWeb_V2.Services.Publish.BlogCoverBackfill>();
 
@@ -103,6 +109,27 @@ builder.Services.AddSingleton<TaiChuWeb_V2.Services.Games.GameShowcaseService>()
 // 太虚游 · 土豆（娱乐积分）、战绩记录、斗地主（数据表首次使用时自动创建）
 builder.Services.AddSingleton<TaiChuWeb_V2.Services.Games.PotatoService>();
 builder.Services.AddSingleton<TaiChuWeb_V2.Services.Games.MatchRecordService>();
+// 太虚游 · 点赞 / 砸番茄记录、游戏留言板（fix123，启动时自动建表）
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Games.GameSocialService>();
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Games.GameSocialSchema>();
+// 太虚游 · 转盘（fix132）：用户转盘 + 官方抽奖转盘，启动时建表
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Games.WheelService>();
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Games.WheelSchema>();
+// 柴圈约战作品审核（fix141）：启动时建审核表，第一次建时把已有作品记为通过
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.ChaiCommunity.BattleReviewSchema>();
+// 柴圈 OC 能力面板表（fix137，启动时自动创建 stickman_panels）
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Panels.StickmanPanelSchema>();
+// 启动时读一次赞助福利目录，让后台改过的特权最低等级生效
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Personalization.SponsorPerkCatalogLoader>();
+// 柴圈 OC ↔ 世界观 联动的三张新表（关联、条目对应、OC 备份）
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.ChaiCommunity.StickmanWorldSchema>();
+// 太初灵脉「生活管理」：先建表，再启动每分钟发提醒的后台任务
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Planner.PlannerSchema>();
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Planner.PlannerReminderWorker>();
+// 太初灵脉「番茄钟」：启动时建表（pomodoro_state / pomodoro_sessions），和桌面程序同步
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Pomodoro.PomodoroSchema>();
+// 约战「战后记录」表
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.ChaiCommunity.BattleAftermathSchema>();
 builder.Services.AddSingleton<TaiChuWeb_V2.Services.Games.Doudizhu.DdzManager>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<TaiChuWeb_V2.Services.Games.Doudizhu.DdzManager>());
 // 联机象棋
@@ -157,6 +184,12 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
         .Build();
 });
 
+// 知识库社区资源（fix154）：启动时建表；分片上传用的 S3 客户端；后台每小时清理 24 小时没传完的上传
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Resources.CommunityResourceSchema>();
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Resources.CommunityResourceStore>();
+builder.Services.AddSingleton<TaiChuWeb_V2.Services.Resources.ResourceStorage>();
+builder.Services.AddHostedService<TaiChuWeb_V2.Services.Resources.ResourceUploadCleanup>();
+
 
 
 
@@ -173,7 +206,9 @@ builder.Services.AddControllers(options => {
     options.JsonSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
     // 数据库里的时间都是 UTC：输出时带上 Z，各地浏览器自己换算（否则国内看美国刚发的会显示“8 小时前”）
     options.JsonSerializerOptions.Converters.Add(new TaiChuWeb_V2.Utils.UtcDateTimeConverter());
-});
+})
+// 参数校验没通过：默认是英文提示（The X field is required.），换成中文 { message }
+.ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = TaiChuWeb_V2.Utils.ValidationMessages.Response);
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

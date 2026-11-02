@@ -194,7 +194,7 @@ onMounted(load)
         {{ blocked.join('、') }}选的是交易行的素材，预览里能先看效果；兑换后才能保存。
         <RouterLink :to="{ name: '交易行' }">去交易行兑换 →</RouterLink>
       </p>
-      <p v-if="!canCustom" class="muted perk-note">想用自己的图片或视频？赞助后在「网站背景」页面绑定爱发电订单，就能上传自定义横幅和背景。</p>
+      <p v-if="!canCustom" class="muted perk-note">想用自己的图片或视频？赞助后开通特权（在爱赞助私信告诉我们你的网站用户名），就能上传自定义横幅和背景。</p>
       <p v-if="message" class="ok" role="status">{{ message }}</p>
       <p v-if="error" class="err" role="alert">{{ error }}</p>
 

@@ -131,6 +131,8 @@ export const artworkApi = {
     request.get<CommentPage>(`/Artwork/${id}/comments`, { params: { offset, limit: 20 }, silentError: true }),
   addComment: (id: number, content: string, parentId?: string) =>
     request.post<{ id: string; stats: ArtworkStats & { id: number } }>(`/Artwork/${id}/comments`, { content, parentId }, { silentError: true }),
+  /** 彻底删除作品（作者本人或管理员），不能恢复 */
+  remove: (id: number) => request.delete<{ message: string }>(`/Artwork/${id}`, { silentError: true }),
   deleteComment: (id: number, commentId: string) =>
     request.delete<{ stats: ArtworkStats & { id: number } }>(`/Artwork/${id}/comments/${commentId}`, { silentError: true })
 };

@@ -55,12 +55,14 @@
               <span class="divider">/</span>
               <time class="date">{{ formatTime(post.publishedAt) }}</time>
               <span class="divider">/</span>
-              <span class="resonance">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <!-- 灵动 = 点赞：点一下 +1，再点取消 -->
+              <button type="button" class="resonance" :class="{ on: post.resonated }" :aria-pressed="!!post.resonated" :disabled="resonating"
+                :title="post.resonated ? '已灵动，再点一下取消' : '觉得这篇很灵动？点一下（相当于点赞）'" @click="toggleResonance">
+                <svg width="12" height="12" viewBox="0 0 24 24" :fill="post.resonated ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" aria-hidden="true">
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
                 {{ post.resonance || 0 }} 灵动
-              </span>
+              </button>
             </div>
           </header>
 
@@ -71,7 +73,11 @@
           <footer class="article-footer">
             <div class="footer-divider" aria-hidden="true"><i></i></div>
             <p class="end-mark">— 阅读完毕 · END OF RECORD —</p>
-            <p class="footer-sign">喜欢这篇内容？可以复制引用链接分享给社区。</p>
+            <button type="button" class="resonance-big" :class="{ on: post.resonated }" :aria-pressed="!!post.resonated" :disabled="resonating" @click="toggleResonance">
+              <span aria-hidden="true">✦</span> {{ post.resonated ? '已灵动' : '灵动一下' }} · {{ post.resonance || 0 }}
+            </button>
+            <p v-if="resonanceTip" class="footer-sign" role="status">{{ resonanceTip }}</p>
+            <p class="footer-sign">喜欢这篇内容？点「灵动」告诉作者，也可以复制引用链接分享给社区。</p>
             <p v-if="!post.canEdit" class="footer-report"><ReportButton :target-type="post.type === 'blog' ? 'blog' : 'post'" :target-id="post.id" :target-title="post.title || '短帖'" text="这篇内容有问题？举报" /></p>
           </footer>
         </article>
@@ -98,6 +104,7 @@ import { spiritExtensions } from '../../utils/editorConfig'; // 🌟 引入编�
 import { notePublishApi } from '../../api/NotePublish';
 import type { PublishedNoteDetail } from '../../api/NotePublish';
 import NoteComments from './NoteComments.vue';
+import { useUserStore } from '@/stores/user';
 import { upgradeLegacyImages } from '@/utils/legacyContent';
 import { boardOf, FORUM_NAME } from '@/utils/forumBoards';
 
@@ -112,6 +119,24 @@ let generation = 0;
 const error = ref(''), referenceMessage = ref('');
 async function copyReference() { try { const url = new URL(window.location.href); url.hash = '/knowledge?detailType=' + (post.value?.type === 'post' ? 'post' : 'blog') + '&detail=' + encodeURIComponent(String(props.id)); await navigator.clipboard.writeText(url.href); referenceMessage.value = '引用链接已复制'; } catch { referenceMessage.value = '复制失败，请复制浏览器地址栏中的链接'; } }
 const post = ref<PublishedNoteDetail | null>(null);
+
+// 灵动（点赞）：没登录时提示先登录；先改界面再发请求，失败了改回来
+const user = useUserStore();
+const resonating = ref(false), resonanceTip = ref('');
+async function toggleResonance() {
+  const p = post.value;
+  if (!p || resonating.value) return;
+  if (!user.isLoggedIn) { resonanceTip.value = '登录后才能点灵动'; return; }
+  const was = !!p.resonated, count = p.resonance || 0;
+  p.resonated = !was; p.resonance = Math.max(0, count + (was ? -1 : 1));
+  resonating.value = true; resonanceTip.value = '';
+  try {
+    const r = await notePublishApi.toggleResonance(String(p.id), !was);
+    if (post.value === p) { p.resonated = r.active; p.resonance = r.count; }
+  } catch {
+    if (post.value === p) { p.resonated = was; p.resonance = count; resonanceTip.value = '没点上，请稍后再试'; }
+  } finally { resonating.value = false; }
+}
 const loading = ref(true);
 const extractedCoverUrl = ref(''); // 🌟 用于捕获博客封面链接
 const place = computed(() => boardOf(post.value?.tags));
@@ -288,7 +313,12 @@ onUnmounted(() => {
 .divider { color: var(--text-secondary); }
 .author-link { color: var(--text-primary); text-decoration: none; border-bottom: 1px solid var(--signal-mint); }
 .author-link:hover { color: var(--accent-color); }
-.resonance { display: flex; align-items: center; gap: 4px; }
+.resonance { display: flex; align-items: center; gap: 4px; padding: 2px 6px; border: 1px solid transparent; background: none; color: inherit; font: inherit; cursor: pointer; }
+.resonance:hover:not(:disabled) { border-color: var(--accent-color); color: var(--accent-color); }
+.resonance.on { color: #d97706; }
+.resonance-big { margin-top: 18px; padding: 8px 22px; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: 14px; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+.resonance-big:hover:not(:disabled) { border-color: #d97706; color: #b45309; }
+.resonance-big.on { border-color: #d97706; background: color-mix(in srgb, #f59e0b 12%, var(--paper-card)); color: #b45309; font-weight: 600; }
 
 /* Tiptap 容器松紧度样式 */
 .article-body { margin-bottom: 60px; }

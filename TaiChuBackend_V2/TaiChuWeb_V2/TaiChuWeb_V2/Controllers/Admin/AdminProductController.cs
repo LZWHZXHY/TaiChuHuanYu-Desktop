@@ -263,7 +263,7 @@ namespace TaiChuWeb_V2.Controllers.Admin
         /// 极度危险：彻底从太初矩阵中抹除画廊实体
         /// </summary>
         [HttpDelete("gallery/{id}")]
-        public async Task<IActionResult> DeleteGalleryWork(string id)
+        public async Task<IActionResult> DeleteGalleryWork(string id, [FromServices] TaiChuWeb_V2.Services.Cos.CosService cos, [FromServices] ILogger<AdminProductController> logger)
         {
             // 剥离前端伪装的前缀 "GAL-"
             var rawIdStr = id.Replace("GAL-", "");
@@ -272,23 +272,17 @@ namespace TaiChuWeb_V2.Controllers.Admin
                 return BadRequest(new { message = "实体追踪码格式异常" });
             }
 
-            var artwork = await _context.Artworks.FindAsync(realId);
-            if (artwork == null)
-            {
-                return NotFound(new { message = "未捕捉到该画廊实体" });
-            }
-
-            // 彻底移除
-            _context.Artworks.Remove(artwork);
-
+            // 彻底移除：评论、点赞收藏、标签、通知一起清理，灵脉原稿解除关联（直接删作品会被原稿的外键挡住）
             try
             {
-                await _context.SaveChangesAsync();
-                return Ok(new { message = "画廊实体已从矩阵中彻底抹除" });
+                var operatorId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                var result = await ArtworkDeletion.PurgeAsync(_context, cos, logger, realId, operatorId, byAdmin: true);
+                if (result == null) return NotFound(new { message = "未捕捉到该画廊实体" });
+                return Ok(new { message = $"作品《{result.Title}》已彻底删除" + (result.UploaderId != operatorId ? "，已通知作者" : "") });
             }
             catch (DbUpdateException)
             {
-                return StatusCode(500, new { message = "矩阵数据同步失败，请重试" });
+                return StatusCode(500, new { message = "删除失败，请重试" });
             }
         }
 

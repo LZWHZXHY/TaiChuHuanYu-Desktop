@@ -1,6 +1,11 @@
 <template>
   <header class="page-header surface-heading"><SectionTrace />
+    <ParticleMorph v-if="project" class="header-particles" :shapes="headerShapes" :interval="5200" :density="14" :fill="0.92" :max-particles="1300" :colors="['--accent-color', '--signal-mint', '--signal-color']" interactive="parent" />
     <button class="back-btn" @click="$emit('back')">← 返回</button>
+    <div v-if="project" class="header-badge" aria-hidden="true">
+      <img v-if="project.coverImage" :src="withThumbnail(coverSrc(project.coverImage), 160)" :style="coverStyle(project.coverImage)" alt="" />
+      <span v-else>{{ firstGlyph(project.name) }}</span>
+    </div>
 
     <div class="header-main">
       <h1>
@@ -50,6 +55,10 @@
 </template>
 <script setup lang="ts">
 import SectionTrace from '@/components/SectionTrace.vue'
+import ParticleMorph from '@/components/ParticleMorph.vue'
+import { firstGlyph, globeShape, hexShape, type ParticleShape } from '@/utils/particleShapes'
+import { coverSrc, coverStyle } from '@/utils/coverFocus'
+import { withThumbnail } from '@/utils/imageThumb'
 import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { WorldProject } from '@/api/types/world'
@@ -58,6 +67,12 @@ import { formatWorldUpdatedAt as formatTime } from '@/utils/worldPresentation'
 const props = defineProps<{ project: WorldProject | null; cardCount: number; isOwner: boolean; canEdit?: boolean; canOrganize?: boolean }>()
 defineEmits<{ back: []; create: []; organize: []; import: []; transfer: [mode: 'import' | 'export']; settings: []; members: []; history: [] }>()
 const store = useWorldStore()
+/** 页头右侧的粒子：世界名字第一个字 ↔ 地球 ↔ 六边形，鼠标划过会被推开 */
+const headerShapes = computed<ParticleShape[]>(() => [
+  { kind: 'text', text: firstGlyph(props.project?.name), scale: 0.7 },
+  { kind: 'draw', draw: globeShape },
+  { kind: 'draw', draw: hexShape },
+])
 const toggling = ref(false)
 const isPublicView = computed(() => Boolean(props.project?.isPublic))
 // 被拉进来协作时显示自己的身份
@@ -79,6 +94,13 @@ async function togglePublic() {
 </script>
 
 <style scoped>
+.page-header { position: relative; }
+.page-header > .header-particles.header-particles { position: absolute; top: 0; bottom: 0; right: clamp(150px, 20%, 300px); width: clamp(120px, 18%, 220px); height: 100%; pointer-events: none; z-index: 0; opacity: .9; }
+.page-header > :not(.header-particles):not(.section-trace) { position: relative; z-index: 1; }
+.header-badge { flex-shrink: 0; width: 46px; height: 46px; display: grid; place-items: center; overflow: hidden; border: 1px solid var(--border-line); background: var(--inverse-bg); color: var(--inverse-text);
+  font: 700 22px/1 var(--font-display, inherit); clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 9px 100%, 0 calc(100% - 9px)); box-shadow: inset 0 -3px 0 var(--signal-mint); }
+.header-badge img { width: 100%; height: 100%; object-fit: cover; }
+@media (max-width: 760px) { .header-particles, .header-badge { display: none; } }
 .page-header { display: flex; align-items: flex-start; gap: 24px;  }
 button, summary { font: inherit; cursor: pointer; }
 .back-btn { border: 0; background: none; color: var(--text-secondary); padding: 6px 0; white-space: nowrap; }

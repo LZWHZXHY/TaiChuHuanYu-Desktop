@@ -7,11 +7,18 @@
         <p class="sub">
           <template v-if="page">共 {{ page.total.toLocaleString('zh-CN') }} 位{{ keyword ? '符合条件的' : '' }}成员 · </template>
           <span class="mb-online-now"><i class="mb-dot" aria-hidden="true"></i>现在 <b>{{ online?.total ?? '—' }}</b> 人在线</span>
-          <template v-if="online">（{{ online.members }} 位成员、{{ online.guests }} 位游客）</template>
+          <template v-if="online">（{{ online.members }} 位成员{{ online.hidden ? `、${online.hidden} 位隐身` : '' }}、{{ online.guests }} 位游客）</template>
         </p>
       </div>
-      <button type="button" class="mb-btn" :disabled="loading" @click="reload()">{{ loading ? '刷新中…' : '刷新' }}</button>
+      <div class="mb-head-actions">
+        <label v-if="meInvisible !== null" class="mb-ghost" :class="{ on: meInvisible }" title="隐身后，别人在这里看不到你在线、看不到你最近来过和正在看的板块（在线人数里只算一个「隐身」）">
+          <input type="checkbox" :checked="meInvisible" :disabled="savingGhost" @change="toggleInvisible(($event.target as HTMLInputElement).checked)" />
+          👻 隐身
+        </label>
+        <button type="button" class="mb-btn" :disabled="loading" @click="reload()">{{ loading ? '刷新中…' : '刷新' }}</button>
+      </div>
     </header>
+    <p v-if="ghostMessage" class="mb-ghost-msg" role="status">{{ ghostMessage }}</p>
 
     <div class="mb-tools">
       <div class="mb-seg" role="tablist" aria-label="显示">
@@ -52,7 +59,7 @@
         <small v-else>已经是全部了</small>
       </div>
     </template>
-    <p class="mb-note">最近 5 分钟内在网站上有动静的算在线。游客只计人数，不显示在列表里。</p>
+    <p class="mb-note">最近 5 分钟内在网站上有动静的算在线，后面写着正在逛哪个板块。游客只计人数，不显示在列表里；隐身的成员也只计人数。</p>
   </div>
 </template>
 
@@ -62,6 +69,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { membersApi, type MemberItem, type MemberPage, type MemberSort, type OnlineCount } from '@/api/members'
 import AvatarFrame from '@/components/AvatarFrame.vue'
 import UserTitle from '@/components/UserTitle.vue'
+import { SECTION_LABELS } from '@/utils/presence'
 
 const route = useRoute()
 const router = useRouter()
@@ -89,6 +97,7 @@ async function fetchPage(n: number) {
     if (v !== version) return
     page.value = res
     online.value = res.online
+    meInvisible.value = res.meInvisible ?? null
     pageNo.value = n
     // 翻页时在线的人可能刚好下线 / 上线，按 id 去重
     const seen = new Set(n === 1 ? [] : items.value.map(i => i.id))
@@ -100,6 +109,22 @@ async function fetchPage(n: number) {
   }
 }
 const reload = () => fetchPage(1)
+
+// ===== 隐身 =====
+const meInvisible = ref<boolean | null>(null)
+const savingGhost = ref(false)
+const ghostMessage = ref('')
+async function toggleInvisible(on: boolean) {
+  savingGhost.value = true; ghostMessage.value = ''
+  try {
+    const res = await membersApi.setInvisible(on)
+    meInvisible.value = res.invisible
+    ghostMessage.value = res.message
+    void reload()
+  } catch (e: any) {
+    ghostMessage.value = e?.response?.data?.message || '没设置成功，稍后再试'
+  } finally { savingGhost.value = false }
+}
 const loadMore = () => fetchPage(pageNo.value + 1)
 
 let searchTimer = 0
@@ -135,7 +160,8 @@ const offlineItems = computed(() => items.value.filter(i => !i.online))
 const DAY = 86_400_000
 const bjDay = (t: number) => Math.floor((t + 8 * 3600_000) / DAY)
 function seenText(m: MemberItem) {
-  if (m.online) return '在线'
+  if (m.invisible) return m.online ? '隐身中（只有你看得到）' : '隐身中'
+  if (m.online) return (m.section && SECTION_LABELS[m.section]) || '在线'
   if (!m.lastSeenAt) return ''
   const t = new Date(m.lastSeenAt).getTime()
   const now = Date.now()
@@ -221,6 +247,11 @@ const MemberCard = defineComponent({
 .mb-grid :deep(.mb-level) { padding: 0 5px; border: 1px solid var(--border-line); font-family: var(--font-mono, monospace); font-size: 11px; }
 .mb-grid :deep(.mb-seen.on) { color: #16a34a; font-weight: 600; }
 
+.mb-head-actions { display: flex; align-items: center; gap: 10px; }
+.mb-ghost { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--border-line); background: var(--paper-card); font-size: 13px; color: var(--text-secondary); cursor: pointer; user-select: none; }
+.mb-ghost.on { border-color: var(--accent-color); color: var(--accent-color); background: var(--accent-soft); }
+.mb-ghost input { margin: 0; accent-color: var(--accent-color); }
+.mb-ghost-msg { margin: -8px 0 14px; font-size: 13px; color: var(--text-secondary); }
 .mb-empty { padding: 48px 0; text-align: center; color: var(--text-secondary); }
 .mb-more { display: flex; justify-content: center; margin-top: 20px; color: var(--text-secondary); font-size: 12px; }
 .mb-note { margin: 24px 0 0; font-size: 12px; color: var(--text-secondary); text-align: center; }

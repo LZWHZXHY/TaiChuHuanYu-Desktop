@@ -19,6 +19,8 @@
       </span>
     </nav>
 
+    <p v-if="loadError" class="load-error" role="alert">{{ loadError }} <button type="button" @click="loadAllData">重新加载</button></p>
+
     <component 
   :is="currentComponent" 
   :data="currentData" 
@@ -30,6 +32,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { adminWikiApi, wikiReviewApi } from '@/api/Admin';
+import { getErrorMessage } from '@/utils/apiError';
 
 // 严格按照目录结构引入子组件
 import CategoryManager from './维基组件子类/CategoryManager.vue';
@@ -45,6 +48,7 @@ interface WikiStore {
 }
 
 const activeTab = ref('categories');
+const loadError = ref('');
 const store = ref<WikiStore>({ 
   categories: [], 
   requests: [], 
@@ -64,28 +68,33 @@ const currentData = computed(() => store.value[activeTab.value as keyof WikiStor
 
 // 统一数据加载逻辑
 const loadAllData = async () => {
-  try {
-    const [c, r, rev, arts] = await Promise.all([
-      adminWikiApi.getAllCategories(),
-      adminWikiApi.getCategoryRequests(),
-      wikiReviewApi.getPending(),
-      adminWikiApi.getAllArticlesForManagement()
-    ]);
-    store.value = { 
-      categories: c || [], 
-      requests: r || [], 
-      revisions: rev || [], 
-      articles: arts || [] 
-    };
-  } catch (err) {
-    console.error("数据加载失败:", err);
-  }
+  // 四块数据分开加载：以前用 Promise.all，任何一个接口出错，整个页面都是空的
+  loadError.value = '';
+  const [c, r, rev, arts] = await Promise.allSettled([
+    adminWikiApi.getAllCategories(),
+    adminWikiApi.getCategoryRequests(),
+    wikiReviewApi.getPending(),
+    adminWikiApi.getAllArticlesForManagement()
+  ]);
+  const pick = (res: PromiseSettledResult<any>, label: string) => {
+    if (res.status === 'fulfilled') return res.value || [];
+    loadError.value += `${label}读取失败：${getErrorMessage(res.reason, '请稍后再试')}。`;
+    return [];
+  };
+  store.value = {
+    categories: pick(c, '分类'),
+    requests: pick(r, '分类申请'),
+    revisions: pick(rev, '待审核内容'),
+    articles: pick(arts, '文章列表')
+  };
 };
 
 onMounted(loadAllData);
 </script>
 
 <style scoped>
+.load-error { margin: 0 0 16px; padding: 10px 12px; border-left: 3px solid var(--danger); background: var(--bg-sub); color: var(--text-primary); font-size: 13px; }
+.load-error button { margin-left: 8px; border: 1px solid var(--border-line); background: transparent; color: var(--accent-color); cursor: pointer; font: inherit; }
 .wiki-admin-layout { padding: 40px; background: var(--paper-card); min-height: 100vh; color: var(--text-primary); }
 .module-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; }
 .page-title { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); margin: 0; }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ParticleState from '@/components/ParticleState.vue'
 import SectionTrace from '@/components/SectionTrace.vue'
+import { coverSrc, coverStyle } from '@/utils/coverFocus'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import ProfileGuestbook from './ProfileGuestbook.vue'
@@ -203,7 +204,7 @@ const hide = (event: Event) => { (event.target as HTMLImageElement).hidden = tru
         <ParticleState v-if="!profile.worlds.length" class="panel-empty" kind="empty" preset="world" text="还没有公开的世界观。" />
         <div v-else class="card-grid">
           <RouterLink v-for="world in profile.worlds" :key="world.id" class="info-card" :to="`/world/project/${world.id}`">
-            <span class="info-cover" data-depth><img v-if="world.coverImage" :src="world.coverImage" alt="" loading="lazy" @error="hide" /></span>
+            <span class="info-cover" data-depth><img v-if="world.coverImage" :src="coverSrc(world.coverImage)" :style="coverStyle(world.coverImage)" alt="" loading="lazy" @error="hide" /></span>
             <strong>{{ world.name }}</strong>
             <small>{{ world.description || '暂无简介' }}</small>
           </RouterLink>
@@ -246,7 +247,7 @@ const hide = (event: Event) => { (event.target as HTMLImageElement).hidden = tru
         <p v-if="(profile.counts.chaiWorks ?? 0) > (profile.chaiWorks?.length ?? 0)" class="panel-note">显示最近 {{ profile.chaiWorks?.length }} 件，共 {{ profile.counts.chaiWorks }} 件。</p>
       </section>
 
-      <p v-if="profile.counts.history" class="history-link">📖 在岁月史书里记了 <b>{{ profile.counts.history }}</b> 段 <RouterLink :to="{ path: '/history', query: { author: profile.id } }">去看看 →</RouterLink></p>
+      <p class="history-link">📖 <template v-if="profile.counts.history">在岁月史书里记了 <b>{{ profile.counts.history }}</b> 段 · </template><RouterLink :to="{ path: '/history', query: { person: profile.id } }">和 TA 有关的岁月史书 →</RouterLink><small>（TA 记的，和别人提到 TA 的）</small></p>
 
       <!-- 留言板：始终挂载以便统计留言数，只在选中时显示 -->
       <section v-show="tab === 'guestbook'" class="profile-panel" aria-label="留言板">
@@ -352,5 +353,6 @@ const hide = (event: Event) => { (event.target as HTMLImageElement).hidden = tru
 .history-link { margin: 0 0 16px; padding: 10px 14px; background: var(--paper-card); border: 1px solid var(--border-line); font-size: 13px; color: var(--text-secondary); }
 .history-link b { color: var(--text-primary); }
 .history-link a { margin-left: 6px; color: var(--accent-color); text-decoration: none; }
+.history-link small { margin-left: 6px; font-size: 12px; }
 .profile-report { align-self: flex-start; margin-left: auto; }
 </style>

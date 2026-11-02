@@ -43,7 +43,7 @@
           <h3 class="game-title">{{ game.title }}</h3>
           <p class="game-desc">{{ game.description }}</p>
           <div class="card-meta" v-if="game.updatedAt">
-            <span>更新于 {{ formatDate(game.updatedAt) }}</span>
+            <span>更新于 {{ formatDate(game.updatedAt) }} · {{ game.questionCount ?? 0 }} 题 · 被测 {{ game.playCount }} 次</span>
           </div>
           <div class="card-actions">
             <button class="btn-line btn-edit" @click="editGame(game.id)">编辑</button>
@@ -97,14 +97,7 @@
       <div v-if="showPlayModal" class="modal-overlay" @click.self="showPlayModal = false">
         <div class="modal-content">
           <button class="modal-close" @click="showPlayModal = false">✕</button>
-          <TestGame
-            v-if="playingGame"
-            :config="playingGame.config"
-            :questions="playingGame.questions"
-            :results="playingGame.results"
-            :game-id="playingGame.id"
-            @completed="onGameCompleted"
-          />
+          <QuestionPlay v-if="playingGame" :game="playingGame" :show-back="false" @completed="onGameCompleted" />
         </div>
       </div>
     </Teleport>
@@ -113,9 +106,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, defineAsyncComponent } from 'vue'
-import { getMyGames, getGame, createGame, updateGame, deleteGame as deleteGameApi, saveSession } from '../games_api.ts'
+import { getMyGames, getGame, createGame, updateGame, deleteGame as deleteGameApi, getGameConfig } from '../games_api.ts'
 import type { Game, CreateGameDto, UpdateGameDto } from '../game_types.ts'
-import TestGame from '../games/Question/components/TestGame.vue'
+// 答题页换成新的 QuestionPlay（会自己交卷记成绩）；旧的 TestGame.vue 不再使用
+import QuestionPlay from '../games/Question/QuestionPlay.vue'
+import { getErrorMessage } from '@/utils/apiError'
 import { TradeApi } from '@/api/trade'  // 根据实际路径调整
 
 const userExp = ref<number>(0)
@@ -130,16 +125,6 @@ interface AvailableType {
   comingSoon: boolean
 }
 
-interface PlayingGame {
-  id: number
-  config: {
-    icon: string
-    title: string
-    desc: string
-  }
-  questions: any[]
-  results: any[]
-}
 
 // ===== 动态组件映射 =====
 const componentMap: Record<string, any> = {
@@ -159,7 +144,7 @@ const loading = ref(false)
 
 // 试玩相关
 const showPlayModal = ref(false)
-const playingGame = ref<PlayingGame | null>(null)
+const playingGame = ref<Game | null>(null)
 
 // ===== 可用类型 =====
 const availableTypes: AvailableType[] = [
@@ -241,11 +226,14 @@ const handleCreateSuccess = async (newGame: CreateGameDto) => {
   try {
     if (editGameId.value) {
       // 🔄 编辑模式：调用更新接口
+      // 题目和结果一起提交（以前只提交标题，题目的修改会被丢掉）
       const updateData: UpdateGameDto = {
         title: newGame.title,
         description: newGame.description,
         icon: newGame.icon,
-        scoring: newGame.scoring
+        scoring: newGame.scoring,
+        questions: newGame.questions,
+        results: newGame.results
       }
       const updated = await updateGame(editGameId.value, updateData)
       const index = gameList.value.findIndex(g => g.id === editGameId.value)
@@ -254,14 +242,16 @@ const handleCreateSuccess = async (newGame: CreateGameDto) => {
       }
     } else {
       // ➕ 创建模式
-      const game = await createGame(newGame)
-      gameList.value.unshift(game)
+      await createGame(newGame)
+      void fetchUserExp()
     }
     view.value = 'list'
     editGameId.value = null
     editGameData.value = null
+    await fetchGames()
   } catch (err: any) {
-    console.error('保存失败', err)
+    // 以前失败只打在控制台，用户以为保存了
+    alert(getErrorMessage(err, '保存失败，请稍后再试'))
   }
 }
 
@@ -277,7 +267,7 @@ const publishGame = async (id: number) => {
     }
     alert('✅ 发布成功！')
   } catch (err) {
-    console.error('发布失败', err)
+    alert(getErrorMessage(err, '发布失败'))
   }
 }
 
@@ -288,50 +278,31 @@ const deleteGame = async (id: number) => {
       await deleteGameApi(id)
       gameList.value = gameList.value.filter((g: Game) => g.id !== id)
     } catch (err) {
-      console.error('删除失败', err)
+      alert(getErrorMessage(err, '删除失败'))
     }
   }
 }
 
 // ===== 试玩 =====
-const playGame = (id: number) => {
-  const game = gameList.value.find(g => g.id === id)
-  if (!game) {
-    alert('游戏不存在')
-    return
+// 列表里没有题目，试玩前按编号取完整内容
+const playGame = async (id: number) => {
+  try {
+    const game = await getGame(id)
+    if (!game.questionnaire?.questions?.length) {
+      alert('还没有题目，先编辑加几道题吧')
+      return
+    }
+    playingGame.value = game
+    showPlayModal.value = true
+  } catch (err) {
+    alert(getErrorMessage(err, '打开失败'))
   }
-
-  if (!game.questionnaire) {
-    alert('游戏数据不完整，无法试玩')
-    return
-  }
-
-  playingGame.value = {
-    id: game.id,
-    config: {
-      icon: game.icon || '🎮',
-      title: game.title,
-      desc: game.description || ''
-    },
-    questions: game.questionnaire.questions,
-    results: game.questionnaire.results
-  }
-  showPlayModal.value = true
 }
 
 // ===== 试玩完成保存成绩 =====
-const onGameCompleted = async (data: { totalScore: number; result: any; answers: number[] }) => {
-  try {
-    await saveSession({
-      gameId: playingGame.value!.id,
-      totalScore: data.totalScore,
-      resultId: data.result?.id || null,
-      answers: data.answers || []
-    })
-    await fetchGames() // 刷新列表更新 playCount
-  } catch (err) {
-    console.warn('保存成绩失败，但游戏已完成', err)
-  }
+// 成绩由 QuestionPlay 交卷时保存，这里只刷新列表（更新被测次数）
+const onGameCompleted = async () => {
+  await fetchGames()
 }
 
 const formatDate = (dateStr: string): string => {
@@ -341,6 +312,12 @@ const formatDate = (dateStr: string): string => {
 
 // ===== 获取用户经验（通过 TradeApi） =====
 const fetchUserExp = async () => {
+  // 创建价格以后台配置为准（以前写死 50）
+  try {
+    const cfg = await getGameConfig()
+    createCost.value = cfg.createCost
+    if (cfg.experience != null) { userExp.value = cfg.experience; return }
+  } catch { /* 后端还没更新时用下面的旧办法 */ }
   try {
     const res = await TradeApi.getAccountStatus()
     userExp.value = res.experience || 0

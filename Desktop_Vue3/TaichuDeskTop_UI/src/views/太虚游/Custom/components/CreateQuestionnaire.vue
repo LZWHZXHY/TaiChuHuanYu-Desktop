@@ -106,6 +106,9 @@
           <label>结果映射（根据总分区间）</label>
           <button type="button" class="btn-add-result" @click="addResult">+ 添加结果</button>
         </div>
+        <!-- 帮出题的人对分数心里有数：可能拿到的分数范围、哪些分数没有对应的结果 -->
+        <p class="score-hint">按现在的题目，{{ form.scoring === 'average' ? '平均分' : '总分' }}可能在 <b>{{ scoreRange.min }} ~ {{ scoreRange.max }}</b> 之间。</p>
+        <p v-if="uncovered.length" class="score-warn">⚠ 这些分数没有对应的结果：{{ uncovered.join('、') }}。答到这些分数的人会拿到离得最近的结果，建议调整区间。</p>
 
         <div v-for="(r, rIdx) in form.results" :key="rIdx" class="result-item">
           <div class="result-header">
@@ -210,7 +213,8 @@ const fillFormFromEditData = (data) => {
         value: opt.value || 0,
         image: opt.image || ''
       })),
-      scaleLabels: '' // 量表标签暂不支持编辑恢复
+      // 量表题：把原来的程度标签拼回去（以前编辑时这里是空的，一保存就报「量表至少需要3个程度标签」）
+      scaleLabels: qItem.type === 'likert' ? qItem.options.map((o) => o.label).join(',') : ''
     })),
     results: q.results.map((r) => ({
       min: r.min || 0,
@@ -287,6 +291,39 @@ function removeOption(qIdx, oIdx) {
   }
 }
 
+// ===== 分数范围：每题取能拿到的最低 / 最高分（多选题：负分全选为最低、正分全选为最高） =====
+const questionRange = (q) => {
+  const values = q.type === 'likert' ? getScaleArray(q).map((_, i) => i + 1) : q.options.map(o => Number(o.value) || 0)
+  if (!values.length) return [0, 0]
+  if (q.type === 'multiple') {
+    const neg = values.filter(v => v < 0).reduce((s, v) => s + v, 0)
+    const pos = values.filter(v => v > 0).reduce((s, v) => s + v, 0)
+    // 多选至少选一个
+    return [neg < 0 ? neg : Math.min(...values), pos > 0 ? pos : Math.max(...values)]
+  }
+  return [Math.min(...values), Math.max(...values)]
+}
+const scoreRange = computed(() => {
+  let min = 0, max = 0
+  for (const q of form.questions) { const [a, b] = questionRange(q); min += a; max += b }
+  if (form.scoring === 'average') {
+    const n = Math.max(1, form.questions.length)
+    return { min: Math.round(min / n), max: Math.round(max / n) }
+  }
+  return { min, max }
+})
+// 没被任何结果覆盖的分数（太多时只列前 12 个）
+const uncovered = computed(() => {
+  const { min, max } = scoreRange.value
+  if (max - min > 500) return []
+  const out = []
+  for (let s = min; s <= max; s++) {
+    if (!form.results.some(r => s >= Number(r.min) && s <= Number(r.max))) out.push(s)
+    if (out.length >= 12) { out.push('…'); break }
+  }
+  return out
+})
+
 // ===== 结果操作 =====
 function addResult() {
   form.results.push({ min: 0, max: 0, title: '', desc: '', icon: '', image: '' })
@@ -327,6 +364,11 @@ function submitForm() {
         }
       }
     }
+  }
+
+  for (const [i, r] of form.results.entries()) {
+    if (!String(r.title || '').trim()) { alert(`结果 ${i + 1} 还没写标题`); return }
+    if (Number(r.min) > Number(r.max)) { alert(`结果 ${i + 1} 的最低分比最高分还大`); return }
   }
 
   const payload = {
@@ -668,6 +710,8 @@ function submitForm() {
 }
 
 /* ===== 结果 ===== */
+.score-hint { margin: 0 0 8px; font-size: 13px; color: var(--text-secondary); }
+.score-warn { margin: 0 0 10px; padding: 8px 10px; border-left: 3px solid #d97706; background: color-mix(in srgb, #f59e0b 10%, var(--paper-card)); font-size: 13px; color: var(--text-primary); }
 .result-item {
   border: 1px solid var(--border-line);
   padding: 12px 14px;

@@ -21,23 +21,27 @@ namespace TaiChuWeb_V2.Controllers.Admin
         [HttpGet]
         public async Task<IActionResult> GetAllCategories()
         {
-            // 🌟 核心修改：使用 Select 联表查出昵称
-            var categories = await _context.WikiCategories
+            // 以前在 SQL 里拿 Users.Id.ToString() 和分类的 OwnerId 比较：两张表的排序规则不同，MySQL 直接报错，后台维基整页拿不到数据。
+            // 改成先查分类，再按责任人编号单独查用户名，在内存里对上
+            var rows = await _context.WikiCategories.AsNoTracking()
                 .OrderBy(c => c.SortOrder)
                 .ThenBy(c => c.Id)
-                .Select(c => new
-                {
-                    c.Id,
-                    c.Name,
-                    c.ParentId,
-                    c.SortOrder,
-                    c.OwnerId,
-                    c.OwnershipType,
-                    c.NeedsReview,
-                    // 👇 拿着分类的 OwnerId 去找用户的 Username
-                    OwnerNickname = _context.Users.FirstOrDefault(u => u.Id.ToString() == c.OwnerId).Username
-                })
+                .Select(c => new { c.Id, c.Name, c.ParentId, c.SortOrder, c.OwnerId, c.OwnershipType, c.NeedsReview })
                 .ToListAsync();
+            var ownerIds = rows.Select(c => Guid.TryParse(c.OwnerId, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).Distinct().ToList();
+            var names = ownerIds.Count == 0 ? new Dictionary<Guid, string>()
+                : await _context.Users.AsNoTracking().Where(u => ownerIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Username);
+            var categories = rows.Select(c => new
+            {
+                c.Id,
+                c.Name,
+                c.ParentId,
+                c.SortOrder,
+                c.OwnerId,
+                c.OwnershipType,
+                c.NeedsReview,
+                OwnerNickname = Guid.TryParse(c.OwnerId, out var g) && names.TryGetValue(g, out var n) ? n : null,
+            });
 
             return Ok(categories);
         }

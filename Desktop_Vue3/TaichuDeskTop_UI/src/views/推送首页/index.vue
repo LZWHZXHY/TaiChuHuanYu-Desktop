@@ -63,6 +63,7 @@
     <div class="content-layout">
       <section class="main-content" aria-label="社区动态与更新">
         <ServerQuestPanel class="home-block" />
+        <OnThisDayPanel class="home-block" />
         <div class="home-block feed-block"><div class="block-index" aria-hidden="true">01 / COMMUNITY</div><CommunityFeed /></div>
         <div class="home-block news-block"><div class="block-index" aria-hidden="true">02 / NOTICES</div><LatestNews /></div>
         <div class="home-block"><div class="block-index" aria-hidden="true">03 / DEVELOPMENT</div><DevProgress /></div>
@@ -126,6 +127,7 @@ import SignCard from '../../components/SignCard.vue'
 import feedback from './components/feedback.vue'
 import CommunityFeed from './components/CommunityFeed.vue'
 import ServerQuestPanel from './components/ServerQuestPanel.vue'
+import OnThisDayPanel from './components/OnThisDayPanel.vue'
 import LatestNews from './components/LatestNews.vue'
 import DataPanel from './components/DataPanel.vue'
 import FinancePanel from './components/FinancePanel.vue'

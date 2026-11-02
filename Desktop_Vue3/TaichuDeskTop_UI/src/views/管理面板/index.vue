@@ -6,7 +6,7 @@
     </header>
     <nav class="admin-modules" aria-label="管理模块">
       <button v-for="menu in menus" :key="menu.id" type="button" class="nav-item" :class="{ 'is-active': activeTab === menu.id }" :aria-pressed="activeTab === menu.id" @click="activeTab = menu.id">
-        <span aria-hidden="true">{{ menu.icon }}</span>{{ menu.label }}<b v-if="menu.id === 'reports' && pendingReports" class="nav-badge" :aria-label="`${pendingReports} 条待处理`">{{ pendingReports }}</b>
+        <span aria-hidden="true">{{ menu.icon }}</span>{{ menu.label }}<b v-if="menu.id === 'reports' && pendingReports" class="nav-badge" :aria-label="`${pendingReports} 条待处理`">{{ pendingReports }}</b><b v-if="menu.id === 'resources' && pendingResources" class="nav-badge" :aria-label="`${pendingResources} 个资源待审核`">{{ pendingResources }}</b>
       </button>
     </nav>
     <main class="admin-main">
@@ -40,6 +40,10 @@ import 聊天室组件 from './管理组件/聊天室组件.vue';
 import 游戏展示组件 from './管理组件/游戏展示组件.vue';
 import 背景特权组件 from './管理组件/背景特权组件.vue';
 import 举报组件 from './管理组件/举报组件.vue';
+import 约战面板模板组件 from './管理组件/约战面板模板组件.vue';
+import 赞助福利组件 from './管理组件/赞助福利组件.vue';
+import 资源审核组件 from './管理组件/资源审核组件.vue';
+import { resourceApi } from '@/api/resources';
 import { reportApi } from '@/api/reports';
 import { useRoute } from 'vue-router';
 
@@ -60,6 +64,7 @@ const allMenus = [
   { id: 'event', label: '活动', icon: '◒', component: 活动组件 },
   { id: 'feedback', label: '反馈', icon: '✉', component: 反馈组件 },
   { id: 'reports', label: '举报', icon: '⚑', component: 举报组件 },
+  { id: 'resources', label: '资源审核', icon: '⇩', component: 资源审核组件 }, // 知识库里用户上传的资源（超级管理员或「用户审核」）
   { id: 'news', label: '公告', icon: '☖', component: 公告组件 },
   { id: 'email', label: '邮件', icon: '＠', component: 邮件管理 },
   { id: 'wiki', label: '维基', icon: '▤', component: 维基组件 },
@@ -69,8 +74,10 @@ const allMenus = [
   { id: 'chat', label: '聊天室', icon: '◍', component: 聊天室组件 },
   { id: 'showcase', label: 'Steam 游戏', icon: '▶', component: 游戏展示组件 },
   { id: 'appearance', label: '背景与赞助特权', icon: '◩', component: 背景特权组件 }, // 仅超级管理员
+  { id: 'battlePanel', label: '约战面板模板', icon: '⚔', component: 约战面板模板组件 }, // 仅超级管理员（不在 modulePermissions 里）
+  { id: 'sponsorPerks', label: '赞助福利', icon: '♛', component: 赞助福利组件 }, // 仅超级管理员：赞助墙上的福利说明 + 各项特权的最低等级
 ];
-const modulePermissions: Record<string,string> = { data: 'System_Monitor', trade: 'Trade_Manage', users: 'User_Audit', product: 'Trade_Manage', wiki: 'Wiki_Editor', chat: 'User_Audit', reports: 'User_Audit', showcase: 'Trade_Manage' }
+const modulePermissions: Record<string,string> = { data: 'System_Monitor', trade: 'Trade_Manage', users: 'User_Audit', product: 'Trade_Manage', wiki: 'Wiki_Editor', chat: 'User_Audit', reports: 'User_Audit', resources: 'User_Audit', showcase: 'Trade_Manage' }
 const menus = computed(() => allMenus.filter(menu => user.permissions.includes('SuperAdmin') || (modulePermissions[menu.id] && user.permissions.includes(modulePermissions[menu.id]))))
 watch(menus, items => { if (!items.some(item => item.id === activeTab.value)) activeTab.value = items[0]?.id || '' }, { immediate: true })
 const currentView = computed(() => {
@@ -86,6 +93,15 @@ async function refreshPendingReports() {
 }
 onMounted(refreshPendingReports)
 watch(activeTab, (now, before) => { if (before === 'reports') void refreshPendingReports() })
+
+// 资源审核菜单上的待审核数（同上：没有权限的账号不请求；离开审核页时刷新一次）
+const pendingResources = ref(0)
+async function refreshPendingResources() {
+  if (!menus.value.some(m => m.id === 'resources')) return
+  try { pendingResources.value = (await resourceApi.adminCounts()).pending } catch { /* 读不到就不显示 */ }
+}
+onMounted(refreshPendingResources)
+watch(activeTab, (now, before) => { if (before === 'resources') void refreshPendingResources() })
 
 const activeMenuLabel = computed(() => {
   return menus.value.find(m => m.id === activeTab.value)?.label || '';

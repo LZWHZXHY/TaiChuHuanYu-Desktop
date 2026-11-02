@@ -21,6 +21,7 @@ import ParticleField from './components/ParticleField.vue'
 import ParticleBurst from './components/ParticleBurst.vue'
 import NotificationBell from './components/NotificationBell.vue'
 import OnlineIndicator from './components/OnlineIndicator.vue'
+import { startPlannerReminders } from '@/composables/usePlannerReminders'
 
 // 插件接口定义
 interface Plugin {
@@ -31,6 +32,8 @@ interface Plugin {
 }
 const userStore = useUserStore()
 const router = useRouter()
+// 生活管理的浏览器弹窗提醒：登录后每分钟看一次有没有快到点的安排（只对用过生活管理的人生效）
+startPlannerReminders(router)
 // 用户自定义背景图：替换纯色底色，网格、粒子、线条特效保留在上面
 setupSiteBackground()
 // 全站界面音效（实验室仪器风格，侧栏可关闭）

@@ -341,3 +341,33 @@ export const plainTitle = (title: string, findCard: (id: string) => { title: str
   titleParts(title, findCard).map(p => p.text).join('')
 /** 文字里引用了哪些条目 */
 export const refIds = (text?: string | null) => [...(text ?? '').matchAll(REF)].map(m => m[1]!)
+
+// ================= 导出 / 备份 / 复制世界时带上编年史 =================
+
+/** 导出文件里的编年史：历法 + 时间线 + 事件（Id 是原世界里的，恢复时服务器全部换成新 Id） */
+export interface ChronicleExport {
+  calendar: unknown
+  timelines: ChronicleTimeline[]
+  events: ChronicleEvent[]
+}
+
+/** 从接口读到的编年史整理成导出用的：去掉只给页面用的字段（更新时间、条目里的虚拟线）；什么都没写过就返回 null */
+export function toChronicleExport(data: { calendar: unknown; timelines: ChronicleTimeline[]; events: ChronicleEvent[] }): ChronicleExport | null {
+  const timelines = data.timelines.filter(l => !l.virtual)
+  if (!timelines.length && data.calendar == null) return null
+  return {
+    calendar: data.calendar ?? null,
+    timelines: timelines.map(l => ({
+      id: l.id, name: l.name, description: l.description ?? null, color: l.color ?? null, status: l.status,
+      parentId: l.parentId ?? null, forkEventId: l.forkEventId ?? null, mergeEventId: l.mergeEventId ?? null,
+      cardId: l.cardId ?? null, sortOrder: l.sortOrder, hidden: Boolean(l.hidden),
+    })),
+    events: data.events.filter(e => !e.sourceCardId).map(e => ({
+      id: e.id, timelineId: e.timelineId, kind: e.kind, title: e.title, description: e.description ?? null,
+      eraId: e.eraId ?? null, year: e.year ?? null, month: e.month ?? null, day: e.day ?? null,
+      endEraId: e.endEraId ?? null, endYear: e.endYear ?? null, endMonth: e.endMonth ?? null, endDay: e.endDay ?? null,
+      dateText: e.dateText ?? null, color: e.color ?? null, images: [...e.images], tags: [...e.tags], cardIds: [...e.cardIds],
+      locationCardId: e.locationCardId ?? null, hidden: Boolean(e.hidden), sortOrder: e.sortOrder,
+    })),
+  }
+}

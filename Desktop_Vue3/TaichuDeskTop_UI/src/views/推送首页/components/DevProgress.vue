@@ -2,7 +2,11 @@
   <section id="dev-progress" class="dev-progress" aria-label="官方开发进度">
     <header class="dp-header">
       <h2 class="dp-title">🚧 开发进度</h2>
-      <RouterLink to="/dev-progress" class="dp-all">查看全部 →</RouterLink>
+      <!-- 详情只给管理员和赞助会员：其他人这里显示「赞助会员可看详情」 -->
+      <template v-if="!hideLink">
+        <RouterLink v-if="canView" to="/dev-progress" class="dp-all">查看全部 →</RouterLink>
+        <RouterLink v-else to="/dev-progress" class="dp-all dp-lock" title="研发报告、开发日志只对赞助会员和管理员开放">🔒 赞助会员可看详情</RouterLink>
+      </template>
     </header>
 
     <p v-if="loading" class="dp-empty">加载中…</p>
@@ -22,8 +26,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { devProjectApi, type DevProject } from '@/api/devProject'
 
+withDefaults(defineProps<{ hideLink?: boolean }>(), { hideLink: false })
+
 const projects = ref<DevProject[]>([])
 const loading = ref(false)
+// 能不能看详情（接口说没权限时项目带 locked）
+const canView = computed(() => !projects.value.some(p => p.locked))
 
 // 已全部完成的项目（自身 100%，且所有子项目也 100%）在首页省略
 const visibleProjects = computed(() => {
@@ -60,6 +68,7 @@ onMounted(async () => {
 .dp-title { margin: 0; font-size: 1.05rem; }
 .dp-all { margin-left: auto; color: var(--accent-color); font-size: .8rem; text-decoration: none; white-space: nowrap; }
 .dp-all:hover { text-decoration: underline; }
+.dp-lock { color: var(--text-secondary); }
 .dp-empty { color: var(--text-secondary); text-align: center; padding: 16px 0; font-size: .82rem; }
 .dp-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .dp-item { display: flex; align-items: center; gap: 10px; }

@@ -12,10 +12,15 @@ namespace TaiChuWeb_V2.Controllers.World;
 /// <summary>
 /// 世界编年史：多条时间线（主线 / 支线 / 视角）、分叉与汇合、时期、时间跳跃、失落的历史、自定义历法。
 /// 事件可以关联条目、地点、标签、图片。读：能看这个世界的人（访客看不到隐藏的线和事件）；写：创建者和编写者。
+/// 修改记录（fix121）：时间线 / 事件 / 历法每次新建、修改、删除都记一笔；创建者和协作者能看，创建者和编写者能撤销（和条目修改记录一样）。
 /// </summary>
 [Route("api/world/projects/{projectId:guid}/chronicle")]
-public class WorldChronicleController(AppDbContext context) : WorldControllerBase
+public class WorldChronicleController(AppDbContext context, ILogger<WorldChronicleController> logger) : WorldControllerBase
 {
+    private WorldChronicleHistoryService? history;
+    // 修改记录服务直接 new（和 NotificationService 一样），不用去 Program.cs 注册
+    private WorldChronicleHistoryService History => history ??= new WorldChronicleHistoryService(context, logger);
+
     private static readonly string[] Statuses = { WorldTimeline.StatusCanon, WorldTimeline.StatusAlt, WorldTimeline.StatusWhatIf, WorldTimeline.StatusDraft };
     private static readonly string[] Kinds = { WorldTimelineEvent.KindEvent, WorldTimelineEvent.KindPeriod, WorldTimelineEvent.KindSkip, WorldTimelineEvent.KindLost };
     private const long MaxYear = 1_000_000_000_000;
@@ -88,6 +93,8 @@ public class WorldChronicleController(AppDbContext context) : WorldControllerBas
             timelines = timelines.Select(TimelineView),
             events = events.Select(EventView),
             canEdit,
+            // 创建者和协作者（含只读成员）能看修改记录，前端据此显示「修改记录」按钮
+            canViewHistory = member,
         });
     }
 
@@ -135,9 +142,13 @@ public class WorldChronicleController(AppDbContext context) : WorldControllerBas
         if (json.Length > 64 * 1024) return BadRequest(new { message = "历法设置太长了" });
         if (body.ValueKind != JsonValueKind.Object) return BadRequest(new { message = "历法格式不正确" });
         var row = await context.WorldCalendars.FirstOrDefaultAsync(c => c.ProjectId == projectId);
+        var before = row?.Json; // 改之前的历法，记进修改记录（没有 = 之前用的是默认历法）
         if (row == null) context.WorldCalendars.Add(new WorldCalendar { ProjectId = projectId, Json = json });
         else { row.Json = json; row.UpdatedAt = DateTime.UtcNow; }
         await context.SaveChangesAsync();
+        if (before != json)
+            await History.RecordAsync(projectId, WorldChronicleHistoryService.TargetCalendar, projectId, CurrentUserId,
+                before == null ? WorldChronicleHistoryService.Create : WorldChronicleHistoryService.Update, "历法", before, json);
         return Ok(new { calendar = ParseObject(json) });
     }
 
@@ -155,6 +166,8 @@ public class WorldChronicleController(AppDbContext context) : WorldControllerBas
         if (dto.SortOrder == null) line.SortOrder = (await context.WorldTimelines.Where(t => t.ProjectId == projectId).MaxAsync(t => (int?)t.SortOrder) ?? 0) + 1;
         context.WorldTimelines.Add(line);
         await context.SaveChangesAsync();
+        await History.RecordAsync(projectId, WorldChronicleHistoryService.TargetTimeline, line.Id, CurrentUserId, WorldChronicleHistoryService.Create,
+            line.Name, null, WorldChronicleHistoryService.ToJson(WorldChronicleHistoryService.Snap(line)));
         return Ok(TimelineView(line));
     }
 
@@ -165,10 +178,14 @@ public class WorldChronicleController(AppDbContext context) : WorldControllerBas
         await RequireEditAsync(projectId);
         var line = await context.WorldTimelines.FirstOrDefaultAsync(t => t.Id == id && t.ProjectId == projectId);
         if (line == null) return NotFound(new { message = "时间线不存在" });
+        // 先存下改之前的样子，修改记录要用（撤销时恢复成它）
+        var before = WorldChronicleHistoryService.ToJson(WorldChronicleHistoryService.Snap(line));
         var error = await ApplyTimelineAsync(projectId, line, dto);
         if (error != null) return BadRequest(new { message = error });
         line.UpdatedAt = DateTime.UtcNow;
         await context.SaveChangesAsync();
+        await History.RecordAsync(projectId, WorldChronicleHistoryService.TargetTimeline, line.Id, CurrentUserId, WorldChronicleHistoryService.Update,
+            line.Name, before, WorldChronicleHistoryService.ToJson(WorldChronicleHistoryService.Snap(line)));
         return Ok(TimelineView(line));
     }
 
@@ -180,16 +197,13 @@ public class WorldChronicleController(AppDbContext context) : WorldControllerBas
         await RequireEditAsync(projectId);
         var line = await context.WorldTimelines.FirstOrDefaultAsync(t => t.Id == id && t.ProjectId == projectId);
         if (line == null) return NotFound(new { message = "时间线不存在" });
-        var eventIds = await context.WorldTimelineEvents.Where(e => e.TimelineId == id).Select(e => e.Id).ToListAsync();
-        foreach (var other in await context.WorldTimelines.Where(t => t.ProjectId == projectId && t.Id != id).ToListAsync())
-        {
-            if (other.ParentId == id) { other.ParentId = null; other.ForkEventId = null; }
-            if (other.ForkEventId is Guid f && eventIds.Contains(f)) other.ForkEventId = null;
-            if (other.MergeEventId is Guid m && eventIds.Contains(m)) other.MergeEventId = null;
-        }
-        await context.WorldTimelineEvents.Where(e => e.TimelineId == id).ExecuteDeleteAsync();
-        context.WorldTimelines.Remove(line);
-        await context.SaveChangesAsync();
+        var name = line.Name;
+        // 删除前把线、线上的事件、被解开的支线都存下来，修改记录里能原样恢复
+        var removed = await History.DeleteTimelineCoreAsync(projectId, line);
+        await History.RecordAsync(projectId, WorldChronicleHistoryService.TargetTimeline, id, CurrentUserId, WorldChronicleHistoryService.Delete,
+            name, WorldChronicleHistoryService.ToJson(removed), null);
+        var count = removed.Events?.Count ?? 0;
+        await History.NotifyOwnerOfDeleteAsync(projectId, CurrentUserId, $"时间线《{(name.Length > 40 ? name[..40] + "…" : name)}》{(count > 0 ? $"（含 {count} 件事）" : "")}");
         return NoContent();
     }
 
@@ -218,6 +232,8 @@ public class WorldChronicleController(AppDbContext context) : WorldControllerBas
         if (error != null) return BadRequest(new { message = error });
         context.WorldTimelineEvents.Add(ev);
         await context.SaveChangesAsync();
+        await History.RecordAsync(projectId, WorldChronicleHistoryService.TargetEvent, ev.Id, CurrentUserId, WorldChronicleHistoryService.Create,
+            ev.Title, null, WorldChronicleHistoryService.ToJson(WorldChronicleHistoryService.Snap(ev)));
         return Ok(EventView(ev));
     }
 
@@ -228,10 +244,13 @@ public class WorldChronicleController(AppDbContext context) : WorldControllerBas
         await RequireEditAsync(projectId);
         var ev = await context.WorldTimelineEvents.FirstOrDefaultAsync(e => e.Id == id && e.ProjectId == projectId);
         if (ev == null) return NotFound(new { message = "事件不存在" });
+        var before = WorldChronicleHistoryService.ToJson(WorldChronicleHistoryService.Snap(ev));
         var error = await ApplyEventAsync(projectId, ev, dto);
         if (error != null) return BadRequest(new { message = error });
         ev.UpdatedAt = DateTime.UtcNow;
         await context.SaveChangesAsync();
+        await History.RecordAsync(projectId, WorldChronicleHistoryService.TargetEvent, ev.Id, CurrentUserId, WorldChronicleHistoryService.Update,
+            ev.Title, before, WorldChronicleHistoryService.ToJson(WorldChronicleHistoryService.Snap(ev)));
         return Ok(EventView(ev));
     }
 
@@ -243,20 +262,85 @@ public class WorldChronicleController(AppDbContext context) : WorldControllerBas
         await RequireEditAsync(projectId);
         var ev = await context.WorldTimelineEvents.FirstOrDefaultAsync(e => e.Id == id && e.ProjectId == projectId);
         if (ev == null) return NotFound(new { message = "事件不存在" });
-        foreach (var t in await context.WorldTimelines.Where(t => t.ProjectId == projectId && (t.ForkEventId == id || t.MergeEventId == id)).ToListAsync())
-        {
-            if (t.ForkEventId == id) t.ForkEventId = null;
-            if (t.MergeEventId == id) t.MergeEventId = null;
-        }
-        context.WorldTimelineEvents.Remove(ev);
-        await context.SaveChangesAsync();
+        var title = ev.Title;
+        // 删除前存下完整内容和被解开的分叉 / 汇合，修改记录里能原样恢复
+        var removed = await History.DeleteEventCoreAsync(projectId, ev);
+        await History.RecordAsync(projectId, WorldChronicleHistoryService.TargetEvent, id, CurrentUserId, WorldChronicleHistoryService.Delete,
+            title, WorldChronicleHistoryService.ToJson(removed), null);
         return NoContent();
+    }
+
+    // ================= 修改记录 =================
+
+    /// <summary>修改记录列表（新的在前），可以按对象（某条线 / 某件事 / 历法）、成员、操作筛选；before 是翻页用的上一页最后一条 Id</summary>
+    [HttpGet("history")]
+    [Authorize]
+    public async Task<IActionResult> HistoryList(Guid projectId, [FromQuery] string? targetType, [FromQuery] Guid? targetId, [FromQuery] Guid? userId,
+        [FromQuery] string? action, [FromQuery] long? before, [FromQuery] int take = 30)
+    {
+        await RequireMemberAsync(projectId);
+        take = Math.Clamp(take, 1, 100);
+        var query = context.WorldChronicleRevisions.AsNoTracking().Where(r => r.ProjectId == projectId);
+        if (!string.IsNullOrWhiteSpace(targetType)) query = query.Where(r => r.TargetType == targetType);
+        if (targetId.HasValue) query = query.Where(r => r.TargetId == targetId.Value);
+        if (userId.HasValue) query = query.Where(r => r.UserId == userId.Value);
+        if (!string.IsNullOrWhiteSpace(action)) query = query.Where(r => r.Action == action);
+        if (before.HasValue) query = query.Where(r => r.Id < before.Value);
+        var rows = await query.OrderByDescending(r => r.Id).Take(take + 1)
+            .Select(r => new { r.Id, r.TargetType, r.TargetId, r.UserId, r.Action, r.Title, r.ChangedFields, r.Note, r.CreatedAt }).ToListAsync();
+        // 用户、现存的线和事件分开查（不同表的排序规则可能不一样，不做跨表 join）
+        var userIds = rows.Where(r => r.UserId.HasValue).Select(r => r.UserId!.Value).Distinct().ToList();
+        var users = await context.Users.AsNoTracking().Where(u => userIds.Contains(u.Id))
+            .Select(u => new { u.Id, u.Username, Avatar = u.Profile != null ? u.Profile.Avatar : null }).ToDictionaryAsync(u => u.Id);
+        var lineIds = (await context.WorldTimelines.AsNoTracking().Where(t => t.ProjectId == projectId).Select(t => t.Id).ToListAsync()).ToHashSet();
+        var eventIds = (await context.WorldTimelineEvents.AsNoTracking().Where(e => e.ProjectId == projectId).Select(e => e.Id).ToListAsync()).ToHashSet();
+        return Ok(new
+        {
+            items = rows.Take(take).Select(r => new
+            {
+                r.Id, r.TargetType, r.TargetId, r.UserId, r.Action, r.Title, r.Note, r.CreatedAt,
+                Fields = string.IsNullOrEmpty(r.ChangedFields) ? new List<string>() : r.ChangedFields.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList(),
+                Username = r.UserId.HasValue && users.TryGetValue(r.UserId.Value, out var u) ? u.Username : null,
+                Avatar = r.UserId.HasValue && users.TryGetValue(r.UserId.Value, out var u2) ? u2.Avatar : null,
+                // 这条线 / 这件事现在还在不在（不在了列表里划掉，点不开）
+                Exists = r.TargetType == WorldChronicleHistoryService.TargetTimeline ? lineIds.Contains(r.TargetId)
+                    : r.TargetType == WorldChronicleHistoryService.TargetEvent ? eventIds.Contains(r.TargetId) : true,
+            }),
+            hasMore = rows.Count > take,
+        });
+    }
+
+    /// <summary>某次修改的详情：改之前和改之后的完整内容（前端对比出改了什么）</summary>
+    [HttpGet("history/{revisionId:long}")]
+    [Authorize]
+    public async Task<IActionResult> HistoryDetail(Guid projectId, long revisionId)
+    {
+        await RequireMemberAsync(projectId);
+        var r = await context.WorldChronicleRevisions.AsNoTracking().FirstOrDefaultAsync(x => x.Id == revisionId && x.ProjectId == projectId);
+        if (r == null) return NotFound(new { message = "修改记录不存在" });
+        return Ok(new { r.Id, r.TargetType, r.TargetId, r.Action, before = ParseObject(r.BeforeJson), after = ParseObject(r.AfterJson) });
+    }
+
+    /// <summary>撤销某次修改（创建者和编写者）</summary>
+    [HttpPost("history/{revisionId:long}/undo")]
+    [Authorize]
+    public async Task<IActionResult> HistoryUndo(Guid projectId, long revisionId)
+    {
+        if (!await WorldAccess.CanEditProjectAsync(context, projectId, CurrentUserId))
+            return StatusCode(403, new { message = "只有世界的创建者和编写者能撤销修改" });
+        return Ok(new { message = await History.UndoAsync(projectId, revisionId, CurrentUserId) });
     }
 
     // ================= 工具 =================
 
     private async Task<bool> IsMemberAsync(Guid projectId, Guid me) =>
         me != Guid.Empty && await context.WorldProjects.AsNoTracking().MemberOf(me).AnyAsync(p => p.Id == projectId);
+
+    private async Task RequireMemberAsync(Guid projectId)
+    {
+        if (!await context.WorldProjects.AsNoTracking().MemberOf(CurrentUserId).AnyAsync(p => p.Id == projectId))
+            throw new WorldOperationException(WorldErrorKind.Forbidden, "只有世界的创建者和协作者能查看修改记录");
+    }
 
     private async Task RequireEditAsync(Guid projectId)
     {

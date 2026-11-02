@@ -117,6 +117,9 @@ namespace TaiChuWeb_V2.Controllers
             if (req.Content.Trim().Length > 1000) return BadRequest(new { message = "评论不能超过 1000 字" });
             req.TargetId = NormalizeTargetId(req.TargetType, req.TargetId);
 
+            // 约战：目标必须是存在的约战（所有登录用户都能评论，不限参赛者）
+            if (req.TargetType == "battle" && !await _context.Battles.AnyAsync(b => b.Id == req.TargetId))
+                return NotFound(new { message = "这场约战不存在或已删除" });
             // 个人主页留言板：目标必须是存在的用户。
             if (req.TargetType == ProfileTarget)
             {
@@ -197,6 +200,7 @@ namespace TaiChuWeb_V2.Controllers
             "work" => "作品",
             "character" => "角色",
             "MustEat" => "推荐",
+            "battle" => "约战",
             _ => "内容"
         };
 
@@ -206,6 +210,7 @@ namespace TaiChuWeb_V2.Controllers
             "work" => $"/works/{targetId}",
             "character" => $"/ocs/{targetId}",
             "MustEat" => "/must-eat",
+            "battle" => $"/battles/{targetId}",
             ProfileTarget => $"/user/{targetId}?tab=guestbook", // 主人打开的是个人中心的留言板标签，别人打开的是公开主页的留言板
             _ => "/"
         };
@@ -218,6 +223,8 @@ namespace TaiChuWeb_V2.Controllers
                 "work" => await _context.ChaiWorks.Where(w => w.Id == id).Select(w => w.AuthorId).FirstOrDefaultAsync(),
                 "character" => await _context.StickmanCharacters.Where(c => c.Id == id).Select(c => c.AuthorId).FirstOrDefaultAsync(),
                 ProfileTarget => id, // 留言板的主人就是这个用户
+                // 约战：通知发起人（最早加入的参与者）
+                "battle" => await _context.BattleParticipants.Where(p => p.BattleId == targetId).OrderBy(p => p.JoinedAt).Select(p => p.UserId).FirstOrDefaultAsync(),
                 _ => Guid.Empty
             };
         }

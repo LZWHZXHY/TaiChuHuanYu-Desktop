@@ -11,6 +11,7 @@ namespace TaiChuWeb_V2.Hubs;
 /// <summary>
 /// 斗地主实时通道（/signalr/ddz）。需要登录。
 /// 客户端调用方法后，服务器通过 "State" 推送各自视角的牌桌状态；出错时返回错误文字（null 表示成功）。
+/// 牌桌互动：评论推 "Chat"（一行评论），点赞 / 砸番茄推 "Reaction"（谁砸谁，前端播动画）。
 /// </summary>
 [Authorize]
 public class DdzHub(DdzManager manager, PotatoService potatoes, AppDbContext db) : Hub
@@ -51,4 +52,25 @@ public class DdzHub(DdzManager manager, PotatoService potatoes, AppDbContext db)
     public Task<string?> Play(int[] cards) => manager.PlayAsync(UserId, cards ?? Array.Empty<int>());
     public Task<string?> Pass() => manager.PassAsync(UserId);
     public Task<string?> Trustee(bool on) => manager.TrusteeAsync(UserId, on);
+
+    // ---------- 互动：评论区、点赞 / 砸番茄（服务器推送 "Chat"、"Reaction"） ----------
+
+    /// <summary>进桌 / 重连时取回最近的评论、价格和这一局已用次数（不在牌桌上为 null）</summary>
+    public object? Social() => manager.SocialFor(UserId);
+    /// <summary>在牌桌评论区说一句话</summary>
+    public Task<string?> SendChat(string text) => manager.ChatAsync(UserId, text);
+    /// <summary>给某个座位的玩家点赞（like）或砸番茄（tomato）</summary>
+    public Task<string?> React(int seat, string kind) => manager.ReactAsync(UserId, seat, kind);
+
+    // ---------- 观战（服务器推 "State"：观战的人拿到不含手牌的公开状态；"Notice"：被请出去时的提示；"LobbyChanged"：大厅列表变了） ----------
+    // 不用 Hub 分组：谁在看哪桌记在服务器的观战名单里，推送按用户 ID 发，重连换了连接也能收到。
+
+    /// <summary>进某一桌观战</summary>
+    public async Task<string?> Watch(string roomId) => await manager.WatchAsync(UserId, await NameAsync(), roomId);
+    /// <summary>观战的人坐下（有空位、还没开局时）</summary>
+    public async Task<string?> SitDown() => await manager.SitDownAsync(UserId, await NameAsync(), (await potatoes.GetAsync(UserId)).Balance);
+    /// <summary>玩家两局之间站起来观战</summary>
+    public async Task<string?> StandUp() => await manager.StandUpAsync(UserId, await NameAsync());
+    /// <summary>房主开 / 关观战（开局前）</summary>
+    public Task<string?> SetSpectate(bool allow) => manager.SetSpectateAsync(UserId, allow);
 }

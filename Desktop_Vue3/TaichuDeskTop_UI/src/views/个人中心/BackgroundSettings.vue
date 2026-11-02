@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useCos } from '../../composables/useCos'
 import { DEFAULT_BACKGROUND, useSiteBackground, type BgFocus, type BgMedia, type SiteBackground } from '@/composables/useSiteBackground'
 import { appearanceApi, apiMessage } from '@/api/appearance'
+import { AFDIAN_ENABLED } from '@/utils/sponsorChannels'
 import { IMAGE_ACCEPT, MediaError, VIDEO_ACCEPT, uploadImage, uploadVideo } from '@/utils/backgroundMedia'
 
 const bg = useSiteBackground()
@@ -195,6 +196,8 @@ async function unbind() {
           <RouterLink to="/sponsors" class="primary-link">去赞助 →</RouterLink>
         </div>
         <p class="perk-note">用<b>爱赞助</b>赞助的：赞助后在爱赞助私信里告诉我们你的网站用户名，管理员核对后会帮你开通。</p>
+        <!-- 爱发电一直没通过认证，先隐藏订单绑定（utils/sponsorChannels.ts 里改开关） -->
+        <template v-if="AFDIAN_ENABLED">
         <div v-if="sponsor?.afdianBound" class="bind-state">
           已绑定爱发电账号：在爱发电赞助后几分钟内会自动开通。
           <button type="button" class="link-btn" :disabled="binding" @click="unbind">解除绑定</button>
@@ -207,6 +210,7 @@ async function unbind() {
           </div>
           <small>只需要绑定一次，以后每次赞助都会自动顺延。也可以联系管理员手动开通。</small>
         </form>
+        </template>
       </template>
       <p v-if="bindMsg" class="bg-msg" role="status">{{ bindMsg }}</p>
       <p v-if="bindErr" class="bg-err" role="alert">{{ bindErr }}</p>

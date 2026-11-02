@@ -100,21 +100,24 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 });
             }
 
-            var applications = await _context.ProjectApplications
+            // 先查申请、再按 Guid 查用户，在内存里对上：SQL 里拿 Users.Id 转字符串跨表比较会因为排序规则不同报错
+            var pendingApps = await _context.ProjectApplications
                 .Where(a => a.ProjectId == projectId && a.Status == 0)
-                .Join(_context.Users,
-                    app => app.UserId,
-                    user => user.Id.ToString(),
-                    (app, user) => new {
-                        app.Id,
-                        app.UserId,
-                        ApplicantName = user.Username,
-                        ApplicantEmail = user.Email ?? "暂无邮箱",
-                        app.Message,
-                        app.CreatedAt
-                    })
                 .OrderBy(a => a.CreatedAt)
                 .ToListAsync();
+            var applicantIds = pendingApps.Select(a => Guid.TryParse(a.UserId, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).Distinct().ToList();
+            var applicants = await _context.Users.Where(u => applicantIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id);
+            var applications = pendingApps
+                .Select(app => Guid.TryParse(app.UserId, out var g) && applicants.TryGetValue(g, out var user) ? new {
+                    app.Id,
+                    app.UserId,
+                    ApplicantName = user.Username,
+                    ApplicantEmail = user.Email ?? "暂无邮箱",
+                    app.Message,
+                    app.CreatedAt
+                } : null)
+                .Where(x => x != null)
+                .ToList();
 
             return Ok(applications);
         }

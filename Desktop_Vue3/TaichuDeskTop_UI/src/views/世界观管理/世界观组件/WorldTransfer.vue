@@ -15,6 +15,7 @@
       <input type="file" accept=".zip,.txt,.md,application/zip,text/plain,text/markdown" aria-label="选择世界观文件" :disabled="busy || reading" @change="readFile" />
       <label v-if="items.some(item => !item.payload)">普通条目类型 <select v-model="type" :disabled="busy || reading || started"><option v-for="option in store.cardTypes" :key="option.value" :value="option.value">{{ option.label }}</option></select></label>
       <p v-if="restoring">已识别本站导出文件，将恢复 {{ items.length }} 个条目及其完整字段。</p>
+      <p v-if="chronicle && !plainMode">还会恢复编年史：{{ chronicle.timelines.length }} 条时间线、{{ chronicle.events.length }} 件事{{ chronicle.calendar ? '和历法' : '' }}。</p>
       <template v-if="backup">
         <p>备份：{{ backup.project.name }} · {{ backup.images.size }} 张原图</p>
         <label><input v-model="restoreNew" type="checkbox" :disabled="busy || started" /> 恢复为新的私密世界（包含原名称和简介）</label>
@@ -26,7 +27,7 @@
       <button class="primary" :disabled="busy || reading || completed || job?.state === 'cleaning' || (!items.length && !backup) || (!restoring && !backup && !type)" @click="importFile">{{ busy?'正在导入…':completed?'导入完成':job?'继续恢复':`确认新建 ${items.length} 个条目` }}</button>
     </template>
     <template v-else-if="mode==='export'">
-      <p>完整备份包含世界名称、简介、全部条目、引用关系和原图，解压后可阅读 MD，重新导入 ZIP 可恢复。普通 Markdown 仍保留原图地址；需要离线保存图片时请选择完整备份。PDF 使用现有打印流程。</p>
+      <p>完整备份包含世界名称、简介、全部条目、引用关系、编年史（时间线、事件、历法）和原图，解压后可阅读 MD，重新导入 ZIP 可恢复。普通 Markdown 仍保留原图地址；需要离线保存图片时请选择完整备份。PDF 使用现有打印流程。</p>
       <div class="export-actions"><button class="primary" :disabled="busy" @click="exportFile('zip')">下载完整备份（含图片）</button><button :disabled="busy" @click="exportFile('md')">下载 Markdown</button><button :disabled="busy" @click="exportFile('pdf')">打印 / 保存 PDF</button></div>
     </template>
     <template v-if="printHtml"><iframe ref="printFrame" :srcdoc="printHtml" title="PDF 导出预览" sandbox="allow-same-origin allow-modals" @load="preparePreview" /><button :disabled="!printReady || busy" @click="printPdf">{{ printReady ? '打印 / 另存为 PDF' : '正在准备图片和字体…' }}</button><p>建议关闭打印窗口中的页眉和页脚，使用 A4 纸张、100% 缩放。</p></template>
@@ -40,7 +41,9 @@ import type { WorldProject, CardDetail, WorldRestoreStatus } from '@/api/types/w
 import { worldApi } from '@/api/worldApi'
 import { useWorldStore } from '@/stores/world'
 import { useUserStore } from '@/stores/user'
-import { parseWorldText, resolveWorldImport, hasWorldRestoreData, worldMarkdown, type WorldTextItem } from '@/utils/worldTransfer'
+import { parseWorldText, resolveWorldImport, hasWorldRestoreData, worldMarkdown, parseWorldChronicle, resolveWorldChronicle, type WorldTextItem } from '@/utils/worldTransfer'
+import { chronicleApi } from '@/api/chronicle'
+import type { ChronicleExport } from '@/utils/chronicle'
 import { worldPrintHtml, prepareWorldPrint } from '@/utils/worldPrint'
 import { getCardTypeLabel } from '@/utils/worldPresentation'
 import { createWorldBackup, readWorldBackup, replaceWorldImages, worldTextBytes, worldArchiveBytes, type WorldBackup } from '@/utils/worldBackup'
@@ -51,6 +54,8 @@ const store = useWorldStore(), user = useUserStore()
 const busy = ref(false), error = ref(''), status = ref(''), type = ref('')
 const items = ref<WorldTextItem[]>([])
 const backup = shallowRef<WorldBackup | null>(null), restoreNew = ref(true), restoredProject = ref<WorldProject | null>(null)
+// 文件里的编年史（时间线、事件、历法）；老文件没有就是 null
+const chronicle = shallowRef<ChronicleExport | null>(null)
 const completed = ref(false), reading = ref(false)
 const job = shallowRef<WorldRestoreStatus | null>(null), pending = ref<WorldRestoreStatus[]>([])
 const started = computed(() => !!job.value)
@@ -85,6 +90,7 @@ async function readFile(event: Event) {
   const version = ++fileVersion
   error.value = ''; status.value = ''; items.value = []
   plainAvailable.value = false; plainMode.value = false; fileText = ''; fileName = ''; backup.value = null; restoredProject.value = null; completed.value = false; fingerprint = ''
+  chronicle.value = null
   const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
   reading.value = true
@@ -100,6 +106,7 @@ async function readFile(event: Event) {
       const result = await readWorldBackup(bytes)
       if (!valid() || version !== fileVersion) return
       backup.value = result; items.value = result.items; restoreNew.value = job.value?.plan.source.newProject ?? true
+      chronicle.value = result.chronicle
       return
     }
     const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
@@ -107,6 +114,7 @@ async function readFile(event: Event) {
     fileText = text; fileName = file.name
     items.value = parseWorldText(text, file.name,job.value?.plan.source.plainText)
     plainMode.value = job.value?.plan.source.plainText ?? false
+    chronicle.value = plainMode.value ? null : parseWorldChronicle(text)
   } catch (e) {
     if (!valid() || version !== fileVersion) return
     error.value = e instanceof Error ? e.message : '文件读取失败'
@@ -117,7 +125,7 @@ async function readFile(event: Event) {
 function readPlainFile() {
   try {
     items.value = parseWorldText(fileText, fileName, true)
-    plainMode.value = true; plainAvailable.value = false; error.value = ''
+    plainMode.value = true; plainAvailable.value = false; error.value = ''; chronicle.value = null
   } catch (e) { error.value = e instanceof Error ? e.message : '文件读取失败' }
 }
 
@@ -128,7 +136,7 @@ async function refreshRestores() {
   } catch { if (valid()) error.value = '恢复记录读取失败，请重新打开窗口后重试。' }
 }
 function selectRestore(entry: WorldRestoreStatus) {
-  job.value = entry; items.value = []; backup.value = null; fingerprint = ''; completed.value = false
+  job.value = entry; items.value = []; backup.value = null; chronicle.value = null; fingerprint = ''; completed.value = false
   type.value = entry.plan.source.defaultType; restoreNew.value = entry.plan.source.newProject
   plainMode.value = entry.plan.source.plainText; plainAvailable.value = false
   status.value = '请选择原备份文件；会从服务器确认的进度继续。'; error.value = ''
@@ -179,6 +187,8 @@ async function importFile() {
     await applyStatus(await worldApi.commitRestore(result.id,{
       cards:resolved.payloads.map(p => ({...p,type:p.type || type.value})),
       description: backup.value ? replaceWorldImages(backup.value.project,images).description : null,
+      // 编年史：条目换成新 Id、图片换成刚上传的地址；普通 Markdown 导入不带
+      chronicle: plainMode.value ? null : resolveWorldChronicle(chronicle.value,items.value,result.plan.cardIds,images),
     }))
     if (completed.value && resolved.unresolved) status.value += ` 有 ${resolved.unresolved} 处普通 Markdown 引用未匹配，请在编辑页核对。`
   } catch (e) {
@@ -224,6 +234,8 @@ async function exportFile(format: 'md' | 'pdf' | 'zip') {
   printReady.value = false; printHtml.value = ''; previewVersion++
   try {
     const sourceProject = await worldApi.getProject(projectId)
+    // 编年史（时间线、事件、历法）一起导出；读不到就报错，免得备份里悄悄少了编年史
+    const chronicle = await chronicleApi.exportData(projectId)
     const summaries = await worldApi.getCards(projectId), cards: CardDetail[] = []
     for (let i = 0; i < summaries.length; i += 100) {
       if (!valid()) return
@@ -242,13 +254,13 @@ async function exportFile(format: 'md' | 'pdf' | 'zip') {
     const latest = await worldApi.getCards(projectId), versions = new Map(summaries.map(c => [c.id,c.updatedAt]))
     if (latest.length !== summaries.length || latest.some(c => versions.get(c.id)!==c.updatedAt)) throw new Error('导出期间条目发生变化，请重新导出。')
     if (format === 'zip') {
-      const result = await createWorldBackup(sourceProject,cards,message => { if(valid()) status.value=message },{signal:cancellation.signal})
+      const result = await createWorldBackup(sourceProject,cards,message => { if(valid()) status.value=message },{signal:cancellation.signal,chronicle})
       if (!valid()) return
       download(new Blob([result.bytes],{type:'application/zip'}), sourceProject.name+'.zip')
       status.value=`完整备份已生成：${cards.length} 个条目，${result.imageCount} 张原图。`
       return
     }
-    const markdown = worldMarkdown(sourceProject, cards, format === 'md')
+    const markdown = worldMarkdown(sourceProject, cards, format === 'md', chronicle)
     if (format === 'md') {
       download(new Blob([markdown],{type:'text/markdown;charset=utf-8'}),sourceProject.name+'.md')
       status.value = 'Markdown 已生成。'

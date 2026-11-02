@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using TaiChuWeb_V2.Controllers.LingMai;
 using TaiChuWeb_V2.Models.FinalNodes;
+using TaiChuWeb_V2.Services.Personalization;
 
 namespace TaiChuWeb_V2.Controllers.knowledgeBase
 {
@@ -262,65 +263,27 @@ namespace TaiChuWeb_V2.Controllers.knowledgeBase
 
             return Ok(new GraphDataDto { Nodes = nodes, Edges = edges });
         }
-            /// <summary>
-        /// 关系图谱的全文搜索：返回标题、简介或正文里包含关键词的节点 ID（和 /public 的节点 ID 同一格式）。
-        /// 多个词用空格分开时，要每个词都出现。创作者名字由前端自己匹配。
+        /// <summary>
+        /// 关系图谱的搜索：和知识库列表（catalog）用同一套匹配规则（KnowledgeSearch.FilterAsync，同样的类型范围、字段和「每个词都要出现」），
+        /// 再把列表条目的（类型, ID）换成图谱节点 ID（KnowledgeSearch.GraphNodeId）。
+        /// listTotal = 列表一共能搜到多少条：前端用它算「还有几条在列表里、图谱里没有对应节点」（设定条目、公告、必吃榜……，
+        /// 或者太旧没进图谱的内容），提示用户去列表看。创作者、文件夹、资源文件等前端自己拼的节点由前端按同样的规则匹配。
         /// </summary>
         [HttpGet("search")]
         public async Task<IActionResult> SearchPublicGraph([FromQuery] string? q)
         {
             var terms = KnowledgeSearch.Terms(q?.Length > 100 ? q[..100] : q);
-            if (terms.Count == 0) return Ok(new { ids = Array.Empty<string>() });
-            HashSet<string>? result = null;
-            foreach (var term in terms)
-            {
-                var encoded = KnowledgeSearch.Encoded(term);
-                var body = await KnowledgeSearch.BodyHitsAsync(_context, term, encoded);
-                var cardWorlds = body.Where(h => h.Contains(':')).Select(h => h.Split(':')[0]).Distinct().ToList();
-                var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-                ids.UnionWith(await _context.FinalNodes.AsNoTracking()
-                    .Where(n => n.Status == 0 && (n.Title.Contains(term) || (n.Excerpt != null && n.Excerpt.Contains(term)) || body.Contains(n.Id)))
-                    .Select(n => n.Id).ToListAsync());
-
-                var notes = await LingMaiPublishController.VisiblePublishedNotes(_context)
-                    .Where(n => (n.Type == "blog" || n.Type == "note" || n.Type == "post")
-                        && ((n.Title != null && n.Title.Contains(term)) || (n.Excerpt != null && (n.Excerpt.Contains(term) || n.Excerpt.Contains(encoded))) || body.Contains(n.Id.ToString())))
-                    .Select(n => new { n.Id, n.Type }).ToListAsync();
-                ids.UnionWith(notes.Select(n => $"{(n.Type == "post" ? "post" : "blog")}:{n.Id}"));
-
-                ids.UnionWith((await _context.WikiArticles.AsNoTracking()
-                    .Where(a => !a.IsDeleted && a.CurrentRevisionId != null && (a.Title.Contains(term) || (a.Excerpt != null && a.Excerpt.Contains(term)) || body.Contains(a.Id)))
-                    .Select(a => a.Id).ToListAsync()).Select(id => $"wiki:{id}"));
-
-                ids.UnionWith((await _context.Artworks.AsNoTracking()
-                    .Where(a => a.IsApproved && (a.Status == "published" || a.Status == "" || a.Status == null)
-                        && (a.Title.Contains(term) || (a.Description != null && a.Description.Contains(term))))
-                    .Select(a => a.Id).ToListAsync()).Select(id => $"artwork:{id}"));
-
-                // 世界观：名字 / 简介，或者世界里有条目包含这个词
-                ids.UnionWith((await _context.WorldProjects.AsNoTracking()
-                    .Where(p => p.IsPublic && (p.Name.Contains(term) || (p.Description != null && p.Description.Contains(term))
-                        || p.Cards.Any(c => c.Title.Contains(term) || (c.Description != null && c.Description.Contains(term)))
-                        || cardWorlds.Contains(p.Id.ToString())))
-                    .Select(p => p.Id).ToListAsync()).Select(id => $"world:{id}"));
-
-                ids.UnionWith((await _context.WorldNovels.AsNoTracking()
-                    .Where(n => n.IsPublic && (n.Title.Contains(term) || (n.Description != null && n.Description.Contains(term)) || body.Contains(n.Id.ToString())))
-                    .Select(n => n.Id).ToListAsync()).Select(id => $"novel:{id}"));
-
-                ids.UnionWith((await _context.StickmanCharacters.AsNoTracking()
-                    .Where(c => c.Status == "published" && (c.Title.Contains(term) || (c.Description != null && c.Description.Contains(term))))
-                    .Select(c => c.Id).ToListAsync()).Select(id => $"oc:{id}"));
-
-                ids.UnionWith((await _context.ChaiWorks.AsNoTracking()
-                    .Where(w => w.Status == "published" && (w.Title.Contains(term) || (w.Description != null && w.Description.Contains(term))))
-                    .Select(w => w.Id).ToListAsync()).Select(id => $"work:{id}"));
-
-                if (result == null) result = ids; else result.IntersectWith(ids);
-                if (result.Count == 0) break;
-            }
-            return Ok(new { ids = result?.Select(id => id.ToLowerInvariant()).ToList() ?? new List<string>() });
+            if (terms.Count == 0) return Ok(new { ids = Array.Empty<string>(), listTotal = 0 });
+            // 开发进度和列表一样：只有管理员和赞助会员能搜到
+            var perks = HttpContext.RequestServices.GetService<SponsorPerkService>();
+            var devlogOk = perks != null && (await DevProgressAccess.CheckAsync(_context, perks, User)).CanView;
+            var query = await KnowledgeSearch.FilterAsync(_context,
+                CatalogController.Query(_context, "all", includeSettings: true, includeDevlog: devlogOk).AsNoTracking(), terms);
+            var total = await query.CountAsync();
+            var hits = await query.Select(i => new { i.Type, i.Id }).Take(5000).ToListAsync();
+            var ids = hits.Select(h => KnowledgeSearch.GraphNodeId(h.Type, h.Id)).Where(id => id != null)
+                .Select(id => id!.ToLowerInvariant()).Distinct().ToList();
+            return Ok(new { ids, listTotal = total });
         }
     }
 }

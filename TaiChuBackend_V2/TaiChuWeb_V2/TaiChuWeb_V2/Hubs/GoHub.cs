@@ -49,4 +49,12 @@ public class GoHub(GoManager manager, AppDbContext db) : Hub
     public Task<string?> ConfirmScore() => manager.ConfirmScoreAsync(UserId);
     /// <summary>点目阶段觉得还没下完，回到对局</summary>
     public Task<string?> ResumePlay() => manager.ResumeAsync(UserId);
+
+    // ---------- 观战（只读：观战的人调用 Play / Pass / Resign / 点目等都会因为「不在房间里」被拒绝） ----------
+    /// <summary>进房间观战</summary>
+    public async Task<string?> Watch(string roomId) => await manager.WatchAsync(UserId, await NameAsync(), roomId);
+    /// <summary>观战的人坐下（有空位、还没开局时）</summary>
+    public async Task<string?> SitDown() => await manager.SitDownAsync(UserId, await NameAsync());
+    /// <summary>房主开 / 关观战</summary>
+    public Task<string?> SetSpectate(bool allow) => manager.SetSpectateAsync(UserId, allow);
 }

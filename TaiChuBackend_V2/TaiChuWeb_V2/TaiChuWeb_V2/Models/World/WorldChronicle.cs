@@ -82,4 +82,34 @@ namespace TaiChuWeb_V2.Models.World
         public string Json { get; set; } = "{}";
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
+
+    /// <summary>
+    /// 编年史的修改记录：时间线 / 事件 / 历法每次新建、修改、删除、撤销都记一条，
+    /// 存下改之前和改之后的完整内容（JSON），这样能看出改了什么，也能一键撤销。
+    /// TargetType：timeline 时间线 / event 事件 / calendar 历法（TargetId 就是世界 Id）。
+    /// Action：create 新建 / update 修改 / delete 删除 / restore 撤销或恢复。
+    /// 表 WorldChronicleRevisions 由 WorldCollaboratorSchema 启动时创建，不参与 EF 迁移。
+    /// </summary>
+    [Table("WorldChronicleRevisions")]
+    public class WorldChronicleRevision
+    {
+        [Key] public long Id { get; set; }
+        [Column(TypeName = "char(36)")] public Guid ProjectId { get; set; }
+        [MaxLength(16)] public string TargetType { get; set; } = "event";
+        [Column(TypeName = "char(36)")] public Guid TargetId { get; set; }
+        /// <summary>操作人</summary>
+        [Column(TypeName = "char(36)")] public Guid? UserId { get; set; }
+        [MaxLength(16)] public string Action { get; set; } = "update";
+        /// <summary>当时的名称（时间线名 / 事件名，可能带 {CARD:id} 引用），被删、被改名后列表里也看得懂</summary>
+        [MaxLength(200)] public string Title { get; set; } = "";
+        /// <summary>改之前的完整内容；新建时为空</summary>
+        [Column(TypeName = "longtext")] public string? BeforeJson { get; set; }
+        /// <summary>改之后的完整内容；删除时为空</summary>
+        [Column(TypeName = "longtext")] public string? AfterJson { get; set; }
+        /// <summary>这次改了哪些字段（英文字段名，逗号分隔），列表里直接显示，不用每条都去对比</summary>
+        [MaxLength(500)] public string? ChangedFields { get; set; }
+        /// <summary>补充说明，比如「撤销了 xxx 的一次修改」</summary>
+        [MaxLength(200)] public string? Note { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    }
 }

@@ -8,6 +8,8 @@ using TaiChuWeb_V2.Dtos.LingMai;
 using TaiChuWeb_V2.Models.LingMai;
 using TaiChuWeb_V2.Services.LingMai;
 using TaiChuWeb_V2.Services.Publish; // 引入策略命名空间
+using TaiChuWeb_V2.Models.Interact;
+using TaiChuWeb_V2.Services.Notify;
 
 namespace TaiChuWeb_V2.Controllers.LingMai
 {
@@ -380,17 +382,69 @@ namespace TaiChuWeb_V2.Controllers.LingMai
                 })
                 .ToListAsync();
 
+            // 灵动：我有没有点过
+            var resonated = CurrentUserIdGuid is Guid me && await _context.UserInteractions.AnyAsync(i =>
+                i.UserId == me && i.TargetType == ResonanceTarget && i.TargetId == ownerIdStr && i.ActionType == ResonanceAction);
+
             // 🌟 修复核心：去掉产生冲突的双属性，仅保留单个属性。
             // .NET 默认的 CamelCase 会自动将这里的 "blocks" 在网络传输时转换为小写 "blocks"
             return Ok(new
             {
                 id = publishedNote.Id,
+                resonance = publishedNote.Resonance,
+                resonated,
                 title = publishedNote.Title,
                 type = publishedNote.Type,
                 publishedAt = publishedNote.PublishedAt,
                 authorName = publishedNote.AuthorName, authorId, tags = publishedNote.Tags, canEdit, originalNoteId = canEdit ? publishedNote.OriginalNoteId : null,
                 blocks = blocksList
             });
+        }
+
+        #endregion
+
+        #region --- 灵动（给博客 / 帖子点赞） ---
+
+        // 以前「灵动」只是个数字，没有任何地方能加，详情页也没返回，所以一直是 0、点不了。
+        // 现在：登录用户点一下 +1、再点取消；每人每篇只算一次（记在 UserInteractions：TargetType = Note，ActionType = Resonance）。
+        // 计数直接在 PublishedNotes.Resonance 上加减（管理员以前手动改过的数字保留，在它的基础上加减）。
+        private const string ResonanceTarget = "Note", ResonanceAction = "Resonance";
+
+        [Authorize, HttpPost("blog/{id:guid}/resonance")]
+        public async Task<IActionResult> ToggleResonance(Guid id, [FromQuery] bool? active = null)
+        {
+            if (CurrentUserIdGuid is not Guid userId) return Unauthorized();
+            var note = await PublicNotes().Where(pn => pn.Id == id).Select(pn => new { pn.Id, pn.SpaceId, pn.Title, pn.Type }).FirstOrDefaultAsync();
+            if (note == null) return NotFound(new { message = "内容不存在或已下架" });
+            var target = id.ToString().ToLower();
+
+            var existing = await _context.UserInteractions
+                .Where(i => i.UserId == userId && i.TargetType == ResonanceTarget && i.TargetId == target && i.ActionType == ResonanceAction).ToListAsync();
+            var want = active ?? existing.Count == 0;
+            var delta = 0;
+            if (want && existing.Count == 0)
+            {
+                _context.UserInteractions.Add(new UserInteraction { UserId = userId, TargetId = target, TargetType = ResonanceTarget, ActionType = ResonanceAction });
+                delta = 1;
+                // 通知作者（自己给自己点不通知）
+                var ownerText = await _context.Spaces.Where(s => s.Id == note.SpaceId).Select(s => s.UserId).FirstOrDefaultAsync();
+                if (Guid.TryParse(ownerText, out var ownerId) && ownerId != userId)
+                    new NotificationService(_context).Add(ownerId, userId, "like", "note", id.ToString(),
+                        $"觉得你的{(note.Type == "post" ? "帖子" : "文章")}「{(string.IsNullOrWhiteSpace(note.Title) ? "短帖" : note.Title)}」很灵动", $"/stream?post={id}");
+            }
+            else if (!want && existing.Count > 0)
+            {
+                _context.UserInteractions.RemoveRange(existing);
+                delta = -1;
+            }
+            else if (existing.Count > 1) _context.UserInteractions.RemoveRange(existing.Skip(1));
+            await _context.SaveChangesAsync();
+
+            if (delta != 0)
+                await _context.PublishedNotes.Where(pn => pn.Id == id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(pn => pn.Resonance, pn => pn.Resonance + delta < 0 ? 0 : pn.Resonance + delta));
+            var count = await _context.PublishedNotes.AsNoTracking().Where(pn => pn.Id == id).Select(pn => pn.Resonance).FirstOrDefaultAsync();
+            return Ok(new { active = want, count });
         }
 
         #endregion

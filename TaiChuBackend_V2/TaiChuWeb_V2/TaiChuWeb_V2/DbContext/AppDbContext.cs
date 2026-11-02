@@ -224,6 +224,7 @@ namespace TaiChuWeb_V2.DbContext
         // 世界编年史（表由 WorldCollaboratorSchema 启动时创建）
         public DbSet<WorldTimeline> WorldTimelines { get; set; }
         public DbSet<WorldTimelineEvent> WorldTimelineEvents { get; set; }
+        public DbSet<WorldChronicleRevision> WorldChronicleRevisions { get; set; }
         public DbSet<WorldCalendar> WorldCalendars { get; set; }
         // 我的世界服务器「世界任务」（表由 ServerQuestSchema 启动时创建）
         public DbSet<TaiChuWeb_V2.Models.Quest.ServerQuest> ServerQuests { get; set; }
@@ -232,6 +233,7 @@ namespace TaiChuWeb_V2.DbContext
         public DbSet<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryEntry> CommunityHistoryEntries { get; set; }
         public DbSet<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryReaction> CommunityHistoryReactions { get; set; }
         public DbSet<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryComment> CommunityHistoryComments { get; set; }
+        public DbSet<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryMention> CommunityHistoryMentions { get; set; }
         // 举报（表由 ContentReportSchema 启动时创建）
         public DbSet<TaiChuWeb_V2.Models.Reports.ContentReport> ContentReports { get; set; }
         public DbSet<WorldCard> WorldCards { get; set; }
@@ -446,6 +448,13 @@ namespace TaiChuWeb_V2.DbContext
             modelBuilder.Entity<WorldTimeline>(entity => entity.ToTable("WorldTimelines", t => t.ExcludeFromMigrations()));
             modelBuilder.Entity<WorldTimelineEvent>(entity => entity.ToTable("WorldTimelineEvents", t => t.ExcludeFromMigrations()));
             modelBuilder.Entity<WorldCalendar>(entity => entity.ToTable("WorldCalendars", t => t.ExcludeFromMigrations()));
+            // 编年史修改记录（fix121）：表由 WorldCollaboratorSchema 启动时创建，不参与 EF 迁移
+            modelBuilder.Entity<WorldChronicleRevision>(entity =>
+            {
+                entity.ToTable("WorldChronicleRevisions", t => t.ExcludeFromMigrations());
+                entity.HasIndex(r => new { r.ProjectId, r.Id });
+                entity.HasIndex(r => new { r.TargetId, r.Id });
+            });
 
             // 世界任务：表由 ServerQuestSchema 启动时创建，不参与 EF 迁移
             modelBuilder.Entity<TaiChuWeb_V2.Models.Quest.ServerQuest>(entity => entity.ToTable("ServerQuests", t => t.ExcludeFromMigrations()));
@@ -454,6 +463,11 @@ namespace TaiChuWeb_V2.DbContext
             modelBuilder.Entity<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryEntry>(entity => entity.ToTable("CommunityHistoryEntries", t => t.ExcludeFromMigrations()));
             modelBuilder.Entity<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryComment>(entity => entity.ToTable("CommunityHistoryComments", t => t.ExcludeFromMigrations()));
             modelBuilder.Entity<TaiChuWeb_V2.Models.Reports.ContentReport>(entity => entity.ToTable("ContentReports", t => t.ExcludeFromMigrations()));
+            modelBuilder.Entity<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryMention>(entity =>
+            {
+                entity.ToTable("CommunityHistoryMentions", t => t.ExcludeFromMigrations());
+                entity.HasKey(m => new { m.EntryId, m.UserId });
+            });
             modelBuilder.Entity<TaiChuWeb_V2.Models.CommunityHistory.CommunityHistoryReaction>(entity =>
             {
                 entity.ToTable("CommunityHistoryReactions", t => t.ExcludeFromMigrations());

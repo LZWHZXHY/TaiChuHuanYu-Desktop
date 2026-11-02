@@ -76,7 +76,7 @@ import { bilibiliApi } from '@/api/bilibili'
 // 🌟 社区对外入口：OOPZ 语音房 + QQ 外群
 const OOPZ_URL = 'https://oopz.cn/i/iZDd74'
 const QQ_GROUP_URL = 'https://qm.qq.com/q/D8EaBjOygo'
-// 💛 赞助入口：爱发电审核一直没过，首页推荐爱赞助（爱发电入口在赞助墙页面保留）
+// 💛 赞助入口：爱发电一直没通过认证、不能提现，只用爱赞助（爱发电入口的开关在 utils/sponsorChannels.ts）
 const AZZ_URL = 'https://azz.ee/taichuhuanyu'
 // 📺 B 站官号
 const BILIBILI_URL = 'https://space.bilibili.com/zh-Hans/3546736970696727'

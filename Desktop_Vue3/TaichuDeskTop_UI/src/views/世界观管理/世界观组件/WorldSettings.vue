@@ -6,6 +6,7 @@
           <nav class="settings-tabs" aria-label="设置分类">
             <button v-if="isOwner" :aria-pressed="active === 'info'" @click="active = 'info'">名字与简介</button>
             <button :aria-pressed="active === 'members'" @click="active = 'members'">{{ isOwner ? '协作者' : '成员' }}</button>
+            <button :aria-pressed="active === 'legend'" @click="active = 'legend'">时间线图例</button>
           </nav>
           <button class="close-btn" aria-label="关闭" @click="close">×</button>
         </header>
@@ -46,6 +47,32 @@
           <button v-else type="button" class="danger-outline" @click="confirmingDelete = true">删除世界…</button>
         </section>
         </template>
+
+        <!-- 时间线图例：规定每种颜色代表什么，条目的时间线和世界编年史旁边会显示 -->
+        <form v-else-if="active === 'legend'" class="legend-form" @submit.prevent="saveLegend">
+          <p class="hint">
+            给时间线事件的颜色起个名字，比如 <b>红 = 战争</b>、<b>灰 = 灾难</b>。起过名字的颜色会作为图例显示在条目的「时间线」和世界编年史旁边，看的人点图例就能只看这一类事件。用不到的颜色留空就行，不会显示。
+            <template v-if="!isOwner"><br />只有创建者能修改图例。</template>
+          </p>
+          <p v-if="legendLoading" class="muted">正在读取图例…</p>
+          <p v-else-if="legendLoadError" class="error" role="alert">{{ legendLoadError }} <button type="button" @click="loadLegend">重试</button></p>
+          <template v-else>
+            <ul class="legend-list">
+              <li v-for="h in LEGEND_HUES" :key="h.key">
+                <span class="legend-swatch" :style="{ background: h.swatch }" aria-hidden="true"></span>
+                <span class="legend-name">{{ h.name }}</span>
+                <input v-if="isOwner" v-model="legendDraft[h.key]" maxlength="20" :placeholder="`比如：${h.example}`" :aria-label="`${h.name}色代表什么`" />
+                <span v-else class="legend-text" :class="{ muted: !legendDraft[h.key] }">{{ legendDraft[h.key] || '（没有定义）' }}</span>
+              </li>
+            </ul>
+            <p class="muted legend-note">没选颜色的事件不算在图例里；编年史里没选颜色的事件和所在时间线同色。「蓝」只有编年史的事件能选。</p>
+            <p v-if="legendError" class="error" role="alert">{{ legendError }}</p>
+            <div v-if="isOwner" class="actions">
+              <button type="button" @click="close">取消</button>
+              <button type="submit" class="primary" :disabled="savingLegend || !legendChanged">{{ savingLegend ? '保存中…' : '保存' }}</button>
+            </div>
+          </template>
+        </form>
 
         <!-- 协作者 -->
         <div v-else class="members">
@@ -115,13 +142,16 @@ import type { WorldProject, WorldMembers, WorldMember, WorldMemberCandidate, Col
 import { useWorldStore } from '@/stores/world'
 import { useUserStore } from '@/stores/user'
 import { getErrorMessage } from '@/utils/apiError'
+import { worldLegendApi } from '@/api/worldLegend'
+import { LEGEND_HUES, setWorldLegend } from '@/utils/worldLegend'
 
 const props = defineProps<{ project: WorldProject; tab: 'info' | 'members'; isOwner: boolean }>()
 const emit = defineEmits<{ close: []; left: []; deleted: [] }>()
 const store = useWorldStore()
 const userStore = useUserStore()
 
-const active = ref<'info' | 'members'>(props.isOwner ? props.tab : 'members')
+// 'legend'（时间线图例）只在弹窗里切换，外面打开时还是 info / members
+const active = ref<'info' | 'members' | 'legend'>(props.isOwner ? props.tab : 'members')
 watch(() => props.tab, tab => { active.value = props.isOwner ? tab : 'members' })
 
 function close() { emit('close') }
@@ -169,6 +199,58 @@ async function deleteWorld() {
     deleteError.value = getErrorMessage(error, '删除失败，请重试')
   } finally {
     deleting.value = false
+  }
+}
+
+// ---------- 时间线图例 ----------
+const legendDraft = ref<Record<string, string>>({})
+const legendSaved = ref<Record<string, string>>({})
+const legendLoading = ref(false)
+const legendLoaded = ref(false)
+const legendLoadError = ref('')
+const savingLegend = ref(false)
+const legendError = ref('')
+const cleanLegend = (items: Record<string, string>) =>
+  Object.fromEntries(LEGEND_HUES.map((h): [string, string] => [h.key, (items[h.key] ?? '').replace(/\s+/g, ' ').trim()]).filter(([, v]) => v))
+const legendChanged = computed(() => JSON.stringify(cleanLegend(legendDraft.value)) !== JSON.stringify(cleanLegend(legendSaved.value)))
+
+async function loadLegend() {
+  legendLoading.value = true
+  legendLoadError.value = ''
+  try {
+    const data = await worldLegendApi.get(props.project.id)
+    const items = data?.items && typeof data.items === 'object' ? data.items : {}
+    legendSaved.value = { ...items }
+    legendDraft.value = { ...items }
+    legendLoaded.value = true
+    setWorldLegend(props.project.id, items)
+  } catch (error) {
+    legendLoadError.value = getErrorMessage(error, '图例读取失败')
+  } finally {
+    legendLoading.value = false
+  }
+}
+// 第一次切到这个标签才去读，平时打开设置不多发请求
+watch(active, tab => { if (tab === 'legend' && !legendLoaded.value && !legendLoading.value) void loadLegend() }, { immediate: true })
+
+async function saveLegend() {
+  if (!props.isOwner || savingLegend.value) return
+  legendError.value = ''
+  const items = cleanLegend(legendDraft.value)
+  if (Object.values(items).some(v => v.length > 20)) { legendError.value = '每种颜色的含义最多 20 个字'; return }
+  savingLegend.value = true
+  try {
+    const data = await worldLegendApi.save(props.project.id, items)
+    const saved = data?.items && typeof data.items === 'object' ? data.items : items
+    legendSaved.value = { ...saved }
+    legendDraft.value = { ...saved }
+    // 页面上的时间线、编年史图例马上跟着变
+    setWorldLegend(props.project.id, saved)
+    ElMessage.success('图例已保存')
+  } catch (error) {
+    legendError.value = getErrorMessage(error, '保存失败，请重试')
+  } finally {
+    savingLegend.value = false
   }
 }
 
@@ -332,5 +414,12 @@ button:disabled { opacity: .5; cursor: default; }
 .danger-zone input { width: 100%; }
 .danger-outline { padding: 7px 14px; border: 1px solid var(--danger); border-radius: 0; background: none; color: var(--danger); cursor: pointer; }
 .danger { padding: 7px 14px; border: 1px solid var(--danger) !important; border-radius: 0; background: var(--danger) !important; color: #fff !important; cursor: pointer; }
+.legend-list { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 8px; }
+.legend-list li { display: grid; grid-template-columns: 16px 2em minmax(0, 1fr); align-items: center; gap: 10px; }
+.legend-swatch { width: 16px; height: 16px; }
+.legend-name { font-size: 13px; color: var(--text-secondary); }
+.legend-list input { width: 100%; padding: 7px 10px; }
+.legend-text { overflow-wrap: anywhere; }
+.legend-note { margin: 0 0 14px; font-size: 12px; line-height: 1.7; }
 @media (max-width: 520px) { .invite-row { flex-direction: column; } }
 </style>

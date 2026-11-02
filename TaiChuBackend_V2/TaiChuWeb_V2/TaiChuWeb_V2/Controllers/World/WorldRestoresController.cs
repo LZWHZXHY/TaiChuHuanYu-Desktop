@@ -22,8 +22,9 @@ public class WorldRestoresController(WorldRestoreService service) : WorldControl
     public async Task<IActionResult> Upload(Guid id, string name, IFormFile file) =>
         Ok(await service.UploadAsync(CurrentUserId, id, name, file));
 
+    // 提交时可以带上编年史（时间线、事件、历法）；不带也照常恢复条目（兼容老页面）
     [HttpPost("{id:guid}/commit"), RequestSizeLimit(128 * 1024 * 1024)]
-    public async Task<IActionResult> Commit(Guid id, CommitWorldRestoreDto dto) =>
+    public async Task<IActionResult> Commit(Guid id, CommitWorldRestoreWithChronicleDto dto) =>
         Ok(await service.CommitAsync(CurrentUserId, id, dto));
 
     [HttpDelete("{id:guid}")]

@@ -36,6 +36,11 @@ namespace TaiChuWeb_V2.Services.Games.Xiangqi
         public Guid? DrawOfferBy { get; set; }
         public char? Winner { get; set; }
         public string? Reason { get; set; }
+        /// <summary>
+        /// 上一局的结果（谁赢、赢家名字、原因）。一局结束后有人点「返回大厅」，房间会回到等人状态，
+        /// 以前结果就跟着没了（赢的一方看不到自己赢了），现在留在这里，等人界面也能看到。
+        /// </summary>
+        public (char? Winner, string? WinnerName, string Reason)? LastResult { get; set; }
 
         public IEnumerable<XqPlayer> Players => new[] { Red, Black }.Where(p => p != null)!;
         public XqPlayer? Of(Guid u) => Red?.UserId == u ? Red : Black?.UserId == u ? Black : null;
@@ -58,26 +63,41 @@ namespace TaiChuWeb_V2.Services.Games.Xiangqi
         private readonly ConcurrentDictionary<string, XqRoom> _rooms = new();
         private readonly ConcurrentDictionary<Guid, string> _userRoom = new();
         private readonly ConcurrentDictionary<Guid, int> _connections = new();
+        /// <summary>观战名单（谁在看哪个房间、每间最多 20 人、房主是否关了观战）</summary>
+        private readonly SpectatorRegistry _watch = new();
+        private long _lastLobbyPush;
 
         private XqRoom? RoomOf(Guid u) => _userRoom.TryGetValue(u, out var id) && _rooms.TryGetValue(id, out var r) ? r : null;
 
         // ================= 查询 =================
 
         public object Lobby() => _rooms.Values
-            .Select(r => { lock (r) return new { id = r.Id, name = r.Name, timeLimit = r.TimeLimit, phase = r.Phase, players = r.Players.Select(p => p.Name).ToList(), open = r.Players.Count() < 2, createdAt = r.CreatedAt }; })
+            .Select(r =>
+            {
+                // 观战人数、是否允许观战（观战的人不算房间人数，不影响「有空位」和快速匹配）
+                var (watchers, allow) = _watch.Summary(r.Id);
+                lock (r) return new { id = r.Id, name = r.Name, timeLimit = r.TimeLimit, phase = r.Phase, players = r.Players.Select(p => p.Name).ToList(), open = r.Players.Count() < 2, createdAt = r.CreatedAt, spectators = watchers, allowSpectate = allow, maxSpectators = SpectatorRegistry.MaxPerRoom };
+            })
             .OrderBy(x => x.phase == "waiting" && x.open ? 0 : 1).ThenByDescending(x => x.createdAt)
             .Take(60).ToList();
 
         public object? StateFor(Guid u)
         {
             var room = RoomOf(u);
-            if (room == null) return null;
+            if (room == null)
+            {
+                // 观战的人：同样的棋盘状态（象棋没有隐藏信息），只是 myColor 为空
+                if (_watch.RoomOf(u) is string wid && _rooms.TryGetValue(wid, out var watched))
+                    lock (watched) return BuildState(watched, Guid.Empty);
+                return null;
+            }
             lock (room) return BuildState(room, u);
         }
 
         private static object? PlayerView(XqPlayer? p) => p == null ? null : new { userId = p.UserId, name = p.Name, online = p.Online };
 
-        private static object BuildState(XqRoom r, Guid viewer) => new
+        /// <summary>viewer 为 Guid.Empty 或不在棋局里 = 观战视角（myColor 为空，前端只读）</summary>
+        private object BuildState(XqRoom r, Guid viewer) => new
         {
             roomId = r.Id,
             roomName = r.Name,
@@ -89,12 +109,18 @@ namespace TaiChuWeb_V2.Services.Games.Xiangqi
             turn = r.Turn.ToString(),
             moves = r.Moves.Select(m => new { from = m.From, to = m.To, piece = m.Piece.ToString(), captured = m.Captured == '.' ? null : m.Captured.ToString() }),
             deadline = r.Deadline,
+            // 服务器现在的时间：前端用它校正本机时钟偏差，倒计时才准（本机时间快了慢了都不影响）
+            serverNow = DateTime.UtcNow,
             inCheck = r.Phase == "playing" && XqRules.InCheck(r.Board, r.Turn),
             red = PlayerView(r.Red),
             black = PlayerView(r.Black),
             myColor = r.ColorOf(viewer)?.ToString(),
             drawOfferBy = r.DrawOfferBy,
-            result = r.Phase == "ended" ? new { winner = r.Winner?.ToString(), reason = r.Reason } : null,
+            result = r.Phase == "ended" ? new { winner = r.Winner?.ToString(), winnerName = r.LastResult?.WinnerName, reason = r.Reason } : null,
+            // 上一局结果：房间回到等人状态后也还在（前端在等人界面显示「上一局：红方胜（将死）· 某某」）
+            lastResult = r.LastResult is { } lr ? new { winner = lr.Winner?.ToString(), winnerName = lr.WinnerName, reason = lr.Reason } : null,
+            spectating = r.ColorOf(viewer) == null,
+            watch = _watch.View(r.Id),
         };
 
         // ================= 推送 =================
@@ -102,11 +128,94 @@ namespace TaiChuWeb_V2.Services.Games.Xiangqi
         private async Task PushAsync(XqRoom room)
         {
             List<(Guid, object)> states;
-            lock (room) states = room.Players.Select(p => (p.UserId, BuildState(room, p.UserId))).ToList();
+            object publicState;
+            List<string> watchers;
+            lock (room)
+            {
+                states = room.Players.Select(p => (p.UserId, BuildState(room, p.UserId))).ToList();
+                publicState = BuildState(room, Guid.Empty);
+                watchers = _watch.UserIds(room.Id);
+            }
             foreach (var (uid, state) in states)
             {
                 try { await hub.Clients.User(uid.ToString()).SendAsync("State", state); }
                 catch (Exception ex) { logger.LogDebug(ex, "推送象棋状态失败"); }
+            }
+            // 观战的人：一份状态发给所有人（按用户 ID 推，不用 Hub 分组，重连换了连接也收得到）
+            if (watchers.Count > 0)
+            {
+                try { await hub.Clients.Users(watchers).SendAsync("State", publicState); }
+                catch (Exception ex) { logger.LogDebug(ex, "推送象棋观战状态失败"); }
+            }
+        }
+
+        /// <summary>告诉在大厅的人房间列表变了（最多一秒一次；漏掉的靠前端定时刷新）</summary>
+        private async Task NotifyLobbyAsync()
+        {
+            var now = Environment.TickCount64;
+            var last = Interlocked.Read(ref _lastLobbyPush);
+            if (now - last < 1000 || Interlocked.CompareExchange(ref _lastLobbyPush, now, last) != last) return;
+            try { await hub.Clients.All.SendAsync("LobbyChanged"); }
+            catch (Exception ex) { logger.LogDebug(ex, "推送象棋大厅变化失败"); }
+        }
+
+        // ================= 观战 =================
+
+        /// <summary>进房间观战（等人的、正在下的、刚下完的都能看）。在下棋的人不能同时观战</summary>
+        public async Task<string?> WatchAsync(Guid u, string name, string roomId)
+        {
+            if (RoomOf(u) is { } mine) return mine.Id == roomId ? "你就在这个房间里" : "你正在别的房间下棋，先离开再去观战";
+            if (!_rooms.TryGetValue((roomId ?? "").Trim(), out var room)) return "房间不存在，可能已经解散了";
+            var (error, previous) = _watch.Add(room.Id, u, name);
+            if (error != null) return error;
+            if (previous != null && _rooms.TryGetValue(previous, out var old)) await PushAsync(old);
+            await PushAsync(room);
+            await NotifyLobbyAsync();
+            return null;
+        }
+
+        /// <summary>不看了（离开或断线）；观战的人走了不影响棋局</summary>
+        private async Task<bool> StopWatchingAsync(Guid u, bool notifySelf)
+        {
+            var roomId = _watch.Remove(u);
+            if (roomId == null) return false;
+            if (notifySelf) await SendLeftAsync(u);
+            if (_rooms.TryGetValue(roomId, out var room)) await PushAsync(room);
+            await NotifyLobbyAsync();
+            return true;
+        }
+
+        /// <summary>观战的人坐下（房间在等人、有空位时；走原来的加入流程）</summary>
+        public async Task<string?> SitDownAsync(Guid u, string name)
+        {
+            if (_watch.RoomOf(u) is not string roomId) return "你没有在观战";
+            return await JoinAsync(u, name, roomId);
+        }
+
+        /// <summary>房主在没开局时开 / 关观战；关掉时把正在看的人送回大厅</summary>
+        public async Task<string?> SetSpectateAsync(Guid u, bool allow)
+        {
+            var room = RoomOf(u);
+            if (room == null) return "你不在房间里";
+            List<Guid> kicked;
+            lock (room)
+            {
+                if (room.OwnerId != u) return "只有房主能设置观战";
+                if (room.Phase == "playing") return "下棋的时候不能改观战设置";
+                kicked = _watch.SetAllowed(room.Id, allow);
+            }
+            await KickWatchersAsync(kicked, "房主关掉了观战");
+            await PushAsync(room);
+            await NotifyLobbyAsync();
+            return null;
+        }
+
+        private async Task KickWatchersAsync(List<Guid> users, string message)
+        {
+            foreach (var uid in users)
+            {
+                try { await hub.Clients.User(uid.ToString()).SendAsync("Notice", message); await SendLeftAsync(uid); }
+                catch (Exception ex) { logger.LogDebug(ex, "通知观战的人失败"); }
             }
         }
 
@@ -121,6 +230,7 @@ namespace TaiChuWeb_V2.Services.Games.Xiangqi
                 if (old.Phase == "playing") return "你还有一盘棋没下完";
                 await LeaveAsync(u);
             }
+            await StopWatchingAsync(u, notifySelf: false);
             if (!TimeLimits.Contains(timeLimit)) timeLimit = 60;
             var title = string.IsNullOrWhiteSpace(roomName) ? $"{name} 的棋局" : roomName.Trim();
             if (title.Length > 30) title = title[..30];
@@ -128,6 +238,7 @@ namespace TaiChuWeb_V2.Services.Games.Xiangqi
             _rooms[room.Id] = room;
             _userRoom[u] = room.Id;
             await PushAsync(room);
+            await NotifyLobbyAsync();
             return null;
         }
 
@@ -149,7 +260,11 @@ namespace TaiChuWeb_V2.Services.Games.Xiangqi
                 else return "房间已满";
                 _userRoom[u] = room.Id;
             }
+            // 原来在观战（这一间或别的房间）：坐下了就不再算观战
+            var watched = _watch.Remove(u);
+            if (watched != null && watched != room.Id && _rooms.TryGetValue(watched, out var oldWatch)) await PushAsync(oldWatch);
             await PushAsync(room);
+            await NotifyLobbyAsync();
             return null;
         }
 
@@ -166,7 +281,12 @@ namespace TaiChuWeb_V2.Services.Games.Xiangqi
         public async Task<string?> LeaveAsync(Guid u)
         {
             var room = RoomOf(u);
-            if (room == null) { await SendLeftAsync(u); return null; }
+            if (room == null)
+            {
+                // 观战的人点「离开」：不看了
+                if (!await StopWatchingAsync(u, notifySelf: true)) await SendLeftAsync(u);
+                return null;
+            }
             (XqRoom Room, char? Winner, string Reason, List<XqPlayer> Players)? finished = null;
             var empty = false;
             lock (room)
@@ -190,6 +310,9 @@ namespace TaiChuWeb_V2.Services.Games.Xiangqi
             if (finished is { } f) await RecordAsync(f.Room, f.Winner, f.Reason, f.Players);
             await SendLeftAsync(u);
             if (!empty) await PushAsync(room);
+            // 房间没人了：观战的人也送回大厅
+            else await KickWatchersAsync(_watch.RemoveRoom(room.Id), "下棋的人都走了，房间解散了");
+            await NotifyLobbyAsync();
             return null;
         }
 
@@ -309,11 +432,19 @@ namespace TaiChuWeb_V2.Services.Games.Xiangqi
         /// <summary>结束对局（在锁内调用），返回写战绩需要的信息</summary>
         private static (XqRoom, char?, string, List<XqPlayer>) Finish(XqRoom room, char? winner, string reason)
         {
+            // 双方都还没走过棋就结束（有人离开 / 掉线 / 超时 / 认输）：算「对局取消」，不分胜负、不记战绩。
+            // 以前会记成「红方胜（某某 离开了对局）· 0 回合」，常见于「再来一局」刚开、对方正要回大厅或已经走开
+            if (winner != null && room.Moves.Count < 2)
+            {
+                winner = null;
+                reason = $"对局取消：{reason}（双方都还没走棋，不计胜负）";
+            }
             room.Phase = "ended";
             room.Winner = winner;
             room.Reason = reason;
             room.Deadline = null;
             room.DrawOfferBy = null;
+            room.LastResult = (winner, winner is char w ? room.PlayerOf(w)?.Name : null, reason);
             return (room, winner, reason, new List<XqPlayer> { room.Red!, room.Black! }.Where(p => p != null).ToList());
         }
 
@@ -321,13 +452,15 @@ namespace TaiChuWeb_V2.Services.Games.Xiangqi
         {
             try
             {
-                if (players.Count != 2) return;
                 var moves = room.Moves.Count;
+                // 对局取消（双方都还没走棋）不记战绩
+                if (players.Count != 2 || moves < 2) return;
                 await records.SaveAsync(new MatchRecord
                 {
                     Game = "xiangqi",
                     Mode = $"联机 · 每步 {room.TimeLimit} 秒",
-                    Summary = $"{reason} · {(moves + 1) / 2} 回合",
+                    // 战绩里写清楚哪方赢、怎么赢的，例如「红方胜（将死）· 23 回合」
+                    Summary = $"{(winner == null ? reason : $"{(winner == 'r' ? "红方" : "黑方")}胜（{reason}）")} · {(moves + 1) / 2} 回合",
                     HasBots = false,
                     StartedAt = room.StartedAt ?? DateTime.UtcNow,
                     EndedAt = DateTime.UtcNow,
@@ -359,7 +492,10 @@ namespace TaiChuWeb_V2.Services.Games.Xiangqi
         public async Task DisconnectedAsync(Guid u)
         {
             var left = _connections.AddOrUpdate(u, 0, (_, n) => Math.Max(0, n - 1));
-            if (left > 0 || RoomOf(u) is not { } room) return;
+            if (left > 0) return;
+            // 观战的人所有页面都断了：移出名单（不占位置；前端重连后会自动回来接着看）
+            if (RoomOf(u) == null && await StopWatchingAsync(u, notifySelf: false)) return;
+            if (RoomOf(u) is not { } room) return;
             lock (room)
             {
                 if (room.Of(u) is not { } p) return;

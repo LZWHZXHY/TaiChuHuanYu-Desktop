@@ -13,12 +13,18 @@ namespace TaiChuWeb_V2.Hubs;
 /// <summary>
 /// 联机五子棋。房间、棋盘、轮次、胜负都由服务器维护，结果写进战绩（不依赖客户端上报）。
 /// 事件：RoomCreated / PlayerJoined / PlayerLeft / GameStarted / MoveMade / TurnChanged / GameOver / Error
+/// 观战：WatchRoom 把观战的人加进房间的 SignalR 分组，这样落子、开局、结束这些事件原样都能收到；
+/// 观战名单变化推 WatchersChanged，被请出去（房主关观战、房间解散）推 WatchEnded，大厅列表变了推 LobbyChanged。
 /// </summary>
 [Authorize]
 public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IHubContext<GameHub> hubContext) : Hub
 {
     private static readonly ConcurrentDictionary<string, string> _playerRooms = new();
     private static readonly ConcurrentDictionary<string, Room> _rooms = new();
+    /// <summary>观战名单（每间最多 20 人、房主可以关掉）</summary>
+    private static readonly SpectatorRegistry _watch = new();
+    /// <summary>观战的人用的是哪条连接（请他出去时要把这条连接移出房间分组）</summary>
+    private static readonly ConcurrentDictionary<Guid, string> _watchConn = new();
 
     private string? CurrentUserId => Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     private string CurrentName => Context.User?.FindFirst(ClaimTypes.Name)?.Value is { Length: > 0 } n ? n : "玩家";
@@ -41,15 +47,133 @@ public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IH
         playerCount = r.Players.Count,
         started = r.Started,
         createdAt = r.CreatedAt,
+        // 观战：人数、房主是否允许、每间最多几人（观战的人不算房间人数）
+        spectators = _watch.Summary(r.RoomId).Count,
+        allowSpectate = _watch.Summary(r.RoomId).Allow,
+        maxSpectators = SpectatorRegistry.MaxPerRoom,
     };
 
-    // ===== 0. 房间列表（大厅里显示等待对手的房间） =====
+    // ===== 0. 房间列表（等对手的房间排前面；满员的、正在下的也列出来，可以观战） =====
     public object[] ListRooms() => _rooms.Values
-        .Where(r => !r.Started && r.Players.Count == 1)
-        .OrderByDescending(r => r.CreatedAt)
+        .Where(r => r.Players.Count > 0)
+        .OrderBy(r => !r.Started && r.Players.Count == 1 ? 0 : 1)
+        .ThenByDescending(r => r.CreatedAt)
         .Take(50)
         .Select(RoomView)
         .ToArray();
+
+    // ===== 0.5 观战 =====
+    private Guid? UserGuid => Guid.TryParse(CurrentUserId, out var g) ? g : null;
+
+    /// <summary>观战名单变了：推给房间里的所有人（下棋的和观战的）</summary>
+    private Task PushWatchersAsync(string roomId) =>
+        hubContext.Clients.Group(roomId).SendAsync("WatchersChanged", new { roomId, watch = _watch.View(roomId) });
+
+    private static Task NotifyLobbyAsync(IHubContext<GameHub> ctx) => ctx.Clients.All.SendAsync("LobbyChanged");
+
+    /// <summary>观战的人刚进来时的一份完整局面（棋盘、轮到谁、还剩几秒），之后靠 MoveMade 等事件更新</summary>
+    private static object Snapshot(Room room)
+    {
+        lock (room)
+        {
+            int[][]? board = null;
+            if (room.Board is { } b)
+            {
+                var n = b.GetLength(0);
+                board = Enumerable.Range(0, n).Select(r => Enumerable.Range(0, n).Select(c => b[r, c]).ToArray()).ToArray();
+            }
+            var remaining = room.CurrentTurn != null && room.TurnStartTime is DateTime t
+                ? Math.Max(0, (int)Math.Ceiling(room.TimeLimit - (DateTime.Now - t).TotalSeconds))
+                : room.TimeLimit;
+            return new
+            {
+                roomId = room.RoomId,
+                roomName = room.RoomName,
+                mode = room.Mode,
+                boardSize = room.BoardSize,
+                timeLimit = room.TimeLimit,
+                ownerId = room.OwnerId,
+                players = PlayersView(room),
+                started = room.Board != null,
+                currentTurn = room.CurrentTurn,
+                board,
+                remainingTime = remaining,
+                moveCount = room.MoveCount,
+                watch = _watch.View(room.RoomId),
+            };
+        }
+    }
+
+    /// <summary>
+    /// 进房间观战（等人的、正在下的都能看）。返回 { error } 或 { snapshot }。
+    /// 先进分组再取局面，保证不会漏掉中间的落子。
+    /// </summary>
+    public async Task<object> WatchRoom(string roomId)
+    {
+        if (UserGuid is not Guid uid) return new { error = "登录后才能观战" };
+        if (_playerRooms.ContainsKey(CurrentUserId!)) return new { error = "你正在房间里，先离开再去观战" };
+        roomId = (roomId ?? string.Empty).Trim();
+        if (!_rooms.TryGetValue(roomId, out var room)) return new { error = "房间不存在，可能已经解散了" };
+        var (error, previous) = _watch.Add(roomId, uid, CurrentName);
+        if (error != null) return new { error };
+        if (previous != null)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, previous);
+            await PushWatchersAsync(previous);
+        }
+        _watchConn[uid] = Context.ConnectionId;
+        await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+        await PushWatchersAsync(roomId);
+        await NotifyLobbyAsync(hubContext);
+        return new { snapshot = Snapshot(room) };
+    }
+
+    /// <summary>不看了（点离开、断线、坐下下棋、开新房间）。返回是否原来在观战</summary>
+    private async Task<bool> StopWatchingAsync()
+    {
+        if (UserGuid is not Guid uid) return false;
+        var roomId = _watch.Remove(uid);
+        _watchConn.TryRemove(uid, out _);
+        if (roomId == null) return false;
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomId);
+        await PushWatchersAsync(roomId);
+        await NotifyLobbyAsync(hubContext);
+        return true;
+    }
+
+    /// <summary>把一批观战的人请出去（房主关了观战 / 房间解散）：移出分组，再告诉他们一声</summary>
+    private async Task KickWatchersAsync(string roomId, List<Guid> users, string message)
+    {
+        foreach (var uid in users)
+        {
+            try
+            {
+                if (_watchConn.TryRemove(uid, out var conn)) await hubContext.Groups.RemoveFromGroupAsync(conn, roomId);
+                await hubContext.Clients.User(uid.ToString()).SendAsync("WatchEnded", new { roomId, message });
+            }
+            catch (Exception ex) { Console.WriteLine($"[{DateTime.Now}] 通知观战的人失败: {ex.Message}"); }
+        }
+    }
+
+    /// <summary>房主在没开局时开 / 关观战（关掉会把正在看的人请出去）</summary>
+    public async Task SetSpectate(bool allow)
+    {
+        var userId = CurrentUserId ?? Context.ConnectionId;
+        if (!_playerRooms.TryGetValue(userId, out var roomId) || !_rooms.TryGetValue(roomId, out var room))
+        {
+            await Clients.Caller.SendAsync("Error", new { message = "你不在房间里" });
+            return;
+        }
+        if (room.OwnerId != userId || room.Started)
+        {
+            await Clients.Caller.SendAsync("Error", new { message = room.OwnerId != userId ? "只有房主能设置观战" : "下棋的时候不能改观战设置" });
+            return;
+        }
+        var kicked = _watch.SetAllowed(roomId, allow);
+        await KickWatchersAsync(roomId, kicked, "房主关掉了观战");
+        await PushWatchersAsync(roomId);
+        await NotifyLobbyAsync(hubContext);
+    }
 
     // ===== 1. 创建房间 =====
     public async Task CreateRoom(string roomName, string mode, int boardSize, int timeLimit = 30)
@@ -73,7 +197,8 @@ public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IH
             }
 
             var userId = CurrentUserId ?? Context.ConnectionId;
-            // 已经在别的房间里：先离开，避免卡在旧房间
+            // 已经在别的房间里：先离开，避免卡在旧房间；在观战的话先不看了
+            await StopWatchingAsync();
             await LeaveCurrentRoomAsync(userId, Context.ConnectionId, "离开了房间");
 
             var roomId = Guid.NewGuid().ToString("N")[..8];
@@ -111,6 +236,7 @@ public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IH
                 ownerId = userId,
                 players = PlayersView(room),
             });
+            await NotifyLobbyAsync(hubContext);
         }
         catch (Exception ex)
         {
@@ -142,6 +268,14 @@ public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IH
         }
 
         await LeaveCurrentRoomAsync(userId, Context.ConnectionId, "离开了房间");
+        // 原来在观战（这一间或别的房间）：坐下了就不再算观战
+        if (UserGuid is Guid g && _watch.RoomOf(g) is string watching)
+        {
+            _watch.Remove(g);
+            _watchConn.TryRemove(g, out _);
+            if (watching != roomId) await Groups.RemoveFromGroupAsync(Context.ConnectionId, watching);
+            await PushWatchersAsync(watching);
+        }
 
         room.Players.Add(userId);
         room.Names[userId] = CurrentName;
@@ -159,6 +293,7 @@ public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IH
             playerCount = room.Players.Count,
             players = PlayersView(room),
         });
+        await NotifyLobbyAsync(hubContext);
     }
 
     // ===== 2.5 快速匹配：有人在等就加入，没有就开一个新房间等人 =====
@@ -182,6 +317,8 @@ public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IH
     public async Task LeaveRoom()
     {
         var userId = CurrentUserId ?? Context.ConnectionId;
+        // 观战的人点离开：不看了，不影响棋局
+        if (await StopWatchingAsync()) return;
         await LeaveCurrentRoomAsync(userId, Context.ConnectionId, "离开了对局");
     }
 
@@ -400,11 +537,16 @@ public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IH
     }
 
     /// <summary>把联机五子棋的结果写进战绩（winner 为空表示和棋）</summary>
-    private async Task RecordGobangAsync(Room room, List<string> players, string? winner, string reason)
+    /// <param name="blackId">这一局执黑的人（房主）。中途离开时房主会先交给对手，所以要在交接前记下来传进来，不然战绩里黑白会写反</param>
+    private async Task RecordGobangAsync(Room room, List<string> players, string? winner, string reason, string? blackId = null)
     {
+        blackId ??= room.OwnerId;
+        // 先记下手数（下面有 await，再来一局可能已经把手数清零了）
+        var moveCount = room.MoveCount;
         try
         {
-            if (players.Count != 2) return;
+            // 双方都还没落子就结束（离开 / 超时 / 认输）：不记战绩，免得出现「黑方胜（对手离开）· 0 手」
+            if (players.Count != 2 || moveCount < 2) return;
             var ids = players.Select(p => Guid.TryParse(p, out var g) ? g : (Guid?)null).ToList();
             var known = ids.Where(i => i.HasValue).Select(i => i!.Value).ToList();
             using var scope = scopes.CreateScope();
@@ -414,7 +556,8 @@ public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IH
             {
                 Game = "gobang",
                 Mode = $"联机 · {room.BoardSize} 路",
-                Summary = $"{reason} · {room.MoveCount} 手",
+                // 战绩里写清楚哪方赢、怎么赢的，例如「黑方胜（五子连珠）· 31 手」
+                Summary = $"{(winner == null ? reason : $"{(winner == blackId ? "黑方" : "白方")}胜（{reason}）")} · {moveCount} 手",
                 HasBots = false,
                 StartedAt = room.StartedAt ?? DateTime.UtcNow,
                 EndedAt = DateTime.UtcNow,
@@ -423,7 +566,7 @@ public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IH
                     Seat = i,
                     UserId = ids[i],
                     Name = ids[i] is Guid g && names.TryGetValue(g, out var n) ? n : "游客",
-                    Role = p == room.OwnerId ? "黑方" : "白方",
+                    Role = p == blackId ? "黑方" : "白方",
                     Result = winner == null ? "draw" : p == winner ? "win" : "lose",
                 }).ToList(),
             });
@@ -444,9 +587,11 @@ public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IH
         string? winner = null;
         var wasPlaying = false;
         List<string> players;
+        string blackId;
         lock (room)
         {
             players = room.Players.ToList();
+            blackId = room.OwnerId; // 交接房主之前记下谁执黑
             if (room.Board != null)
             {
                 wasPlaying = true;
@@ -460,7 +605,7 @@ public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IH
 
         if (wasPlaying && winner != null)
         {
-            _ = RecordGobangAsync(room, players, winner, "对手离开");
+            _ = RecordGobangAsync(room, players, winner, "对手离开", blackId);
             await Clients.Group(roomId).SendAsync("GameOver", new { winner, reason = $"{name} {reason}，判负", leftPlayer = userId });
         }
 
@@ -468,16 +613,22 @@ public class GameHub(MatchRecordService records, IServiceScopeFactory scopes, IH
         {
             StopTimer(room);
             _rooms.TryRemove(roomId, out _);
+            // 房间解散：观战的人也送回大厅
+            await KickWatchersAsync(roomId, _watch.RemoveRoom(roomId), "下棋的人都走了，房间解散了");
+            await NotifyLobbyAsync(hubContext);
             return;
         }
         room.Names.TryRemove(userId, out _);
         await Clients.Group(roomId).SendAsync("PlayerLeft", new { playerId = userId, name, ownerId = room.OwnerId, players = PlayersView(room) });
+        await NotifyLobbyAsync(hubContext);
     }
 
     // ===== 6. 断开连接 =====
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
         var userId = CurrentUserId ?? Context.ConnectionId;
+        // 观战的人断线：只是移出观战名单（只有这条连接是观战用的才算），不影响棋局；前端重连后会自动回来接着看
+        if (UserGuid is Guid g && _watchConn.TryGetValue(g, out var conn) && conn == Context.ConnectionId) await StopWatchingAsync();
         await LeaveCurrentRoomAsync(userId, Context.ConnectionId, "掉线了");
         await base.OnDisconnectedAsync(exception);
     }

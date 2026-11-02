@@ -13,6 +13,8 @@ export interface HistoryComment {
   author: { id: string; username: string; avatar: string | null }
   replyToId: number | null
   replyTo: { id: string; username: string } | null
+  /** 评论里的图片（最多 4 张） */
+  images: string[]
   canDelete: boolean
 }
 export interface HistoryEntry {
@@ -37,6 +39,8 @@ export interface HistoryEntry {
   commentCount: number
   /** 最近两条评论（列表里先显示） */
   recentComments: HistoryComment[]
+  /** 这一段 @ 了谁 */
+  mentions: { id: string; username: string }[]
 }
 export interface HistoryPage {
   items: HistoryEntry[]
@@ -46,6 +50,20 @@ export interface HistoryPage {
   canPost: boolean
   canManage: boolean
   dailyLimit: number
+  /** 按人筛选时：是谁 */
+  person: { id: string; username: string } | null
+}
+export interface OnThisDay {
+  /** day = 往年的今天；month = 今天没有，给的是往年的这个月 */
+  mode: 'day' | 'month'
+  today: string
+  items: HistoryEntry[]
+}
+export interface Yearbook {
+  year: number
+  items: HistoryEntry[]
+  years: { year: number; count: number }[]
+  contributors: number
 }
 export interface HistoryInput {
   kind: HistoryKind
@@ -54,12 +72,16 @@ export interface HistoryInput {
   images: string[]
   happenedOn: string
   precision: HistoryPrecision
+  /** @ 了谁（用户编号） */
+  mentions?: string[]
 }
 
 export const historyApi = {
-  list: (params: { kind?: HistoryKind; year?: number; q?: string; mine?: boolean; author?: string; page?: number }) =>
+  list: (params: { kind?: HistoryKind; year?: number; q?: string; mine?: boolean; author?: string; person?: string; page?: number }) =>
     request.get<HistoryPage>('/history', { params, silentError: true }),
   get: (id: number) => request.get<HistoryEntry>(`/history/${id}`, { silentError: true }),
+  onThisDay: () => request.get<OnThisDay>('/history/on-this-day', { silentError: true }),
+  yearbook: (year: number) => request.get<Yearbook>('/history/yearbook', { params: { year }, silentError: true }),
   create: (body: HistoryInput) => request.post<HistoryEntry>('/history', body, { silentError: true }),
   edit: (id: number, body: HistoryInput) => request.put<HistoryEntry>(`/history/${id}`, body, { silentError: true }),
   remove: (id: number) => request.delete(`/history/${id}`, { silentError: true }),
@@ -68,8 +90,8 @@ export const historyApi = {
   react: (id: number, kind: ReactionKind) =>
     request.post<{ reactions: HistoryEntry['reactions']; myReactions: ReactionKind[] }>(`/history/${id}/react`, { kind }, { silentError: true }),
   comments: (id: number) => request.get<HistoryComment[]>(`/history/${id}/comments`, { silentError: true }),
-  addComment: (id: number, content: string, replyToId?: number | null) =>
-    request.post<HistoryComment>(`/history/${id}/comments`, { content, replyToId: replyToId ?? null }, { silentError: true }),
+  addComment: (id: number, content: string, replyToId?: number | null, images: string[] = []) =>
+    request.post<HistoryComment>(`/history/${id}/comments`, { content, replyToId: replyToId ?? null, images }, { silentError: true }),
   deleteComment: (commentId: number) => request.delete(`/history/comments/${commentId}`, { silentError: true }),
 }
 

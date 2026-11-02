@@ -31,10 +31,12 @@ public class HistoryController(AppDbContext db) : ControllerBase
         /// <summary>发生在哪天，yyyy-MM-dd</summary>
         public string? HappenedOn { get; set; }
         public string? Precision { get; set; }
+        /// <summary>@ 了谁（用户编号，最多 20 个）。编辑时传 null 表示不改</summary>
+        public List<Guid>? Mentions { get; set; }
     }
     public sealed class HideDto { public string? Reason { get; set; } }
     public sealed class ReactDto { public string? Kind { get; set; } }
-    public sealed class CommentDto { public string? Content { get; set; } public long? ReplyToId { get; set; } }
+    public sealed class CommentDto { public string? Content { get; set; } public long? ReplyToId { get; set; } public List<string>? Images { get; set; } }
 
     private const int PageSize = 20;
     private const int DailyLimit = 30;
@@ -42,6 +44,8 @@ public class HistoryController(AppDbContext db) : ControllerBase
     private const int DailyCommentLimit = 200;
     /// <summary>列表里每段先带最近几条评论</summary>
     private const int PreviewComments = 2;
+    private const int MaxMentions = 20;
+    private const int MaxCommentImages = 4;
 
     private Guid? CurrentUserId => Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
 
@@ -55,12 +59,13 @@ public class HistoryController(AppDbContext db) : ControllerBase
     // ================= 看 =================
 
     /// <summary>
-    /// 一页（20 段），按发生时间从新到旧。kind 类型、year 哪一年、q 搜标题和内容、mine 只看我上传的、author 只看某个人记的。
+    /// 一页（20 段），按发生时间从新到旧。kind 类型、year 哪一年、q 搜标题和内容、mine 只看我上传的、author 只看某个人记的、
+    /// person 和某个人有关的（他记的，或者 @ 了他的）。
     /// 第一页不带筛选时顺便给「那年今日」（往年的今天发生的事）。
     /// </summary>
     [HttpGet]
     [AllowAnonymous]
-    public async Task<IActionResult> List(string? kind, int? year, string? q, bool mine = false, Guid? author = null, int page = 1)
+    public async Task<IActionResult> List(string? kind, int? year, string? q, bool mine = false, Guid? author = null, Guid? person = null, int page = 1)
     {
         page = Math.Max(1, page);
         var me = CurrentUserId;
@@ -81,6 +86,14 @@ public class HistoryController(AppDbContext db) : ControllerBase
         if (mine && me is Guid mineId) query = query.Where(e => e.UserId == mineId);
         // 某个人记的（个人主页「岁月史书」点进来）
         if (author is Guid authorId) query = query.Where(e => e.UserId == authorId);
+        // 和某个人有关的：他记的 + @ 了他的（先查出 @ 他的段落编号，不做跨表子查询）
+        string? personName = null;
+        if (person is Guid personId)
+        {
+            var mentioned = await db.CommunityHistoryMentions.AsNoTracking().Where(m => m.UserId == personId).Select(m => m.EntryId).Take(5000).ToListAsync();
+            query = query.Where(e => e.UserId == personId || mentioned.Contains(e.Id));
+            personName = await db.Users.AsNoTracking().Where(u => u.Id == personId).Select(u => u.Username).FirstOrDefaultAsync();
+        }
 
         var rows = await query.OrderByDescending(e => e.HappenedOn).ThenByDescending(e => e.Id)
             .Skip((page - 1) * PageSize).Take(PageSize + 1).ToListAsync();
@@ -93,7 +106,7 @@ public class HistoryController(AppDbContext db) : ControllerBase
 
         // 那年今日
         var onThisDay = new List<CommunityHistoryEntry>();
-        var noFilter = page == 1 && kind == null && year == null && keyword.Length == 0 && !mine && author == null;
+        var noFilter = page == 1 && kind == null && year == null && keyword.Length == 0 && !mine && author == null && person == null;
         if (noFilter)
         {
             var today = ChinaClock.Today;
@@ -111,7 +124,49 @@ public class HistoryController(AppDbContext db) : ControllerBase
             canPost = me != null,
             canManage = manager,
             dailyLimit = DailyLimit,
+            person = person is Guid pid ? new { Id = pid, Username = personName ?? "已注销的用户" } : null,
         });
+    }
+
+    /// <summary>
+    /// 首页「那年今日」：往年的今天（按北京时间）发生的事，最多 6 段；今天没有就退一步给「往年的这个月」。
+    /// 只给公开的（下架的不出现），没有就返回空列表，首页不显示这一块。
+    /// </summary>
+    [HttpGet("on-this-day")]
+    [AllowAnonymous]
+    public async Task<IActionResult> OnThisDay()
+    {
+        var today = ChinaClock.Today;
+        var visible = Visible(null, false);
+        var mode = "day";
+        var rows = await visible.Where(e => e.DatePrecision == "day" && e.HappenedOn.Month == today.Month && e.HappenedOn.Day == today.Day && e.HappenedOn.Year < today.Year)
+            .OrderByDescending(e => e.HappenedOn).ThenByDescending(e => e.Id).Take(6).ToListAsync();
+        if (rows.Count == 0)
+        {
+            mode = "month";
+            rows = await visible.Where(e => e.DatePrecision != "year" && e.HappenedOn.Month == today.Month && e.HappenedOn.Year < today.Year)
+                .OrderByDescending(e => e.HappenedOn).ThenByDescending(e => e.Id).Take(6).ToListAsync();
+        }
+        var views = await ViewsAsync(rows, CurrentUserId, false);
+        return Ok(new { mode, today = today.ToString("yyyy-MM-dd"), items = rows.Select(r => views[r.Id]) });
+    }
+
+    /// <summary>
+    /// 年鉴：某一年的全部（公开的）段落，按发生时间从早到晚，给前端排版打印 / 存成 PDF。最多 2000 段。
+    /// </summary>
+    [HttpGet("yearbook")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Yearbook(int year)
+    {
+        if (year is < 1900 or > 3000) return BadRequest(new { message = "年份不对" });
+        var from = new DateTime(year, 1, 1);
+        var to = from.AddYears(1);
+        var rows = await Visible(null, false).Where(e => e.HappenedOn >= from && e.HappenedOn < to)
+            .OrderBy(e => e.HappenedOn).ThenBy(e => e.Id).Take(2000).ToListAsync();
+        var views = await ViewsAsync(rows, CurrentUserId, false);
+        var years = await Visible(null, false).GroupBy(e => e.HappenedOn.Year).Select(g => new { Year = g.Key, Count = g.Count() })
+            .OrderByDescending(g => g.Year).ToListAsync();
+        return Ok(new { year, items = rows.Select(r => views[r.Id]), years, contributors = rows.Select(r => r.UserId).Distinct().Count() });
     }
 
     [HttpGet("{id:long}")]
@@ -140,6 +195,7 @@ public class HistoryController(AppDbContext db) : ControllerBase
         if (error != null) return BadRequest(new { message = error });
         db.CommunityHistoryEntries.Add(entry);
         await db.SaveChangesAsync();
+        await SaveMentionsAsync(entry, dto.Mentions, me);
         return Ok((await ViewsAsync(new() { entry }, me, await IsManagerAsync()))[entry.Id]);
     }
 
@@ -154,6 +210,7 @@ public class HistoryController(AppDbContext db) : ControllerBase
         if (entry.UserId != me && !await IsManagerAsync()) return StatusCode(403, new { message = "只能删除自己上传的" });
         await db.CommunityHistoryReactions.Where(r => r.EntryId == id).ExecuteDeleteAsync();
         await db.CommunityHistoryComments.Where(c => c.EntryId == id).ExecuteDeleteAsync();
+        await db.CommunityHistoryMentions.Where(m => m.EntryId == id).ExecuteDeleteAsync();
         db.CommunityHistoryEntries.Remove(entry);
         await db.SaveChangesAsync();
         return NoContent();
@@ -173,6 +230,7 @@ public class HistoryController(AppDbContext db) : ControllerBase
         entry.EditedBy = CurrentUserId;
         entry.EditedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+        if (dto.Mentions != null) await SaveMentionsAsync(entry, dto.Mentions, CurrentUserId);
         return Ok((await ViewsAsync(new() { entry }, CurrentUserId, true))[entry.Id]);
     }
 
@@ -245,7 +303,10 @@ public class HistoryController(AppDbContext db) : ControllerBase
     {
         if (CurrentUserId is not Guid me) return Unauthorized();
         var content = (dto.Content ?? "").Trim();
-        if (content.Length == 0) return BadRequest(new { message = "写点什么再发吧" });
+        var images = (dto.Images ?? new()).Select(u => (u ?? "").Trim())
+            .Where(u => u.Length is > 0 and <= 500 && (u.StartsWith("https://") || u.StartsWith("http://"))).Distinct().ToList();
+        if (images.Count > MaxCommentImages) return BadRequest(new { message = $"评论里最多放 {MaxCommentImages} 张图" });
+        if (content.Length == 0 && images.Count == 0) return BadRequest(new { message = "写点什么或者发张图再发吧" });
         if (content.Length > 500) return BadRequest(new { message = "评论最多 500 个字" });
         var manager = await IsManagerAsync();
         var entry = await Visible(me, manager).FirstOrDefaultAsync(e => e.Id == id);
@@ -259,13 +320,14 @@ public class HistoryController(AppDbContext db) : ControllerBase
             replyTo = await db.CommunityHistoryComments.AsNoTracking().FirstOrDefaultAsync(c => c.Id == rid && c.EntryId == id);
             if (replyTo == null) return BadRequest(new { message = "回复的那条评论已经被删除了" });
         }
-        var comment = new CommunityHistoryComment { EntryId = id, UserId = me, Content = content, ReplyToId = replyTo?.Id, CreatedAt = DateTime.UtcNow };
+        var comment = new CommunityHistoryComment { EntryId = id, UserId = me, Content = content, ReplyToId = replyTo?.Id, CreatedAt = DateTime.UtcNow,
+            Images = images.Count == 0 ? null : JsonSerializer.Serialize(images) };
         db.CommunityHistoryComments.Add(comment);
         // 通知：这一段的上传者；回复了谁就通知谁（同一个人只通知一次，自己不通知自己）
         var notify = new NotificationService(db);
         var link = $"/history?entry={id}";
         var label = string.IsNullOrWhiteSpace(entry.Title) ? "你在岁月史书里记的一段" : $"你在岁月史书里记的「{Clip(entry.Title, 30)}」";
-        var preview = Clip(content, 60);
+        var preview = content.Length > 0 ? Clip(content, 60) : "[图片]";
         if (replyTo != null && replyTo.UserId != entry.UserId)
             notify.Add(replyTo.UserId, me, "comment", "history", id.ToString(), $"在岁月史书里回复了你：{preview}", link);
         notify.Add(entry.UserId, me, "comment", "history", id.ToString(), replyTo != null && replyTo.UserId == entry.UserId ? $"回复了你：{preview}" : $"评论了{label}：{preview}", link);
@@ -305,6 +367,7 @@ public class HistoryController(AppDbContext db) : ControllerBase
                 r.Id,
                 r.EntryId,
                 r.Content,
+                Images = r.Images == null ? new List<string>() : ReadImages(r.Images),
                 CreatedAt = DateTime.SpecifyKind(r.CreatedAt, DateTimeKind.Utc),
                 Author = new { Id = r.UserId, Username = author?.Username ?? "已注销的用户", author?.Avatar },
                 r.ReplyToId,
@@ -392,6 +455,15 @@ public class HistoryController(AppDbContext db) : ControllerBase
         var recentViews = await CommentViewsAsync(recentRows, me, manager);
         var recentByEntry = recentRows.Select((c, i) => (c.EntryId, View: recentViews[i])).GroupBy(x => x.EntryId)
             .ToDictionary(g => g.Key, g => g.Select(x => x.View).ToList());
+        // @ 了谁
+        var mentionRows = await db.CommunityHistoryMentions.AsNoTracking().Where(m => ids.Contains(m.EntryId)).Select(m => new { m.EntryId, m.UserId }).ToListAsync();
+        var mentionUserIds = mentionRows.Select(m => m.UserId).Where(u => !users.ContainsKey(u)).Distinct().ToList();
+        var mentionNames = users.ToDictionary(kv => kv.Key, kv => kv.Value.Username);
+        if (mentionUserIds.Count > 0)
+            foreach (var u in await db.Users.AsNoTracking().Where(u => mentionUserIds.Contains(u.Id)).Select(u => new { u.Id, u.Username }).ToListAsync())
+                mentionNames[u.Id] = u.Username;
+        var mentionsByEntry = mentionRows.GroupBy(m => m.EntryId).ToDictionary(g => g.Key,
+            g => g.Select(m => new { Id = m.UserId, Username = mentionNames.GetValueOrDefault(m.UserId) ?? "已注销的用户" }).ToList());
         foreach (var r in rows)
         {
             var author = users.GetValueOrDefault(r.UserId);
@@ -414,10 +486,28 @@ public class HistoryController(AppDbContext db) : ControllerBase
                 MyReactions = mine.GetValueOrDefault(r.Id) ?? new(),
                 CanDelete = manager || (me is Guid id && id == r.UserId),
                 CommentCount = commentCounts.GetValueOrDefault(r.Id),
+                Mentions = (object?)mentionsByEntry.GetValueOrDefault(r.Id) ?? Array.Empty<object>(),
                 RecentComments = recentByEntry.GetValueOrDefault(r.Id) ?? new List<object>(),
             };
         }
         return result;
+    }
+
+    /// <summary>
+    /// 保存一段里 @ 了谁（整组替换），新 @ 到的人收到通知（自己不通知自己）。只认真实存在的用户，最多 20 个。
+    /// </summary>
+    private async Task SaveMentionsAsync(CommunityHistoryEntry entry, List<Guid>? wanted, Guid? actor)
+    {
+        var ids = (wanted ?? new()).Where(g => g != Guid.Empty).Distinct().Take(MaxMentions).ToList();
+        if (ids.Count > 0) ids = await db.Users.AsNoTracking().Where(u => ids.Contains(u.Id)).Select(u => u.Id).ToListAsync();
+        var existing = await db.CommunityHistoryMentions.Where(m => m.EntryId == entry.Id).ToListAsync();
+        db.CommunityHistoryMentions.RemoveRange(existing.Where(m => !ids.Contains(m.UserId)));
+        var added = ids.Where(id => existing.All(m => m.UserId != id)).ToList();
+        foreach (var id in added) db.CommunityHistoryMentions.Add(new CommunityHistoryMention { EntryId = entry.Id, UserId = id, CreatedAt = DateTime.UtcNow });
+        var notify = new NotificationService(db);
+        var what = string.IsNullOrWhiteSpace(entry.Title) ? "一段事" : $"「{Clip(entry.Title, 30)}」";
+        foreach (var id in added) notify.Add(id, actor, "mention", "history", entry.Id.ToString(), $"在岁月史书里记{what}时提到了你", $"/history?entry={entry.Id}");
+        await db.SaveChangesAsync();
     }
 
     private static List<string> ReadImages(string? json)

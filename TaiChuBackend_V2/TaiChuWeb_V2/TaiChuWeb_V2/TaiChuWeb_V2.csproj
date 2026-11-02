@@ -7,11 +7,11 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="AWSSDK.S3" Version="4.0.103.4" />
 		<PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
 		<PackageReference Include="MailKit" Version="4.16.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.7" />
 		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
-		<PackageReference Include="Microsoft.AspNetCore.SignalR" Version="1.2.11" />
 		<PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
 		<PackageReference Include="Minio" Version="7.0.0" />
 		<PackageReference Include="Nanoid" Version="3.1.0" />
@@ -23,6 +23,12 @@
 		<PackageReference Include="System.Drawing.Common" Version="10.0.9" />
 		<PackageReference Include="Tencent.QCloud.Cos.Sdk" Version="5.4.51" />
 		<PackageReference Include="TencentCloudSDK.Sts" Version="3.0.1301" />
+
+		<!-- 安全更新：间接引用的包有已知漏洞，这里直接指定修好的版本（原来由 Pomelo / MimeKit 带进来的旧版） -->
+		<!-- MySqlConnector 2.6.1 修了 GHSA-473q-m89c-ghf8（默认加密连接时，证书校验前就把数据库密码发出去了） -->
+		<PackageReference Include="MySqlConnector" Version="2.6.1" />
+		<!-- System.Security.Cryptography.Pkcs 10.0.13 修了 CVE-2026-70162、CVE-2026-84008（拒绝服务） -->
+		<PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -3,6 +3,9 @@
      事件标题里 @ 的条目可以直接点，打开那个条目的完整页面。 -->
 <template>
   <div class="ax">
+    <!-- 颜色图例（世界设置里定义的）：点一种颜色，别的事件变淡，只看这一类 -->
+    <ColorLegend v-if="legendItems.length" v-model:active="legendHue" class="ax-legend" :entries="legendItems"
+      hint="按事件自己选的颜色分类；没选颜色的事件和所在时间线同色，不算在内" />
     <div class="ax-zoom" role="group" aria-label="缩放">
       <button type="button" title="缩小（Ctrl + 滚轮也可以）" aria-label="缩小" @click="zoomBy(1 / 1.6)">－</button>
       <button type="button" title="放大" aria-label="放大" @click="zoomBy(1.6)">＋</button>
@@ -50,9 +53,9 @@
               <div v-if="lane.spine" class="ax-spine" :style="{ left: lane.spine[0] + 'px', width: Math.max(2, lane.spine[1] - lane.spine[0]) + 'px' }"></div>
               <span v-for="m in lane.marks" :key="m.key" class="ax-mark" :class="m.kind" :style="{ left: m.x + 'px', width: m.w ? m.w + 'px' : undefined }"></span>
 
-              <div v-for="it in lane.items" :key="it.ev.id" class="ax-item" :class="['k-' + it.ev.kind, { bar: it.barW > 0, sel: it.ev.id === selectedId, hid: it.ev.hidden, match: highlight?.has(it.ev.id) }]"
+              <div v-for="it in lane.items" :key="it.ev.id" class="ax-item" :class="['k-' + it.ev.kind, { bar: it.barW > 0, sel: it.ev.id === selectedId, hid: it.ev.hidden, match: highlight?.has(it.ev.id), 'leg-off': legendOff(it.ev) }]"
                 :style="{ left: it.x0 + 'px', top: SPINE_H + it.track * ROW_H + 'px', width: it.barW ? it.barW + 'px' : undefined, '--ec': it.ev.color || undefined }"
-                role="button" tabindex="0" :aria-label="`${it.plain}，${formatEventDate(calendar, it.ev)}`" :title="`${formatEventDate(calendar, it.ev)}\n${it.plain}`"
+                role="button" tabindex="0" :aria-label="`${it.plain}，${formatEventDate(calendar, it.ev)}${meaningOf(it.ev.color) ? '，' + meaningOf(it.ev.color) : ''}`" :title="`${formatEventDate(calendar, it.ev)}${meaningOf(it.ev.color) ? ' · ' + meaningOf(it.ev.color) : ''}\n${it.plain}`"
                 @click="emit('select', it.ev.id)" @keydown.enter.self="emit('select', it.ev.id)">
                 <span v-if="it.ev.kind === 'event' || !it.barW" class="ax-dot" aria-hidden="true"></span>
                 <span class="ax-text" :class="{ outside: it.outside }" :style="it.outside ? { left: it.barW + 6 + 'px' } : undefined">
@@ -78,6 +81,9 @@ import {
   STATUS_META, LINE_COLORS, FOLD_WIDTH, buildAxis, axisTicks, eraBoundaries, eventStart, eventEnd, formatAbsYear, formatEventDate, formatSpan, titleParts,
   type Calendar, type ChronicleEvent, type ChronicleTimeline, type TitlePart,
 } from '@/utils/chronicle'
+import { useWorldStore } from '@/stores/world'
+import { hueOf, legendEntries, useWorldLegend } from '@/utils/worldLegend'
+import ColorLegend from './ColorLegend.vue'
 
 const props = defineProps<{
   calendar: Calendar
@@ -89,11 +95,26 @@ const props = defineProps<{
   /** 筛选命中的事件；有筛选时其它的变淡 */
   highlight?: Set<string> | null
   canEdit?: boolean
+  /** 世界 ID（读颜色图例用）；不传就用当前打开的世界 */
+  projectId?: string
 }>()
 const emit = defineEmits<{ select: [id: string]; 'open-card': [id: string]; line: [id: string]; add: [lineId: string, t: number] }>()
 
 const LABEL_W = 176, RULER_H = 36, SPINE_H = 16, ROW_H = 24
 const lineColor = (l: ChronicleTimeline, i: number) => l.color || LINE_COLORS[i % LINE_COLORS.length]!
+
+// ===== 颜色图例 =====
+const worldStore = useWorldStore()
+const legend = useWorldLegend(() => props.projectId || worldStore.currentProject?.id || '')
+/** 事件自己选的颜色在图例里代表什么（没选颜色、没定义含义都是空） */
+const meaningOf = (color?: string | null) => { const hue = hueOf(color); return hue ? legend.value[hue] ?? '' : '' }
+// 看的时候只列轴上用到的颜色；能编辑的人看到全部定义过的
+const legendItems = computed(() => legendEntries(legend.value, props.canEdit ? null
+  : new Set(props.lanes.flatMap(l => l.events).map(e => hueOf(e.color)).filter((h): h is string => Boolean(h)))))
+/** 只看某一种颜色（色系名），null = 全部。别的事件只是变淡，不挪位置，免得轴跳来跳去 */
+const legendHue = ref<string | null>(null)
+watch(legendItems, list => { if (legendHue.value && !list.some(e => e.key === legendHue.value)) legendHue.value = null })
+const legendOff = (e: ChronicleEvent) => Boolean(legendHue.value) && hueOf(e.color) !== legendHue.value
 
 // ===== 缩放 =====
 const scrollEl = ref<HTMLElement | null>(null)
@@ -302,6 +323,7 @@ defineExpose({ fit })
 
 <style scoped>
 .ax { position: relative; display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.ax-legend { flex-shrink: 0; margin-bottom: 6px; }
 .ax-zoom { position: absolute; z-index: 8; right: 12px; bottom: 34px; display: flex; gap: 2px; background: var(--paper-card); box-shadow: 0 1px 4px rgba(0, 0, 0, .12); }
 .ax-zoom button { min-width: 30px; height: 28px; padding: 0 8px; border: 1px solid var(--border-line); background: var(--paper-card); color: var(--text-primary); font: inherit; font-size: 13px; cursor: pointer; }
 .ax-zoom button:hover { color: var(--accent-color); border-color: var(--accent-color); }
@@ -365,6 +387,8 @@ defineExpose({ fit })
 .ax-item.sel .ax-ref { color: #fff; }
 .ax-item.sel .ax-dot { box-shadow: 0 0 0 2px var(--paper-card), 0 0 0 4px var(--accent-color); }
 .ax-item.hid { opacity: .55; }
+.ax-item.leg-off { opacity: .15; }
+.ax-item.leg-off:hover, .ax-item.leg-off:focus-visible { opacity: .6; }
 .ax-item.match .ax-text { box-shadow: inset 0 -2px 0 #e0a800; }
 .ax-ref { color: var(--accent-color); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .ax-ref:hover { text-decoration-thickness: 2px; }

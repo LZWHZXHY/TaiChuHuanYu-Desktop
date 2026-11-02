@@ -30,6 +30,9 @@ namespace TaiChuWeb_V2.Dtos.Game
         public string? Icon { get; set; }
         public string? Status { get; set; }
         public string? Scoring { get; set; }
+        /// <summary>连题目一起改时传（要和 Results 一起传，整套替换）；只改标题 / 发布时不传</summary>
+        public List<QuestionDto>? Questions { get; set; }
+        public List<ResultDto>? Results { get; set; }
     }
 
     /// <summary>
@@ -106,8 +109,11 @@ namespace TaiChuWeb_V2.Dtos.Game
         public DateTime UpdatedAt { get; set; }
         public int ExpCost { get; set; }
         public int PlayCount { get; set; }
+        public Guid CreatorId { get; set; }
         public string CreatorName { get; set; }
         public int? QuestionnaireId { get; set; }
+        /// <summary>题目数（列表里显示「共 N 题」）</summary>
+        public int QuestionCount { get; set; }
     }
 
     /// <summary>

@@ -34,6 +34,18 @@ export const FORUM_BOARDS: ForumBoard[] = [
       { tag: '服务器公告', desc: '服务器维护与活动通知', adminOnly: true },
     ],
   },
+  {
+    tag: '三角洲行动',
+    icon: '🎯',
+    desc: '三角洲行动开黑组队、跑刀心得、改枪方案',
+    subs: [
+      { tag: '组队招募', desc: '找车队、找队友，下赛季一起做 3x3 安全箱、刷任务、冲段位' },
+      { tag: '攻略心得', desc: '地图路线、撤离点、任务与赛季机制' },
+      { tag: '改枪分享', desc: '改枪码、配装思路、性价比方案' },
+      { tag: '高光时刻', desc: '大红收获、残局翻盘、截图和录像' },
+      { tag: '闲聊吐槽', desc: '版本、平衡、开黑趣事' },
+    ],
+  },
 ];
 
 export const FORUM_NAME = '论坛';

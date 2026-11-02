@@ -237,3 +237,101 @@ SECTION_PARTICLES.error = [{ kind: 'draw', draw: targetShape }, { kind: 'text', 
 SECTION_PARTICLES.empty = [{ kind: 'draw', draw: diamondShape }, { kind: 'draw', draw: hexShape }]
 /** 聊天室：对话气泡与 AI 字样。 */
 SECTION_PARTICLES.chat = [{ kind: 'draw', draw: bubbleShape }, { kind: 'text', text: 'AI', mono: true, scale: 0.5 }, { kind: 'text', text: '聊', scale: 0.7 }]
+
+// ===== 世界观：条目类型对应的图形 =====
+
+/** 定位针（地点）。 */
+export const pinShape: ShapeDraw = (ctx, w, h) => {
+  const { cx, cy, r } = center(w, h)
+  const R = r * 0.5, top = cy - r * 0.36
+  ctx.fillStyle = '#fff'
+  ctx.beginPath(); ctx.arc(cx, top, R, Math.PI * 0.82, Math.PI * 0.18); ctx.lineTo(cx, cy + r * 0.9); ctx.closePath(); ctx.fill()
+  ctx.globalCompositeOperation = 'destination-out'
+  ctx.beginPath(); ctx.arc(cx, top, R * 0.42, 0, Math.PI * 2); ctx.fill()
+  ctx.globalCompositeOperation = 'source-over'
+}
+
+/** 旗帜（势力 / 组织）。 */
+export const flagShape: ShapeDraw = (ctx, w, h) => {
+  const { cx, cy, r } = center(w, h)
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(3, r * 0.08)
+  const px = cx - r * 0.55
+  ctx.beginPath(); ctx.moveTo(px, cy - r * 0.9); ctx.lineTo(px, cy + r * 0.9); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(px, cy - r * 0.82); ctx.lineTo(cx + r * 0.75, cy - r * 0.6); ctx.lineTo(cx + r * 0.35, cy - r * 0.32)
+  ctx.lineTo(cx + r * 0.75, cy - r * 0.04); ctx.lineTo(px, cy + r * 0.1); ctx.closePath(); ctx.fill()
+}
+
+/** 剑（物品）。 */
+export const swordShape: ShapeDraw = (ctx, w, h) => {
+  const { cx, cy, r } = center(w, h)
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(-Math.PI / 4)
+  ctx.fillStyle = '#fff'
+  ctx.beginPath(); ctx.moveTo(0, -r * 0.95); ctx.lineTo(r * 0.11, -r * 0.78); ctx.lineTo(r * 0.11, r * 0.36); ctx.lineTo(-r * 0.11, r * 0.36); ctx.lineTo(-r * 0.11, -r * 0.78); ctx.closePath(); ctx.fill()
+  ctx.fillRect(-r * 0.36, r * 0.36, r * 0.72, r * 0.1)
+  ctx.fillRect(-r * 0.06, r * 0.46, r * 0.12, r * 0.34)
+  ctx.beginPath(); ctx.arc(0, r * 0.86, r * 0.1, 0, Math.PI * 2); ctx.fill()
+  ctx.restore()
+}
+
+/** 闪电（技能）。 */
+export const boltShape: ShapeDraw = (ctx, w, h) => {
+  const { cx, cy, r } = center(w, h)
+  ctx.fillStyle = '#fff'
+  ctx.beginPath(); ctx.moveTo(cx + r * 0.2, cy - r * 0.95); ctx.lineTo(cx - r * 0.5, cy + r * 0.12); ctx.lineTo(cx - r * 0.02, cy + r * 0.12)
+  ctx.lineTo(cx - r * 0.22, cy + r * 0.95); ctx.lineTo(cx + r * 0.52, cy - r * 0.16); ctx.lineTo(cx + r * 0.04, cy - r * 0.16); ctx.closePath(); ctx.fill()
+}
+
+/** 云和雨线（气候）。 */
+export const cloudShape: ShapeDraw = (ctx, w, h) => {
+  const { cx, cy, r } = center(w, h)
+  ctx.fillStyle = '#fff'; ctx.strokeStyle = '#fff'; ctx.lineWidth = Math.max(2, r * 0.07); ctx.lineCap = 'round'
+  const y = cy - r * 0.15
+  for (const [dx, dy, s] of [[-0.42, 0.08, 0.32], [-0.06, -0.14, 0.42], [0.38, 0.06, 0.32]] as const) { ctx.beginPath(); ctx.arc(cx + r * dx, y + r * dy, r * s, 0, Math.PI * 2); ctx.fill() }
+  ctx.fillRect(cx - r * 0.74, y + r * 0.06, r * 1.44, r * 0.32)
+  for (const dx of [-0.42, -0.08, 0.26]) { ctx.beginPath(); ctx.moveTo(cx + r * dx, cy + r * 0.45); ctx.lineTo(cx + r * (dx - 0.12), cy + r * 0.85); ctx.stroke() }
+}
+
+/** 叶子（物种 / 生物）。 */
+export const leafShape: ShapeDraw = (ctx, w, h) => {
+  const { cx, cy, r } = center(w, h)
+  ctx.fillStyle = '#fff'
+  ctx.beginPath(); ctx.moveTo(cx - r * 0.7, cy + r * 0.7)
+  ctx.quadraticCurveTo(cx - r * 0.8, cy - r * 0.75, cx + r * 0.78, cy - r * 0.78)
+  ctx.quadraticCurveTo(cx + r * 0.75, cy + r * 0.8, cx - r * 0.7, cy + r * 0.7); ctx.fill()
+  ctx.globalCompositeOperation = 'destination-out'; ctx.lineWidth = Math.max(2, r * 0.06); ctx.strokeStyle = '#000'
+  ctx.beginPath(); ctx.moveTo(cx - r * 0.55, cy + r * 0.55); ctx.lineTo(cx + r * 0.62, cy - r * 0.62); ctx.stroke()
+  ctx.globalCompositeOperation = 'source-over'
+}
+
+/** 沙漏（事件）。 */
+export const hourglassShape: ShapeDraw = (ctx, w, h) => {
+  const { cx, cy, r } = center(w, h)
+  ctx.strokeStyle = '#fff'; ctx.fillStyle = '#fff'; ctx.lineWidth = Math.max(2, r * 0.07)
+  const x0 = cx - r * 0.5, x1 = cx + r * 0.5, y0 = cy - r * 0.8, y1 = cy + r * 0.8
+  ctx.fillRect(x0 - r * 0.12, y0 - r * 0.1, r * 1.24, r * 0.1); ctx.fillRect(x0 - r * 0.12, y1, r * 1.24, r * 0.1)
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); ctx.lineTo(cx + r * 0.06, cy); ctx.lineTo(x1, y1); ctx.lineTo(x0, y1); ctx.lineTo(cx - r * 0.06, cy); ctx.closePath(); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(cx - r * 0.3, y1 - r * 0.02); ctx.lineTo(cx, y1 - r * 0.38); ctx.lineTo(cx + r * 0.3, y1 - r * 0.02); ctx.closePath(); ctx.fill()
+}
+
+/** 头像轮廓（角色）。 */
+export const personShape: ShapeDraw = (ctx, w, h) => {
+  const { cx, cy, r } = center(w, h)
+  ctx.fillStyle = '#fff'
+  ctx.beginPath(); ctx.arc(cx, cy - r * 0.38, r * 0.34, 0, Math.PI * 2); ctx.fill()
+  ctx.beginPath(); ctx.moveTo(cx - r * 0.78, cy + r * 0.9); ctx.quadraticCurveTo(cx - r * 0.74, cy + r * 0.08, cx, cy + r * 0.06)
+  ctx.quadraticCurveTo(cx + r * 0.74, cy + r * 0.08, cx + r * 0.78, cy + r * 0.9); ctx.closePath(); ctx.fill()
+}
+
+/** 世界观条目类型 → 粒子图形（没列到的类型用六边形）。 */
+export const CARD_TYPE_SHAPES: Record<string, ShapeDraw> = {
+  character: personShape, location: pinShape, item: swordShape, event: hourglassShape,
+  faction: flagShape, organization: flagShape, species: leafShape, creature: leafShape,
+  occupation: gearShape, skill: boltShape, climate: cloudShape, concept: diamondShape,
+}
+export const cardTypeShape = (type?: string | null): ShapeDraw => CARD_TYPE_SHAPES[type ?? ''] ?? hexShape
+
+/** 名字取第一个字（跳过空格和符号），给粒子拼字用。 */
+export function firstGlyph(name?: string | null): string {
+  const chars = [...(name ?? '').trim()]
+  return chars.find(c => /[\p{L}\p{N}]/u.test(c)) ?? chars[0] ?? '界'
+}

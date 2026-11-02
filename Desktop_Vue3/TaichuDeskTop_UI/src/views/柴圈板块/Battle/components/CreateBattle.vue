@@ -6,7 +6,7 @@
           <button class="back-btn" @click="router.back()">‹ 返回</button>
           <h1>发起约战</h1>
         </div>
-        <p class="subtitle">设定规则，邀请画师，以创作为战</p>
+        <p class="subtitle">选好双方出战的 OC，写清规则，发出战书。对手应战后，由你来推进报名 → 创作 → 判定。</p>
       </div>
     </header>
 
@@ -15,10 +15,12 @@
       <section class="form-section">
         <h2 class="section-title">参战角色</h2>
 
+        <!-- 两队左右对阵（手机上下排），颜色和约战详情页的对阵图一致：A 队主题色、B 队橙色 -->
+        <div class="teams">
         <!-- ===== 队伍A ===== -->
-        <div class="team-section">
+        <div class="team-section team-a">
           <div class="team-header">
-            <span class="team-label">🔴 队伍 A</span>
+            <span class="team-label">A 队 <small>你这边</small></span>
             <button type="button" class="btn-add-member" @click="addMember('A')">＋ 添加成员</button>
           </div>
           <p class="hint">默认包含你，可添加其他画师组队</p>
@@ -40,7 +42,7 @@
               </button>
             </div>
 
-            <div class="member-row">
+            <div class="member-fields">
               <!-- 用户ID显示 -->
               <div class="member-field">
                 <label class="sub-label">用户 ID</label>
@@ -109,21 +111,24 @@
                     </button>
                   </span>
                 </div>
+                <!-- 所选 OC 没填约战面板：提醒一下（不拦着发布）；自己的 OC 给去填写的链接 -->
+                <BattlePanelReminder :oc-ids="member.ocIds" :names="member.ocIds.map(id => getOcTitle(allOcList, id))" :own="index === 0" />
               </div>
             </div>
           </div>
         </div>
 
         <!-- ===== VS ===== -->
-        <div class="vs-divider">⚔️ VS</div>
+        <div class="vs-divider" aria-hidden="true"><span>VS</span></div>
 
         <!-- ===== 队伍B ===== -->
-        <div class="team-section">
+        <div class="team-section team-b">
           <div class="team-header">
-            <span class="team-label">🔵 队伍 B</span>
+            <span class="team-label">B 队 <small>对手</small></span>
             <button type="button" class="btn-add-member" @click="addMember('B')">＋ 添加成员</button>
           </div>
-          <p class="hint">添加对手成员（支持多人混战）</p>
+          <p class="hint">添加对手成员（支持多人混战）。不加对手就是公开约战，谁都能来报名。</p>
+          <p v-if="!teamB.length" class="team-empty">还没有指定对手：发布后是<strong>公开约战</strong>，任何人都可以带 OC 报名。</p>
 
           <div
             v-for="(member, index) in teamB"
@@ -141,7 +146,7 @@
               </button>
             </div>
 
-            <div class="member-row">
+            <div class="member-fields">
               <!-- 用户 ID 输入（队伍B需要自己输入） -->
               <div class="member-field">
                 <label class="sub-label">用户 ID</label>
@@ -223,9 +228,12 @@
                     </button>
                   </span>
                 </div>
+                <!-- 所选 OC 没填约战面板：提醒一下（不拦着发布） -->
+                <BattlePanelReminder :oc-ids="member.ocIds" :names="member.ocIds.map(id => getOcTitle(allOcList, id))" />
               </div>
             </div>
           </div>
+        </div>
         </div>
       </section>
 
@@ -279,10 +287,10 @@
 
         <div class="radio-group">
           <label class="radio-option" :class="{ active: form.judgmentType === 'vote' }">
-            <input type="radio" v-model="form.judgmentType" value="vote" disabled />
+            <input type="radio" v-model="form.judgmentType" value="vote" />
             <div class="radio-content">
               <span class="radio-label">📊 投票制</span>
-              <span class="radio-desc">暂不可用，请选择参与者协商判定</span>
+              <span class="radio-desc">创作期结束后自动开投票，路人投票决定胜负（参赛者不能投，每人一票）</span>
             </div>
           </label>
 
@@ -298,6 +306,8 @@
 
       <!-- ===== 提交 ===== -->
       <div class="form-actions">
+        <!-- 发布按钮是灰的时候，告诉用户还差什么（以前只是按不动，不知道哪里没填） -->
+        <p v-if="missing.length" class="missing-hint">还差：{{ missing.join('、') }}</p>
         <button type="button" class="btn-cancel" @click="router.back()">取消</button>
         <button type="submit" class="btn-submit" :disabled="loading || uploading || !isValid">
           {{ loading ? '发布中...' : '发布约战' }}
@@ -314,6 +324,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useBattleStore } from '../battle_Store'
 import { useCos } from '@/composables/useCos'
 import { stickmanApi } from '../../OCs/stickman'
+import BattlePanelReminder from './BattlePanelReminder.vue'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 
@@ -373,6 +384,21 @@ const isValid = computed(() => {
   if (new Set(members.map(m => m.userId.toLowerCase())).size !== members.length) return false
 
   return true
+})
+
+/** 还没填好的项目（显示在发布按钮旁边） */
+const missing = computed(() => {
+  const list: string[] = []
+  if (!form.title.trim()) list.push('约战标题')
+  if (!form.battleType.trim()) list.push('战斗类型')
+  if (!form.rules.trim()) list.push('详细规则')
+  if (!teamA.value[0]?.ocIds.length) list.push('你的出战 OC')
+  const others = [...teamA.value.slice(1), ...teamB.value]
+  if (others.some(m => !m.userId.trim())) list.push('成员的用户 ID')
+  if (others.some(m => !m.ocIds.length)) list.push('成员的出战 OC')
+  const members = [...teamA.value, ...teamB.value]
+  if (new Set(members.map(m => m.userId.trim().toLowerCase()).filter(Boolean)).size !== members.filter(m => m.userId.trim()).length) list.push('（同一个人不能出现两次）')
+  return list
 })
 
 // ===== 工具函数 =====
@@ -703,13 +729,31 @@ onMounted(async () => {
   color: var(--text-primary);
 }
 
-/* ===== 队伍 ===== */
+/* ===== 队伍：两队左右对阵 ===== */
+.teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
+  align-items: start;
+}
 .team-section {
-  margin-bottom: 16px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--border-line);
+  border-top: 3px solid var(--accent-color);
+  background: linear-gradient(170deg, color-mix(in srgb, var(--accent-color) 8%, var(--paper-card)), var(--paper-card) 140px);
 }
-.team-section:last-child {
-  margin-bottom: 0;
+.team-section.team-b {
+  border-top-color: #d97706;
+  background: linear-gradient(170deg, color-mix(in srgb, #d97706 9%, var(--paper-card)), var(--paper-card) 140px);
 }
+.team-empty {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-line);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.team-empty strong { color: var(--text-primary); }
 
 .team-header {
   display: flex;
@@ -719,9 +763,13 @@ onMounted(async () => {
 }
 
 .team-label {
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
+  font: 600 18px/1.3 var(--font-display);
+  color: var(--text-primary);
+}
+.team-label small {
+  margin-left: 4px;
+  font: 400 12px/1 var(--font-sans);
+  color: var(--text-secondary);
 }
 
 .btn-add-member {
@@ -739,12 +787,31 @@ onMounted(async () => {
   color: var(--text-primary);
 }
 
+/* 中间的 VS 牌：和详情页对阵图同一种警示黄斜切块 */
 .vs-divider {
-  text-align: center;
-  font-size: 24px;
-  color: var(--accent-color);
-  padding: 8px 0;
-  letter-spacing: 0.2em;
+  align-self: stretch;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.vs-divider::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 6px;
+  translate: -50% 0;
+  background: var(--hazard-stripe);
+  opacity: .7;
+}
+.vs-divider span {
+  position: relative;
+  padding: 6px 12px;
+  font: 700 20px/1 var(--font-display);
+  color: var(--caution-ink);
+  background: var(--caution);
+  clip-path: polygon(14% 0, 100% 0, 86% 100%, 0 100%);
 }
 
 /* ===== 成员 ===== */
@@ -779,10 +846,9 @@ onMounted(async () => {
   text-decoration: underline;
 }
 
-.member-row {
+.member-fields {
   display: grid;
-  grid-template-columns: 1fr 2fr;
-  gap: 12px;
+  gap: 10px;
 }
 
 .member-field {
@@ -1111,14 +1177,14 @@ onMounted(async () => {
 
 /* ===== 单选 ===== */
 .radio-group {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
   gap: 10px;
 }
 
 .radio-option {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
   padding: 12px 16px;
   border: 1px solid var(--border-line);
@@ -1132,7 +1198,8 @@ onMounted(async () => {
 }
 .radio-option.active {
   border-color: var(--accent-color);
-  background: var(--bg-sub);
+  background: var(--accent-soft);
+  box-shadow: inset 4px 0 0 var(--accent-color);
 }
 
 .radio-option input[type="radio"] {
@@ -1150,12 +1217,21 @@ onMounted(async () => {
 }
 
 .radio-label {
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text-primary);
 }
 .radio-desc {
   font-size: 12px;
+  line-height: 1.6;
   color: var(--text-secondary);
+}
+.missing-hint {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 13px;
+  color: var(--warning);
+  text-align: right;
 }
 
 /* ===== 提交 ===== */
@@ -1203,6 +1279,24 @@ onMounted(async () => {
 }
 
 /* ===== 响应式 ===== */
+/* 窄屏：两队上下排，VS 牌横在中间 */
+@media (max-width: 860px) {
+  .teams {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .vs-divider {
+    height: 44px;
+  }
+  .vs-divider::before {
+    top: 50%;
+    bottom: auto;
+    left: 0;
+    right: 0;
+    width: auto;
+    height: 5px;
+    translate: 0 -50%;
+  }
+}
 @media (max-width: 640px) {
   .create-page {
     padding: 20px 12px 40px;
@@ -1213,8 +1307,8 @@ onMounted(async () => {
   .title-group h1 {
     font-size: 20px;
   }
-  .member-row {
-    grid-template-columns: 1fr;
+  .missing-hint {
+    text-align: left;
   }
   .form-actions {
     flex-direction: column-reverse;

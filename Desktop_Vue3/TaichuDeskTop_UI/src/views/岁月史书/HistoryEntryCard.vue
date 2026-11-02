@@ -21,6 +21,11 @@
       </button>
     </div>
 
+    <p v-if="entry.mentions?.length" class="he-mentions">
+      <span class="he-mentions-label">提到了</span>
+      <RouterLink v-for="m in entry.mentions" :key="m.id" :to="{ name: 'CommunityHistory', query: { person: m.id } }" class="he-mention" :title="`看和 ${m.username} 有关的岁月史书`">@{{ m.username }}</RouterLink>
+    </p>
+
     <footer class="he-foot">
       <UserLink :id="entry.author.id" :name="entry.author.username" class="he-author">
         <AvatarFrame :user-id="entry.author.id" size="sm">
@@ -51,7 +56,7 @@
         <ReportButton v-if="!entry.canDelete" target-type="history" :target-id="entry.id" :target-title="entry.title || (entry.content ?? '').slice(0, 60) || '（截图）'" :target-url="`/history?entry=${entry.id}`" />
       </div>
     </div>
-    <HistoryComments v-if="!compact" :entry="entry" @update="patch => emit('update', { ...entry, ...patch })" />
+    <HistoryComments v-if="!compact" :entry="entry" @update="patch => emit('update', { ...entry, ...patch })" @preview="(urls, i) => emit('preview', urls, i)" />
   </article>
 </template>
 
@@ -153,4 +158,8 @@ function fullTime(iso: string) {
 .he-op.danger:hover { color: #dc2626; }
 .compact .he-actions { display: none; }
 @media (max-width: 520px) { .he-react-label { display: none; } }
+.he-mentions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 0; font-size: 13px; }
+.he-mentions-label { color: var(--text-secondary); }
+.he-mention { padding: 1px 7px; background: var(--accent-soft); color: var(--accent-color); text-decoration: none; }
+.he-mention:hover { text-decoration: underline; }
 </style>

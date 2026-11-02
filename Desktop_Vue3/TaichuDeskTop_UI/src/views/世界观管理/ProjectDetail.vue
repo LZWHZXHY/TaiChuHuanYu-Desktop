@@ -10,10 +10,10 @@
     <div class="layout">
       <!-- 左侧栏 -->
       <ProjectCardNavigation v-if="!projectError" v-model:search="searchQuery" :cards="cards" :loading="store.loadingCards"
-        :selected-card-id="selectedCardId" :view="view" :can-stats="isMember" :can-pane="canPane" :pane-ids="paneIds" @pane="openPane" @select="selectCard" @overview="showOverview" @graph="switchToGraph" @timeline="switchToTimeline" @stats="switchToStats" />
+        :selected-card-id="selectedCardId" :view="view" :can-stats="canStats" :can-pane="canPane" :pane-ids="paneIds" @pane="openPane" @select="selectCard" @overview="showOverview" @graph="switchToGraph" @timeline="switchToTimeline" @stats="switchToStats" />
 
       <!-- 主区域 -->
-      <main class="main" :aria-busy="store.loadingCards || detailLoading">
+      <main class="main" :style="mainPaneStyle" :aria-busy="store.loadingCards || detailLoading">
         <div v-if="projectError" class="load-state" role="alert">
           <p>{{ projectError }}</p>
           <RouterLink v-if="!userStore.isLoggedIn" :to="{ path: '/LoginRegister', query: { redirect: route.fullPath } }">登录自己的账号</RouterLink>
@@ -96,38 +96,36 @@
           <ProjectCardDocument :key="selectedCardDetail.id"
             :card="selectedCardDetail" :project-id="projectId" :can-view-history="isMember" @select="selectCard" @history="openRevisions(selectedCardDetail.id)" @pane="openPane" />
           <aside v-if="outRelations.length || inRelations.length" class="doc-side-panel">
-            <h3 class="panel-title">关联</h3>
-            <template v-if="outRelations.length">
-              <div class="panel-group">
-                <span class="panel-label">关联到</span>
-                <button v-for="r in outRelations" :key="r.id" class="panel-item" @click="selectCard(r.targetCardId)">
-                  <span class="panel-rel-type">{{ r.relationType }}</span>
-                  <span class="panel-rel-title">{{ r.targetCardTitle || '未命名' }}</span>
-                </button>
-              </div>
-            </template>
-            <template v-if="inRelations.length">
-              <div class="panel-group">
-                <span class="panel-label">被关联</span>
-                <button v-for="r in inRelations" :key="r.id" class="panel-item" @click="selectCard(r.sourceCardId)">
-                  <span class="panel-rel-type">{{ r.relationType }}</span>
-                  <span class="panel-rel-title">{{ r.sourceCardTitle || '未命名' }}</span>
-                </button>
-              </div>
-            </template>
+            <RelationStar :title="selectedCardDetail.title" :card-type="selectedCardDetail.type" :outs="outRelations" :ins="inRelations" @select="selectCard" />
           </aside>
         </div>
 
         <section v-else-if="project && !projectError" class="world-overview">
           <div class="overview-hero">
-            <img v-if="project.coverImage" :src="project.coverImage" :alt="project.name" class="hero-cover" />
+            <img v-if="coverUpload" :src="coverUpload.preview" alt="" class="hero-cover is-uploading" />
+            <img v-else-if="project.coverImage" :src="coverSrc(project.coverImage)" :style="coverStyle(project.coverImage)" :alt="project.name" class="hero-cover" />
             <div v-else class="hero-fallback">
-              <span class="hero-fallback-icon">🌌</span>
-              <span class="hero-fallback-text">这个宇宙还没有封面</span>
+              <ParticleMorph class="hero-particles" :shapes="heroShapes" :interval="4600" :density="18" :fill="0.9" :max-particles="2600" :colors="['--accent-color', '--signal-mint', '--signal-color']" interactive="parent" />
+              <span class="hero-fallback-text">{{ isOwner ? '这个宇宙还没有封面 · 右下角可以添加' : '这个宇宙还没有封面' }}</span>
             </div>
-            <button v-if="isOwner" class="hero-cover-btn" @click="pickCover">{{ project.coverImage ? '更换封面' : '添加封面' }}</button>
+            <div v-if="coverUpload" class="hero-upload" role="status" aria-live="polite">
+              <div class="hero-upload-row">
+                <span class="hero-upload-tag">UPLOAD</span>
+                <span class="hero-upload-text">{{ coverUpload.saving ? '上传完成，正在保存…' : `封面上传中 ${coverUpload.percent}%` }}</span>
+                <span class="hero-upload-size">{{ coverUpload.sizeText }}</span>
+              </div>
+              <div class="hero-upload-bar" role="progressbar" aria-label="封面上传进度" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="coverUpload.percent">
+                <span :style="{ width: coverUpload.percent + '%' }"></span>
+              </div>
+            </div>
+            <div v-if="isOwner && !coverUpload" class="hero-cover-actions">
+              <button v-if="project.coverImage" class="hero-cover-btn" :disabled="coverRemoving" @click="removeCover">{{ coverRemoving ? '删除中…' : '删除封面' }}</button>
+              <button v-if="project.coverImage" class="hero-cover-btn" @click="focusOpen = true">调整显示位置</button>
+              <button class="hero-cover-btn" @click="pickCover">{{ project.coverImage ? '更换封面' : '添加封面' }}</button>
+            </div>
             <input ref="coverInput" type="file" accept="image/*" hidden @change="onCoverPicked" />
           </div>
+          <CoverFocusEditor :open="focusOpen" :url="project.coverImage || ''" :saving="focusSaving" @close="focusOpen = false" @save="saveCoverFocus" />
           <p class="overview-intro">{{ project.description || '这个世界还没有简介，先从下面的设定开始了解吧。' }}</p>
           <div v-if="!cards.length" class="overview-start">
             <h3>{{ canEdit ? '先写下一个设定' : '作者还在构思这个世界' }}</h3>
@@ -135,11 +133,14 @@
             <button v-if="canEdit" class="btn-primary" @click="openCreateDialog">创建第一个条目</button>
           </div>
           <div v-else class="overview-stats">
-            <button v-for="group in overviewGroups" :key="group.type" class="stat-chip" @click="selectCard(group.cards[0].id)">
+            <button v-for="(group, gi) in overviewGroups" :key="group.type" class="stat-chip" :style="{ '--tc': typeColor(group.type), '--d': gi * 0.05 + 's' }"
+              :title="`看看${group.label}：${group.cards.slice(0, 5).map(c => c.title).join('、')}${group.cards.length > 5 ? '…' : ''}`" @click="selectCard(group.cards[0].id)">
+              <span class="stat-icon" aria-hidden="true">{{ typeIcon(group.type) }}</span>
               <span class="stat-label">{{ group.label }}</span>
               <span class="stat-count">{{ group.cards.length }}</span>
+              <span class="stat-bar" aria-hidden="true"><i :style="{ width: Math.max(6, group.cards.length / statMax * 100) + '%' }"></i></span>
             </button>
-            <button v-if="isMember" class="stat-chip stat-chip-stats" @click="switchToStats">📊 创作统计 →</button>
+            <button v-if="canStats" class="stat-chip stat-chip-stats" @click="switchToStats">📊 创作统计 →</button>
           </div>
 
           <!-- 本世界的小说 -->
@@ -164,14 +165,25 @@
             </ul>
             <p v-else class="novel-empty">还没有这个宇宙的故事。</p>
           </section>
+
+          <!-- 柴圈人设：关联到这个世界的柴圈 OC（没有就不显示） -->
+          <WorldOcList :project-id="projectId" />
         </section>
         </div>
       </main>
-      <!-- 分屏：主窗口旁边最多再开两个条目一起看（屏幕太窄时先收起，加宽后还在） -->
+      <!-- 分屏：主窗口旁边最多再开两个条目一起看（屏幕太窄时先收起，加宽后还在）。
+           每个窗格左边有一条分隔线：拖动（鼠标、手指都行）或者聚焦后按左右键调宽度，双击恢复默认。 -->
       <template v-if="canPane && project && !projectError">
-        <CardPane v-for="(id, i) in paneIds" :key="'pane' + i" :ref="el => setPaneRef(el, i)" class="side-pane"
-          :style="{ flex: widePane === i ? '1.6 1 0' : '1 1 0' }" :card-id="id" :project-id="projectId" :wide="widePane === i"
-          @close="closePane(i)" @main="selectCard" @navigate="nid => onPaneNavigate(i, nid)" @toggle-wide="widePane = widePane === i ? null : i" />
+        <template v-for="(id, i) in paneIds" :key="'pane' + i">
+          <div class="pane-splitter" :class="{ dragging: splitDrag?.i === i }" role="separator" aria-orientation="vertical" tabindex="0"
+            :aria-label="`调整${i === 0 ? '主窗口' : '左边窗格'}和右边窗格的宽度`" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="splitterValue(i)"
+            title="拖动调整宽度（聚焦后左右键也可以），双击恢复默认"
+            @pointerdown="onSplitDown($event, i)" @pointermove="onSplitMove" @pointerup="onSplitUp" @pointercancel="onSplitUp" @lostpointercapture="onSplitUp"
+            @dblclick="resetPaneWidths" @keydown="onSplitKey($event, i)"></div>
+          <CardPane :ref="el => setPaneRef(el, i)" class="side-pane"
+            :style="{ flex: `${paneGrows[i + 1]} 1 0` }" :card-id="id" :project-id="projectId" :wide="paneWide(i)"
+            @close="closePane(i)" @main="selectCard" @navigate="nid => onPaneNavigate(i, nid)" @toggle-wide="toggleWide(i)" />
+        </template>
       </template>
     </div>
 
@@ -250,11 +262,18 @@ import { worldNovelApi, type NovelBrief } from '@/api/worldNovel'
 import { worldApi } from '@/api/worldApi'
 import { renderMarkdown } from '@/utils/markdown'
 import { useCos } from '@/composables/useCos'
+import { coverSrc, coverStyle } from '@/utils/coverFocus'
+import CoverFocusEditor from '@/components/CoverFocusEditor.vue'
 import ProjectHeader from './世界观组件/ProjectHeader.vue'
 import ProjectCardNavigation from './世界观组件/ProjectCardNavigation.vue'
 import WorldStats from './世界观组件/WorldStats.vue'
 import CardPane from './世界观组件/CardPane.vue'
 import ProjectCardDocument from './世界观组件/ProjectCardDocument.vue'
+import WorldOcList from './世界观组件/WorldOcList.vue'
+import RelationStar from './世界观组件/RelationStar.vue'
+import ParticleMorph from '@/components/ParticleMorph.vue'
+import { firstGlyph, globeShape, hexShape, type ParticleShape } from '@/utils/particleShapes'
+import { CardTypeMeta, type CardType } from './card_type'
 
 const WorldTransfer = defineAsyncComponent(() => import('./世界观组件/WorldTransfer.vue'))
 const WorldSettings = defineAsyncComponent(() => import('./世界观组件/WorldSettings.vue'))
@@ -279,6 +298,8 @@ const isOwner = computed(() => Boolean(userStore.userId && userStore.userId === 
 const myRole = computed(() => isOwner.value ? 'owner' : project.value?.myRole ?? null)
 const isMember = computed(() => Boolean(myRole.value))
 const canEdit = computed(() => isOwner.value || myRole.value === 'editor')
+// 创作统计入口（fix121）：成员看完整的，公开世界的访客看公开的那部分
+const canStats = computed(() => isMember.value || Boolean(project.value?.isPublic))
 const settingsTab = ref<'info' | 'members' | null>(null)
 // ---------- 修改记录 ----------
 const revisionsOpen = ref(false)
@@ -348,6 +369,15 @@ const detailLoading = ref(false)
 const detailError = ref(false)
 const projectError = ref('')
 const overviewGroups = computed(() => groupWorldCards(cards.value))
+const statMax = computed(() => Math.max(1, ...overviewGroups.value.map(g => g.cards.length)))
+const typeColor = (type: string) => CardTypeMeta[type as CardType]?.color ?? 'var(--accent-color)'
+const typeIcon = (type: string) => CardTypeMeta[type as CardType]?.icon ?? '◇'
+/** 没有封面时横幅上的粒子：世界名字的第一个字 → 地球 → 六边形 */
+const heroShapes = computed<ParticleShape[]>(() => [
+  { kind: 'text', text: firstGlyph(project.value?.name), scale: 0.62 },
+  { kind: 'draw', draw: globeShape },
+  { kind: 'draw', draw: hexShape },
+])
 
 // ===== AI 一键整理 =====
 const aiOrganizing = ref(false)
@@ -532,18 +562,69 @@ function createNovel() {
 // ===== 世界观封面 =====
 const { uploadFile } = useCos()
 const coverInput = ref<HTMLInputElement | null>(null)
-function pickCover() { coverInput.value?.click() }
+/** 正在上传的封面：本地预览 + 百分比，传完保存前一直显示在横幅上 */
+const coverUpload = ref<{ preview: string; percent: number; sizeText: string; saving: boolean } | null>(null)
+const focusOpen = ref(false)
+const focusSaving = ref(false)
+function pickCover() { if (!coverUpload.value) coverInput.value?.click() }
+function sizeText(bytes: number) {
+  return bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`
+}
 async function onCoverPicked(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   input.value = ''
-  if (!file) return
+  if (!file || coverUpload.value) return
+  if (!file.type.startsWith('image/')) { ElMessage.warning('请选择图片文件'); return }
+  const id = projectId.value
+  const state = { preview: URL.createObjectURL(file), percent: 0, sizeText: sizeText(file.size), saving: false }
+  coverUpload.value = state
+  let saved = false
   try {
-    const { url } = await uploadFile(file, 'world-covers')
-    await store.updateProject(projectId.value, { coverImage: url })
-    ElMessage.success('封面已更新')
+    const { url } = await uploadFile(file, 'world-covers', percent => {
+      if (coverUpload.value) coverUpload.value.percent = Math.min(100, Math.max(coverUpload.value.percent, percent))
+    })
+    if (coverUpload.value) { coverUpload.value.percent = 100; coverUpload.value.saving = true }
+    await store.updateProject(id, { coverImage: url })
+    saved = true
     await loadData()
-  } catch { ElMessage.error('封面上传失败') }
+  } catch { ElMessage.error('封面上传失败，请重试') }
+  finally {
+    URL.revokeObjectURL(state.preview)
+    coverUpload.value = null
+  }
+  // 新封面传好后直接让作者挑显示位置（不调也行，默认居中）
+  if (saved && id === projectId.value) {
+    ElMessage.success('封面已更新，可以拖动选择显示的位置')
+    focusOpen.value = true
+  }
+}
+/** 去掉封面（只是不再显示，图片文件本身不删，换回来重新上传即可） */
+const coverRemoving = ref(false)
+async function removeCover() {
+  try {
+    await ElMessageBox.confirm('删除后世界观列表和这里都不再显示封面，之后可以随时重新添加。', '删除封面', {
+      confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning',
+    })
+  } catch { return }
+  coverRemoving.value = true
+  try {
+    // 后端约定：传空字符串表示清空封面（不传 / 传 null 表示不改）
+    await store.updateProject(projectId.value, { coverImage: '' })
+    ElMessage.success('封面已删除')
+    await loadData()
+  } catch { ElMessage.error('删除失败，请重试') }
+  finally { coverRemoving.value = false }
+}
+async function saveCoverFocus(url: string) {
+  focusSaving.value = true
+  try {
+    await store.updateProject(projectId.value, { coverImage: url })
+    focusOpen.value = false
+    ElMessage.success('显示位置已保存，列表和这里会显示同一块')
+    await loadData()
+  } catch { ElMessage.error('保存失败，请重试') }
+  finally { focusSaving.value = false }
 }
 
 // ===== 关系图谱节点位置（持久化） =====
@@ -679,6 +760,120 @@ function onPaneNavigate(i: number, id: string) {
   const next = [...paneIds.value]; next[i] = id; paneIds.value = next
   savePanes()
 }
+
+// ----- 拖动分隔线调宽度 -----
+// 主窗口和窗格都是「按比例分剩下的宽度」（flex-grow），拖动只改分隔线两边那两块的比例，别的不动。
+// 拖好的比例按「开着几个窗格」分别记在这台设备上（localStorage），换世界、刷新页面都还在。
+const PANE_WIDTHS_KEY = 'taichu.world.paneWidths'
+const MIN_MAIN_PX = 320 // 主窗口最窄
+const MIN_PANE_PX = 240 // 窗格最窄
+/** 自己拖过的比例：[主窗口, 窗格1, 窗格2]；null = 没拖过，用默认（等宽，或者「加宽」的那个 1.6 倍） */
+const customGrows = ref<number[] | null>(null)
+function readPaneWidths(): Record<string, number[]> {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PANE_WIDTHS_KEY) || '{}')
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {}
+  } catch { return {} }
+}
+function writePaneWidths(count: number, grows: number[] | null) {
+  try {
+    const all = readPaneWidths()
+    if (grows) all[count] = grows.map(g => Number(g.toFixed(4)))
+    else delete all[count]
+    localStorage.setItem(PANE_WIDTHS_KEY, JSON.stringify(all))
+  } catch { /* 隐私模式、存满了：只是记不住，不影响使用 */ }
+}
+/** 读出来的数要像样：个数对得上、都是正常的正数，不然当没拖过 */
+function loadPaneWidths(count: number) {
+  const saved = readPaneWidths()[count]
+  customGrows.value = Array.isArray(saved) && saved.length === count + 1 && saved.every(g => typeof g === 'number' && Number.isFinite(g) && g > 0.05 && g < 20) ? saved : null
+}
+watch(() => paneIds.value.length, n => { if (n) loadPaneWidths(n) }, { immediate: true })
+const paneGrows = computed(() => customGrows.value && customGrows.value.length === paneIds.value.length + 1
+  ? customGrows.value
+  : [1, ...paneIds.value.map((_, i) => widePane.value === i ? 1.6 : 1)])
+// 没开窗格时主窗口保持原来的样式；开了窗格才按比例分
+const mainPaneStyle = computed(() => canPane.value && paneIds.value.length ? { flex: `${paneGrows.value[0]} 1 0` } : undefined)
+// 拖过宽度后，窗格上的「加宽」按钮变成「恢复默认宽度」
+const paneWide = (i: number) => Boolean(customGrows.value) || widePane.value === i
+function toggleWide(i: number) {
+  if (customGrows.value) { resetPaneWidths(); return }
+  widePane.value = widePane.value === i ? null : i
+}
+function resetPaneWidths() {
+  customGrows.value = null
+  widePane.value = null
+  writePaneWidths(paneIds.value.length, null)
+}
+/** 分隔线两边各占多少（给读屏软件报的百分比） */
+const splitterValue = (i: number) => {
+  const g = paneGrows.value
+  return Math.round((100 * (g[i] ?? 1)) / ((g[i] ?? 1) + (g[i + 1] ?? 1)))
+}
+/** 分隔线 i 左边那块挪 dx 像素：两块总宽不变，按最小宽度夹住，再换算成比例 */
+function resizePair(i: number, leftPx: number, rightPx: number, base: number[], dx: number) {
+  const total = leftPx + rightPx
+  if (total <= 0) return
+  const minLeft = Math.min(i === 0 ? MIN_MAIN_PX : MIN_PANE_PX, total / 2)
+  const minRight = Math.min(MIN_PANE_PX, total / 2)
+  const nextLeft = Math.max(minLeft, Math.min(total - minRight, leftPx + dx))
+  const pair = (base[i] ?? 1) + (base[i + 1] ?? 1)
+  const next = base.slice()
+  next[i] = (pair * nextLeft) / total
+  next[i + 1] = pair - next[i]!
+  customGrows.value = next
+  widePane.value = null
+}
+/** 分隔线左右两块的实际宽度（分隔线就夹在它们中间） */
+function pairWidths(splitter: HTMLElement) {
+  const left = splitter.previousElementSibling as HTMLElement | null
+  const right = splitter.nextElementSibling as HTMLElement | null
+  return left && right ? { left: left.getBoundingClientRect().width, right: right.getBoundingClientRect().width } : null
+}
+const splitDrag = ref<{ i: number; x: number; left: number; right: number; base: number[]; pointerId: number; moved: boolean } | null>(null)
+function onSplitDown(e: PointerEvent, i: number) {
+  if (e.pointerType === 'mouse' && e.button !== 0) return
+  const el = e.currentTarget as HTMLElement
+  const sizes = pairWidths(el)
+  if (!sizes) return
+  e.preventDefault() // 别选中文字、别让页面跟着滚
+  try { el.setPointerCapture(e.pointerId) } catch { /* 个别浏览器不支持，也能拖，只是移出去会断 */ }
+  splitDrag.value = { i, x: e.clientX, ...sizes, base: paneGrows.value.slice(), pointerId: e.pointerId, moved: false }
+  setResizingCursor(true)
+}
+function onSplitMove(e: PointerEvent) {
+  const d = splitDrag.value
+  if (!d || e.pointerId !== d.pointerId) return
+  const dx = e.clientX - d.x
+  if (!d.moved && Math.abs(dx) < 2) return // 手抖一下不算拖，免得双击时宽度先变了
+  d.moved = true
+  resizePair(d.i, d.left, d.right, d.base, dx)
+}
+function onSplitUp(e: PointerEvent) {
+  const d = splitDrag.value
+  if (!d || e.pointerId !== d.pointerId) return
+  splitDrag.value = null
+  setResizingCursor(false)
+  if (d.moved && customGrows.value) writePaneWidths(paneIds.value.length, customGrows.value)
+}
+function onSplitKey(e: KeyboardEvent, i: number) {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Enter') return
+  e.preventDefault()
+  if (e.key === 'Enter') { resetPaneWidths(); return } // 键盘没法双击，回车 = 恢复默认
+  const sizes = pairWidths(e.currentTarget as HTMLElement)
+  if (!sizes) return
+  const step = e.shiftKey ? 96 : 24
+  resizePair(i, sizes.left, sizes.right, paneGrows.value.slice(), e.key === 'ArrowLeft' ? -step : step)
+  if (customGrows.value) writePaneWidths(paneIds.value.length, customGrows.value)
+}
+/** 拖动时整页都显示「左右拖」的鼠标样式、不选中文字（鼠标划到窗格上面也一样） */
+function setResizingCursor(on: boolean) {
+  if (typeof document === 'undefined') return
+  document.body.style.cursor = on ? 'col-resize' : ''
+  document.body.style.userSelect = on ? 'none' : ''
+}
+onScopeDispose(() => { if (splitDrag.value) setResizingCursor(false) })
+
 // 换了世界：读那个世界上次开着的窗格；只留还存在的条目
 watch([projectId, () => cards.value.length], ([pid], [oldPid]) => {
   if (pid !== oldPid) {
@@ -696,13 +891,28 @@ watch([projectId, () => cards.value.length], ([pid], [oldPid]) => {
 .world-overview { width: 100%; max-width: 1100px; padding: clamp(20px, 4vw, 40px); margin: 0 auto; }
 .overview-hero { position: relative; border-radius: 0; overflow: hidden; aspect-ratio: 21 / 7; background: var(--bg-sub); margin-bottom: 24px; }
 .hero-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
-.hero-fallback { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--accent-color); background: linear-gradient(135deg, var(--accent-soft), var(--paper-card) 70%); }
-.hero-fallback-icon { font-size: clamp(32px, 5vw, 56px); line-height: 1; }
-.hero-fallback-text { font-size: 13px; color: var(--text-secondary); }
+.hero-cover.is-uploading { filter: saturate(.6) brightness(.85); }
+.hero-cover-actions { position: absolute; right: 14px; bottom: 14px; display: flex; gap: 8px; }
+.hero-cover-actions .hero-cover-btn { position: static; }
+.hero-cover-btn:disabled { opacity: .6; cursor: not-allowed; }
+@media (max-width: 820px) { .hero-cover-actions { left: 10px; right: 10px; bottom: 10px; flex-wrap: wrap; justify-content: flex-end; gap: 6px; } .hero-cover-actions .hero-cover-btn { padding: 5px 10px; font-size: 12px; } .hero-upload { left: 10px; right: 10px; bottom: 10px; } }
+.hero-upload { position: absolute; left: 14px; right: 14px; bottom: 14px; padding: 10px 12px; background: var(--paper-card); border: 1px solid var(--border-line); border-left: 3px solid var(--accent-color); }
+.hero-upload-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-primary); }
+.hero-upload-tag { padding: 1px 7px; font: 10px/1.6 var(--font-mono, monospace); letter-spacing: .12em; background: var(--inverse-bg); color: var(--inverse-text); }
+.hero-upload-text { flex: 1; font-variant-numeric: tabular-nums; }
+.hero-upload-size { font: 12px var(--font-mono, monospace); color: var(--text-secondary); }
+.hero-upload-bar { margin-top: 8px; height: 6px; background: var(--bg-sub); overflow: hidden; }
+.hero-upload-bar span { display: block; height: 100%; background: var(--accent-color); transition: width .2s; }
+.hero-fallback { position: relative; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-end; color: var(--accent-color);
+  background: radial-gradient(ellipse at 70% 40%, color-mix(in srgb, var(--signal-mint) 16%, transparent), transparent 60%),
+    linear-gradient(var(--grid-line) 1px, transparent 1px) 0 0 / 24px 24px, linear-gradient(90deg, var(--grid-line) 1px, transparent 1px) 0 0 / 24px 24px,
+    linear-gradient(135deg, var(--accent-soft), var(--paper-card) 70%); }
+.hero-particles { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hero-fallback-text { position: relative; margin: 0 0 14px 16px; padding: 2px 8px; font: 11px/1.6 var(--font-mono, monospace); letter-spacing: .06em; color: var(--text-secondary); background: var(--paper-card); border-left: 2px solid var(--signal-mint); }
 .hero-cover-btn { position: absolute; right: 14px; bottom: 14px; padding: 7px 14px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font-size: 13px; }
 .overview-intro { max-width: 70ch; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.9; font-size: 15px; color: var(--text-secondary); margin: 0 0 28px; }
 .overview-start { padding: 28px; border: 1px dashed var(--border-line); border-radius: 0; }.overview-start p { color: var(--text-secondary); line-height: 1.8; }.overview-start button { margin-top: 12px; }
-.overview-stats { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.overview-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 4px; }
 .novel-block { margin-top: 34px; padding-top: 20px; border-top: 1px dashed var(--border-line); }
 .novel-block-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .novel-block-head h3 { margin: 0; font-size: 1.02rem; }
@@ -716,11 +926,18 @@ watch([projectId, () => cards.value.length], ([pid], [oldPid]) => {
 .nv-title { font-size: .9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nv-meta { font-size: .72rem; color: var(--text-secondary); }
 .novel-empty { margin: 0; padding: 18px 0; color: var(--text-secondary); font-size: .84rem; }
-.stat-chip { display: inline-flex; align-items: baseline; gap: 8px; padding: 9px 18px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font: inherit; transition: border-color .15s, transform .15s; }
-.stat-chip:hover { border-color: var(--accent-color); transform: translateY(-1px); }
-.stat-chip-stats { color: var(--accent-color); border-style: dashed; }
-.stat-label { font-size: 14px; }
-.stat-count { font-size: 12px; font-weight: 600; color: var(--accent-color); }
+.stat-chip { --tc: var(--accent-color); position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px 8px; padding: 12px 14px 10px; border: 1px solid var(--border-line); border-top: 2px solid var(--tc); border-radius: 0; background: var(--paper-card); color: var(--text-primary); cursor: pointer; font: inherit; text-align: left; transition: border-color .15s, translate .15s, box-shadow .15s; animation: stat-in .45s cubic-bezier(.2, .8, .2, 1) both; animation-delay: var(--d, 0s); }
+.stat-chip::after { content: ''; position: absolute; right: -1px; top: -2px; width: 10px; height: 10px; background: linear-gradient(225deg, var(--tc) 50%, transparent 50%); }
+.stat-chip:hover, .stat-chip:focus-visible { border-color: var(--tc); translate: 0 -2px; box-shadow: 3px 3px 0 color-mix(in srgb, var(--tc) 25%, transparent); }
+.stat-chip-stats { --tc: var(--signal-mint); display: flex; align-items: center; justify-content: center; color: var(--accent-color); border-style: dashed; border-top-style: solid; }
+.stat-icon { font-size: 15px; line-height: 1; }
+.stat-label { font-size: 13px; color: var(--text-secondary); }
+.stat-count { font: 600 22px/1 var(--font-display, inherit); color: var(--tc); font-variant-numeric: tabular-nums; }
+.stat-bar { grid-column: 1 / -1; height: 3px; background: var(--bg-sub); overflow: hidden; }
+.stat-bar i { display: block; height: 100%; background: var(--tc); opacity: .75; transform-origin: left; animation: stat-bar .8s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--d, 0s) + .15s); }
+@keyframes stat-in { from { opacity: 0; translate: 0 6px; } }
+@keyframes stat-bar { from { transform: scaleX(0); } }
+@media (prefers-reduced-motion: reduce) { .stat-chip, .stat-bar i { animation: none; } }
 .edit-entry { flex-shrink: 0; white-space: nowrap; padding: 7px 14px; border: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); color: var(--accent-color); cursor: pointer; font-size: 13px; }
 .edit-entry:hover { border-color: var(--accent-color); background: var(--accent-soft); }
 .last-edit { flex-shrink: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; padding: 0; border: 0; background: none; color: var(--text-secondary); font: inherit; font-size: 12px; }
@@ -749,6 +966,13 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
   overflow: hidden;
 }
 .side-pane { min-width: 0; overflow: hidden; }
+/* 分隔线：本身不占宽度（左右用负边距叠在窗格的左边框上），鼠标放上去、拖动、键盘聚焦时显示主题色 */
+.pane-splitter { position: relative; z-index: 6; flex: 0 0 7px; margin: 0 -6px 0 -1px; cursor: col-resize; touch-action: none; outline: none; }
+.pane-splitter::after { content: ''; position: absolute; top: 0; bottom: 0; left: 1px; width: 2px; background: transparent; transition: background-color .15s; }
+.pane-splitter:hover::after, .pane-splitter.dragging::after, .pane-splitter:focus-visible::after { background: var(--accent-color); }
+.pane-splitter:focus-visible::after { width: 3px; }
+/* 触屏手指粗，按的地方宽一点 */
+@media (pointer: coarse) { .pane-splitter { flex-basis: 14px; margin: 0 -10px 0 -4px; } .pane-splitter::after { left: 4px; } }
 .main {
   flex: 1 1 0;
   min-width: 0;
@@ -835,22 +1059,17 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
 .doc-side-panel {
   max-width: 720px;
   margin: 0 auto;
-  padding: 24px clamp(20px, 4vw, 40px) 32px;
+  padding: 20px clamp(20px, 4vw, 40px) 32px;
   border-top: 1px dashed var(--border-line);
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
-  gap: 12px 24px;
 }
 @media (min-width: 1480px) {
-  .doc-layout:has(> .doc-side-panel) { grid-template-columns: minmax(0, 1fr) 240px; }
+  .doc-layout:has(> .doc-side-panel) { grid-template-columns: minmax(0, 1fr) 300px; }
   .doc-side-panel {
     max-width: none;
     margin: 0;
-    padding: 28px 22px;
+    padding: 24px 18px;
     border-top: none;
     border-left: 1px solid var(--border-line);
-    grid-template-columns: 1fr;
-    align-content: start;
     align-self: start;
     position: sticky;
     top: 0;
@@ -858,37 +1077,6 @@ button:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2
     overflow-y: auto;
   }
 }
-.panel-title { grid-column: 1 / -1; margin: 0; font-size: 14px; font-weight: 600; color: var(--text-secondary); }
-.panel-group { margin-bottom: 20px; }
-.panel-label { display: block; font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
-.panel-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 6px 8px;
-  border: none;
-  background: none;
-  border-radius: 0;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text-primary);
-  text-align: left;
-}
-.panel-item:hover { background: var(--bg-sub); }
-.panel-rel-type {
-  font-size: 10px;
-  color: var(--accent-color);
-  background: var(--accent-soft);
-  padding: 1px 6px;
-  border-radius: 0;
-  flex-shrink: 0;
-  max-width: 72px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.panel-rel-title { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.7; }
 .card-view.is-editing { height: 100%; min-height: 0; }
 .editor-view {
   flex: 1;

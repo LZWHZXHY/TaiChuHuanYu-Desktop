@@ -13,6 +13,7 @@
           <button v-else class="back-btn" @click="editing = true">编辑作品</button>
           <button v-if="artwork.ownerState === 'public'" class="back-btn" :disabled="toggling" @click="toggleVisible(false)">下架作品</button>
           <button v-else-if="artwork.ownerState === 'withdrawn'" class="back-btn" :disabled="toggling" @click="toggleVisible(true)">重新上架</button>
+          <button class="back-btn danger-btn" :disabled="toggling" @click="purge">彻底删除</button>
         </template>
       </nav>
       <p v-if="artwork?.canEdit && artwork.ownerState && artwork.ownerState !== 'public'" class="owner-state" role="status">
@@ -138,6 +139,24 @@ async function toggleVisible(visible: boolean) {
     emit('updated')
   } catch (e: any) {
     toggleMessage.value = e?.response?.data?.message || e?.friendlyMessage || '操作失败，请重试'
+  } finally { toggling.value = false }
+}
+// ---------- 作者彻底删除（不能恢复）----------
+async function purge() {
+  if (!artwork.value) return
+  const fromNote = !!artwork.value.originalNoteId
+  const typed = window.prompt(
+    `彻底删除《${artwork.value.title}》？\n\n删除后不能恢复：作品、图片、所有评论、点赞和收藏都会一起删除。${fromNote ? '\n灵脉里的原稿会保留（改回不公开），以后还可以重新发布。' : ''}\n只是暂时不想让别人看到的话，用「下架作品」就行。\n\n确定删除请输入「删除」两个字：`, '')
+  if (typed === null) return
+  if (typed.trim() !== '删除') { toggleMessage.value = '没有删除：需要输入「删除」两个字确认'; return }
+  toggling.value = true; toggleMessage.value = ''
+  try {
+    const res = await artworkApi.remove(numericId.value)
+    window.alert(res.message)
+    emit('updated')
+    emit('close')
+  } catch (e: any) {
+    toggleMessage.value = e?.response?.data?.message || e?.friendlyMessage || '删除失败，请重试'
   } finally { toggling.value = false }
 }
 async function onEdited() { editing.value = false; emit('updated'); await loadArtwork() }
@@ -273,4 +292,6 @@ onUnmounted(() => { requestVersion++; document.body.style.overflow = previousOve
 .detail-state, .img-placeholder { padding: 24px 0; color: var(--text-secondary); }.md-article .detail-state { color: var(--text-secondary); }.detail-state button { font: inherit; margin-left: 8px; cursor: pointer; }
 .md-loading-bar { position: fixed; top: 0; height: 2px; width: 100%; background: var(--accent-color); z-index: 10000; }
 @media(max-width:640px) { .md-viewport { padding: 0 12px 24px; }.exhibit-layout { order: 2; margin: 0; width: 100%; }.md-article { padding: 16px; }.masonry-gallery { columns: 1; }.viewer-caption { padding: 30px 16px 16px; }.viewer-close { right: 12px; top: 12px; }.viewer-paging { right: 12px; bottom: 16px; } }
+.danger-btn { color: var(--danger, #dc2626) !important; }
+.danger-btn:not(:disabled):hover { border-color: var(--danger, #dc2626) !important; }
 </style>

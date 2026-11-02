@@ -75,7 +75,12 @@
                 条内容
                 <template v-if="type === 'all'"> · 茶绘笔刷和下载资源另列在下方</template>
               </p>
-              <div v-if="!items.length" class="state">
+              <div v-if="!items.length && devLocked" class="state">
+                <h3>🔒 开发进度是赞助会员专享</h3>
+                <p>研发报告、开发日志只对赞助会员和管理员开放；首页可以看到各项目的简单进度。</p>
+                <RouterLink to="/sponsors" class="state-link">去赞助墙了解</RouterLink>
+              </div>
+              <div v-else-if="!items.length" class="state">
                 <h3>暂时没有匹配的内容</h3>
                 <p>换个关键词，或查看其他类型。</p>
                 <button @click="resetFilters">查看全部资料</button>
@@ -113,34 +118,16 @@
           <section v-if="type === 'all'" class="resource-section brush-section">
             <BrushSquare :search="search" compact @more="selectType('brush')" />
           </section>
-          <section v-if="type === 'all' || type === 'resource'" class="resource-section">
-            <h3>
-              下载资源
-              <span v-if="!resourceLoading && !resourceError">({{ matchedResources.length }})</span>
-            </h3>
-            <p v-if="resourceLoading" role="status">正在加载资源目录…</p>
-            <div v-else-if="resourceError" role="alert">
-              <p>{{ resourceError }}</p>
-              <button @click="loadResources">重新加载资源</button>
-            </div>
-            <template v-else>
-              <p v-if="!matchedResources.length" class="intro">没有找到匹配的下载资源。</p>
-              <div v-for="file in visibleResources" :key="file.name" class="resource-row">
-                <div>
-                  <strong>{{ file.name.split('/').pop() }}</strong>
-                  <p>{{ file.name }} · {{ formatSize(file.size) }}</p>
-                </div>
-                <button :disabled="downloading === file.name" @click="download(file)">{{ downloading === file.name ? '获取中…' : '下载' }}</button>
-              </div>
-              <button v-if="type === 'all' && matchedResources.length > 6" @click="selectType('resource')">查看全部 {{ matchedResources.length }} 个资源</button>
-              <nav v-if="type === 'resource' && matchedResources.length > 24" class="pagination">
-                <button :disabled="page <= 1" @click="changePage(page - 1)">上一页</button>
-                <span>{{ page }} / {{ Math.ceil(matchedResources.length / 24) }}</span>
-                <button :disabled="page * 24 >= matchedResources.length" @click="changePage(page + 1)">下一页</button>
-              </nav>
-            </template>
-            <p v-if="downloadError" role="alert" class="notice">{{ downloadError }}</p>
-          </section>
+          <!-- 下载资源：官方资源 + 社区上传的资源（筛选、详情、付费下载、上传、我的资源都在这个组件里） -->
+          <ResourceSection
+            v-if="type === 'all' || type === 'resource'"
+            ref="resourceSection"
+            :search="search"
+            :compact="type === 'all'"
+            :page="type === 'resource' ? page : 1"
+            @more="selectType('resource')"
+            @page="changePage"
+          />
         </main>
       </div>
     </template>
@@ -172,6 +159,33 @@
         </template>
       </article>
     </div>
+    <!-- 公告 / 版本更新 / 使用手册 / 必吃榜：在知识库里直接读全文 -->
+    <div
+      v-if="isTextType && selectedId"
+      class="document-mask"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="textTypeLabel"
+      @click.self="closeDetail"
+    >
+      <article class="document-panel text-panel">
+        <button @click="closeDetail">关闭</button>
+        <p v-if="textLoading" role="status">正在加载…</p>
+        <p v-else-if="textError" role="alert" class="text-error">{{ textError }} <button v-if="!textMissing" @click="loadText">重试</button> <button @click="closeDetail">回到列表</button></p>
+        <template v-else-if="textDetail">
+          <p class="text-kind"><span class="type-label content-badge">{{ textTypeLabel }}</span><span v-if="textDetail.meta">{{ textDetail.meta }}</span><time :datetime="textDetail.updatedAt">{{ textDate(textDetail.updatedAt) }}</time></p>
+          <h2>{{ textDetail.title }}</h2>
+          <img v-if="textDetail.coverUrl" :src="textDetail.coverUrl" class="text-cover" alt="" />
+          <div v-if="textDetail.format === 'markdown'" class="text-body md-rich-text" v-html="renderMarkdown(textDetail.content)"></div>
+          <div v-else-if="textDetail.content" class="text-body plain">{{ textDetail.content }}</div>
+          <p v-else class="text-body empty">（没有正文）</p>
+          <p v-if="textDetail.externalUrl || textDetail.link" class="text-links">
+            <a v-if="textDetail.externalUrl" :href="textDetail.externalUrl" target="_blank" rel="noopener noreferrer">打开链接 ↗</a>
+            <RouterLink v-if="textDetail.link" :to="textDetail.link">{{ textDetail.linkText || '查看原页面' }} →</RouterLink>
+          </p>
+        </template>
+      </article>
+    </div>
   </section>
 </template>
 
@@ -179,17 +193,23 @@
 import SectionTrace from '@/components/SectionTrace.vue'
 import { ref, computed, watch, onUnmounted, defineAsyncComponent } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { knowledgeApi, knowledgeTypes, knowledgeRoute, type KnowledgeType, type KnowledgeItem, type PublicResource } from '@/api/knowledge';
+import { knowledgeApi, knowledgeTypes, knowledgeRoute, TEXT_TYPES, type KnowledgeType, type KnowledgeItem, type KnowledgeText } from '@/api/knowledge';
+import { renderMarkdown } from '@/utils/markdown';
+import { serverDate } from '@/utils/serverTime';
 import { wikiApi, type IWikiCategory } from '@/api/Wiki';
 import { wikiTags, wikiText } from '@/utils/wikiContent';
 import ArtworkDetail from '../画廊展厅/ArtworkDetail.vue';
 import PublicNoteDetail from '../太初随笔/PublicNoteDetail.vue';
 import SpiritPreview from '@/components/SpiritTextComponents/SpiritPreview.vue';
 import BrushSquare from '../画廊展厅/茶绘/BrushSquare.vue';
+import ResourceSection from './ResourceSection.vue';
 const KnowledgeGraph = defineAsyncComponent(() => import('./KnowledgeGraph.vue'));
 const route = useRoute(), router = useRouter();
 const searchInput = ref(''), items = ref<KnowledgeItem[]>([]), total = ref(0), loading = ref(false), error = ref('');
-const resources = ref<PublicResource[]>([]), resourceLoading = ref(false), resourceError = ref(''), downloadError = ref(''), downloading = ref('');
+// 开发进度只给管理员和赞助会员看，其他人选这一类时提示
+const devLocked = ref(false);
+// 下载资源区块（刷新按钮要通知它重新加载）
+const resourceSection = ref<InstanceType<typeof ResourceSection> | null>(null);
 const documentDetail = ref<{
     title: string;
     description: string;
@@ -216,7 +236,7 @@ const categoryId = computed(() => type.value === 'wiki' && Number.isInteger(Numb
 const page = computed(() => Number.isFinite(Number(route.query.page)) ? Math.max(1, Math.min(1000000, Math.floor(Number(route.query.page) || 1))) : 1);
 const graphMode = computed(() => route.query.view === 'graph');
 const selectedType = computed(() => route.query.detailType), selectedId = computed(() => typeof route.query.detail === 'string' ? route.query.detail : '');
-let catalogVersion = 0, resourceVersion = 0, documentVersion = 0, disposed = false;
+let catalogVersion = 0, documentVersion = 0, disposed = false;
 const setQuery = (query: Record<string, any>, replace = false) => router[replace ? 'replace' : 'push']({ query: { ...route.query, detail: undefined, detailType: undefined, ...query } });
 const applySearch = () => setQuery({ q: searchInput.value.trim() || undefined, page: undefined }, true);
 const clearSearch = () => { searchInput.value = ''; return applySearch(); };
@@ -239,6 +259,7 @@ async function loadCatalog() {
             if (page.value > lastPage) { void setQuery({ page: lastPage > 1 ? lastPage : undefined }, true); return; }
             items.value = res.items;
             total.value = res.total;
+            devLocked.value = !!res.locked;
         }
     }
     catch {
@@ -250,63 +271,51 @@ async function loadCatalog() {
             loading.value = false;
     }
 }
-async function loadResources() {
-    const version = ++resourceVersion;
-    resourceLoading.value = true;
-    resourceError.value = '';
-    try {
-        const res = await knowledgeApi.resources();
-        if (!res.success || !Array.isArray(res.data))
-            throw new Error();
-        if (version === resourceVersion)
-            resources.value = res.data;
-    }
-    catch {
-        if (version === resourceVersion)
-            resourceError.value = '下载资源目录暂时不可用，其他社区资料仍可浏览。';
-    }
-    finally {
-        if (version === resourceVersion)
-            resourceLoading.value = false;
-    }
-}
-const matchedResources = computed(() => { const terms = search.value.toLowerCase().split(/\s+/).filter(Boolean); return resources.value.filter(file => terms.every(term => file.name.toLowerCase().includes(term))).sort((a, b) => a.name.localeCompare(b.name)); });
-const visibleResources = computed(() => type.value === 'resource' ? matchedResources.value.slice((page.value - 1) * 24, page.value * 24) : matchedResources.value.slice(0, 6));
-const formatSize = (bytes: number) => bytes < 1048576 ? (bytes / 1024).toFixed(1) + ' KB' : (bytes / 1048576).toFixed(1) + ' MB';
-async function download(file: PublicResource) {
-    if (downloading.value)
-        return;
-    downloading.value = file.name;
-    downloadError.value = '';
-    try {
-        const res = await knowledgeApi.download(file.name), url = new URL(res.downloadUrl);
-        if (!res.success || !['https:', 'http:'].includes(url.protocol))
-            throw new Error();
-        if (disposed)
-            return;
-        const a = document.createElement('a');
-        a.href = url.href;
-        a.download = file.name.split('/').pop() || 'download';
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.click();
-    }
-    catch {
-        if (!disposed)
-            downloadError.value = '获取下载链接失败，请再次点击下载。';
-    }
-    finally {
-        downloading.value = '';
-    }
-}
 function openItem(item: KnowledgeItem) {
     if (item.type === 'wiki')
         return router.push({ name: 'WikiDetail', params: { id: item.id }, query: { q: search.value || undefined, type: 'wiki', page: route.query.page, category: route.query.category } });
-    if (['world', 'character', 'resource', 'novel', 'work', 'setting'].includes(item.type))
+    if (['world', 'character', 'resource', 'novel', 'work', 'setting', 'joint', 'devlog'].includes(item.type))
         return router.push(knowledgeRoute(item));
     return setQuery({ detail: item.id, detailType: item.type });
 }
 const closeDetail = () => setQuery({});
+// ---------- 公告 / 版本更新 / 使用手册 / 必吃榜的全文 ----------
+const isTextType = computed(() => typeof selectedType.value === 'string' && (TEXT_TYPES as readonly string[]).includes(selectedType.value));
+const textTypeLabel = computed(() => knowledgeTypes[selectedType.value as KnowledgeType] ?? '资料');
+const textDetail = ref<KnowledgeText>(), textLoading = ref(false), textError = ref('');
+/** true = 后端说找不到（不存在 / 已下线），不用给「重试」 */
+const textMissing = ref(false);
+let textVersion = 0;
+async function loadText() {
+    const version = ++textVersion;
+    textDetail.value = undefined;
+    textError.value = '';
+    textMissing.value = false;
+    if (!isTextType.value || !selectedId.value)
+        return;
+    textLoading.value = true;
+    try {
+        const res = await knowledgeApi.text(String(selectedType.value), selectedId.value);
+        if (version === textVersion)
+            textDetail.value = res;
+    }
+    catch (e) {
+        if (version === textVersion) {
+            // 404 = 真的找不到（不存在、没公开或已下线）；其他（网络、服务器出错）才是读取失败
+            const status = (e as { response?: { status?: number } } | null)?.response?.status;
+            textMissing.value = status === 404;
+            textError.value = status === 404 ? '这条资料不存在或已下线。' : '读取失败，请重试。';
+        }
+    }
+    finally {
+        if (version === textVersion)
+            textLoading.value = false;
+    }
+}
+// 开发进度在知识库里没有全文：/knowledge?detailType=devlog&detail=项目ID 这类链接直接转到开发进度页
+// （那边的 DevGate 会按赞助权限判断，没权限显示「开发进度是赞助会员专享」，不会显示读取失败）
+watch([selectedType, selectedId], ([t, id]) => { if (t === 'devlog' && id) void router.replace({ name: 'DevReportDetail', params: { id } }); }, { immediate: true });
+const textDate = (v: string) => serverDate(v).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
 async function loadDocument() {
     const version = ++documentVersion;
     documentDetail.value = undefined;
@@ -329,19 +338,13 @@ async function loadDocument() {
     }
 }
 function refresh() { void loadCatalog(); if (type.value === 'all' || type.value === 'resource')
-    void loadResources(); }
+    void resourceSection.value?.reload(); }
 watch([search, type, page, graphMode, categoryId], () => { searchInput.value = search.value; void loadCatalog(); }, { immediate: true });
 watch(type, value => { if (value === 'wiki' && !categories.value.length)
-    void loadCategories(); if ((value === 'all' || value === 'resource') && !resources.value.length && !resourceLoading.value)
-    void loadResources(); }, { immediate: true });
+    void loadCategories(); }, { immediate: true });
 watch([selectedType, selectedId], loadDocument, { immediate: true });
-watch([type, page, () => matchedResources.value.length, resourceLoading], () => {
-    if (type.value === 'resource' && !resourceLoading.value && !resourceError.value) {
-        const last = Math.max(1, Math.ceil(matchedResources.value.length / 24));
-        if (page.value > last) void setQuery({ page: last > 1 ? last : undefined }, true);
-    }
-});
-onUnmounted(() => { disposed = true; catalogVersion++; resourceVersion++; documentVersion++; });
+watch([selectedType, selectedId], loadText, { immediate: true });
+onUnmounted(() => { disposed = true; catalogVersion++; documentVersion++; });
 </script>
 
 <style scoped>
@@ -500,6 +503,7 @@ button:hover:not(:disabled), a:hover {
   padding: 40px 16px;
   color: var(--text-secondary);
 }
+.state-link { color: var(--accent-color); }
 .pagination {
   justify-content: center;
   margin: 24px 0;
@@ -540,6 +544,16 @@ button:hover:not(:disabled), a:hover {
   padding: 4vh 16px;
   overflow-y: auto;
 }
+.text-panel .text-kind { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0 6px; color: var(--text-secondary); font-size: .82rem; }
+.text-panel h2 { margin: 0 0 14px; }
+.text-panel .text-cover { display: block; max-width: 100%; max-height: 360px; margin: 0 0 16px; object-fit: contain; }
+.text-panel .text-body { font-size: .95rem; line-height: 1.85; overflow-wrap: anywhere; }
+.text-panel .text-body.plain { white-space: pre-wrap; }
+.text-panel .text-error button { margin-left: 8px; }
+.text-panel .text-body.empty { color: var(--text-secondary); }
+.text-panel .text-body :deep(img) { max-width: 100%; }
+.text-panel .text-links { display: flex; flex-wrap: wrap; gap: 16px; margin: 20px 0 0; padding-top: 14px; border-top: 1px solid var(--border-line); }
+.text-panel .text-links a { color: var(--accent-color); }
 .document-panel {
   max-width: 800px;
   margin: auto;

@@ -6,7 +6,7 @@ export interface CommunityFeedItem {
   id: string;
   kind: 'blog' | 'post' | 'artwork' | 'wiki-new' | 'wiki-update' | 'user-joined' | 'signin' | 'comment-blog' | 'comment-post' | 'comment-artwork' | 'joint' | 'survey' | 'dev-project' | 'world-new' | 'world-edit' | 'quest-start' | 'quest-complete' | 'history' | 'comment-history' | 'comment-work' | 'comment-character'
     | 'comment-activity' | 'chronicle' | 'novel-new' | 'novel-chapter' | 'quest-report' | 'chai-work' | 'oc' | 'battle' | 'activity' | 'checkin'
-    | 'news' | 'release' | 'trade-item' | 'must-eat' | 'sponsor';
+    | 'news' | 'release' | 'trade-item' | 'must-eat' | 'sponsor' | 'resource';
   actorName: string;
   actorId?: string | null; // 点击进入个人主页；官方动态为空
   targetTitle: string;

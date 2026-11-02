@@ -19,11 +19,12 @@ public class WikiReviewController(AppDbContext db) : ControllerBase
         var global = await WikiAccess.CanManageAsync(db, User);
         var owned = db.WikiCategories.Where(c => c.OwnerId == UserId).Select(c => c.Id);
         var rows = await db.WikiArticleRevisions.Include(r => r.Category).Where(r => r.Status == 0 && (global || owned.Contains(r.CategoryId))).OrderByDescending(r => r.CreatedAt).ToListAsync();
-        var articleIds = rows.Select(r => r.ArticleId).ToArray();
+        // 用 List 不用数组：C# 14 下数组的 Contains 会变成 Span 方法，EF 翻译不了，整个接口报错（后台维基拿不到数据）
+        var articleIds = rows.Select(r => r.ArticleId).Distinct().ToList();
         var articles = await db.WikiArticles.Where(a => articleIds.Contains(a.Id)).ToListAsync();
-        var ids = rows.Select(r => r.ContributorId).Concat(articles.Select(a => a.CreatorId)).Select(id => Guid.TryParse(id, out var g) ? g : Guid.Empty).ToArray();
+        var ids = rows.Select(r => r.ContributorId).Concat(articles.Select(a => a.CreatorId)).Select(id => Guid.TryParse(id, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).Distinct().ToList();
         var users = await db.Users.Where(u => ids.Contains(u.Id)).ToListAsync();
-        string Name(string? id) => users.FirstOrDefault(u => u.Id.ToString() == id)?.Username ?? "历史贡献者";
+        string Name(string? id) => Guid.TryParse(id, out var g) ? users.FirstOrDefault(u => u.Id == g)?.Username ?? "历史贡献者" : "历史贡献者";
         return Ok(rows.Select(r => new { r.Id, r.ArticleId, r.Title, r.EditSummary, r.Status, r.CreatedAt, r.Content, r.PreviousRevisionId, CategoryName = r.Category?.Name ?? "未分类", ContributorName = Name(r.ContributorId), CreatorName = Name(articles.FirstOrDefault(a => a.Id == r.ArticleId)?.CreatorId) }));
     }
 

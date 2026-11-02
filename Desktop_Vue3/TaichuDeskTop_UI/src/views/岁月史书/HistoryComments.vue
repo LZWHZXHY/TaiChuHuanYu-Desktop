@@ -1,4 +1,5 @@
-<!-- 岁月史书一段下面的评论：平时只显示最近两条，「查看全部」展开；登录后可以评论、回复某条；自己删自己的，管理员能删任何一条。 -->
+<!-- 岁月史书一段下面的评论：平时只显示最近两条，「查看全部」展开；登录后可以评论、回复某条、带图（最多 4 张，可以直接粘贴截图）；
+     自己删自己的，管理员能删任何一条。 -->
 <template>
   <div class="hcm">
     <ol v-if="shown.length" class="hcm-list">
@@ -12,6 +13,11 @@
             <UserLink :id="c.author.id" :name="c.author.username" class="hcm-name">{{ c.author.username }}</UserLink>
             <template v-if="c.replyTo"><span class="hcm-reply-label"> 回复 </span><UserLink :id="c.replyTo.id" :name="c.replyTo.username" class="hcm-name">@{{ c.replyTo.username }}</UserLink></template>：{{ c.content }}
           </p>
+          <div v-if="c.images?.length" class="hcm-imgs">
+            <button v-for="(url, i) in c.images" :key="url" type="button" class="hcm-img" :aria-label="`看第 ${i + 1} 张图`" @click="emit('preview', c.images, i)">
+              <img :src="withThumbnail(url, 240)" alt="" loading="lazy" />
+            </button>
+          </div>
           <div class="hcm-meta">
             <time :datetime="c.createdAt" :title="fullTime(c.createdAt)">{{ shortTime(c.createdAt) }}</time>
             <button v-if="userStore.isLoggedIn" type="button" class="hcm-op" @click="startReply(c)">回复</button>
@@ -26,14 +32,28 @@
     </button>
     <button v-else-if="all && all.length > PREVIEW" type="button" class="hcm-all" @click="all = null">收起评论</button>
 
-    <form v-if="userStore.isLoggedIn" class="hcm-form" @submit.prevent="send">
+    <form v-if="userStore.isLoggedIn" class="hcm-form" @submit.prevent="send" @paste="onPaste">
       <span v-if="replyTo" class="hcm-replying">回复 @{{ replyTo.author.username }} <button type="button" aria-label="不回复了" @click="replyTo = null">×</button></span>
+      <div v-if="images.length || uploading.length" class="hcm-pending">
+        <figure v-for="(url, i) in images" :key="url" class="hcm-pending-img">
+          <img :src="withThumbnail(url, 160)" alt="" />
+          <button type="button" aria-label="不要这张了" @click="images.splice(i, 1)">×</button>
+        </figure>
+        <figure v-for="u in uploading" :key="u.id" class="hcm-pending-img is-uploading">
+          <img :src="u.preview" alt="" />
+          <span>{{ u.percent }}%</span>
+        </figure>
+      </div>
       <div class="hcm-input-row">
+        <label v-if="images.length + uploading.length < MAX_IMAGES" class="hcm-pick" title="发图（也可以直接粘贴截图）">
+          <input type="file" accept="image/*" multiple @change="onPick" />🖼
+        </label>
         <textarea ref="input" v-model="text" rows="1" maxlength="500" :placeholder="replyTo ? `回复 ${replyTo.author.username}…` : '说点什么…'" aria-label="写评论"
           @keydown.enter.exact.prevent="send" @input="autoGrow"></textarea>
-        <button type="submit" class="hcm-send" :disabled="busy || !text.trim()">{{ busy ? '…' : '发送' }}</button>
+        <button type="submit" class="hcm-send" :disabled="busy || uploading.length > 0 || (!text.trim() && !images.length)">{{ busy ? '…' : uploading.length ? '传图中' : '发送' }}</button>
       </div>
       <small v-if="text.length > 400" class="hcm-count">{{ text.length }}/500</small>
+      <small v-if="imageError" class="hcm-count err" role="alert">{{ imageError }}</small>
     </form>
     <p v-else-if="!entry.commentCount" class="hcm-login"><RouterLink :to="{ path: LOGIN_PATH, query: { redirect: route.fullPath } }">登录</RouterLink>后可以评论</p>
   </div>
@@ -48,9 +68,11 @@ import { useUserStore } from '@/stores/user'
 import { LOGIN_PATH } from '@/router/auth'
 import UserLink from '@/components/UserLink.vue'
 import ReportButton from '@/components/ReportButton.vue'
+import { useCos } from '@/composables/useCos'
+import { withThumbnail } from '@/utils/imageThumb'
 
 const props = defineProps<{ entry: HistoryEntry }>()
-const emit = defineEmits<{ update: [patch: Pick<HistoryEntry, 'commentCount' | 'recentComments'>] }>()
+const emit = defineEmits<{ update: [patch: Pick<HistoryEntry, 'commentCount' | 'recentComments'>]; preview: [images: string[], index: number] }>()
 const userStore = useUserStore()
 const route = useRoute()
 const PREVIEW = 2
@@ -83,13 +105,54 @@ function autoGrow() {
 function publish(list: HistoryComment[], count: number) {
   emit('update', { commentCount: count, recentComments: list.slice(-PREVIEW) })
 }
+// ===== 评论带图 =====
+const MAX_IMAGES = 4
+const { uploadFile } = useCos()
+const images = ref<string[]>([])
+const uploading = ref<{ id: number; preview: string; percent: number }[]>([])
+const imageError = ref('')
+let uploadSeq = 0
+async function uploadImages(files: File[]) {
+  const room = MAX_IMAGES - images.value.length - uploading.value.length
+  const list = files.filter(f => f.type.startsWith('image/')).slice(0, Math.max(0, room))
+  imageError.value = files.length && !list.length ? (room <= 0 ? `一条评论最多 ${MAX_IMAGES} 张图` : '只能发图片') : ''
+  await Promise.all(list.map(async file => {
+    if (file.size > 10 * 1024 * 1024) { imageError.value = '图片太大了（超过 10MB）'; return }
+    const id = ++uploadSeq
+    uploading.value.push({ id, preview: URL.createObjectURL(file), percent: 0 })
+    const slot = () => uploading.value.find(u => u.id === id)
+    try {
+      const { url } = await uploadFile(file, 'history/comments', p => { const s = slot(); if (s) s.percent = Math.min(99, p) })
+      images.value.push(url)
+    } catch { imageError.value = '图片没传上去，再试一次' }
+    finally {
+      const s = slot()
+      if (s) URL.revokeObjectURL(s.preview)
+      uploading.value = uploading.value.filter(u => u.id !== id)
+    }
+  }))
+}
+function onPick(e: Event) {
+  const input = e.target as HTMLInputElement
+  const files = [...(input.files ?? [])]
+  input.value = ''
+  void uploadImages(files)
+}
+/** 直接粘贴截图 */
+function onPaste(e: ClipboardEvent) {
+  const files = [...(e.clipboardData?.files ?? [])].filter(f => f.type.startsWith('image/'))
+  if (!files.length) return
+  e.preventDefault()
+  void uploadImages(files)
+}
+
 async function send() {
   const content = text.value.trim()
-  if (!content || busy.value) return
+  if ((!content && !images.value.length) || busy.value || uploading.value.length) return
   busy.value = true
   try {
-    const c = await historyApi.addComment(props.entry.id, content, replyTo.value?.id)
-    text.value = ''; replyTo.value = null
+    const c = await historyApi.addComment(props.entry.id, content, replyTo.value?.id, images.value)
+    text.value = ''; replyTo.value = null; images.value = []; imageError.value = ''
     void nextTick(autoGrow)
     if (all.value) all.value = [...all.value, c]
     publish(all.value ?? [...props.entry.recentComments, c], props.entry.commentCount + 1)
@@ -149,6 +212,19 @@ function shortTime(iso: string) {
 .hcm-send { height: 34px; padding: 0 14px; border: 1px solid var(--accent-color); background: var(--accent-color); color: #fff; font: inherit; font-size: 13px; cursor: pointer; }
 .hcm-send:disabled { opacity: .5; cursor: default; }
 .hcm-count { justify-self: end; font-size: 11px; color: var(--text-secondary); }
+.hcm-count.err { color: #dc2626; }
+.hcm-imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.hcm-img { padding: 0; border: 1px solid var(--border-line); background: var(--paper-card); cursor: zoom-in; }
+.hcm-img img { display: block; width: 88px; height: 88px; object-fit: cover; }
+.hcm-pending { display: flex; flex-wrap: wrap; gap: 6px; }
+.hcm-pending-img { position: relative; margin: 0; width: 64px; height: 64px; border: 1px solid var(--border-line); }
+.hcm-pending-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hcm-pending-img button { position: absolute; top: 0; right: 0; width: 20px; height: 20px; border: 0; background: rgb(0 0 0 / .6); color: #fff; cursor: pointer; line-height: 1; }
+.hcm-pending-img.is-uploading img { opacity: .5; }
+.hcm-pending-img span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: var(--text-primary); }
+.hcm-pick { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; flex-shrink: 0; border: 1px solid var(--border-line); background: var(--paper-card); cursor: pointer; font-size: 16px; }
+.hcm-pick:hover { border-color: var(--accent-color); }
+.hcm-pick input { display: none; }
 .hcm-login { margin: 0; font-size: 12px; color: var(--text-secondary); }
 .hcm-login a { color: var(--accent-color); }
 </style>

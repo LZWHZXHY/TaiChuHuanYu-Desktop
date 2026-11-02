@@ -283,30 +283,33 @@ namespace TaiChuWeb_V2.Controllers.Projects
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = "您尚未加入该项目，无法阅读项目文档" });
             }
 
-            var documents = await _context.ProjectDocuments
+            // 分三次查、在内存里对上：以前在 SQL 里拿 Notes.Id / Users.Id 转字符串跨表比较，排序规则不同时整个列表报错
+            var pinned = await _context.ProjectDocuments
                 .Where(pd => pd.ProjectId == projectId)
-                .Join(
-                    _context.Notes.Where(n => n.Status != 2),
-                    pd => pd.NoteId,
-                    n => n.Id.ToString(),
-                    (pd, n) => new { pd, n }
-                )
-                .Join(
-                    _context.Users,
-                    combined => combined.pd.PinnedByUserId,
-                    u => u.Id.ToString(),
-                    (combined, u) => new { combined.pd, combined.n, PinnedByUserName = u.Username }
-                )
-                .OrderByDescending(x => x.pd.PinnedAt)
+                .OrderByDescending(pd => pd.PinnedAt)
+                .ToListAsync();
+            var noteIds = pinned.Select(pd => Guid.TryParse(pd.NoteId, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).Distinct().ToList();
+            var notes = await _context.Notes.Where(n => noteIds.Contains(n.Id) && n.Status != 2).ToDictionaryAsync(n => n.Id);
+            var pinnerIds = pinned.Select(pd => Guid.TryParse(pd.PinnedByUserId, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).Distinct().ToList();
+            var pinners = await _context.Users.Where(u => pinnerIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Username);
+            var documents = pinned
+                .Select(pd => new
+                {
+                    pd,
+                    n = Guid.TryParse(pd.NoteId, out var nid) && notes.TryGetValue(nid, out var note) ? note : null,
+                    PinnedByUserName = Guid.TryParse(pd.PinnedByUserId, out var uid) && pinners.TryGetValue(uid, out var name) ? name : null
+                })
+                // 和以前的 Join 一样：文档已删除、置顶人找不到的不显示
+                .Where(x => x.n != null && x.PinnedByUserName != null)
                 .Select(x => new
                 {
-                    id = x.n.Id,
+                    id = x.n!.Id,
                     title = string.IsNullOrWhiteSpace(x.n.Title) ? "未命名项目文档" : x.n.Title,
                     type = x.n.Type,
                     pinnedAt = x.pd.PinnedAt,
                     pinnedByUserName = x.PinnedByUserName
                 })
-                .ToListAsync();
+                .ToList();
 
             return Ok(documents);
         }

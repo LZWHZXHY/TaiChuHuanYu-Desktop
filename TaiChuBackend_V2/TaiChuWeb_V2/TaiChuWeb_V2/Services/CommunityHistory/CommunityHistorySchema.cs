@@ -4,7 +4,7 @@ using TaiChuWeb_V2.DbContext;
 
 namespace TaiChuWeb_V2.Services.CommunityHistory;
 
-/// <summary>启动时创建岁月史书的三张表（内容、表情回应、评论）（不需要 EF 迁移）</summary>
+/// <summary>启动时创建岁月史书的表（内容、表情回应、评论、@ 了谁），旧的评论表补「图片」列（不需要 EF 迁移）</summary>
 public class CommunityHistorySchema(IServiceScopeFactory scopes, ILogger<CommunityHistorySchema> logger) : IHostedService
 {
     private const string EntriesSql = @"CREATE TABLE IF NOT EXISTS CommunityHistoryEntries (
@@ -49,6 +49,18 @@ public class CommunityHistorySchema(IServiceScopeFactory scopes, ILogger<Communi
   KEY IX_CHC_User (UserId, CreatedAt)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 
+    private const string MentionsSql = @"CREATE TABLE IF NOT EXISTS CommunityHistoryMentions (
+  EntryId BIGINT NOT NULL,
+  UserId CHAR(36) NOT NULL,
+  CreatedAt DATETIME(6) NOT NULL,
+  PRIMARY KEY (EntryId, UserId),
+  KEY IX_CHM_User (UserId, EntryId)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+
+    /// <summary>评论加图片（fix119）：旧表补一列</summary>
+    private const string CommentImagesSql = @"SELECT COUNT(*) FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'CommunityHistoryComments' AND COLUMN_NAME = 'Images'";
+
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         try
@@ -60,11 +72,21 @@ public class CommunityHistorySchema(IServiceScopeFactory scopes, ILogger<Communi
             if (opened) await connection.OpenAsync(cancellationToken);
             try
             {
-                foreach (var sql in new[] { EntriesSql, ReactionsSql, CommentsSql })
+                foreach (var sql in new[] { EntriesSql, ReactionsSql, CommentsSql, MentionsSql })
                 {
                     await using var command = connection.CreateCommand();
                     command.CommandText = sql;
                     await command.ExecuteNonQueryAsync(cancellationToken);
+                }
+                await using (var check = connection.CreateCommand())
+                {
+                    check.CommandText = CommentImagesSql;
+                    if (Convert.ToInt64(await check.ExecuteScalarAsync(cancellationToken)) == 0)
+                    {
+                        await using var alter = connection.CreateCommand();
+                        alter.CommandText = "ALTER TABLE CommunityHistoryComments ADD COLUMN Images TEXT NULL";
+                        await alter.ExecuteNonQueryAsync(cancellationToken);
+                    }
                 }
             }
             finally { if (opened) await connection.CloseAsync(); }

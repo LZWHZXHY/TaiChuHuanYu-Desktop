@@ -7,7 +7,8 @@ using TaiChuWeb_V2.DbContext;
 namespace TaiChuWeb_V2.Services.World;
 
 /// <summary>
-/// 启动时创建世界观协作者表 WorldCollaborators 和条目修改记录表 WorldCardRevisions，并给 WorldCards 补上 Layout 列（不需要 EF 迁移）。
+/// 启动时创建世界观协作者表 WorldCollaborators、条目修改记录表 WorldCardRevisions、编年史的表（含修改记录 WorldChronicleRevisions），
+/// 并给 WorldCards 补上 Layout 列（不需要 EF 迁移）。
 /// Guid 列的字符集 / 排序规则照抄 WorldProjects.Id（Pomelo 通常是 ascii 字符集），
 /// 避免两表关联查询时出现「排序规则混用」错误。照抄失败时退回默认写法，保证表一定能建出来。
 /// </summary>
@@ -45,7 +46,7 @@ WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'WorldProjects' AND COLUMN_NAME
 
                 await EnsureCardLayoutColumnAsync(connection, cancellationToken);
 
-                foreach (var sql in new Func<string, string>[] { Sql, RevisionSql, TimelineSql, TimelineEventSql, CalendarSql })
+                foreach (var sql in new Func<string, string>[] { Sql, RevisionSql, TimelineSql, TimelineEventSql, CalendarSql, ChronicleRevisionSql })
                 {
                     try
                     {
@@ -152,6 +153,26 @@ WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'WorldProjects' AND COLUMN_NAME
   Json LONGTEXT NOT NULL,
   UpdatedAt DATETIME(6) NOT NULL,
   PRIMARY KEY (ProjectId)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+
+    // 编年史修改记录（fix121）：时间线 / 事件 / 历法改之前和改之后的完整内容，用来查看和撤销
+    // （列名不用 Before / After：BEFORE 是 MySQL 保留字）
+    private static string ChronicleRevisionSql(string guidType) => $@"CREATE TABLE IF NOT EXISTS WorldChronicleRevisions (
+  Id BIGINT NOT NULL AUTO_INCREMENT,
+  ProjectId {guidType} NOT NULL,
+  TargetType VARCHAR(16) NOT NULL,
+  TargetId {guidType} NOT NULL,
+  UserId {guidType} NULL,
+  Action VARCHAR(16) NOT NULL,
+  Title VARCHAR(200) NOT NULL DEFAULT '',
+  BeforeJson LONGTEXT NULL,
+  AfterJson LONGTEXT NULL,
+  ChangedFields VARCHAR(500) NULL,
+  Note VARCHAR(200) NULL,
+  CreatedAt DATETIME(6) NOT NULL,
+  PRIMARY KEY (Id),
+  KEY IX_WorldChronicleRevisions_Project (ProjectId, Id),
+  KEY IX_WorldChronicleRevisions_Target (TargetId, Id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
 
     /// <summary>条目的区块排列列 WorldCards.Layout（fix80 新增）：没有就加上</summary>

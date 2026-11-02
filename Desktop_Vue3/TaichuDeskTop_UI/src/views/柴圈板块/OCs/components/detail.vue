@@ -26,7 +26,11 @@
         </div>
 
         <div class="info-section surface-heading"><SectionTrace />
-          <h1 class="char-name">{{ character.title }}</h1>
+          <h1 class="char-name">{{ character.title }}
+            <!-- 当前状态 = 最近一场约战的战后状态（下面「战斗经历」读出来的，没写过就不显示） -->
+            <span v-if="ocCurrent" class="char-status" :class="'tone-' + statusTone(ocCurrent.statusTag)"
+              :title="`来自约战《${ocCurrent.battleTitle}》${ocCurrent.statusNote ? '：' + ocCurrent.statusNote : ''}`">当前状态：{{ ocCurrent.statusTag }}</span>
+          </h1>
           <p v-if="getAttr('昵称') || getAttr('绰号')" class="char-nickname">
             “{{ getAttr('昵称') || getAttr('绰号') }}”
           </p>
@@ -57,6 +61,9 @@
           <h3 class="desc-title">角色简介</h3>
           <p class="desc-text">{{ character.description }}</p>
         </section>
+        <!-- 能力面板（展示面板 + 约战面板，雷达图）：单独接口读取，没有就不显示；作者看到添加入口 -->
+        <!-- key：从世界观条目更新 / 从备份恢复以后换个 key，面板重新读一遍 -->
+        <OcPanelsView v-if="character.id" :key="panelsKey" :character-id="character.id" />
         <!-- 长文本属性区块 -->
         <div v-if="longAttributes.length">
           <div v-for="attr in longAttributes" :key="attr.id" class="desc-section">
@@ -115,6 +122,9 @@
           <p class="desc-text">暂无图库图片</p>
         </div>
 
+        <!-- 世界观：收录于哪些世界观；作者可以关联、复制到世界观、从对应条目更新、查看备份 -->
+        <OcWorldPanel v-if="character.id" :character-id="character.id" @changed="reloadCharacter" />
+
         <!-- 约战战绩 -->
         <div class="battle-stats-section">
           <h4 class="stats-title">⚔️ 约战战绩</h4>
@@ -129,6 +139,9 @@
             <span class="win-rate">胜率 {{ winRate }}%</span>
           </div>
         </div>
+
+        <!-- 战斗经历：打过的约战、对手、结果、战后状态和视频；顺便告诉上面「当前状态」 -->
+        <OcBattleHistory v-if="character.id" :character-id="character.id" @current="c => (ocCurrent = c)" />
 
         <!-- 底部操作 -->
         <div class="detail-actions">
@@ -157,6 +170,10 @@ import { useStickmanStore } from '../stickman_store'
 import { stickmanApi } from '../stickman'
 import { followApi } from '@/api/follow'
 import ChaiComments from '../../components/ChaiComments.vue'
+import OcPanelsView from './OcPanelsView.vue'
+import OcWorldPanel from './OcWorldPanel.vue'
+import OcBattleHistory from './OcBattleHistory.vue'
+import { statusTone, type OcCurrentStatus } from '@/api/battleAftermath'
 import { withThumbnail } from '@/utils/imageThumb'
 import { useUserStore } from '@/stores/user'
 import { ElImage } from 'element-plus' // 可选，但已全局注册
@@ -247,6 +264,19 @@ const previewList = computed(() => {
   return character.value?.images?.map(img => img.url) || []
 })
 
+// ===== 从世界观条目更新、从备份恢复以后：重新读 OC 和能力面板 =====
+// 直接用接口读，不走 store.fetchDetail（那个会把整页切成「加载中」再闪回来）
+const panelsKey = ref(0)
+async function reloadCharacter() {
+  const id = character.value?.id
+  if (!id) return
+  try { store.currentCharacter = await stickmanApi.getDetail(id) } catch { /* 读失败就保持原样，刷新页面能看到最新的 */ }
+  panelsKey.value++
+}
+
+// ===== 当前状态（最近一场约战的战后状态），由「战斗经历」读出来交上来 =====
+const ocCurrent = ref<OcCurrentStatus | null>(null)
+
 // ===== 返回 OC 画阁列表页 =====
 function goBack() {
   router.push('/ocs')
@@ -293,6 +323,13 @@ function goBattle() {
   padding: 12px 0;
   border-top: 1px solid var(--line-raw);
 }
+/* 名字旁边的「当前状态」：伤得越重越红，阵亡黑底，觉醒 / 突破用主题色 */
+.char-status { display: inline-block; margin-left: 10px; padding: 1px 8px; vertical-align: middle; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; border: 1px solid var(--border-line); background: var(--bg-sub); color: var(--text-primary); white-space: nowrap; }
+.char-status.tone-ok { color: var(--success, #3a8f5c); border-color: var(--success, #3a8f5c); background: color-mix(in srgb, var(--success, #3a8f5c) 12%, transparent); }
+.char-status.tone-warn { color: var(--warning, #c08a1e); border-color: var(--warning, #c08a1e); background: color-mix(in srgb, var(--warning, #c08a1e) 12%, transparent); }
+.char-status.tone-bad { color: var(--danger, #c0392b); border-color: var(--danger, #c0392b); background: color-mix(in srgb, var(--danger, #c0392b) 12%, transparent); }
+.char-status.tone-dead { color: var(--paper-card); border-color: var(--text-primary); background: var(--text-primary); }
+.char-status.tone-up { color: var(--accent-color); border-color: var(--accent-color); background: var(--accent-soft); }
 .stats-title {
   font-size: 13px;
   font-weight: 400;

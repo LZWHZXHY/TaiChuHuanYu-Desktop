@@ -82,10 +82,12 @@ const META: Record<CommunityFeedItem['kind'], Meta> = {
   activity: { badge: '打卡', tone: 'joint', verb: '发起了打卡活动', go: checkin },
   checkin: { badge: '打卡', tone: 'joint', verb: '完成了打卡：', go: checkin },
   news: { badge: '公告', tone: 'official', verb: '发布了公告', go: item => ({ name: 'root', query: { news: item.targetId } }) },
-  release: { badge: '版本', tone: 'official', verb: '发布了版本更新', go: () => '/changelog' },
+  release: { badge: '版本', tone: 'official', verb: '发布了版本更新', go: item => ({ path: '/changelog', query: { release: item.targetId } }) },
   'trade-item': { badge: '交易行', tone: 'official', verb: '交易行上新：', go: () => '/trade' },
   'must-eat': { badge: '必吃榜', tone: 'official', verb: '在必吃榜收录了', go: () => '/must-eat' },
   sponsor: { badge: '赞助', tone: 'history', verb: '赞助了社区，成为', go: () => '/sponsors' },
+  // 知识库资源：审核通过时进动态，点开直接看资源详情
+  resource: { badge: '资源', tone: 'wiki', verb: '上传了资源', book: true, go: item => ({ name: 'KnowledgeHome', query: { type: 'resource', res: item.targetId } }) },
 }
 const FALLBACK: Meta = { badge: '动态', tone: 'user', verb: '更新了', go: () => '/' }
 const meta = (kind: string) => META[kind as CommunityFeedItem['kind']] ?? FALLBACK
@@ -123,6 +125,7 @@ async function load(reset = false) {
     const page = await communityApi.getFeed(nextOffset, PAGE_SIZE)
     if (reset) {
       items.value = page.items
+      saveCache(page.items, page.hasMore)
     } else {
       const seen = new Set(items.value.map(i => i.id))
       items.value = items.value.concat(page.items.filter(i => !seen.has(i.id)))
@@ -136,7 +139,25 @@ async function load(reset = false) {
   }
 }
 
-onMounted(() => load(true))
+// 上次看到的第一页先存在浏览器里：下次打开首页先把它显示出来（不用干等），新的拿到后再换上
+const CACHE_KEY = 'tc-community-feed-v1'
+function saveCache(list: CommunityFeedItem[], more: boolean) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), items: list, hasMore: more })) } catch { /* 存不了就算了 */ }
+}
+function readCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY)
+    if (!raw) return
+    const data = JSON.parse(raw) as { at?: number; items?: CommunityFeedItem[]; hasMore?: boolean }
+    // 太旧的（超过 3 天）不显示，免得一打开看到一堆过期的
+    if (!Array.isArray(data.items) || !data.items.length || Date.now() - (data.at ?? 0) > 3 * 86400_000) return
+    items.value = data.items
+    hasMore.value = Boolean(data.hasMore)
+    offset = data.items.length
+  } catch { /* 坏了就当没有 */ }
+}
+
+onMounted(() => { readCache(); void load(true) })
 </script>
 
 <style scoped>

@@ -1,8 +1,19 @@
 <!-- MapBlock.vue：地图区块（像 vvd）。一张底图 + 图钉，可以缩放、拖动；图钉可以连到条目，点开看详情。
-     editable 时：上传 / 更换底图，「插图钉」后点地图放一个，图钉可以拖动，改名字、颜色、备注、连到哪个条目。 -->
+     editable 时：上传 / 更换底图，「插图钉」后点地图放一个，图钉可以拖动，改名字、颜色、备注、连到哪个条目。
+     多层地图：图钉可以设「下一层地图」（别的条目里的地图区块），阅读时点「进入地图 →」就在这里换成那张图，上面有面包屑可以返回。 -->
 <template>
   <div class="map-block" :class="{ editable }">
-    <div v-if="!image" class="mb-empty">
+    <!-- 多层地图：现在在第几层，点名字回到那一层 -->
+    <nav v-if="levels.length" class="mb-crumbs" aria-label="地图层级">
+      <button type="button" class="mb-back" @click="goLevel(levels.length - 1)">← 返回上一层</button>
+      <button type="button" class="mb-crumb" @click="goLevel(0)">{{ rootLabel || '地图' }}</button>
+      <template v-for="(lv, i) in levels" :key="i">
+        <span class="mb-sep" aria-hidden="true">›</span>
+        <button v-if="i < levels.length - 1" type="button" class="mb-crumb" @click="goLevel(i + 1)">{{ lv.title }}</button>
+        <b v-else class="mb-crumb-now" aria-current="location">{{ lv.title }}</b>
+      </template>
+    </nav>
+    <div v-if="!shownImage" class="mb-empty">
       <template v-if="editable">
         <button type="button" class="mb-upload" :disabled="uploading" @click="pickImage">{{ uploading ? '上传中…' : '＋ 上传地图图片' }}</button>
         <p>建议用清晰的大图（世界地图、城市平面图、区域图都行）。上传后可以在上面插图钉。</p>
@@ -27,8 +38,8 @@
         aria-label="地图，可以缩放和拖动" @wheel="onWheel" @pointerdown="onDown" @pointermove="onMove" @pointerup="onUp" @pointercancel="onUp"
         @keydown.esc="activePin = null; placing = false">
         <div ref="layer" class="mb-layer" :style="{ width: baseW + 'px', height: baseH + 'px', transform: `translate(${tx}px, ${ty}px) scale(${scale})` }">
-          <img :src="image" alt="地图" draggable="false" @load="onImageLoad" />
-          <button v-for="pin in pins" :key="pin.id" type="button" class="mb-pin" :class="{ on: pin.id === activePin, linked: !!pin.cardId }"
+          <img :src="shownImage" alt="地图" draggable="false" @load="onImageLoad" />
+          <button v-for="pin in shownPins" :key="pin.id" type="button" class="mb-pin" :class="{ on: pin.id === activePin, linked: !!pin.cardId, sub: !!pin.subMap }"
             :style="{ left: pin.x * 100 + '%', top: pin.y * 100 + '%', '--pin': pin.color || 'var(--accent-color)', transform: `translate(-50%, -100%) scale(${1 / scale})` }"
             :title="pin.relation ? `${pin.relation} · ${pinTitle(pin)}` : pinTitle(pin)" @pointerdown.stop="onPinDown($event, pin)" @click.stop>
             <svg viewBox="0 0 24 32" aria-hidden="true"><path d="M12 0C5.4 0 0 5.3 0 11.9 0 20.8 12 32 12 32s12-11.2 12-20.1C24 5.3 18.6 0 12 0z" /><circle cx="12" cy="12" r="4.5" /></svg>
@@ -49,6 +60,9 @@
           </div>
           <p v-if="current.note" class="mb-note">{{ current.note }}</p>
           <button v-if="current.cardId" type="button" class="mb-open" @click="$emit('peek', current.cardId)">查看「{{ cardTitle(current.cardId) }}」详情 →</button>
+          <!-- 多层地图：进入下一层 -->
+          <button v-if="current.subMap" type="button" class="mb-enter" :disabled="entering" @click="enterMap(current)">{{ entering ? '正在打开地图…' : '进入地图 →' }}</button>
+          <p v-if="enterError" class="mb-enter-err" role="alert">{{ enterError }}</p>
         </div>
       </div>
 
@@ -75,14 +89,25 @@
               <CardPicker v-if="pickerOpen" class="mb-picker" :project-id="projectId" @close="pickerOpen = false"
                 @confirm="ids => { current!.cardId = ids[0] ?? null; pickerOpen = false; emitPins() }" />
             </div>
+            <!-- 多层地图：点这个图钉可以进入另一张地图 -->
+            <div class="mb-link mb-sub">
+              <template v-if="current.subMap">
+                <span>下一层地图：<b>{{ subMapTitle(current.subMap) }}</b></span>
+                <button type="button" @click="subPickerOpen = !subPickerOpen">更换</button>
+                <button type="button" @click="current.subMap = undefined; emitPins()">取消</button>
+              </template>
+              <button v-else type="button" title="比如大陆地图上的王都，点进去看王都地图" @click="subPickerOpen = !subPickerOpen">⤵ 设置下一层地图</button>
+              <MapTargetPicker v-if="subPickerOpen" class="mb-picker" :project-id="projectId" :exclude="cardId && blockId ? { cardId, blockId } : null"
+                :prefer-card-id="current.cardId" @close="subPickerOpen = false" @confirm="t => { current!.subMap = t; subPickerOpen = false; emitPins() }" />
+            </div>
             <textarea v-model="current.note" rows="2" placeholder="备注（可选）" aria-label="备注" @input="emitPins"></textarea>
             <button type="button" class="mb-del" @click="removePin(current.id)">删除图钉</button>
       </div>
 
       <!-- 图钉列表 -->
-      <div v-if="pins.length" class="mb-legend">
-        <button v-for="pin in pins" :key="pin.id" type="button" :class="{ on: pin.id === activePin }" @click="focusPin(pin)">
-          <i :style="{ background: pin.color || 'var(--accent-color)' }"></i>{{ pinTitle(pin) }}<small v-if="pin.relation">{{ pin.relation }}</small>
+      <div v-if="shownPins.length" class="mb-legend">
+        <button v-for="pin in shownPins" :key="pin.id" type="button" :class="{ on: pin.id === activePin }" @click="focusPin(pin)">
+          <i :style="{ background: pin.color || 'var(--accent-color)' }"></i>{{ pinTitle(pin) }}<small v-if="pin.relation">{{ pin.relation }}</small><span v-if="pin.subMap" class="mb-sub-mark" title="可以进入下一层地图">⤵</span>
         </button>
       </div>
     </template>
@@ -95,11 +120,17 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useWorldStore } from '@/stores/world'
 import { getCardTypeLabel, parseCoverImage } from '@/utils/worldPresentation'
 import { withThumbnail } from '@/utils/imageThumb'
-import { MARK_COLORS, newId, type MapPin } from '@/utils/worldLayout'
+import { MARK_COLORS, mapBlocksOf, newId, type MapPin, type MapTarget } from '@/utils/worldLayout'
 import { useCardUpload } from '@/composables/世界观管理/useCardUpload'
+import { useWorldMaps } from '@/composables/世界观管理/useWorldMaps'
 import CardPicker from './CardPicker.vue'
+import MapTargetPicker from './MapTargetPicker.vue'
 
-const props = defineProps<{ image?: string; pins?: MapPin[]; projectId: string; editable?: boolean }>()
+const props = defineProps<{ image?: string; pins?: MapPin[]; projectId: string; editable?: boolean
+  /** 这张地图在哪个条目的哪个区块（多层地图用：不能把自己设成下一层；绕回来时直接回到这一层） */
+  cardId?: string; blockId?: string
+  /** 面包屑最上一层的名字（一般是条目名） */
+  rootLabel?: string }>()
 const emit = defineEmits<{ 'update:image': [url: string]; 'update:pins': [pins: MapPin[]]; peek: [cardId: string] }>()
 const store = useWorldStore()
 const { uploadGallery, uploadingGallery: uploading } = useCardUpload()
@@ -116,6 +147,60 @@ const cardType = (id?: string | null) => getCardTypeLabel(cardOf(id)?.type ?? ''
 // 常用的关系说明，一点就填上
 const RELATION_HINTS = ['首都', '城市', '据点', '遗址', '战场', '出生地', '总部', '禁地']
 const pinTitle = (pin: MapPin) => pin.label?.trim() || (pin.cardId ? cardTitle(pin.cardId) : '未命名地点')
+
+// ---------- 多层地图 ----------
+// 阅读时进入的下一层、再下一层……（编辑时不会进入，一直是自己这张）
+interface Level extends MapTarget { title: string; image: string; pins: MapPin[] }
+const levels = ref<Level[]>([])
+const level = computed(() => levels.value[levels.value.length - 1] ?? null)
+const shownImage = computed(() => level.value?.image ?? props.image ?? '')
+const shownPins = computed(() => level.value?.pins ?? pins.value)
+const entering = ref(false)
+const enterError = ref('')
+// 换了底图（比如换了条目）就回到最上层
+watch(() => props.image, () => { levels.value = [] })
+function goLevel(n: number) {
+  if (n === levels.value.length) return
+  levels.value = levels.value.slice(0, Math.max(0, n))
+  activePin.value = null
+  void nextTick(resetView)
+}
+let enterVersion = 0
+async function enterMap(pin: MapPin) {
+  const target = pin.subMap
+  if (!target) return
+  const same = (t: MapTarget) => t.cardId === target.cardId && t.blockId === target.blockId
+  // 绕回了已经走过的某一层（比如王都地图上又放了「回到大陆」的图钉）：直接回到那一层，不越套越深
+  if (props.cardId && props.blockId && same({ cardId: props.cardId, blockId: props.blockId })) return goLevel(0)
+  const back = levels.value.findIndex(same)
+  if (back >= 0) return goLevel(back + 1)
+  const v = ++enterVersion
+  entering.value = true
+  enterError.value = ''
+  try {
+    const card = store.getCardDetailById(target.cardId, props.projectId) ?? await store.loadCardDetail(props.projectId, target.cardId)
+    if (v !== enterVersion) return
+    // 访客读到的条目已经去掉了「对访客隐藏」的区块，找不到就是被删了或者不公开
+    const block = mapBlocksOf(card.layout).find(b => b.id === target.blockId)
+    if (!block) { enterError.value = '找不到这张地图了（可能被删掉了，或者对访客隐藏）'; return }
+    if (!block.image) { enterError.value = '那张地图还没有上传底图'; return }
+    levels.value = [...levels.value, { ...target, title: block.title?.trim() || card.title, image: block.image, pins: block.pins ?? [] }].slice(-10)
+    activePin.value = null
+    // 同一张底图不会再触发 load，手动还原一下视图
+    void nextTick(resetView)
+  } catch {
+    if (v === enterVersion) enterError.value = '这个条目读不出来（可能被删掉了，或者没有权限查看）'
+  } finally {
+    if (v === enterVersion) entering.value = false
+  }
+}
+// 编辑时显示「下一层地图」的名字：条目名 + 区块名（区块名要读一下那个世界的地图列表）
+const worldMaps = useWorldMaps(() => props.projectId)
+function subMapTitle(sub: MapTarget) {
+  const found = worldMaps.maps.value.find(m => m.cardId === sub.cardId && m.blockId === sub.blockId)
+  if (found) return worldMaps.maps.value.filter(m => m.cardId === sub.cardId).length > 1 ? `${found.cardTitle} · ${found.blockTitle}` : found.cardTitle
+  return cardOf(sub.cardId)?.title ?? '已删除的条目'
+}
 
 // ---------- 尺寸 ----------
 const viewport = ref<HTMLElement | null>(null)
@@ -180,8 +265,11 @@ let dragPin: MapPin | null = null
 const placing = ref(false)
 const activePin = ref<string | null>(null)
 const pickerOpen = ref(false)
-watch(activePin, () => { pickerOpen.value = false })
-const current = computed(() => pins.value.find(p => p.id === activePin.value) ?? null)
+const subPickerOpen = ref(false)
+watch(activePin, () => { pickerOpen.value = false; subPickerOpen.value = false; enterError.value = '' })
+const current = computed(() => shownPins.value.find(p => p.id === activePin.value) ?? null)
+// 选中了有「下一层地图」的图钉才去读地图列表（只为了显示区块名字）
+watch(() => props.editable && current.value?.subMap, sub => { if (sub && !worldMaps.maps.value.length && !worldMaps.loading.value) void worldMaps.load() })
 
 function toMap(e: PointerEvent) {
   const rect = layer.value!.getBoundingClientRect()
@@ -238,6 +326,8 @@ function removePin(id: string) {
   emitPins()
 }
 function focusPin(pin: MapPin) {
+  // 图例在下面，切换图钉时把上一次「进入地图」的提示清掉
+  enterError.value = ''
   activePin.value = pin.id
   if (scale.value < 2) scale.value = 2
   tx.value = viewW.value / 2 - pin.x * baseW.value * scale.value
@@ -332,5 +422,17 @@ async function onFile(e: Event) {
 .mb-rel-quick button { padding: 1px 6px !important; border-style: solid !important; font-size: 11px !important; }
 .mb-rel-tag { flex-shrink: 0; padding: 1px 8px; font-size: 11px; color: #fff; background: var(--pin); }
 .mb-legend i { width: 8px; height: 8px; border-radius: 50%; }
+/* 多层地图 */
+.mb-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; font-size: 12px; color: var(--text-secondary); }
+.mb-crumbs button { border: 0; background: none; padding: 2px 0; color: var(--accent-color); font: inherit; cursor: pointer; }
+.mb-crumbs button:hover { text-decoration: underline; }
+.mb-crumbs .mb-back { margin-right: 6px; padding: 3px 10px; border: 1px solid var(--accent-color); background: var(--accent-soft); }
+.mb-crumbs .mb-back:hover { text-decoration: none; background: var(--accent-color); color: var(--on-accent); }
+.mb-crumb-now { color: var(--text-primary); font-weight: 600; }
+.mb-pin.sub::after { content: ''; position: absolute; left: 50%; top: 12px; width: 30px; height: 30px; margin: -15px 0 0 -15px; border: 2px dashed var(--pin); border-radius: 50%; pointer-events: none; }
+.mb-sub-mark { color: var(--accent-color); font-size: 11px; }
+.mb-enter { justify-self: start; padding: 5px 12px; border: 1px solid var(--accent-color); background: var(--accent-color); color: var(--on-accent); font: inherit; font-size: 12px; cursor: pointer; }
+.mb-enter:disabled { opacity: .6; cursor: default; }
+.mb-enter-err { margin: 0; font-size: 12px; color: var(--danger); }
 @media (max-width: 640px) { .mb-hint { display: none; } }
 </style>

@@ -33,13 +33,15 @@ export interface CreateGameDto {
   results: GameResult[]
 }
 
-// 更新游戏 DTO
+// 更新游戏 DTO（连题目一起改时 questions 和 results 都要传）
 export interface UpdateGameDto {
   title?: string
   description?: string
   icon?: string
   status?: '草稿' | '已发布'
   scoring?: 'sum' | 'average'
+  questions?: GameQuestion[]
+  results?: GameResult[]
 }
 
 // 游戏实体（后端返回）
@@ -55,6 +57,9 @@ export interface Game {
   updatedAt: string
   expCost: number
   playCount: number
+  /** 列表接口给的：作者名、题目数 */
+  creatorName?: string
+  questionCount?: number
   creator?: {
     id: string
     username: string
@@ -62,12 +67,24 @@ export interface Game {
   questionnaire?: {
     id: number
     scoring: 'sum' | 'average'
-    questions: (GameQuestion & { id: number; order: number })[]
+    questions: (Omit<GameQuestion, 'options'> & { id: number; order: number; options: (GameOption & { id: number })[] })[]
     results: (GameResult & { id: number; order: number })[]
   }
 }
 
 // ===== 试玩记录类型 =====
+
+/** 交卷：每道题选了哪些选项 id（按题目顺序），分数由服务器算 */
+export interface SubmitSessionDto {
+  gameId: number
+  optionIds: number[][]
+}
+
+export interface SubmitSessionResult {
+  id: number
+  totalScore: number
+  result: { id: number; title: string; description?: string; icon?: string; image?: string; min: number; max: number } | null
+}
 
 export interface SaveSessionDto {
   gameId: number

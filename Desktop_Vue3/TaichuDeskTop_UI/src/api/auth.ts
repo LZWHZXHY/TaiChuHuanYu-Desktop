@@ -68,8 +68,9 @@ export const authApi = {
     request.post<LoginResponse>('/Auth/login', data, publicAuthConfig),
   register: (data: RegisterPayload) =>
     request.post<MessageResponse>('/Auth/register', data, publicAuthConfig),
-  sendCode: (email: string) =>
-    request.post<MessageResponse>('/Auth/send-code', { email }, publicAuthConfig),
+  /** purpose：register 注册（邮箱已注册会直接提示）/ reset 找回密码（邮箱没注册会直接提示） */
+  sendCode: (email: string, purpose?: 'register' | 'reset') =>
+    request.post<MessageResponse>('/Auth/send-code', { email: email.trim(), purpose }, publicAuthConfig),
   resetPassword: (data: ResetPasswordPayload) =>
     request.post<MessageResponse>('/Auth/reset-password', data, publicAuthConfig),
   getPlugins: () => request.get<Plugin[]>('/Plugins'),

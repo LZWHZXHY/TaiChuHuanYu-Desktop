@@ -6,7 +6,9 @@ import type {
   PaginatedResponse,
   SessionSummary,
   SessionDetail,
-  SaveSessionDto
+  SaveSessionDto,
+  SubmitSessionDto,
+  SubmitSessionResult
 } from './game_types'
 
 // ============================================================
@@ -28,6 +30,9 @@ export const getGames = (params?: {
   status?: string
   page?: number
   pageSize?: number
+  /** hot = 按被玩次数；不传 = 最新 */
+  sort?: 'hot'
+  q?: string
 }): Promise<PaginatedResponse<Game>> => {
   return request.get<PaginatedResponse<Game>>('/games', { params })
 }
@@ -68,8 +73,16 @@ export const deleteGame = (id: number): Promise<void> => {
 //  试玩记录 API
 // ============================================================
 
+/** 创建要花多少经验、我现在有多少经验 */
+export const getGameConfig = () =>
+  request.get<{ createCost: number; experience: number | null; maxGames: number }>('/games/config', { silentError: true })
+
+/** 交卷：服务器算分、找结果、记成绩（被玩次数 +1） */
+export const submitSession = (data: SubmitSessionDto): Promise<SubmitSessionResult> =>
+  request.post<SubmitSessionResult>('/gamesessions', data, { silentError: true })
+
 /**
- * 保存试玩成绩
+ * 保存试玩成绩（旧接口格式，保留兼容）
  */
 export const saveSession = (data: SaveSessionDto): Promise<{ id: number }> => {
   return request.post<{ id: number }>('/gamesessions', data)

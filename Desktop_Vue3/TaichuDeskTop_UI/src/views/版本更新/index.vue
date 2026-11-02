@@ -25,7 +25,7 @@
           <span class="rel-group-count">{{ g.items.length }} 个版本</span>
         </button>
         <ol v-show="isExpanded(g.major)" class="rel-timeline">
-          <li v-for="r in g.items" :key="r.id" class="rel-item" :class="'stage-' + stageOf(r)">
+          <li v-for="r in g.items" :id="'release-' + r.id" :key="r.id" class="rel-item" :class="['stage-' + stageOf(r), { focused: focusedId === r.id }]">
             <div class="rel-dot"></div>
             <div class="rel-card">
               <div class="rel-card-head">
@@ -76,7 +76,8 @@
 
 <script setup lang="ts">
 import SectionTrace from '@/components/SectionTrace.vue'
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { releaseApi, type ReleaseItem, type ReleasePayload } from '@/api/release'
 import { useUserStore } from '@/stores/user'
 import { serverDate } from '@/utils/serverTime'
@@ -171,6 +172,20 @@ async function removeItem(r: ReleaseItem) {
 
 const formatDate = (v: string) => v ? serverDate(v).toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
 
+// 从知识库 / 别处点进来：/changelog?release=版本编号，展开那一组并滚动到那个版本
+const route = useRoute()
+const focusedId = ref<number | null>(null)
+async function focusRequested() {
+  const id = Number(route.query.release)
+  const target = Number.isInteger(id) ? releases.value.find(r => r.id === id) : undefined
+  if (!target) return
+  const g = groups.value.find(x => x.items.includes(target))
+  if (g && !expandedGroups.value.has(g.major)) expandedGroups.value = new Set([...expandedGroups.value, g.major])
+  focusedId.value = target.id
+  await nextTick()
+  document.getElementById('release-' + target.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
 async function load() {
   loading.value = true
   try {
@@ -179,6 +194,7 @@ async function load() {
       expandedGroups.value = new Set([groups.value[0].major])
     }
   } catch { releases.value = [] } finally { loading.value = false }
+  void focusRequested()
 }
 
 onMounted(load)
@@ -213,6 +229,7 @@ onMounted(load)
 .rel-item.stage-beta .rel-dot { border-style: dashed; border-color: #d97706; }
 .rel-item.stage-beta .rel-card { border-top: 2px dashed #d97706; }
 .rel-item.stage-draft .rel-card { opacity: .75; }
+.rel-item.focused .rel-card { outline: 2px solid var(--accent-color); outline-offset: 2px; }
 .rel-card { border: 0; border-top: 1px solid var(--border-line); border-radius: 0; background: var(--paper-card); padding: 18px 20px; }
 .rel-item.stage-current .rel-card { border-top: 2px solid var(--accent-color); background: linear-gradient(115deg,var(--accent-soft),var(--paper-card) 65%); }
 .rel-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

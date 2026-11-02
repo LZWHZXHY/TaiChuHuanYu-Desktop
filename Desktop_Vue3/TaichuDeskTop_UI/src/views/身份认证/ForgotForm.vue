@@ -78,7 +78,7 @@ const handleSendCode = async () => {
   
   try {
 
-    await authApi.sendCode(form.value.email) 
+    await authApi.sendCode(form.value.email, 'reset')
     
     message.value = '验证码已发送到邮箱'
     isError.value = false

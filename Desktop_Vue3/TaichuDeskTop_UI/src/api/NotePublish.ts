@@ -22,6 +22,8 @@ export interface PublishedNoteItem {
 }
 
 export interface PublishedNoteDetail extends PublishedNoteItem {
+  /** 我有没有点过「灵动」 */
+  resonated?: boolean;
   canEdit?: boolean;
   originalNoteId?: string;
   tags?: string;
@@ -57,6 +59,9 @@ export const notePublishApi = {
   getPublicBlog(id: string) {
     return request.get(`/LingMaiPublish/blog/${id}`) as unknown as Promise<PublishedNoteDetail>;
   },
+  /** 灵动（点赞）：点一下 +1，再点取消 */
+  toggleResonance: (id: string, active?: boolean) =>
+    request.post<{ active: boolean; count: number }>(`/LingMaiPublish/blog/${id}/resonance`, null, { params: active === undefined ? undefined : { active }, silentError: true }),
 
   /**
    * 🌟 论坛评论区

@@ -14,8 +14,12 @@ export function toCdnUrl(url: string | null | undefined): string {
 // 追加数据万象缩略参数，显著减小图片体积、加快加载。
 export function withThumbnail(url: string | null | undefined, width = 400): string {
   if (!url) return ''
-  const u = toCdnUrl(url)
-  if (!/myqcloud\.com|bianyuzhou\.com/i.test(u)) return u
+  const full = toCdnUrl(url)
+  // 地址末尾可能带 #…（比如世界观封面的显示位置 #tc-focus=x,y），缩略参数要加在 # 前面
+  const hash = full.indexOf('#')
+  const u = hash < 0 ? full : full.slice(0, hash)
+  const tail = hash < 0 ? '' : full.slice(hash)
+  if (!/myqcloud\.com|bianyuzhou\.com/i.test(u)) return full
   const sep = u.includes('?') ? '&' : '?'
-  return `${u}${sep}imageMogr2/thumbnail/${width}x`
+  return `${u}${sep}imageMogr2/thumbnail/${width}x${tail}`
 }

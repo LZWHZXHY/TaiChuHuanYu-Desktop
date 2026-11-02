@@ -40,16 +40,20 @@
 
       <section class="panel rooms-panel">
         <div class="rooms-head">
-          <p class="panel-tag">ROOMS / 等待对手的房间</p>
+          <p class="panel-tag">ROOMS / 房间（等人的在前面，正在下的可以观战）</p>
           <button type="button" class="btn small" :disabled="!connected || loadingRooms" @click="loadRooms">{{ loadingRooms ? '刷新中…' : '刷新' }}</button>
         </div>
         <ul v-if="rooms.length" class="rooms">
           <li v-for="r in rooms" :key="r.roomId">
             <div class="room-main">
               <b>{{ r.roomName }}</b>
-              <small>{{ r.ownerName }} · {{ r.boardSize }} 路 · 每步 {{ r.timeLimit }} 秒 · {{ ago(r.createdAt) }}</small>
+              <small>{{ r.ownerName }} · {{ r.boardSize }} 路 · 每步 {{ r.timeLimit }} 秒 · {{ r.started ? '对局中' : (r.playerCount ?? 1) >= 2 ? '人齐了，等开局' : '等对手' }} · {{ ago(r.createdAt) }}<template v-if="r.spectators"> · 👁 {{ r.spectators }}</template></small>
             </div>
-            <button type="button" class="btn small primary" :disabled="busy" @click="join(r.roomId)">加入</button>
+            <span class="room-btns">
+              <button v-if="!r.started && (r.playerCount ?? 1) < 2" type="button" class="btn small primary" :disabled="busy" @click="join(r.roomId)">加入</button>
+              <!-- 观战：房主关了或人满了就灰掉，鼠标放上去有原因 -->
+              <button type="button" class="btn small" :disabled="busy || watchState(r).disabled" :title="watchState(r).title" @click="watchRoom(r.roomId)">{{ r.allowSpectate === false ? '不让观战' : '👁 观战' }}</button>
+            </span>
           </li>
         </ul>
         <div v-else class="rooms-empty">
@@ -63,8 +67,19 @@
       </section>
     </div>
 
+    <!-- ===== 房间里的观战条：谁在看（点开名单）、观战的人可以坐下 / 不看了 ===== -->
+    <div v-if="room && view !== 'lobby'" class="gm-watchbar">
+      <span v-if="spectating" class="watching-tag">观战中 · 只能看不能下</span>
+      <WatchBadge :watch="watchInfo" :my-user-id="myId" :can-toggle="!spectating && amOwner && view === 'waiting'" placement="down" @toggle="setSpectate" />
+      <span class="bar-space"></span>
+      <template v-if="spectating">
+        <button v-if="view === 'waiting' && room.players.length < 2" type="button" class="btn small primary" :disabled="busy" @click="join(room.roomId)">坐下</button>
+        <button v-if="view === 'waiting'" type="button" class="btn small" :disabled="busy" @click="leave">不看了</button>
+      </template>
+    </div>
+
     <!-- ===== 等待房间 ===== -->
-    <section v-else-if="view === 'waiting' && room" class="panel waiting">
+    <section v-if="view === 'waiting' && room" class="panel waiting">
       <div class="waiting-head">
         <div>
           <p class="panel-tag">ROOM / 等待开局</p>
@@ -87,7 +102,8 @@
 
       <p class="waiting-meta">{{ room.boardSize }} 路棋盘 · 每步 {{ room.timeLimit }} 秒</p>
 
-      <div class="waiting-actions">
+      <div v-if="spectating" class="waiting-actions"><span class="waiting-tip">你在观战，等房主开局后会自动开始看棋</span></div>
+      <div v-else class="waiting-actions">
         <button type="button" class="btn" :disabled="busy" @click="leave">离开房间</button>
         <button v-if="amOwner" type="button" class="btn primary" :disabled="busy || room.players.length < 2" @click="start">{{ room.players.length < 2 ? '等待对手…' : '开始对局' }}</button>
         <span v-else class="waiting-tip">等待房主开始</span>
@@ -102,6 +118,7 @@
       :room="room"
       :start="startInfo"
       :my-id="myId"
+      :spectating="spectating"
       @rematch="start"
       @leave="leave"
       @error="say($event, 'error')"
@@ -114,9 +131,13 @@ import { computed, inject, onMounted, onUnmounted, reactive, ref, watch, type Re
 import { useUserStore } from '@/stores/user'
 import GobangMatch from './GobangMatch.vue'
 import type { GobangPlayer, GobangRoom, GobangStart } from './gobangTypes'
+import WatchBadge from '../WatchBadge.vue'
+import { EMPTY_WATCH, watchButton, type WatchInfo } from '../spectate'
 
 interface SignalRApi { connection: Ref<{ invoke: (method: string, ...args: unknown[]) => Promise<unknown> } | null>; isConnected: Ref<boolean> }
-interface RoomSummary { roomId: string; roomName: string; ownerName: string; boardSize: number; timeLimit: number; createdAt: string }
+interface RoomSummary { roomId: string; roomName: string; ownerName: string; boardSize: number; timeLimit: number; createdAt: string; playerCount?: number; started?: boolean; spectators?: number; allowSpectate?: boolean; maxSpectators?: number }
+/** 观战刚进来时服务器给的一份完整局面（GameHub.Snapshot） */
+interface WatchSnapshot { roomId: string; roomName: string; boardSize: number; timeLimit: number; ownerId: string; players: GobangPlayer[]; started: boolean; currentTurn?: string | null; board?: number[][] | null; remainingTime?: number; moveCount?: number; watch?: WatchInfo }
 
 const signalR = inject<SignalRApi | null>('signalR', null)
 const user = useUserStore()
@@ -138,6 +159,45 @@ const notice = ref(''), noticeKind = ref<'info' | 'error'>('info')
 const form = reactive({ name: '', timeLimit: 30 })
 const defaultRoomName = computed(() => `${user.userInfo?.username || '我'} 的房间`)
 const amOwner = computed(() => !!room.value && isMe(room.value.ownerId))
+
+// ===== 观战 =====
+/** 我是在观战（不是下棋的人） */
+const spectating = ref(false)
+const watchInfo = ref<WatchInfo>(EMPTY_WATCH)
+const watchState = (r: RoomSummary) => watchButton(r, r.maxSpectators ?? 20, user.isLoggedIn)
+
+/** 用服务器给的局面进入观战：在下就直接看棋盘，没开局就看等待房间 */
+function applySnapshot(snap: WatchSnapshot) {
+  spectating.value = true
+  watchInfo.value = snap.watch ?? EMPTY_WATCH
+  room.value = { roomId: snap.roomId, roomName: snap.roomName, boardSize: snap.boardSize, timeLimit: snap.timeLimit, ownerId: snap.ownerId, players: snap.players ?? [] }
+  if (snap.started) {
+    startInfo.value = { currentTurn: String(snap.currentTurn ?? snap.ownerId), startedAt: Date.now(), board: snap.board ?? null, remainingTime: snap.remainingTime, moveCount: snap.moveCount }
+    matchKey.value++
+    view.value = 'playing'
+  } else {
+    startInfo.value = null
+    view.value = 'waiting'
+  }
+}
+async function watchRoom(roomId: string) {
+  busy.value = true
+  try {
+    const res = await invoke<{ error?: string; snapshot?: WatchSnapshot }>('WatchRoom', roomId)
+    if (res?.error) say(res.error, 'error')
+    else if (res?.snapshot) applySnapshot(res.snapshot)
+  } finally { busy.value = false }
+}
+async function setSpectate(allow: boolean) { await invoke('SetSpectate', allow) }
+function backToLobby(message?: string) {
+  room.value = null
+  startInfo.value = null
+  spectating.value = false
+  watchInfo.value = EMPTY_WATCH
+  view.value = 'lobby'
+  if (message) say(message)
+  void loadRooms()
+}
 
 const seats = computed(() => {
   const r = room.value
@@ -191,11 +251,9 @@ async function start() {
   try { await invoke('StartGame', room.value.roomId) } finally { busy.value = false }
 }
 async function leave() {
+  // 观战的人点「不看了」也走这里：服务器只是把他移出观战名单
   await invoke('LeaveRoom')
-  room.value = null
-  startInfo.value = null
-  view.value = 'lobby'
-  void loadRooms()
+  backToLobby()
 }
 async function copyId() {
   if (!room.value) return
@@ -214,9 +272,11 @@ const toRoom = (d: Detail): GobangRoom => ({
 })
 
 const handlers: Record<string, (d: Detail) => void> = {
-  'room-created': d => { room.value = toRoom(d); view.value = 'waiting' },
+  'room-created': d => { spectating.value = false; watchInfo.value = EMPTY_WATCH; room.value = toRoom(d); view.value = 'waiting' },
   'player-joined': d => {
     room.value = toRoom(d)
+    // 观战的人自己坐下了：不再是观战
+    if (spectating.value && room.value.players.some(p => isMe(p.id))) spectating.value = false
     if (view.value === 'lobby') view.value = 'waiting'
     else if (view.value === 'waiting' && amOwner.value && room.value.players.length === 2) say('对手已加入，可以开始了')
   },
@@ -234,6 +294,17 @@ const handlers: Record<string, (d: Detail) => void> = {
     view.value = 'playing'
   },
 }
+// 观战名单变了 / 被请出去 / 大厅列表变了 / 断线重连
+handlers['watchers-changed'] = d => { if (room.value && d.roomId === room.value.roomId && d.watch) watchInfo.value = d.watch as WatchInfo }
+handlers['watch-ended'] = d => { if (spectating.value) backToLobby(String(d.message ?? '观战结束了')) }
+let lobbyDebounce = 0
+handlers['gobang-lobby-changed'] = () => {
+  if (view.value !== 'lobby') return
+  window.clearTimeout(lobbyDebounce)
+  lobbyDebounce = window.setTimeout(() => { if (connected.value) void loadRooms() }, 400)
+}
+// 观战的人断线时被移出了名单和分组：重连后自动重新进来看（局面以服务器为准）
+handlers['gobang-reconnected'] = () => { if (spectating.value && room.value) void watchRoom(room.value.roomId) }
 const listeners = Object.entries(handlers).map(([name, fn]) => [name, (e: Event) => fn(((e as CustomEvent).detail ?? {}) as Detail)] as const)
 // 服务器报错：在这里显示，不弹窗
 const onError = (e: Event) => {
@@ -250,6 +321,7 @@ onUnmounted(() => {
   listeners.forEach(([name, fn]) => window.removeEventListener(name, fn))
   window.removeEventListener('game-error', onError)
   window.clearTimeout(noticeTimer)
+  window.clearTimeout(lobbyDebounce)
   if (room.value) void signalR?.connection.value?.invoke('LeaveRoom').catch(() => undefined)
 })
 watch(connected, ok => { if (ok && view.value === 'lobby') void loadRooms() })
@@ -309,6 +381,10 @@ input, select { padding: 8px 10px; border: 1px solid var(--border-line); backgro
 .rooms-head { display: flex; justify-content: space-between; align-items: center; }
 .rooms-head .panel-tag { margin: 0; }
 .rooms { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.room-btns { display: flex; flex-shrink: 0; gap: 6px; }
+.gm-watchbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 12px; border: 1px solid var(--border-line); background: var(--paper-card); }
+.gm-watchbar .bar-space { flex: 1; }
+.watching-tag { padding: 2px 8px; border: 1px solid var(--accent-color); background: color-mix(in srgb, var(--accent-color) 10%, transparent); color: var(--accent-color); font-size: 12px; font-weight: 600; }
 .rooms li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--border-line); border-left: 3px solid var(--accent-color); background: var(--bg-main); }
 .room-main { display: grid; gap: 3px; min-width: 0; }
 .room-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -55,10 +55,14 @@
             <li v-for="r in rooms" :key="r.id" :class="{ busy: !(r.phase === 'waiting' && r.open) }">
               <div class="room-main">
                 <b>{{ r.name }}</b>
-                <small>{{ r.players.join(' vs ') || '—' }} · 每步 {{ r.timeLimit }} 秒</small>
+                <small>{{ r.players.join(' vs ') || '—' }} · 每步 {{ r.timeLimit }} 秒<template v-if="r.spectators"> · 👁 {{ r.spectators }}</template></small>
               </div>
-              <button v-if="r.phase === 'waiting' && r.open" type="button" class="btn small primary" :disabled="!ready || busy" :title="user.isLoggedIn ? '' : '登录后才能加入'" @click="call('Join', r.id)">加入</button>
-              <span v-else class="room-state">{{ r.phase === 'playing' ? '对局中' : '已满' }}</span>
+              <span class="room-btns">
+                <button v-if="r.phase === 'waiting' && r.open" type="button" class="btn small primary" :disabled="!ready || busy" :title="user.isLoggedIn ? '' : '登录后才能加入'" @click="call('Join', r.id)">加入</button>
+                <span v-else class="room-state">{{ r.phase === 'playing' ? '对局中' : '已满' }}</span>
+                <!-- 观战：房主关了或人满了就灰掉，鼠标放上去有原因 -->
+                <button type="button" class="btn small" :disabled="!ready || busy || watchState(r).disabled" :title="watchState(r).title" @click="call('Watch', r.id)">{{ r.allowSpectate === false ? '不让观战' : '👁 观战' }}</button>
+              </span>
             </li>
           </ul>
           <div v-else class="rooms-empty"><p>现在没有人在等。</p><small>点「快速匹配」开一个房间，其他人进大厅就能看到。</small></div>
@@ -70,8 +74,19 @@
         </section>
       </div>
 
+      <!-- 房间里的观战条：谁在看（点开名单），观战的人可以坐下 / 不看了 -->
+      <div v-if="state" class="xq-watchbar">
+        <span v-if="spectating" class="watching-tag">观战中 · 只能看不能下</span>
+        <WatchBadge :watch="state.watch ?? EMPTY_WATCH" :my-user-id="String(user.userId ?? '')" :can-toggle="!spectating && amOwner && state.phase !== 'playing'" placement="down" @toggle="allow => call('SetSpectate', allow)" />
+        <span class="bar-space"></span>
+        <template v-if="spectating">
+          <button v-if="state.phase !== 'playing' && (!state.red || !state.black)" type="button" class="btn small primary" :disabled="busy" @click="call('SitDown')">坐下</button>
+          <button type="button" class="btn small" :disabled="busy" @click="call('Leave')">不看了</button>
+        </template>
+      </div>
+
       <!-- 等待开局 -->
-      <section v-else-if="state.phase === 'waiting'" class="panel waiting">
+      <section v-if="state && state.phase === 'waiting'" class="panel waiting">
         <div class="waiting-head">
           <div><p class="panel-tag">ROOM / 等待开局</p><h3>{{ state.roomName }}</h3></div>
           <button type="button" class="room-id" title="复制房间号发给朋友" @click="copyId"><small>房间号</small><b>{{ state.roomId }}</b><span>{{ copied ? '已复制' : '复制' }}</span></button>
@@ -85,8 +100,11 @@
             </div>
           </div>
         </div>
+        <!-- 上一局的结果：输的一方点了「返回大厅」后房间回到等人状态，赢的一方也还能看到结果 -->
+        <p v-if="state.lastResult" class="last-result"><b>上一局</b>{{ resultLine(state.lastResult) }}</p>
         <p class="waiting-meta">每步 {{ state.timeLimit }} 秒<template v-if="state.round"> · 已下 {{ state.round }} 局，下一局交换先后手</template></p>
-        <div class="waiting-actions">
+        <div v-if="spectating" class="waiting-actions"><span class="muted">你在观战，房主开局后会自动开始看棋</span></div>
+        <div v-else class="waiting-actions">
           <button type="button" class="btn" :disabled="busy" @click="call('Leave')">离开房间</button>
           <button v-if="amOwner" type="button" class="btn primary" :disabled="busy || !state.red || !state.black" @click="call('Start')">{{ state.red && state.black ? '开始对局' : '等待对手…' }}</button>
           <span v-else class="muted">等待房主开始</span>
@@ -94,8 +112,9 @@
       </section>
 
       <!-- 对局 -->
-      <div v-else class="match">
-        <div class="board-col">
+      <div v-else-if="state" class="match">
+        <div class="board-col" :class="{ timed: state.phase === 'playing' }">
+          <TurnClock v-if="state.phase === 'playing'" :seconds="secondsLeft" :total="state.timeLimit" :mine="onlineMyTurn" :label="turnLabel" :show-sound="!spectating" />
           <XiangqiBoard :board="state.board" :turn="state.turn" :movable="state.phase === 'playing' ? state.myColor : null" :flipped="state.myColor === 'b'" :last-move="onlineLast" :check-side="state.inCheck ? state.turn : null" :disabled="state.phase !== 'playing' || pending" @move="onlineMove" />
         </div>
         <aside class="side">
@@ -108,26 +127,28 @@
               </div>
               <span v-if="state.phase === 'playing' && state.turn === seat.color" class="clock" :class="{ low: secondsLeft <= 10 }">{{ secondsLeft }}s</span>
             </div>
-            <div v-if="state.phase === 'playing'" class="timebar" aria-hidden="true"><span :style="{ width: `${Math.min(100, (secondsLeft / state.timeLimit) * 100)}%` }" :class="{ low: secondsLeft <= 10 }"></span></div>
           </div>
 
           <div class="status" :class="onlineStatusKind" role="status">
             <template v-if="state.phase === 'ended' && state.result">
-              <b>{{ onlineResultTitle }}</b><span>{{ state.result.reason }}</span>
+              <b>{{ onlineResultTitle }}</b><span>{{ resultLine(state.result) }}</span>
             </template>
             <template v-else>
-              <b>{{ state.turn === state.myColor ? (state.inCheck ? '你被将军了！' : '轮到你走') : (state.inCheck ? '将军！等待对手应将…' : '等待对手走棋…') }}</b>
+              <b v-if="spectating">观战中 · {{ state.turn === 'r' ? '红方' : '黑方' }}走棋<template v-if="state.inCheck"> · 将军！</template></b>
+              <b v-else>{{ state.turn === state.myColor ? (state.inCheck ? '你被将军了！' : '轮到你走') : (state.inCheck ? '将军！等待对手应将…' : '等待对手走棋…') }}</b>
               <span>第 {{ Math.floor(state.moves.length / 2) + 1 }} 回合 · 每步 {{ state.timeLimit }} 秒</span>
             </template>
           </div>
 
-          <div v-if="state.phase === 'playing' && state.drawOfferBy && state.drawOfferBy !== user.userId" class="draw-offer">
+          <div v-if="!spectating && state.phase === 'playing' && state.drawOfferBy && state.drawOfferBy !== user.userId" class="draw-offer">
             <span>对手提议和棋</span>
             <button type="button" class="btn small primary" @click="call('AnswerDraw', true)">同意</button>
             <button type="button" class="btn small" @click="call('AnswerDraw', false)">拒绝</button>
           </div>
 
-          <div class="actions">
+          <!-- 观战：没有提和、认输；「不看了」在上面的观战条里 -->
+          <div v-if="spectating" class="actions"><span class="muted">{{ state.phase === 'playing' ? (state.drawOfferBy ? '有一方提议和棋…' : '只能看，不能动棋子') : '等房主开下一局，开局后会接着看' }}</span></div>
+          <div v-else class="actions">
             <template v-if="state.phase === 'playing'">
               <button type="button" class="btn" :disabled="!!state.drawOfferBy || state.moves.length < 10" :title="state.moves.length < 10 ? '至少走满 10 步才能提和' : ''" @click="call('OfferDraw')">{{ state.drawOfferBy === user.userId ? '已提和…' : '提和' }}</button>
               <button type="button" class="btn danger" @click="resignOnline">认输</button>
@@ -191,6 +212,10 @@ import UserTitle from '@/components/UserTitle.vue'
 import { gameRecordApi } from '@/api/gameRecord'
 import XiangqiBoard from './XiangqiBoard.vue'
 import { INITIAL, apply, hasAnyLegal, inCheck, notation, other, type Side } from './xqRules'
+import WatchBadge from '../WatchBadge.vue'
+import TurnClock from '../TurnClock.vue'
+import { useServerSkew, useTurnAlert } from '../turnAlert'
+import { EMPTY_WATCH, watchButton, type WatchInfo } from '../spectate'
 
 const SIDES: Side[] = ['r', 'b']
 const lastOf = <T,>(arr: T[] | undefined): T | undefined => (arr && arr.length ? arr[arr.length - 1] : undefined)
@@ -225,12 +250,18 @@ function say(text: string, kind: 'info' | 'error' = 'info') {
 
 // ================= 联机 =================
 interface PlayerView { userId: string; name: string; online: boolean }
+/** 一局的结果：哪方赢（null 和棋）、赢家名字、原因（将死 / 困毙 / 认输 / 超时 / 离开……） */
+interface GameResult { winner: Side | null; winnerName?: string | null; reason: string }
 interface OnlineState {
   roomId: string; roomName: string; timeLimit: number; ownerId: string; phase: 'waiting' | 'playing' | 'ended'; round: number
-  board: string; turn: Side; moves: { from: number; to: number; piece: string; captured: string | null }[]; deadline: string | null; inCheck: boolean
-  red: PlayerView | null; black: PlayerView | null; myColor: Side | null; drawOfferBy: string | null; result: { winner: Side | null; reason: string } | null
+  board: string; turn: Side; moves: { from: number; to: number; piece: string; captured: string | null }[]; deadline: string | null; serverNow?: string; inCheck: boolean
+  red: PlayerView | null; black: PlayerView | null; myColor: Side | null; drawOfferBy: string | null; result: GameResult | null
+  /** 上一局结果（房间回到等人状态后也还在） */
+  lastResult?: GameResult | null
+  /** 观战：我是不是在观战（这时 myColor 为空）、谁在看 */
+  spectating?: boolean; watch?: WatchInfo
 }
-interface LobbyRoom { id: string; name: string; timeLimit: number; phase: string; players: string[]; open: boolean }
+interface LobbyRoom { id: string; name: string; timeLimit: number; phase: string; players: string[]; open: boolean; spectators?: number; allowSpectate?: boolean; maxSpectators?: number }
 
 const state = ref<OnlineState | null>(null)
 const rooms = ref<LobbyRoom[]>([])
@@ -252,7 +283,7 @@ async function call(method: string, ...args: unknown[]) {
   try {
     const err = await connection.invoke<string | null>(method, ...args)
     if (err) say(err, 'error')
-    if (method === 'Leave') void loadLobby()
+    if (method === 'Leave') { lastWatch = ''; void loadLobby() }
   } catch { say('网络不稳定，操作没有送达', 'error') } finally { busy.value = false }
 }
 async function loadLobby() {
@@ -271,8 +302,23 @@ async function connect() {
     .withAutomaticReconnect([0, 2000, 5000, 10000, 20000])
     .build()
   connection.on('State', (s: OnlineState | null) => { state.value = s; pending.value = false; if (!s) void loadLobby() })
+  // 观战被请出去（房主关了观战、房间解散）时的提示
+  connection.on('Notice', (text: string) => { lastWatch = ''; say(text) })
+  // 大厅列表变了（有人进出、观战人数变了）：在大厅时马上刷新
+  connection.on('LobbyChanged', () => { if (!state.value) { window.clearTimeout(lobbyDebounce); lobbyDebounce = window.setTimeout(() => void loadLobby(), 300) } })
   connection.onreconnecting(() => { connState.value = 'wait' })
-  connection.onreconnected(async () => { connState.value = 'on'; state.value = await connection!.invoke<OnlineState | null>('Resume'); void loadLobby() })
+  connection.onreconnected(async () => {
+    connState.value = 'on'
+    const resumed = await connection!.invoke<OnlineState | null>('Resume')
+    // 观战的人断线时被移出了名单（不占位置），重连后自动回来接着看
+    if (!resumed && lastWatch) {
+      const err = await connection!.invoke<string | null>('Watch', lastWatch).catch(() => '重连失败')
+      if (!err) { void loadLobby(); return }
+      say(`没能回到刚才观战的房间：${err}`, 'error'); lastWatch = ''
+    }
+    state.value = resumed
+    void loadLobby()
+  })
   connection.onclose(() => { connState.value = 'off' })
   try {
     await connection.start()
@@ -281,6 +327,15 @@ async function connect() {
     await loadLobby()
   } catch { connState.value = 'off' }
 }
+
+// ---------- 观战 ----------
+/** 正在观战（服务器发来的状态里 myColor 为空） */
+const spectating = computed(() => !!state.value && (state.value.spectating ?? !state.value.myColor))
+const watchState = (r: LobbyRoom) => watchButton(r, r.maxSpectators ?? 20, user.isLoggedIn)
+/** 最近在看的房间：断线重连后自动回去接着看 */
+let lastWatch = ''
+let lobbyDebounce = 0
+watch(() => (state.value && spectating.value ? state.value.roomId : null), id => { if (id) lastWatch = id; else if (state.value) lastWatch = '' })
 
 const onlineSeats = computed(() => {
   const s = state.value
@@ -294,18 +349,34 @@ const onlineSeats = computed(() => {
 const sideSeats = computed(() => state.value?.myColor === 'r' ? [...onlineSeats.value].reverse() : onlineSeats.value)
 const onlineLast = computed(() => { const m = lastOf(state.value?.moves); return m ? { from: m.from, to: m.to } : null })
 const onlineNotes = computed(() => notesOf(state.value?.moves ?? []))
-const secondsLeft = computed(() => { const d = state.value?.deadline; return d ? Math.max(0, Math.ceil((new Date(d).getTime() - now.value) / 1000)) : 0 })
+// 用服务器时间校正本机时钟，倒计时才准
+const skew = useServerSkew(() => state.value?.serverNow)
+const secondsLeft = computed(() => { const d = state.value?.deadline; return d ? Math.max(0, Math.ceil((new Date(d).getTime() - now.value - skew.value) / 1000)) : 0 })
+// 回合倒计时：轮到自己响一声、最后 10 秒提醒、后台时标签页标题闪烁
+const onlineMyTurn = computed(() => !!state.value && state.value.phase === 'playing' && !!state.value.myColor && state.value.turn === state.value.myColor)
+const turnLabel = computed(() => {
+  const s = state.value
+  if (!s) return ''
+  const side = s.turn === 'r' ? '红方' : '黑方'
+  const name = (s.turn === 'r' ? s.red : s.black)?.name ?? side
+  if (spectating.value) return `观战中 · ${side}（${name}）走棋${s.inCheck ? ' · 将军！' : ''}`
+  if (onlineMyTurn.value) return s.inCheck ? '轮到你走 · 你被将军了！' : '轮到你走'
+  return `等待 ${name} 走棋…`
+})
+useTurnAlert({ mine: () => onlineMyTurn.value, seconds: () => secondsLeft.value })
 const onlineResultTitle = computed(() => {
   const r = state.value?.result
   if (!r) return ''
-  if (!r.winner) return '和棋'
+  if (!r.winner) return r.reason.startsWith('对局取消') ? '对局取消' : '和棋'
   if (!state.value?.myColor) return r.winner === 'r' ? '红方胜' : '黑方胜'
   return r.winner === state.value.myColor ? '你赢了！' : '你输了'
 })
+/** 「红方胜（将死）· 某某」/ 和棋时就是原因 */
+const resultLine = (r: GameResult) => (r.winner ? `${r.winner === 'r' ? '红方' : '黑方'}胜（${r.reason}）${r.winnerName ? ` · ${r.winnerName}` : ''}` : r.reason)
 const onlineStatusKind = computed(() => {
   const s = state.value
   if (!s) return ''
-  if (s.phase === 'ended') return !s.result?.winner ? 'draw' : s.result.winner === s.myColor ? 'win' : 'lose'
+  if (s.phase === 'ended') return !s.result?.winner || !s.myColor ? 'draw' : s.result.winner === s.myColor ? 'win' : 'lose'
   return s.inCheck && s.turn === s.myColor ? 'checked' : s.turn === s.myColor ? 'mine' : ''
 })
 
@@ -315,14 +386,17 @@ async function onlineMove(from: number, to: number) {
   await call('Move', from, to)
   window.setTimeout(() => { pending.value = false }, 3000)
 }
-async function resignOnline() { if (window.confirm('确定认输吗？这局会记为负。')) await call('Resign') }
-async function leaveOnline() { if (window.confirm('对局还没结束，离开会判负。确定离开吗？')) await call('Leave') }
+// 双方都还没走棋时离开 / 认输算「对局取消」，不计胜负（后端同样规则）
+const notStarted = computed(() => (state.value?.moves.length ?? 0) < 2)
+const leaveAsk = () => notStarted.value ? '双方都还没走棋，现在离开算对局取消，不计胜负。确定离开吗？' : '联机对局还没结束，离开会判负。确定离开吗？'
+async function resignOnline() { if (window.confirm(notStarted.value ? '双方都还没走棋，现在认输算对局取消，不计胜负。确定吗？' : '确定认输吗？这局会记为负。')) await call('Resign') }
+async function leaveOnline() { if (window.confirm(leaveAsk())) await call('Leave') }
 async function copyId() {
   if (!state.value) return
   try { await navigator.clipboard.writeText(state.value.roomId); copied.value = true; window.setTimeout(() => { copied.value = false }, 1500) } catch { say(`房间号：${state.value.roomId}`) }
 }
 watch(() => state.value?.phase, (p, old) => {
-  if (p === 'playing' && old !== 'playing') say(state.value?.myColor === 'r' ? '对局开始，你执红先走' : '对局开始，你执黑后走')
+  if (p === 'playing' && old !== 'playing') say(spectating.value ? '对局开始了' : state.value?.myColor === 'r' ? '对局开始，你执红先走' : '对局开始，你执黑后走')
 })
 watch(() => state.value && state.value.red && state.value.black ? `${state.value.red.userId}|${state.value.black.userId}` : '', (v, old) => {
   if (v && old === '' && state.value?.phase === 'waiting' && amOwner.value) say('对手已加入，可以开始了')
@@ -398,7 +472,7 @@ async function saveLocal() {
 // ================= 生命周期 =================
 function switchMode(m: 'online' | 'local') {
   if (m === mode.value) return
-  if (m === 'local' && state.value?.phase === 'playing') { say('联机对局还在进行，先下完或认输再切换', 'error'); return }
+  if (m === 'local' && state.value?.phase === 'playing' && !spectating.value) { say('联机对局还在进行，先下完或认输再切换', 'error'); return }
   mode.value = m
 }
 onMounted(async () => {
@@ -408,14 +482,15 @@ onMounted(async () => {
   clockTimer = window.setInterval(() => { now.value = Date.now() }, 500)
 })
 onBeforeUnmount(() => {
-  window.clearInterval(lobbyTimer); window.clearInterval(clockTimer); window.clearTimeout(noticeTimer)
+  window.clearInterval(lobbyTimer); window.clearInterval(clockTimer); window.clearTimeout(noticeTimer); window.clearTimeout(lobbyDebounce)
   void connection?.stop()
 })
 
 /** 切换游戏 / 离开页面前确认（太虚游页面会调用） */
 async function handleBeforeLeave() {
-  if (state.value?.phase === 'playing') {
-    if (!window.confirm('联机对局还没结束，离开会判负。确定离开吗？')) return false
+  // 观战的人离开不用确认（不影响棋局），直接走下面的「不看了」
+  if (state.value?.phase === 'playing' && !spectating.value) {
+    if (!window.confirm(leaveAsk())) return false
     await call('Leave')
   } else if (state.value) await call('Leave')
   return true
@@ -468,6 +543,13 @@ input, select { padding: 8px 10px; border: 1px solid var(--border-line); backgro
 .rooms { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .rooms li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--border-line); border-left: 3px solid var(--accent-color); background: var(--bg-main); }
 .rooms li.busy { border-left-color: var(--border-line); opacity: .75; }
+/* 观战 */
+.room-btns { display: flex; flex-shrink: 0; align-items: center; gap: 8px; }
+.last-result { margin: 0; padding: 8px 12px; border-left: 3px solid var(--accent-color); background: color-mix(in srgb, var(--accent-color) 7%, var(--paper-card)); font-size: 13px; }
+.last-result b { margin-right: 8px; color: var(--accent-color); }
+.xq-watchbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 12px; border: 1px solid var(--border-line); background: var(--paper-card); }
+.xq-watchbar .bar-space { flex: 1; }
+.watching-tag { padding: 2px 8px; border: 1px solid var(--accent-color); background: color-mix(in srgb, var(--accent-color) 10%, transparent); color: var(--accent-color); font-size: 12px; font-weight: 600; }
 .room-main { display: grid; gap: 3px; min-width: 0; }
 .room-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .room-main small, .room-state { color: var(--text-secondary); font-size: 12px; }
@@ -499,6 +581,8 @@ input, select { padding: 8px 10px; border: 1px solid var(--border-line); backgro
 
 .match { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
 .board-col { width: 100%; max-width: min(100%, calc((100dvh - 190px) * 0.89)); min-width: 280px; justify-self: center; }
+/* 棋盘上方多了一条回合倒计时，棋盘相应让出一点高度 */
+.board-col.timed { max-width: min(100%, calc((100dvh - 254px) * 0.89)); }
 .side { display: grid; gap: 14px; position: sticky; top: 0; }
 .players { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--border-line); background: var(--paper-card); }
 .player { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid transparent; }
@@ -534,7 +618,7 @@ input, select { padding: 8px 10px; border: 1px solid var(--border-line); backgro
 
 @media (max-width: 980px) {
   .match { grid-template-columns: 1fr; }
-  .board-col { max-width: 100%; }
+  .board-col, .board-col.timed { max-width: 100%; }
   .side { position: static; }
 }
 @media (max-width: 860px) { .lobby { grid-template-columns: 1fr; } }

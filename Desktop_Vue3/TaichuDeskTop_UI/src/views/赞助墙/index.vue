@@ -6,13 +6,15 @@
         <p class="sub">感谢每一位支持太初寰宇的同行者</p>
       </div>
       <div class="sp-header-actions">
-        <a class="btn sponsor-btn" :href="AZZ_URL" target="_blank" rel="noopener noreferrer" @click.prevent="openExternal(AZZ_URL)">💛 去爱赞助支持（推荐）</a>
-        <a class="btn" :href="AFDIAN_URL" target="_blank" rel="noopener noreferrer" @click.prevent="openExternal(AFDIAN_URL)">爱发电</a>
+        <a class="btn sponsor-btn" :href="AZZ_URL" target="_blank" rel="noopener noreferrer" @click.prevent="openExternal(AZZ_URL)">{{ AFDIAN_ENABLED ? '💛 去爱赞助支持（推荐）' : '💛 去爱赞助支持' }}</a>
+        <!-- 爱发电一直没通过认证、不能提现，先隐藏（utils/sponsorChannels.ts 里改开关） -->
+        <a v-if="AFDIAN_ENABLED" class="btn" :href="AFDIAN_URL" target="_blank" rel="noopener noreferrer" @click.prevent="openExternal(AFDIAN_URL)">爱发电</a>
         <button v-if="isAdmin" class="btn primary" @click="openEditor()">+ 添加赞助者</button>
       </div>
     </header>
 
-    <p class="sp-notice">我们的爱发电账号一直没有通过审核，<b>推荐使用爱赞助</b>支持太初寰宇。在爱赞助赞助后，私信告诉我们你的网站用户名，就能开通网站背景等赞助特权。</p>
+    <!-- 赞助说明和各等级福利：超级管理员在「管理面板 → 赞助福利」里改，不用改代码 -->
+    <SponsorPerksSection />
 
     <!-- 统计 -->
     <div class="sp-stats">
@@ -120,9 +122,11 @@
 
 <script setup lang="ts">
 import SectionTrace from '@/components/SectionTrace.vue'
+import SponsorPerksSection from './SponsorPerksSection.vue'
 import { ref, computed, onMounted } from 'vue'
 import { sponsorApi, type SponsorItem, type SponsorPayload, type AfdianConfigInfo } from '@/api/sponsor'
 import { useUserStore } from '@/stores/user'
+import { AFDIAN_ENABLED } from '@/utils/sponsorChannels'
 
 const AFDIAN_URL = 'https://ifdian.net/a/taichuhuanyu'
 // 爱发电审核一直没过，推荐用爱赞助（爱赞助没有接口，赞助记录在这里手动录入）

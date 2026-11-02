@@ -90,6 +90,16 @@
       </div>
     </section>
 
+    <!-- 幸运转盘入口（fix132）：官方抽奖每天免费转一次，也能自己做转盘 -->
+    <button v-if="modules.Wheel" type="button" class="wheel-banner" data-burst @click="emit('select', 'Wheel')">
+      <span class="wb-wheel" aria-hidden="true"></span>
+      <span class="wb-copy">
+        <b>🎡 幸运转盘</b>
+        <span>官方抽奖转盘每天免费转一次，土豆、经验直接到账；也可以自己做个转盘，帮你决定吃什么、抽人、抽题。</span>
+      </span>
+      <span class="wb-go">去转一转 →</span>
+    </button>
+
     <!-- ④ 社区小游戏 -->
     <section class="block" aria-labelledby="mini-title">
       <header class="block-head">
@@ -275,6 +285,16 @@ onBeforeUnmount(() => window.clearInterval(rotate))
 .mini-card.is-dev { filter: grayscale(.9); opacity: .7; }
 .mini-card.is-dev:hover { filter: none; opacity: 1; }
 
+/* ---------- 幸运转盘入口 ---------- */
+.wheel-banner { display: flex; align-items: center; gap: 20px; padding: 16px 22px; border: 1px solid #d97706; background: linear-gradient(110deg, color-mix(in srgb, #f59e0b 16%, var(--paper-card)), var(--paper-card) 65%); color: var(--text-primary); font: inherit; text-align: left; cursor: pointer; transition: box-shadow .2s, transform .2s; }
+.wheel-banner:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(217, 119, 6, .2); }
+.wb-wheel { flex: none; width: 64px; height: 64px; border-radius: 50%; border: 4px solid #20252b; box-shadow: 0 0 0 2px #fbbf24 inset; background: conic-gradient(#E4572E 0 60deg, #F3A712 0 120deg, #29335C 0 180deg, #669BBC 0 240deg, #A8C686 0 300deg, #7D5BA6 0); transition: transform 1.2s cubic-bezier(.2, .8, .3, 1); }
+.wheel-banner:hover .wb-wheel { transform: rotate(300deg); }
+.wb-copy { display: grid; gap: 4px; flex: 1; min-width: 0; }
+.wb-copy b { font-size: 17px; }
+.wb-copy span { color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
+.wb-go { flex: none; padding: 9px 16px; background: #f59e0b; color: #1c1206; font-weight: 600; font-size: 14px; }
+
 @media (max-width: 900px) {
   .hero { grid-template-columns: minmax(0, 1fr); padding: 28px 22px; }
   .hero-media { order: -1; }
@@ -282,5 +302,6 @@ onBeforeUnmount(() => window.clearInterval(rotate))
   .mc-art { grid-template-rows: repeat(3, 26px); overflow: hidden; }
   .mc-copy { padding: 22px; }
 }
-@media (prefers-reduced-motion: reduce) { .hero { transition: none; } .btn-steam:hover { transform: none; } }
+@media (max-width: 600px) { .wheel-banner { flex-wrap: wrap; gap: 12px 16px; padding: 14px; } .wb-go { width: 100%; text-align: center; } }
+@media (prefers-reduced-motion: reduce) { .hero { transition: none; } .btn-steam:hover { transform: none; } .wheel-banner, .wb-wheel { transition: none; } }
 </style>

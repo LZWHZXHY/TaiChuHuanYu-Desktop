@@ -230,6 +230,22 @@ namespace TaiChuWeb_V2.Controllers
             return Ok(new { ownerState = OwnerStateOf(artwork.IsApproved, artwork.Status), message = dto.Visible ? "作品已重新上架" : "作品已下架，只有你自己能看到" });
         }
 
+        /// <summary>
+        /// 彻底删除作品（作者本人，或有画廊管理权限的管理员）。删除后不能恢复，评论、点赞收藏一起删除；灵脉原稿保留。
+        /// </summary>
+        [Authorize, HttpDelete("{id:int}")]
+        public async Task<IActionResult> Delete(int id, [FromServices] TaiChuWeb_V2.Services.Cos.CosService cos, [FromServices] ILogger<ArtworkController> logger)
+        {
+            if (CurrentUserId is not Guid userId) return Unauthorized();
+            var uploader = await _context.Artworks.AsNoTracking().Where(a => a.Id == id).Select(a => (Guid?)a.UploaderId).FirstOrDefaultAsync();
+            if (uploader == null) return NotFound(new { message = "作品不存在或已经删除" });
+            var isOwner = uploader == userId;
+            if (!isOwner && !await ArtworkPublicationService.CanManageAsync(_context, userId)) return StatusCode(403, new { message = "只能删除自己的作品" });
+            var result = await ArtworkDeletion.PurgeAsync(_context, cos, logger, id, userId, byAdmin: !isOwner);
+            if (result == null) return NotFound(new { message = "作品不存在或已经删除" });
+            return Ok(new { message = $"作品《{result.Title}》已彻底删除" });
+        }
+
         [HttpGet("{id:int}/comments")]
         public Task<IActionResult> GetComments(int id, [FromQuery] int offset = 0, [FromQuery] int limit = 20)
             => CommentResult(() => _engagement.GetCommentsAsync(id, CurrentUserId, offset, limit));

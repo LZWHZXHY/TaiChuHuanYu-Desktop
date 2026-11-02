@@ -8,6 +8,8 @@ export interface GraphNodeDto {
   /** 站内地址：全站内容节点用来「打开原内容」 */
   route?: string | null
   _nasPath?: string // 👇 新增：用于存储 NAS 文件的真实路径
+  /** 额外参与搜索、但不显示的文字（资源节点的标签、文件名、位置、上传者……，和资源列表搜的字段一样） */
+  searchText?: string
 }
 
 export interface GraphEdgeDto {

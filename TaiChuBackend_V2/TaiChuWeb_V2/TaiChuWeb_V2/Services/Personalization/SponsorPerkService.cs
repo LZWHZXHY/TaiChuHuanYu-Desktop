@@ -18,13 +18,31 @@ namespace TaiChuWeb_V2.Services.Personalization
         public static readonly string[] Tiers = ["觉醒者", "超凡者", "大超凡者", "君者"];
 
         /// <summary>
-        /// 特权 → 最低等级（1 = 觉醒者 … 4 = 君者）。以后新增特权在这里加一行，再用 HasFeature 判断即可。
+        /// 特权 → 默认最低等级（1 = 觉醒者 … 4 = 君者）。以后新增特权在这里加一行，再到 SponsorPerkCatalog.BuiltIns 里写上名字和说明，用 HasFeature 判断即可。
+        /// 超级管理员可以在「管理面板 → 赞助福利」里改最低等级（存在 SystemConfigs 的 Sponsor:PerkCatalog），改了马上生效，见 Features。
         /// </summary>
-        public static readonly IReadOnlyDictionary<string, int> Features = new Dictionary<string, int>
+        public static readonly IReadOnlyDictionary<string, int> DefaultFeatures = new Dictionary<string, int>
         {
             ["custom-background"] = 1, // 自定义网站背景（图片 / 视频）：赞助了就有
             ["custom-profile"] = 1,    // 自定义个人主页横幅 / 整页背景：赞助了就有
+            ["dev-progress"] = 2,      // 开发进度详情页（研发报告、日志、资料）：超凡者及以上，觉醒者看不了；到期没续费也看不了（见 DevProgressAccess）
+            ["life-planner"] = 2,      // 太初灵脉「生活管理」：超凡者及以上；到期后只能看不能改、提醒暂停
+            ["planner-email"] = 4,     // 生活管理的邮件提醒：君者
         };
+
+        private static volatile IReadOnlyDictionary<string, int> _features = DefaultFeatures;
+
+        /// <summary>当前生效的「特权 → 最低等级」：默认值 + 后台赞助福利目录里改过的等级（启动时和保存时由 SponsorPerkCatalog.Apply 更新）</summary>
+        public static IReadOnlyDictionary<string, int> Features => _features;
+
+        /// <summary>用后台配置覆盖最低等级；只认 DefaultFeatures 里有的特权，等级限制在 1～4</summary>
+        public static void ApplyFeatureTiers(IReadOnlyDictionary<string, int> overrides)
+        {
+            var next = new Dictionary<string, int>(DefaultFeatures);
+            foreach (var (key, tier) in overrides)
+                if (next.ContainsKey(key)) next[key] = Math.Clamp(tier, 1, Tiers.Length);
+            _features = next;
+        }
 
         /// <summary>等级名 → 级别（不认识的方案名按最低级算；没有等级为 0）</summary>
         public static int TierRank(string? tier)

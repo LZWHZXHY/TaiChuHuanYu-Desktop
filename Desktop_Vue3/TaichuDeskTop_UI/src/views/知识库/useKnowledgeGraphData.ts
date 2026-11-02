@@ -16,6 +16,8 @@ const NODE_THEMES: Record<string, NodeTheme> = {
     // 在 useKnowledgeGraphData.ts 的 NODE_THEMES 中追加或修改：
     folder: { color: '#f59e0b', emissive: '#d97706', label: '#fef3c7', typeLabel: 'DIRECTORY' },
     file: { color: '#0ea5e9', emissive: '#0284c7', label: '#e0f2fe', typeLabel: 'DATA_FILE' },
+    // 社区资源（用户上传、审核通过的），和官方文件区分颜色
+    resource: { color: '#e879f9', emissive: '#a21caf', label: '#fae8ff', typeLabel: '社区资源' },
     // 全站公开内容
     author: { color: '#e2b04a', emissive: '#a16207', label: '#fde68a', typeLabel: '创作者' },
     artwork: { color: '#2dd4bf', emissive: '#0f766e', label: '#99f6e4', typeLabel: '画廊作品' },
